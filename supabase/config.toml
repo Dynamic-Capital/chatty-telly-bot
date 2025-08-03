@@ -1,1 +1,10 @@
 project_id = "qeejuomcapbdlhnjqjcc"
+
+[functions.telegram-bot]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.payment-webhook]
+verify_jwt = false
