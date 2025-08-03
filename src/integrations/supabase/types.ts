@@ -14,7 +14,146 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bot_users: {
+        Row: {
+          created_at: string
+          current_plan_id: string | null
+          first_name: string | null
+          id: string
+          is_vip: boolean
+          last_name: string | null
+          subscription_expires_at: string | null
+          telegram_id: string
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_plan_id?: string | null
+          first_name?: string | null
+          id?: string
+          is_vip?: boolean
+          last_name?: string | null
+          subscription_expires_at?: string | null
+          telegram_id: string
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_plan_id?: string | null
+          first_name?: string | null
+          id?: string
+          is_vip?: boolean
+          last_name?: string | null
+          subscription_expires_at?: string | null
+          telegram_id?: string
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_users_current_plan_id_fkey"
+            columns: ["current_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          payment_method: string
+          payment_provider_id: string | null
+          plan_id: string
+          status: string
+          updated_at: string
+          user_id: string
+          webhook_data: Json | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          payment_method: string
+          payment_provider_id?: string | null
+          plan_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          webhook_data?: Json | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          payment_method?: string
+          payment_provider_id?: string | null
+          plan_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          webhook_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "bot_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_plans: {
+        Row: {
+          created_at: string
+          currency: string
+          duration_months: number
+          features: string[] | null
+          id: string
+          is_lifetime: boolean
+          name: string
+          price: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          duration_months: number
+          features?: string[] | null
+          id?: string
+          is_lifetime?: boolean
+          name: string
+          price: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          duration_months?: number
+          features?: string[] | null
+          id?: string
+          is_lifetime?: boolean
+          name?: string
+          price?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
