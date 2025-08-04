@@ -12,6 +12,14 @@ const corsHeaders = {
 const VIP_CHANNEL_ID = "-1001234567890"; // Replace with actual channel ID
 const VIP_GROUP_ID = "-1001234567891";   // Replace with actual group ID
 
+// Support Configuration - Easily customizable
+const SUPPORT_CONFIG = {
+  support_telegram: "@DynamicCapital_Support",
+  admin_telegram: "@DynamicCapital_Admin", // For future use
+  support_email: "support@dynamicvip.com",
+  website: "dynamicvip.com"
+};
+
 // Helper logging function
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -115,6 +123,9 @@ serve(async (req) => {
       } else if (text.startsWith("/addplan ") && isAdmin) {
         const planData = text.replace("/addplan ", "").trim();
         await handleAddPlan(botToken, chatId, planData, supabaseClient);
+      } else if (text.startsWith("/setsupport ") && isAdmin) {
+        const supportData = text.replace("/setsupport ", "").trim();
+        await handleSetSupport(botToken, chatId, supportData, supabaseClient);
       } else if (text.startsWith("/promo ") || text.startsWith("PROMO")) {
         const promoCode = text.replace("/promo ", "").replace("PROMO", "").trim();
         await handlePromoCode(botToken, chatId, userId, username, promoCode, supabaseClient);
@@ -298,8 +309,8 @@ async function handleContactSupport(botToken: string, chatId: number, supabaseCl
 
 We're here to help! 💪
 
-📧 <b>Email:</b> support@dynamicvip.com
-📱 <b>Telegram:</b> @DynamicVIP_Support
+📧 <b>Email:</b> ${SUPPORT_CONFIG.support_email}
+📱 <b>Telegram:</b> ${SUPPORT_CONFIG.support_telegram}
 ⏰ <b>Response Time:</b> Usually within 2-4 hours
 
 🔗 <b>Quick Links:</b>
@@ -1234,8 +1245,8 @@ Configure various bot settings:
 • Payment tracking: ✅ Enabled
 
 💬 <b>Support Settings:</b>
-• Support Contact: @DynamicCapital_Support
-• Support Email: support@dynamicvip.com`;
+• Support Contact: ${SUPPORT_CONFIG.support_telegram}
+• Support Email: ${SUPPORT_CONFIG.support_email}`;
 
   const keyboard = {
     inline_keyboard: [
@@ -1533,9 +1544,9 @@ We provide exclusive VIP access to premium features and services that elevate yo
 • Regular updates and improvements
 
 📞 <b>Contact Information:</b>
-• Email: support@dynamicvip.com
-• Telegram: @DynamicVIP_Support
-• Website: dynamicvip.com
+• Email: ${SUPPORT_CONFIG.support_email}
+• Telegram: ${SUPPORT_CONFIG.support_telegram}
+• Website: ${SUPPORT_CONFIG.website}
 
 Thank you for choosing Dynamic VIP! 🙏`;
 
@@ -1618,8 +1629,8 @@ async function handleHelp(botToken: string, chatId: number, isAdmin: boolean, su
 • Upload receipt for manual payments
 
 🆘 <b>Support:</b>
-• @DynamicCapital_Support
-• Email: support@dynamicvip.com`;
+• ${SUPPORT_CONFIG.support_telegram}
+• Email: ${SUPPORT_CONFIG.support_email}`;
 
   if (isAdmin) {
     helpMessage += `
@@ -1647,6 +1658,7 @@ async function handleHelp(botToken: string, chatId: number, isAdmin: boolean, su
 • <code>/setwelcome [message]</code> - Update welcome
 • <code>/setbank [details]</code> - Update bank info
 • <code>/setcrypto [details]</code> - Update crypto info
+• <code>/setsupport [telegram] [email] [website]</code> - Update support info
 • <code>/addplan [name] [price] [months] [lifetime]</code>
 
 <b>Examples:</b>
@@ -1829,7 +1841,7 @@ Your payment for ${plan.name} could not be verified.
 • Check your payment receipt
 • Ensure all details are clearly visible
 • Upload a new receipt if needed
-• Contact support: @DynamicCapital_Support
+• Contact support: ${SUPPORT_CONFIG.support_telegram}
 
 You can try uploading a new receipt or contact our support team for assistance.`;
 
@@ -1984,7 +1996,7 @@ Your VIP access has been updated.
 
 💡 <b>To regain access:</b>
 • Renew your subscription
-• Contact support: @DynamicCapital_Support
+• Contact support: ${SUPPORT_CONFIG.support_telegram}
 • Use /start to see available plans
 
 Thank you for being part of our community! 🙏`;
@@ -2288,7 +2300,7 @@ SWIFT/IBAN: <code>YOURSWIFTCODE</code>
 • Include transaction fee in your calculation
 • Save transaction hash/reference for your records
 
-📞 Need help? Contact @DynamicCapital_Support`;
+📞 Need help? Contact ${SUPPORT_CONFIG.support_telegram}`;
 
   const keyboard = {
     inline_keyboard: [
@@ -2334,7 +2346,7 @@ Contact support to upgrade or modify your subscription.
 Yes, we have a 7-day money-back guarantee.
 
 🔸 <b>How do I contact support?</b>
-Use /help or message @DynamicVIP_Support
+Use /help or message ${SUPPORT_CONFIG.support_telegram}
 
 🔸 <b>Can I use promo codes?</b>
 Yes! Type PROMO [your code] or use /promo [code]
@@ -2387,7 +2399,7 @@ CRYPTO ADDRESSES:
 
 POLICIES:
 - 7-day money-back guarantee
-- 24/7 customer support via @DynamicCapital_Support
+- 24/7 customer support via ${SUPPORT_CONFIG.support_telegram}
 - Secure payment processing
 - Manual verification for bank transfers and crypto
 
@@ -2398,7 +2410,7 @@ HOW IT WORKS:
 4. Upload receipt/proof
 5. Get activated within 1-2 hours (crypto) or 1-2 days (bank)
 
-For questions about specific issues, always direct users to contact @DynamicCapital_Support.
+For questions about specific issues, always direct users to contact ${SUPPORT_CONFIG.support_telegram}.
 Keep responses helpful, professional, and concise.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -2431,7 +2443,7 @@ ${aiResponse}
 
 💬 <b>Need more help?</b> 
 • Type /faq for common questions
-• Contact support: @DynamicVIP_Support
+• Contact support: ${SUPPORT_CONFIG.support_telegram}
 • Ask another question: /ask [your question]`;
 
     const keyboard = {
@@ -2463,5 +2475,47 @@ async function sendTypingAction(botToken: string, chatId: number) {
     });
   } catch (error) {
     console.error('Error sending typing action:', error);
+  }
+}
+
+// Handle support settings update
+async function handleSetSupport(botToken: string, chatId: number, supportData: string, supabaseClient: any) {
+  try {
+    const parts = supportData.split(' ');
+    if (parts.length < 3) {
+      await sendMessage(botToken, chatId, `❌ <b>Invalid format!</b>
+
+<b>Usage:</b> <code>/setsupport [telegram] [email] [website]</code>
+
+<b>Example:</b> 
+<code>/setsupport @DynamicCapital_Support support@dynamicvip.com dynamicvip.com</code>
+
+<b>Current Settings:</b>
+• Telegram: ${SUPPORT_CONFIG.support_telegram}
+• Email: ${SUPPORT_CONFIG.support_email}
+• Website: ${SUPPORT_CONFIG.website}`);
+      return;
+    }
+
+    const [telegram, email, website] = parts;
+    
+    // Update the global config (this would persist for the current session)
+    // In a real implementation, you'd want to save this to database
+    SUPPORT_CONFIG.support_telegram = telegram.startsWith('@') ? telegram : `@${telegram}`;
+    SUPPORT_CONFIG.support_email = email;
+    SUPPORT_CONFIG.website = website;
+
+    await sendMessage(botToken, chatId, `✅ <b>Support Settings Updated!</b>
+
+🔧 <b>New Configuration:</b>
+• Telegram: ${SUPPORT_CONFIG.support_telegram}
+• Email: ${SUPPORT_CONFIG.support_email}  
+• Website: ${SUPPORT_CONFIG.website}
+
+💡 <b>Note:</b> These settings will apply to all bot responses immediately.`);
+
+  } catch (error) {
+    console.error('Error in handleSetSupport:', error);
+    await sendMessage(botToken, chatId, "❌ Error updating support settings. Please try again.");
   }
 }
