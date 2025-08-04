@@ -268,7 +268,54 @@ async function fetchOrCreateBotUser(telegramId: string, firstName?: string, last
       if (error) {
         console.error("Error creating bot user:", error);
         return null;
-      }
+}
+
+// FAQ and Promo Code functions
+async function getActivePromotions() {
+  try {
+    const { data, error } = await supabase
+      .from('promotions')
+      .select('*')
+      .eq('is_active', true)
+      .gte('valid_until', new Date().toISOString())
+      .order('created_at', { ascending: false });
+
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching promotions:', error);
+    return [];
+  }
+}
+
+async function getFAQs() {
+  // Static FAQ for now - you can move this to database later
+  return [
+    {
+      question: "What is VIP membership?",
+      answer: "VIP membership gives you access to premium trading signals, daily market analysis, mentorship programs, and exclusive VIP chat access."
+    },
+    {
+      question: "How do I join the VIP community?",
+      answer: "Select a VIP package, make payment via bank transfer, upload your receipt, and wait for admin approval (24-48 hours)."
+    },
+    {
+      question: "What payment methods do you accept?",
+      answer: "We accept bank transfers to BML and MIB accounts in both MVR and USD currencies."
+    },
+    {
+      question: "How long does approval take?",
+      answer: "Payment approvals typically take 24-48 hours. You'll receive a notification once approved."
+    },
+    {
+      question: "Can I get a refund?",
+      answer: "Refunds are available within 7 days of payment approval. Contact support for assistance."
+    },
+    {
+      question: "How do I access mentorship programs?",
+      answer: "Mentorship programs are available to VIP members. You'll receive access details once your membership is approved."
+    }
+  ];
+}
       user = data;
     }
 
@@ -681,11 +728,63 @@ Welcome back! Choose what you'd like to do:`;
             inline_keyboard: [
               [{ text: "📞 Live Chat", url: "https://t.me/DynamicCapital_Support" }],
               [{ text: "📧 Email Support", url: "mailto:support@dynamiccapital.com" }],
+              [{ text: "❓ FAQ", callback_data: "view_faq" }],
               [{ text: "🔙 Back to Menu", callback_data: "back_to_main" }]
             ]
           };
 
           await sendMessage(chatId, supportMessage, supportKeyboard);
+          break;
+
+        case data === 'view_faq':
+          const faqs = await getFAQs();
+          let faqMessage = "❓ *Frequently Asked Questions*\n\n";
+          
+          faqs.forEach((faq, index) => {
+            faqMessage += `**${index + 1}. ${faq.question}**\n`;
+            faqMessage += `${faq.answer}\n\n`;
+          });
+
+          const faqKeyboard = {
+            inline_keyboard: [
+              [{ text: "💬 Ask Support", callback_data: "contact_support" }],
+              [{ text: "🔙 Back to Menu", callback_data: "back_to_main" }]
+            ]
+          };
+
+          await sendMessage(chatId, faqMessage, faqKeyboard);
+          break;
+
+        case data === 'view_promotions':
+          try {
+            const promotions = await getActivePromotions();
+            let promoMessage = "🎁 *Active Promotions*\n\n";
+            
+            if (promotions.length > 0) {
+              promotions.forEach((promo: any) => {
+                promoMessage += `🏷 **${promo.description || 'Special Offer'}**\n`;
+                promoMessage += `💰 Discount: ${promo.discount_type === 'percentage' ? promo.discount_value + '%' : '$' + promo.discount_value} OFF\n`;
+                promoMessage += `🔑 Code: \`${promo.code}\`\n`;
+                promoMessage += `📅 Valid until: ${new Date(promo.valid_until).toLocaleDateString()}\n\n`;
+              });
+              
+              promoMessage += "💡 *How to use:*\n";
+              promoMessage += "Copy the promo code and mention it when making your payment!\n";
+            } else {
+              promoMessage += "No active promotions at the moment.\nFollow us for updates on upcoming deals!";
+            }
+
+            const promoKeyboard = {
+              inline_keyboard: [
+                [{ text: "💎 Join VIP Community", callback_data: "view_packages" }],
+                [{ text: "🔙 Back to Menu", callback_data: "back_to_main" }]
+              ]
+            };
+
+            await sendMessage(chatId, promoMessage, promoKeyboard);
+          } catch (error) {
+            await sendMessage(chatId, "❌ Unable to load promotions. Please try again later.");
+          }
           break;
 
         default:
