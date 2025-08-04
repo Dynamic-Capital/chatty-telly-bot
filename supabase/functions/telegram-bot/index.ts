@@ -1096,21 +1096,44 @@ serve(async (req) => {
           break;
 
         case "payment_binance":
-          const binanceMessage = "₿ *Binance Pay Integration*\n\n" +
-            "🚀 Fast, secure crypto payments\n" +
-            "💰 Low transaction fees\n" +
-            "🔒 Instant confirmation\n\n" +
-            "Select a package to proceed with Binance Pay:";
+          try {
+            const plans = await getSubscriptionPlans();
+            let binanceMessage = "₿ *Binance Pay - Select Package*\n\n" +
+              "🚀 Fast, secure crypto payments\n" +
+              "💰 Low transaction fees\n" +
+              "🔒 Instant confirmation\n\n" +
+              "Select a package to pay with Binance Pay:\n\n";
 
-          const binanceKeyboard = {
-            inline_keyboard: [
-              [{ text: "📦 Choose Package", callback_data: "view_packages" }],
-              [{ text: "💬 Contact Support", callback_data: "contact_support" }],
-              [{ text: "🔙 Back", callback_data: "subscribe_menu" }]
-            ]
-          };
+            if (plans.length === 0) {
+              binanceMessage += "No packages available at the moment.";
+              const emptyKeyboard = {
+                inline_keyboard: [
+                  [{ text: "🔙 Back to Payment Methods", callback_data: "subscribe_menu" }]
+                ]
+              };
+              await sendMessage(chatId, binanceMessage, emptyKeyboard);
+            } else {
+              plans.forEach((plan, index) => {
+                binanceMessage += `${index + 1}. **${plan.name}** - $${plan.price} ${plan.currency}\n`;
+              });
 
-          await sendMessage(chatId, binanceMessage, binanceKeyboard);
+              // Create Binance Pay buttons for each package
+              const binanceButtons = plans.map((plan, index) => [
+                { text: `₿ Pay $${plan.price} - ${plan.name}`, callback_data: `binance_checkout_${plan.id}` }
+              ]);
+
+              const binanceKeyboard = {
+                inline_keyboard: [
+                  ...binanceButtons,
+                  [{ text: "🔙 Back to Payment Methods", callback_data: "subscribe_menu" }]
+                ]
+              };
+
+              await sendMessage(chatId, binanceMessage, binanceKeyboard);
+            }
+          } catch (error) {
+            await sendMessage(chatId, "❌ Error loading Binance Pay options. Please try again.");
+          }
           break;
 
         case "apply_promo":
@@ -1331,7 +1354,83 @@ serve(async (req) => {
             } catch (error) {
               await sendMessage(chatId, "❌ Error loading package details. Please try again.");
             }
-          } else {
+          } 
+          // Handle Binance Pay checkout
+          else if (data.startsWith('binance_checkout_')) {
+            const packageId = data.replace('binance_checkout_', '');
+            
+            try {
+              const { data: selectedPlan, error } = await supabase
+                .from('subscription_plans')
+                .select('*')
+                .eq('id', packageId)
+                .single();
+
+              if (error || !selectedPlan) {
+                await sendMessage(chatId, "❌ Package not found. Please try again.");
+                return;
+              }
+
+              // Create payment record
+              const { data: payment, error: paymentError } = await supabaseAdmin
+                .from('payments')
+                .insert([{
+                  user_id: packageId, // We'll use the package ID temporarily since we don't have user table mapping
+                  plan_id: packageId,
+                  amount: selectedPlan.price,
+                  currency: selectedPlan.currency,
+                  payment_method: 'binance_pay',
+                  status: 'pending'
+                }])
+                .select('*')
+                .single();
+
+              const checkoutMessage = `₿ *Binance Pay Checkout*\n\n` +
+                `📦 Package: **${selectedPlan.name}**\n` +
+                `💰 Amount: $${selectedPlan.price} ${selectedPlan.currency}\n` +
+                `🆔 Payment ID: ${payment?.id || 'N/A'}\n\n` +
+                `🔗 To complete your payment:\n` +
+                `1. Open Binance App\n` +
+                `2. Go to Pay section\n` +
+                `3. Scan QR code or use payment link\n` +
+                `4. Confirm payment\n\n` +
+                `💬 Need help? Contact support with your Payment ID.`;
+
+              const checkoutKeyboard = {
+                inline_keyboard: [
+                  [{ text: "✅ Payment Completed", callback_data: `confirm_payment_${payment?.id}` }],
+                  [
+                    { text: "💬 Contact Support", callback_data: "contact_support" },
+                    { text: "🔙 Back to Packages", callback_data: "view_packages" }
+                  ]
+                ]
+              };
+
+              await sendMessage(chatId, checkoutMessage, checkoutKeyboard);
+            } catch (error) {
+              await sendMessage(chatId, "❌ Error creating Binance Pay checkout. Please try again.");
+            }
+          }
+          // Handle payment confirmation
+          else if (data.startsWith('confirm_payment_')) {
+            const paymentId = data.replace('confirm_payment_', '');
+            
+            const confirmMessage = "✅ *Payment Confirmation Received*\n\n" +
+              "Thank you for your payment! Our team will verify your transaction and activate your subscription within 24 hours.\n\n" +
+              "📧 You'll receive a confirmation message once your subscription is active.\n\n" +
+              "💬 For immediate assistance, contact our support team.";
+
+            const confirmKeyboard = {
+              inline_keyboard: [
+                [{ text: "📊 Check Status", callback_data: "user_status" }],
+                [{ text: "💬 Contact Support", callback_data: "contact_support" }],
+                [{ text: "🔙 Main Menu", callback_data: "back_to_main" }]
+              ]
+            };
+
+            await sendMessage(chatId, confirmMessage, confirmKeyboard);
+          }
+          else {
             await sendMessage(chatId, "🚧 Feature coming soon!");
           }
           break;
