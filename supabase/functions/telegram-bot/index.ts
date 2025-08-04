@@ -6362,3 +6362,5 @@ Current templates:
 
   await sendMessage(botToken, chatId, message, keyboard);
 }
+
+});
