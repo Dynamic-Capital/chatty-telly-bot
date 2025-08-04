@@ -2936,36 +2936,54 @@ SWIFT/IBAN: <code>YOURSWIFTCODE</code>
 
 // FAQ handler
 async function handleFAQ(botToken: string, chatId: number, supabaseClient: any) {
-  const faqMessage = `❓ <b>Frequently Asked Questions</b>
+  const faqMessage = `📚 <b>FAQ – Dynamic - Chatty Bot</b>
 
-🔸 <b>How do I subscribe?</b>
-Choose a plan from /start and follow the payment instructions.
+<b>1. What is this bot for?</b>
+This bot helps you manage your Dynamic Capital VIP access — from selecting subscription plans to uploading payment receipts and receiving updates.
 
-🔸 <b>What payment methods do you accept?</b>
-Credit cards, PayPal, bank transfer, and cryptocurrency.
+<b>2. What is the VIP Community?</b>
+The Dynamic Capital VIP Community is where real trading happens.
 
-🔸 <b>How long does activation take?</b>
-• Card/PayPal: Instant
-• Bank transfer: 1-2 business days
-• Crypto: 30 minutes - 2 hours
+✅ <b>Inside, you'll find:</b>
+• 📊 Market Outlooks & Trade Ideas
+• 🧠 Technical Analysis & Breakdowns
+• 🎯 Signal Alerts with Entries & SLs
+• 🔄 Live Chart Discussions
+• 🗣️ Interactive feedback on market structure
 
-🔸 <b>Can I change my plan?</b>
-Contact support to upgrade or modify your subscription.
+Whether you're new or experienced, it's the perfect space to grow alongside active traders.
 
-🔸 <b>Do you offer refunds?</b>
-Yes, we have a 7-day money-back guarantee.
+<b>3. What is the Mentorship Program?</b>
+Our mentorship is designed to help you become an independent trader.
 
-🔸 <b>How do I contact support?</b>
-Use /help or message ${SUPPORT_CONFIG.support_telegram}
+🟢 <b>You'll learn:</b>
+• 📖 How to analyze charts step-by-step
+• 📂 Build your own trading strategy
+• ⏱️ Develop a trading routine
+• 📝 Journal trades and manage risk
+• 🔁 Avoid common psychological traps
 
-🔸 <b>Can I use promo codes?</b>
-Yes! Type PROMO [your code] or use /promo [code]
+It's a week-by-week guide for serious learners — backed by live chart practice and reviews.
 
-💬 <b>Have another question?</b> Just ask me anything using /ask [your question] or simply type your question!`;
+<b>4. How do I join the VIP Community?</b>
+Subscribe to a VIP plan through this bot. Once your payment is confirmed, you'll automatically receive an invite link to the private Telegram channel.
+
+<b>5. Can I join mentorship separately?</b>
+All mentorship content is included inside the VIP community — no extra cost. You get full access with any active VIP subscription.
+
+<b>6. Are the signals beginner-friendly?</b>
+Absolutely. Each signal is shared with clear:
+• ⚠️ Direction (Buy/Sell)
+• 🔑 Entry & Exit Zones
+• 🛡️ Stop Loss
+• 🧭 Reason behind the setup (when relevant)
+
+We also teach why behind the trades inside the mentorship content.`;
 
   const keyboard = {
     inline_keyboard: [
       [{ text: "💬 Ask AI Assistant", callback_data: "ask_ai" }],
+      [{ text: "📞 Contact Support", callback_data: "contact_support" }],
       [{ text: "← Back to Main Menu", callback_data: "main_menu" }]
     ]
   };
