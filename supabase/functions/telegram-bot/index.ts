@@ -17,7 +17,11 @@ const SUPPORT_CONFIG = {
   support_telegram: "@DynamicCapital_Support",
   admin_telegram: "@DynamicCapital_Admin", // For future use
   support_email: "support@dynamicvip.com",
-  website: "dynamicvip.com"
+  website: "dynamicvip.com",
+  instagram: "https://www.instagram.com/dynamic.capital?igsh=MnMwajhtdm50bDd2&utm_source=qr",
+  facebook: "https://www.facebook.com/share/1EmFkq4dvG/?mibextid=wwXIfr",
+  tiktok: "https://www.tradingview.com/u/DynamicCapital-FX/",
+  tradingview: "https://www.tradingview.com/u/DynamicCapital-FX/"
 };
 
 // Session timeout settings (15 minutes)
@@ -550,8 +554,15 @@ async function handleContactSupport(botToken: string, chatId: number, supabaseCl
 
 We're here to help! 💪
 
+📞 <b>Contact Information</b>
+
+💬 <b>Telegram:</b> ${SUPPORT_CONFIG.support_telegram}
 📧 <b>Email:</b> ${SUPPORT_CONFIG.support_email}
-📱 <b>Telegram:</b> ${SUPPORT_CONFIG.support_telegram}
+📸 <b>Instagram:</b> @dynamic.capital
+📘 <b>Facebook:</b> Dynamic Capital
+🎵 <b>TikTok:</b> Dynamic Capital FX
+📈 <b>TradingView:</b> DynamicCapital-FX
+
 ⏰ <b>Response Time:</b> Usually within 2-4 hours
 
 🔗 <b>Quick Links:</b>
@@ -561,13 +572,27 @@ We're here to help! 💪
 
 💬 <b>Or simply describe your issue and we'll get back to you!</b>`;
 
-  const backKeyboard = {
+  const contactKeyboard = {
     inline_keyboard: [
-      [{ text: "← Back to Main Menu", callback_data: "main_menu" }]
+      [
+        { text: "📸 Instagram", url: SUPPORT_CONFIG.instagram },
+        { text: "📘 Facebook", url: SUPPORT_CONFIG.facebook }
+      ],
+      [
+        { text: "🎵 TikTok", url: SUPPORT_CONFIG.tiktok },
+        { text: "📈 TradingView", url: SUPPORT_CONFIG.tradingview }
+      ],
+      [
+        { text: "💬 Telegram Support", url: `https://t.me/${SUPPORT_CONFIG.support_telegram.replace('@', '')}` }
+      ],
+      [
+        { text: "❓ FAQ", callback_data: "view_faq" },
+        { text: "← Back to Main Menu", callback_data: "main_menu" }
+      ]
     ]
   };
 
-  await sendMessage(botToken, chatId, supportMessage, backKeyboard);
+  await sendMessage(botToken, chatId, supportMessage, contactKeyboard);
 }
 
 // Payment options overview
