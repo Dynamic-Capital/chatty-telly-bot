@@ -136,6 +136,62 @@ export type Database = {
           },
         ]
       }
+      broadcast_messages: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          delivery_status: string | null
+          failed_deliveries: number | null
+          id: string
+          media_file_id: string | null
+          scheduled_at: string | null
+          sent_at: string | null
+          successful_deliveries: number | null
+          target_audience: Json | null
+          title: string
+          total_recipients: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          delivery_status?: string | null
+          failed_deliveries?: number | null
+          id?: string
+          media_file_id?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          successful_deliveries?: number | null
+          target_audience?: Json | null
+          title: string
+          total_recipients?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          delivery_status?: string | null
+          failed_deliveries?: number | null
+          id?: string
+          media_file_id?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          successful_deliveries?: number | null
+          target_audience?: Json | null
+          title?: string
+          total_recipients?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcast_messages_media_file_id_fkey"
+            columns: ["media_file_id"]
+            isOneToOne: false
+            referencedRelation: "media_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversion_tracking: {
         Row: {
           conversion_data: Json | null
@@ -421,6 +477,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      media_files: {
+        Row: {
+          caption: string | null
+          created_at: string | null
+          file_path: string
+          file_size: number | null
+          file_type: string
+          filename: string
+          id: string
+          telegram_file_id: string | null
+          updated_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string | null
+          file_path: string
+          file_size?: number | null
+          file_type: string
+          filename: string
+          id?: string
+          telegram_file_id?: string | null
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string | null
+          file_path?: string
+          file_size?: number | null
+          file_type?: string
+          filename?: string
+          id?: string
+          telegram_file_id?: string | null
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
       }
       payments: {
         Row: {

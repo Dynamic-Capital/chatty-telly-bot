@@ -49,9 +49,19 @@ const YEARLY_SUB_PRICE = 50;
 const PAYMENT_CURRENCY = "USD";
 const PAYMENT_SUCCESS_URL = "https://ai.lamnhan.com/payment-success";
 const PAYMENT_CANCEL_URL = "https://ai.lamnhan.com/payment-cancel";
-const DEFAULT_MODEL = "gpt-3.5-turbo";
+const DEFAULT_MODEL = "gpt-4o-mini";
 const CONTEXT_LIMIT = 4096;
 const MAX_MESSAGE_HISTORY = 10;
+
+// Admin user IDs (add your Telegram user ID here)
+const ADMIN_USER_IDS = [
+  // Example: "123456789" - replace with actual admin Telegram IDs
+];
+
+// Media file constraints
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const ALLOWED_MEDIA_TYPES = ['photo', 'video', 'document'];
+const ALLOWED_FILE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.mp4', '.mov', '.pdf', '.doc', '.docx'];
 const models = [
   { name: "GPT 3.5 Turbo", value: "gpt-3.5-turbo" },
   { name: "GPT 4", value: "gpt-4" },
@@ -88,37 +98,149 @@ const supabase = createClient(
   },
 );
 
-async function updateUsageCount(chatId: number) {
-  const { error } = await supabase
-    .from("users")
-    .update({ usage_count: () => "usage_count + 1" })
-    .eq("chat_id", chatId);
-
-  if (error) {
-    console.error("Error updating usage count:", error);
-  }
+// --- ADMIN FUNCTIONS ---
+function isAdmin(userId: string): boolean {
+  return ADMIN_USER_IDS.includes(userId);
 }
 
-async function fetchOrCreateUser(chatId: number) {
-  let { data: user, error } = await supabase
-    .from("users")
-    .select("*")
-    .eq("chat_id", chatId)
+// --- MEDIA FUNCTIONS ---
+async function saveMediaFile(
+  filename: string,
+  filePath: string,
+  fileType: string,
+  fileSize: number,
+  caption: string | null,
+  uploadedBy: string,
+  telegramFileId: string
+) {
+  const { data, error } = await supabase
+    .from('media_files')
+    .insert({
+      filename,
+      file_path: filePath,
+      file_type: fileType,
+      file_size: fileSize,
+      caption,
+      uploaded_by: uploadedBy,
+      telegram_file_id: telegramFileId
+    })
+    .select()
     .single();
 
   if (error) {
-    console.error("Error fetching user:", error);
+    console.error('Error saving media file:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+async function getMediaFiles(uploadedBy?: string) {
+  let query = supabase
+    .from('media_files')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (uploadedBy) {
+    query = query.eq('uploaded_by', uploadedBy);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching media files:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+async function createBroadcastMessage(
+  title: string,
+  content: string,
+  mediaFileId?: string,
+  targetAudience = { type: 'all' }
+) {
+  const { data, error } = await supabase
+    .from('broadcast_messages')
+    .insert({
+      title,
+      content,
+      media_file_id: mediaFileId,
+      target_audience: targetAudience,
+      delivery_status: 'draft'
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating broadcast message:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+async function getAllBotUsers() {
+  const { data, error } = await supabase
+    .from('bot_users')
+    .select('telegram_id');
+
+  if (error) {
+    console.error('Error fetching bot users:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+async function updateBroadcastStats(
+  broadcastId: string,
+  totalRecipients: number,
+  successfulDeliveries: number,
+  failedDeliveries: number
+) {
+  const { error } = await supabase
+    .from('broadcast_messages')
+    .update({
+      total_recipients: totalRecipients,
+      successful_deliveries: successfulDeliveries,
+      failed_deliveries: failedDeliveries,
+      delivery_status: 'completed',
+      sent_at: new Date().toISOString()
+    })
+    .eq('id', broadcastId);
+
+  if (error) {
+    console.error('Error updating broadcast stats:', error);
+  }
+}
+
+async function fetchOrCreateBotUser(telegramId: string, firstName?: string, lastName?: string, username?: string) {
+  let { data: user, error } = await supabase
+    .from("bot_users")
+    .select("*")
+    .eq("telegram_id", telegramId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+    console.error("Error fetching bot user:", error);
   }
 
   if (!user) {
     const { data, error } = await supabase
-      .from("users")
-      .insert([{ chat_id: chatId, usage_count: 0 }])
+      .from("bot_users")
+      .insert([{ 
+        telegram_id: telegramId,
+        first_name: firstName,
+        last_name: lastName,
+        username: username
+      }])
       .select("*")
       .single();
 
     if (error) {
-      console.error("Error creating user:", error);
+      console.error("Error creating bot user:", error);
       return null;
     }
 
@@ -126,6 +248,18 @@ async function fetchOrCreateUser(chatId: number) {
   }
 
   return user;
+}
+
+// Legacy function for backward compatibility
+async function updateUsageCount(chatId: number) {
+  // This is now handled by tracking in bot_users table
+  // Keep for backward compatibility but no actual update needed
+  console.log(`Usage tracking for chat ${chatId}`);
+}
+
+async function fetchOrCreateUser(chatId: number) {
+  // Legacy function - redirect to bot user creation
+  return await fetchOrCreateBotUser(chatId.toString());
 }
 
 async function saveApiKeyToDatabase(chatId: number, apiKey: string) {
@@ -273,7 +407,7 @@ async function generateBinancePayCheckout(
   };
 
   const payload = JSON.stringify(data);
-  const signature = generateSignature(payload, secretKey, timestamp);
+  const signature = await generateSignature(payload, secretKey, timestamp);
 
   const headers = {
     "Content-Type": "application/json",
@@ -314,15 +448,30 @@ async function generateBinancePayCheckout(
   }
 }
 
-function generateSignature(
+async function generateSignature(
   payload: string,
   secretKey: string,
   timestamp: string,
-): string {
+): Promise<string> {
   const data = timestamp + "\n" + payload + "\n";
-  const hmac = crypto.createHmac("sha256", secretKey);
-  hmac.update(data);
-  return hmac.digest("hex");
+  
+  // Use Web Crypto API for Deno
+  const key = new TextEncoder().encode(secretKey);
+  const message = new TextEncoder().encode(data);
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    key,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, message);
+  
+  return Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 // --- BOT ---
@@ -394,38 +543,41 @@ bot.use(async (ctx, next) => {
 
 // Command to start the bot
 bot.command("start", async (ctx) => {
-  const chatId = ctx.chat.id;
-  logStep("Start command", { chatId: chatId });
+  const telegramId = ctx.from?.id.toString();
+  const firstName = ctx.from?.first_name;
+  const lastName = ctx.from?.last_name;
+  const username = ctx.from?.username;
+  
+  logStep("Start command", { telegramId });
 
-  // Fetch or create user
-  const user = await fetchOrCreateUser(chatId);
-
-  if (!user) {
-    console.error("Failed to fetch or create user.");
+  if (!telegramId) {
+    await ctx.reply("Error: Unable to identify user.");
     return;
   }
 
-  // Check subscription status
-  const { isSubscribed, subscriptionExpiry, subscriptionType } =
-    await checkSubscriptionStatus(chatId);
-  ctx.session.isSubscribed = isSubscribed;
-  ctx.session.subscriptionExpiry = subscriptionExpiry;
-  ctx.session.subscriptionType = subscriptionType;
+  // Fetch or create bot user
+  const user = await fetchOrCreateBotUser(telegramId, firstName, lastName, username);
 
-  let message =
-    "Welcome to the AI Chat Bot! I am here to assist you with any questions you may have.\n\n";
-
-  if (ctx.session.isSubscribed) {
-    message += `You are currently subscribed to the ${ctx.session.subscriptionType} plan. Your subscription expires on ${new Date(
-      ctx.session.subscriptionExpiry!,
-    ).toLocaleDateString()}.\n\n`;
-  } else {
-    message +=
-      "You are currently using the free tier. Subscribe to unlock more features!\n\n";
+  if (!user) {
+    console.error("Failed to fetch or create bot user.");
+    return;
   }
 
-  message +=
-    "Feel free to ask me anything, or use the /help command to see a list of available commands.";
+  // Check subscription status from bot_users table
+  const isSubscribed = user.subscription_expires_at && new Date(user.subscription_expires_at) > new Date();
+  ctx.session.isSubscribed = isSubscribed || false;
+  ctx.session.subscriptionExpiry = user.subscription_expires_at ? new Date(user.subscription_expires_at).getTime() : null;
+
+  let message = `Welcome to the AI Chat Bot, ${firstName || 'there'}! 🤖\n\n`;
+  message += "I'm here to assist you with any questions you may have.\n\n";
+
+  if (isSubscribed) {
+    message += `✅ You have an active subscription until ${new Date(user.subscription_expires_at!).toLocaleDateString()}.\n\n`;
+  } else {
+    message += "📝 You're using the free tier. Use /subscribe to unlock premium features!\n\n";
+  }
+
+  message += "💬 Feel free to ask me anything, or use /help to see available commands.";
 
   await ctx.reply(message);
 });
@@ -622,6 +774,265 @@ bot.command("reset", async (ctx) => {
   ctx.session.messageHistory = [];
   ctx.session.currentContext = "You are a helpful AI assistant.";
   await ctx.reply("Bot has been reset. Your message history and context have been cleared.");
+});
+
+// --- ADMIN COMMANDS ---
+
+// Admin panel command
+bot.command("admin", async (ctx) => {
+  const userId = ctx.from?.id.toString();
+  if (!userId || !isAdmin(userId)) {
+    await ctx.reply("❌ Access denied. This command is for administrators only.");
+    return;
+  }
+
+  const adminKeyboard = new InlineKeyboard()
+    .text("📊 View Stats", "admin_stats")
+    .text("📢 Create Broadcast", "admin_broadcast")
+    .row()
+    .text("🖼️ Media Gallery", "admin_media")
+    .text("👥 User Management", "admin_users")
+    .row()
+    .text("⚙️ Bot Settings", "admin_settings");
+
+  await ctx.reply("🔧 *Admin Panel*\n\nSelect an option:", {
+    reply_markup: adminKeyboard,
+    parse_mode: "Markdown"
+  });
+});
+
+// Media upload handling
+bot.on(["message:photo", "message:video", "message:document"], async (ctx) => {
+  const userId = ctx.from?.id.toString();
+  if (!userId || !isAdmin(userId)) {
+    return; // Only admins can upload media
+  }
+
+  try {
+    let fileId: string | undefined;
+    let fileSize: number | undefined;
+    let fileName: string;
+    let fileType: string;
+
+    if (ctx.message.photo) {
+      const photo = ctx.message.photo[ctx.message.photo.length - 1]; // Get highest resolution
+      fileId = photo.file_id;
+      fileSize = photo.file_size;
+      fileName = `photo_${Date.now()}.jpg`;
+      fileType = 'photo';
+    } else if (ctx.message.video) {
+      fileId = ctx.message.video.file_id;
+      fileSize = ctx.message.video.file_size;
+      fileName = ctx.message.video.file_name || `video_${Date.now()}.mp4`;
+      fileType = 'video';
+    } else if (ctx.message.document) {
+      fileId = ctx.message.document.file_id;
+      fileSize = ctx.message.document.file_size;
+      fileName = ctx.message.document.file_name || `document_${Date.now()}`;
+      fileType = 'document';
+    }
+
+    if (!fileId) {
+      await ctx.reply("❌ Unable to process this file.");
+      return;
+    }
+
+    if (fileSize && fileSize > MAX_FILE_SIZE) {
+      await ctx.reply("❌ File too large. Maximum size is 50MB.");
+      return;
+    }
+
+    // Get file info from Telegram
+    const file = await bot.api.getFile(fileId);
+    if (!file.file_path) {
+      await ctx.reply("❌ Unable to get file path.");
+      return;
+    }
+
+    // Download file from Telegram
+    const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
+    const fileResponse = await fetch(fileUrl);
+    
+    if (!fileResponse.ok) {
+      await ctx.reply("❌ Failed to download file.");
+      return;
+    }
+
+    const fileBuffer = await fileResponse.arrayBuffer();
+    
+    // Upload to Supabase Storage
+    const storagePath = `uploads/${Date.now()}_${fileName}`;
+    const { error: uploadError } = await supabase.storage
+      .from('bot-media')
+      .upload(storagePath, fileBuffer, {
+        contentType: fileResponse.headers.get('content-type') || 'application/octet-stream'
+      });
+
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError);
+      await ctx.reply("❌ Failed to upload file to storage.");
+      return;
+    }
+
+    // Save to database
+    const caption = ctx.message.caption || null;
+    await saveMediaFile(
+      fileName,
+      storagePath,
+      fileType,
+      fileSize || 0,
+      caption,
+      userId,
+      fileId
+    );
+
+    await ctx.reply("✅ Media uploaded successfully!");
+
+  } catch (error) {
+    console.error('Media upload error:', error);
+    await ctx.reply("❌ Error uploading media. Please try again.");
+  }
+});
+
+// Admin callback handlers
+bot.callbackQuery("admin_stats", async (ctx) => {
+  const userId = ctx.from?.id.toString();
+  if (!userId || !isAdmin(userId)) {
+    await ctx.answerCallbackQuery("❌ Access denied.");
+    return;
+  }
+
+  try {
+    const users = await getAllBotUsers();
+    const mediaFiles = await getMediaFiles();
+    
+    const statsMessage = `📊 *Bot Statistics*\n\n` +
+      `👥 Total Users: ${users.length}\n` +
+      `🖼️ Media Files: ${mediaFiles.length}\n` +
+      `📅 Last Updated: ${new Date().toLocaleString()}`;
+
+    await ctx.editMessageText(statsMessage, { parse_mode: "Markdown" });
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+    await ctx.answerCallbackQuery("❌ Error fetching statistics.");
+  }
+});
+
+bot.callbackQuery("admin_broadcast", async (ctx) => {
+  const userId = ctx.from?.id.toString();
+  if (!userId || !isAdmin(userId)) {
+    await ctx.answerCallbackQuery("❌ Access denied.");
+    return;
+  }
+
+  await ctx.editMessageText(
+    "📢 *Create Broadcast Message*\n\n" +
+    "To create a broadcast:\n" +
+    "1. Upload media (optional)\n" +
+    "2. Use /broadcast <message> to send\n\n" +
+    "Example: `/broadcast Hello everyone! This is a test message.`",
+    { parse_mode: "Markdown" }
+  );
+});
+
+bot.callbackQuery("admin_media", async (ctx) => {
+  const userId = ctx.from?.id.toString();
+  if (!userId || !isAdmin(userId)) {
+    await ctx.answerCallbackQuery("❌ Access denied.");
+    return;
+  }
+
+  try {
+    const mediaFiles = await getMediaFiles();
+    
+    if (mediaFiles.length === 0) {
+      await ctx.editMessageText("🖼️ *Media Gallery*\n\nNo media files uploaded yet.");
+      return;
+    }
+
+    let mediaList = "🖼️ *Media Gallery*\n\n";
+    mediaFiles.slice(0, 10).forEach((file, index) => {
+      mediaList += `${index + 1}. ${file.filename} (${file.file_type})\n`;
+      if (file.caption) mediaList += `   Caption: ${file.caption}\n`;
+      mediaList += `   Uploaded: ${new Date(file.created_at).toLocaleDateString()}\n\n`;
+    });
+
+    if (mediaFiles.length > 10) {
+      mediaList += `... and ${mediaFiles.length - 10} more files`;
+    }
+
+    await ctx.editMessageText(mediaList, { parse_mode: "Markdown" });
+  } catch (error) {
+    console.error('Error fetching media:', error);
+    await ctx.answerCallbackQuery("❌ Error fetching media files.");
+  }
+});
+
+// Broadcast command
+bot.command("broadcast", async (ctx) => {
+  const userId = ctx.from?.id.toString();
+  if (!userId || !isAdmin(userId)) {
+    await ctx.reply("❌ Access denied. This command is for administrators only.");
+    return;
+  }
+
+  const message = ctx.message?.text?.substring(11); // Remove "/broadcast " prefix
+  if (!message) {
+    await ctx.reply("❌ Please provide a message to broadcast.\nUsage: /broadcast <message>");
+    return;
+  }
+
+  try {
+    await ctx.reply("🚀 Starting broadcast...");
+    
+    const users = await getAllBotUsers();
+    let successCount = 0;
+    let failCount = 0;
+
+    // Create broadcast record
+    const broadcast = await createBroadcastMessage(
+      `Broadcast ${new Date().toLocaleDateString()}`,
+      message
+    );
+
+    // Send to all users in batches to avoid rate limits
+    const batchSize = 30; // Telegram rate limit is 30 messages per second
+    for (let i = 0; i < users.length; i += batchSize) {
+      const batch = users.slice(i, i + batchSize);
+      
+      const promises = batch.map(async (user) => {
+        try {
+          await bot.api.sendMessage(user.telegram_id, message);
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to send to ${user.telegram_id}:`, error);
+          failCount++;
+        }
+      });
+
+      await Promise.all(promises);
+      
+      // Wait 1 second between batches to respect rate limits
+      if (i + batchSize < users.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+
+    // Update broadcast statistics
+    await updateBroadcastStats(broadcast.id, users.length, successCount, failCount);
+
+    await ctx.reply(
+      `✅ Broadcast completed!\n\n` +
+      `📊 Statistics:\n` +
+      `✅ Successful: ${successCount}\n` +
+      `❌ Failed: ${failCount}\n` +
+      `📍 Total: ${users.length}`
+    );
+
+  } catch (error) {
+    console.error('Broadcast error:', error);
+    await ctx.reply("❌ Error during broadcast. Please try again.");
+  }
 });
 
 // Handle text messages
