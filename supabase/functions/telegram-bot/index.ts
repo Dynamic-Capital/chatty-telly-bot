@@ -119,7 +119,7 @@ serve(async (req) => {
         const promoCode = text.replace("/promo ", "").replace("PROMO", "").trim();
         await handlePromoCode(botToken, chatId, userId, username, promoCode, supabaseClient);
       } else {
-        await sendMessage(botToken, chatId, "I didn't understand that command. Use /help to see available commands or send a promo code like: PROMO SAVE20");
+        await sendMessage(botToken, chatId, "Hi there! 👋 I'm here to help you with VIP plans and services. Type /help to see what I can do for you, or if you have a promo code, just type: PROMO [your code]");
       }
     }
 
