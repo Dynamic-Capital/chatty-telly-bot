@@ -504,24 +504,22 @@ async function handleMainMenu(botToken: string, chatId: number, userId: number, 
     ]
   };
 
-  const welcomeMessage = `🌟 <b>Welcome to Dynamic VIP Bot!</b> 🌟
+  const welcomeMessage = `🌟 <b>Welcome to Dynamic Capital VIP Bot!</b> 🌟
 
-Hi ${username ? `@${username}` : 'there'}! 👋
-
-🚀 Your gateway to exclusive VIP access and premium features!
+Hi ${username ? `@${username}` : '@DynamicCapital_Support'} 👋
+🚀 Unlock premium access to real-time trade signals, expert mentorship, and exclusive tools.
 
 ✨ <b>What would you like to do?</b>
-
-📦 View our subscription packages
-💰 Learn about payment methods
+📦 Explore VIP subscription plans
+💳 Learn how to pay via USDT (crypto) or bank transfer
+🎁 Apply a promotional code
 🆘 Get help from our support team
-🎫 Apply a promotional code
-📊 Check your account status
+📊 Check your account and subscription status
 
-💡 <b>Quick Navigation:</b>
-• Use the menu buttons below
+💡 <b>Quick Navigation Tips:</b>
+• Tap the menu buttons below to browse options
 • Type / to see available commands
-• Click "📌 Enable Quick Menu" for persistent buttons
+• Click 📌 Enable Quick Menu to keep buttons always visible
 
 Select an option below to get started:`;
 
