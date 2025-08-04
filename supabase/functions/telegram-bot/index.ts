@@ -504,7 +504,7 @@ async function handleMainMenu(botToken: string, chatId: number, userId: number, 
     ]
   };
 
-  const welcomeMessage = `🌟 <b>Welcome to Dynamic Capital VIP Bot!</b> 🌟
+  const welcomeMessage = `🌟 <b>Welcome to Dynamic Chatty Bot!</b> 🌟
 
 Hi ${username ? `@${username}` : '@DynamicCapital_Support'} 👋
 🚀 Unlock premium access to real-time trade signals, expert mentorship, and exclusive tools.
