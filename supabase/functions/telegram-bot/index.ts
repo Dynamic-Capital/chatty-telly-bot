@@ -3,13 +3,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const BINANCE_API_KEY = Deno.env.get("BINANCE_API_KEY");
+const BINANCE_SECRET_KEY = Deno.env.get("BINANCE_SECRET_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const ADMIN_USER_IDS = ["225513686"];
 
-// User sessions for rate limiting
+// User sessions for features
 const userSessions = new Map();
+const pendingRegistrations = new Map();
+const pendingBroadcasts = new Map();
 
 // Supabase clients
 const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
@@ -52,7 +56,9 @@ function getUserSession(userId: string) {
     userSessions.set(userId, {
       messageCount: 0,
       lastReset: Date.now(),
-      messageHistory: []
+      messageHistory: [],
+      awaitingInput: null,
+      surveyData: {}
     });
   }
   return userSessions.get(userId);
@@ -146,6 +152,7 @@ async function handleAIChat(chatId: number, text: string, userId: string) {
         inline_keyboard: [
           [
             { text: "🔄 New Topic", callback_data: "new_chat" },
+            { text: "📈 Trading Tools", callback_data: "trading_tools" },
             { text: "🔙 Main Menu", callback_data: "back_to_main" }
           ]
         ]
@@ -227,6 +234,84 @@ async function getSubscriptionPlans() {
   }
 }
 
+async function getEducationPackages() {
+  try {
+    const { data, error } = await supabase
+      .from('education_packages')
+      .select('*, education_categories(*)')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching education packages:', error);
+    return [];
+  }
+}
+
+async function getActivePromotions() {
+  try {
+    const { data, error } = await supabase
+      .from('promotions')
+      .select('*')
+      .eq('is_active', true)
+      .gte('valid_until', new Date().toISOString())
+      .order('created_at', { ascending: false });
+
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching promotions:', error);
+    return [];
+  }
+}
+
+async function validatePromoCode(code: string, userId: string) {
+  try {
+    const { data: promo, error } = await supabase
+      .from('promotions')
+      .select('*')
+      .eq('code', code.toUpperCase())
+      .eq('is_active', true)
+      .gte('valid_until', new Date().toISOString())
+      .single();
+
+    if (error || !promo) return null;
+
+    // Check if user already used this promo
+    const { data: usage } = await supabase
+      .from('promotion_usage')
+      .select('*')
+      .eq('promotion_id', promo.id)
+      .eq('telegram_user_id', userId)
+      .single();
+
+    if (usage) return null; // Already used
+
+    // Check usage limits
+    if (promo.max_uses && promo.current_uses >= promo.max_uses) return null;
+
+    return promo;
+  } catch (error) {
+    console.error('Error validating promo code:', error);
+    return null;
+  }
+}
+
+async function getBankAccounts() {
+  try {
+    const { data, error } = await supabase
+      .from('bank_accounts')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching bank accounts:', error);
+    return [];
+  }
+}
+
 async function getAllBotUsers() {
   try {
     const { data, error } = await supabaseAdmin
@@ -243,20 +328,22 @@ async function getAllBotUsers() {
 
 async function getBotStats() {
   try {
-    const [usersResult, paymentsResult, subscriptionsResult] = await Promise.all([
+    const [usersResult, paymentsResult, subscriptionsResult, enrollmentsResult] = await Promise.all([
       supabaseAdmin.from('bot_users').select('id', { count: 'exact', head: true }),
       supabaseAdmin.from('payments').select('id', { count: 'exact', head: true }),
-      supabaseAdmin.from('user_subscriptions').select('id').eq('is_active', true)
+      supabaseAdmin.from('user_subscriptions').select('id').eq('is_active', true),
+      supabaseAdmin.from('education_enrollments').select('id', { count: 'exact', head: true })
     ]);
 
     return {
       totalUsers: usersResult.count || 0,
       totalPayments: paymentsResult.count || 0,
-      activeSubscriptions: subscriptionsResult.data?.length || 0
+      activeSubscriptions: subscriptionsResult.data?.length || 0,
+      totalEnrollments: enrollmentsResult.count || 0
     };
   } catch (error) {
     console.error('Error fetching bot stats:', error);
-    return { totalUsers: 0, totalPayments: 0, activeSubscriptions: 0 };
+    return { totalUsers: 0, totalPayments: 0, activeSubscriptions: 0, totalEnrollments: 0 };
   }
 }
 
@@ -311,6 +398,92 @@ async function exportData(tableName: string) {
   }
 }
 
+// Binance API integration
+async function callBinanceAPI(symbol: string) {
+  try {
+    const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`);
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Binance API error:', error);
+    return null;
+  }
+}
+
+async function getTopCryptos() {
+  try {
+    const symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'DOTUSDT'];
+    const promises = symbols.map(symbol => callBinanceAPI(symbol));
+    const results = await Promise.all(promises);
+    return results.filter(r => r !== null);
+  } catch (error) {
+    console.error('Error fetching top cryptos:', error);
+    return [];
+  }
+}
+
+// Survey functions
+async function startUserSurvey(chatId: number, userId: string) {
+  const session = getUserSession(userId);
+  session.awaitingInput = 'survey_trading_level';
+  session.surveyData = {};
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "📈 Beginner", callback_data: "survey_level_beginner" },
+        { text: "📊 Intermediate", callback_data: "survey_level_intermediate" }
+      ],
+      [
+        { text: "🏆 Advanced", callback_data: "survey_level_advanced" },
+        { text: "👨‍💼 Professional", callback_data: "survey_level_professional" }
+      ]
+    ]
+  };
+
+  await sendMessage(chatId, "📋 *Quick Survey* (1/4)\n\nWhat's your trading experience level?", keyboard);
+}
+
+// Broadcast functions
+async function sendBroadcastMessage(messageText: string, targetAudience: any = { type: "all" }) {
+  try {
+    const users = await getAllBotUsers();
+    let targetUsers = users;
+
+    // Filter users based on target audience
+    if (targetAudience.type === "vip") {
+      targetUsers = users.filter(user => user.is_vip);
+    } else if (targetAudience.type === "subscribers") {
+      targetUsers = users.filter(user => 
+        user.subscription_expires_at && new Date(user.subscription_expires_at) > new Date()
+      );
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const user of targetUsers) {
+      try {
+        const success = await sendMessage(parseInt(user.telegram_id), messageText);
+        if (success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } catch (error) {
+        failCount++;
+      }
+    }
+
+    return { total: targetUsers.length, success: successCount, failed: failCount };
+  } catch (error) {
+    console.error('Broadcast error:', error);
+    return { total: 0, success: 0, failed: 0 };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -344,11 +517,18 @@ serve(async (req) => {
           inline_keyboard: [
             [
               { text: "📦 Packages", callback_data: "view_packages" },
-              { text: "ℹ️ About Us", callback_data: "about_us" }
+              { text: "🎓 Education", callback_data: "view_education" }
             ],
             [
               { text: "💬 AI Chat", callback_data: "start_chat" },
+              { text: "📈 Trading Tools", callback_data: "trading_tools" }
+            ],
+            [
+              { text: "🎯 Promotions", callback_data: "view_promotions" },
               { text: "📊 My Status", callback_data: "user_status" }
+            ],
+            [
+              { text: "ℹ️ About Us", callback_data: "about_us" }
             ]
           ]
         };
@@ -372,22 +552,111 @@ serve(async (req) => {
           inline_keyboard: [
             [{ text: "📊 View Stats", callback_data: "admin_stats" }],
             [{ text: "📥 Export Data", callback_data: "admin_export" }],
-            [{ text: "👥 User Management", callback_data: "admin_users" }]
+            [{ text: "👥 User Management", callback_data: "admin_users" }],
+            [{ text: "📢 Broadcast Message", callback_data: "admin_broadcast" }]
           ]
         };
         await sendMessage(chatId, "🔧 *Admin Panel*\n\nSelect an option:", adminKeyboard);
       } else if (text && !text.startsWith('/')) {
-        // AI Chat functionality with database user check
-        const user = await fetchOrCreateBotUser(userId, firstName, lastName, username);
-        const isSubscribed = user?.subscription_expires_at && new Date(user.subscription_expires_at) > new Date();
+        const session = getUserSession(userId);
         
-        if (isSubscribed) {
-          // Premium users get unlimited messages
-          const session = getUserSession(userId);
-          session.messageCount = 0; // Reset for premium users
+        // Handle special input modes
+        if (session.awaitingInput) {
+          switch (session.awaitingInput) {
+            case 'promo_code':
+              try {
+                const promo = await validatePromoCode(text, userId);
+                if (promo) {
+                  // Record promo analytics
+                  await supabaseAdmin
+                    .from('promo_analytics')
+                    .insert([{
+                      promo_code: promo.code,
+                      telegram_user_id: userId,
+                      event_type: 'applied'
+                    }]);
+
+                  const successMessage = `✅ *Promo Code Applied!*\n\n` +
+                    `🎁 Code: **${promo.code}**\n` +
+                    `💰 Discount: ${promo.discount_type === 'percentage' ? promo.discount_value + '%' : '$' + promo.discount_value} OFF\n\n` +
+                    `This discount will be applied to your next purchase!`;
+
+                  const successKeyboard = {
+                    inline_keyboard: [
+                      [{ text: "📦 View Packages", callback_data: "view_packages" }],
+                      [{ text: "🔙 Main Menu", callback_data: "back_to_main" }]
+                    ]
+                  };
+
+                  await sendMessage(chatId, successMessage, successKeyboard);
+                } else {
+                  await sendMessage(chatId, "❌ Invalid or expired promo code. Please try again or contact support.");
+                }
+                session.awaitingInput = null;
+              } catch (error) {
+                await sendMessage(chatId, "❌ Error validating promo code. Please try again.");
+                session.awaitingInput = null;
+              }
+              break;
+
+            case 'broadcast_message':
+              if (isAdmin(userId)) {
+                try {
+                  const result = await sendBroadcastMessage(text, session.broadcastAudience);
+                  
+                  // Save broadcast to database
+                  await supabaseAdmin
+                    .from('broadcast_messages')
+                    .insert([{
+                      title: 'Admin Broadcast',
+                      content: text,
+                      target_audience: session.broadcastAudience,
+                      total_recipients: result.total,
+                      successful_deliveries: result.success,
+                      failed_deliveries: result.failed,
+                      delivery_status: 'completed',
+                      sent_at: new Date().toISOString()
+                    }]);
+
+                  const resultMessage = `📢 *Broadcast Completed!*\n\n` +
+                    `📊 Total Recipients: ${result.total}\n` +
+                    `✅ Successful: ${result.success}\n` +
+                    `❌ Failed: ${result.failed}\n\n` +
+                    `Message sent to ${session.broadcastAudience.type} users.`;
+
+                  await sendMessage(chatId, resultMessage);
+                  session.awaitingInput = null;
+                  session.broadcastAudience = null;
+                } catch (error) {
+                  await sendMessage(chatId, "❌ Error sending broadcast. Please try again.");
+                  session.awaitingInput = null;
+                }
+              }
+              break;
+
+            default:
+              // Fall back to AI chat
+              const user = await fetchOrCreateBotUser(userId, firstName, lastName, username);
+              const isSubscribed = user?.subscription_expires_at && new Date(user.subscription_expires_at) > new Date();
+              
+              if (isSubscribed) {
+                session.messageCount = 0; // Reset for premium users
+              }
+              
+              await handleAIChat(chatId, text, userId);
+              break;
+          }
+        } else {
+          // Regular AI Chat functionality
+          const user = await fetchOrCreateBotUser(userId, firstName, lastName, username);
+          const isSubscribed = user?.subscription_expires_at && new Date(user.subscription_expires_at) > new Date();
+          
+          if (isSubscribed) {
+            session.messageCount = 0; // Reset for premium users
+          }
+          
+          await handleAIChat(chatId, text, userId);
         }
-        
-        await handleAIChat(chatId, text, userId);
       }
     } else if (update.callback_query) {
       const callbackQuery = update.callback_query;
@@ -669,6 +938,346 @@ serve(async (req) => {
           } catch (error) {
             await sendMessage(chatId, "❌ Error exporting analytics data. Please try again.");
           }
+          break;
+
+        // New features
+        case "view_education":
+          try {
+            const packages = await getEducationPackages();
+            let educationMessage = "🎓 *Education Packages*\n\n";
+            
+            if (packages.length === 0) {
+              educationMessage += "No education packages available at the moment.";
+            } else {
+              packages.forEach((pkg, index) => {
+                educationMessage += `${index + 1}. **${pkg.name}**\n`;
+                educationMessage += `   💰 Price: $${pkg.price} ${pkg.currency}\n`;
+                educationMessage += `   📅 Duration: ${pkg.duration_weeks} weeks\n`;
+                if (pkg.description) {
+                  educationMessage += `   📝 ${pkg.description}\n`;
+                }
+                educationMessage += `\n`;
+              });
+            }
+
+            const educationKeyboard = {
+              inline_keyboard: [
+                [{ text: "📝 Enroll Now", callback_data: "education_enroll" }],
+                [{ text: "🔙 Back to Menu", callback_data: "back_to_main" }]
+              ]
+            };
+
+            await sendMessage(chatId, educationMessage, educationKeyboard);
+          } catch (error) {
+            await sendMessage(chatId, "❌ Error loading education packages. Please try again.");
+          }
+          break;
+
+        case "view_promotions":
+          try {
+            const promotions = await getActivePromotions();
+            let promoMessage = "🎯 *Active Promotions*\n\n";
+            
+            if (promotions.length === 0) {
+              promoMessage += "No active promotions at the moment.\n\nCheck back later for exciting offers!";
+            } else {
+              promotions.forEach((promo, index) => {
+                promoMessage += `${index + 1}. **${promo.code}**\n`;
+                promoMessage += `   🎁 ${promo.discount_type === 'percentage' ? promo.discount_value + '%' : '$' + promo.discount_value} OFF\n`;
+                promoMessage += `   📅 Valid until: ${new Date(promo.valid_until).toLocaleDateString()}\n`;
+                if (promo.description) {
+                  promoMessage += `   📝 ${promo.description}\n`;
+                }
+                promoMessage += `\n`;
+              });
+            }
+
+            const promoKeyboard = {
+              inline_keyboard: [
+                [{ text: "💳 Apply Promo Code", callback_data: "apply_promo" }],
+                [{ text: "🔙 Back to Menu", callback_data: "back_to_main" }]
+              ]
+            };
+
+            await sendMessage(chatId, promoMessage, promoKeyboard);
+          } catch (error) {
+            await sendMessage(chatId, "❌ Error loading promotions. Please try again.");
+          }
+          break;
+
+        case "trading_tools":
+          try {
+            const cryptos = await getTopCryptos();
+            let tradingMessage = "📈 *Trading Tools & Market Data*\n\n";
+            
+            if (cryptos.length > 0) {
+              tradingMessage += "💰 *Top Cryptocurrencies (24h)*\n\n";
+              cryptos.forEach((crypto, index) => {
+                const symbol = crypto.symbol.replace('USDT', '/USDT');
+                const price = parseFloat(crypto.lastPrice).toFixed(2);
+                const change = parseFloat(crypto.priceChangePercent).toFixed(2);
+                const changeEmoji = parseFloat(change) >= 0 ? '🟢' : '🔴';
+                
+                tradingMessage += `${index + 1}. **${symbol}**\n`;
+                tradingMessage += `   💵 $${price}\n`;
+                tradingMessage += `   ${changeEmoji} ${change}% (24h)\n\n`;
+              });
+            }
+
+            const tradingKeyboard = {
+              inline_keyboard: [
+                [
+                  { text: "📊 Market Analysis", callback_data: "market_analysis" },
+                  { text: "🎯 Trading Signals", callback_data: "trading_signals" }
+                ],
+                [
+                  { text: "📈 Portfolio Tracker", callback_data: "portfolio_tracker" },
+                  { text: "⚠️ Risk Calculator", callback_data: "risk_calculator" }
+                ],
+                [
+                  { text: "🔙 Back to Menu", callback_data: "back_to_main" }
+                ]
+              ]
+            };
+
+            await sendMessage(chatId, tradingMessage, tradingKeyboard);
+          } catch (error) {
+            await sendMessage(chatId, "❌ Error loading trading tools. Please try again.");
+          }
+          break;
+
+        case "subscribe_menu":
+          try {
+            const bankAccounts = await getBankAccounts();
+            let paymentMessage = "💳 *Payment Methods*\n\n";
+            
+            paymentMessage += "Choose your preferred payment method:\n\n";
+            
+            if (bankAccounts.length > 0) {
+              paymentMessage += "🏦 *Bank Transfer*\n";
+              bankAccounts.forEach((bank, index) => {
+                paymentMessage += `${index + 1}. **${bank.bank_name}**\n`;
+                paymentMessage += `   💳 ${bank.account_name}\n`;
+                paymentMessage += `   🔢 ${bank.account_number}\n`;
+                paymentMessage += `   💰 Currency: ${bank.currency}\n\n`;
+              });
+            }
+
+            const paymentKeyboard = {
+              inline_keyboard: [
+                [
+                  { text: "🏦 Bank Transfer", callback_data: "payment_bank" },
+                  { text: "₿ Crypto Payment", callback_data: "payment_crypto" }
+                ],
+                [
+                  { text: "💳 Binance Pay", callback_data: "payment_binance" }
+                ],
+                [
+                  { text: "🔙 Back to Packages", callback_data: "view_packages" }
+                ]
+              ]
+            };
+
+            await sendMessage(chatId, paymentMessage, paymentKeyboard);
+          } catch (error) {
+            await sendMessage(chatId, "❌ Error loading payment methods. Please try again.");
+          }
+          break;
+
+        case "payment_binance":
+          const binanceMessage = "₿ *Binance Pay Integration*\n\n" +
+            "🚀 Fast, secure crypto payments\n" +
+            "💰 Low transaction fees\n" +
+            "🔒 Instant confirmation\n\n" +
+            "Select a package to proceed with Binance Pay:";
+
+          const binanceKeyboard = {
+            inline_keyboard: [
+              [{ text: "📦 Choose Package", callback_data: "view_packages" }],
+              [{ text: "💬 Contact Support", callback_data: "contact_support" }],
+              [{ text: "🔙 Back", callback_data: "subscribe_menu" }]
+            ]
+          };
+
+          await sendMessage(chatId, binanceMessage, binanceKeyboard);
+          break;
+
+        case "apply_promo":
+          const session = getUserSession(userId);
+          session.awaitingInput = 'promo_code';
+          
+          await sendMessage(chatId, "🎯 *Apply Promo Code*\n\nSend me your promo code:");
+          break;
+
+        case "education_enroll":
+          const enrollMessage = "🎓 *Education Enrollment*\n\n" +
+            "To enroll in our education programs:\n\n" +
+            "1️⃣ Choose your package\n" +
+            "2️⃣ Complete payment\n" +
+            "3️⃣ Receive course materials\n" +
+            "4️⃣ Start learning!\n\n" +
+            "📞 Contact our education team for personalized guidance.";
+
+          const enrollKeyboard = {
+            inline_keyboard: [
+              [{ text: "📝 Take Survey", callback_data: "start_survey" }],
+              [{ text: "💬 Contact Education Team", callback_data: "contact_education" }],
+              [{ text: "🔙 Back", callback_data: "view_education" }]
+            ]
+          };
+
+          await sendMessage(chatId, enrollMessage, enrollKeyboard);
+          break;
+
+        case "start_survey":
+          await startUserSurvey(chatId, userId);
+          break;
+
+        // Survey handlers
+        case "survey_level_beginner":
+        case "survey_level_intermediate":
+        case "survey_level_advanced":
+        case "survey_level_professional":
+          const session2 = getUserSession(userId);
+          session2.surveyData.trading_level = data.replace('survey_level_', '');
+          session2.awaitingInput = 'survey_main_goal';
+
+          const goalKeyboard = {
+            inline_keyboard: [
+              [
+                { text: "💰 Generate Income", callback_data: "survey_goal_income" },
+                { text: "📈 Learn Trading", callback_data: "survey_goal_learn" }
+              ],
+              [
+                { text: "🎯 Diversify Portfolio", callback_data: "survey_goal_diversify" },
+                { text: "🏆 Professional Trading", callback_data: "survey_goal_professional" }
+              ]
+            ]
+          };
+
+          await sendMessage(chatId, "📋 *Quick Survey* (2/4)\n\nWhat's your main trading goal?", goalKeyboard);
+          break;
+
+        case "survey_goal_income":
+        case "survey_goal_learn":
+        case "survey_goal_diversify":
+        case "survey_goal_professional":
+          const session3 = getUserSession(userId);
+          session3.surveyData.main_goal = data.replace('survey_goal_', '');
+          session3.awaitingInput = 'survey_trading_frequency';
+
+          const freqKeyboard = {
+            inline_keyboard: [
+              [
+                { text: "📅 Daily", callback_data: "survey_freq_daily" },
+                { text: "📆 Weekly", callback_data: "survey_freq_weekly" }
+              ],
+              [
+                { text: "🗓️ Monthly", callback_data: "survey_freq_monthly" },
+                { text: "🎯 Occasional", callback_data: "survey_freq_occasional" }
+              ]
+            ]
+          };
+
+          await sendMessage(chatId, "📋 *Quick Survey* (3/4)\n\nHow often do you plan to trade?", freqKeyboard);
+          break;
+
+        case "survey_freq_daily":
+        case "survey_freq_weekly":
+        case "survey_freq_monthly":
+        case "survey_freq_occasional":
+          const session4 = getUserSession(userId);
+          session4.surveyData.trading_frequency = data.replace('survey_freq_', '');
+          session4.awaitingInput = 'survey_monthly_budget';
+
+          const budgetKeyboard = {
+            inline_keyboard: [
+              [
+                { text: "💵 Under $1,000", callback_data: "survey_budget_1000" },
+                { text: "💰 $1,000-$5,000", callback_data: "survey_budget_5000" }
+              ],
+              [
+                { text: "💎 $5,000-$10,000", callback_data: "survey_budget_10000" },
+                { text: "🏆 Over $10,000", callback_data: "survey_budget_over" }
+              ]
+            ]
+          };
+
+          await sendMessage(chatId, "📋 *Quick Survey* (4/4)\n\nWhat's your monthly trading budget?", budgetKeyboard);
+          break;
+
+        case "survey_budget_1000":
+        case "survey_budget_5000":
+        case "survey_budget_10000":
+        case "survey_budget_over":
+          const session5 = getUserSession(userId);
+          session5.surveyData.monthly_budget = data.replace('survey_budget_', '');
+          
+          // Save survey to database
+          try {
+            await supabaseAdmin
+              .from('user_surveys')
+              .insert([{
+                telegram_user_id: userId,
+                trading_level: session5.surveyData.trading_level,
+                main_goal: session5.surveyData.main_goal,
+                trading_frequency: session5.surveyData.trading_frequency,
+                monthly_budget: session5.surveyData.monthly_budget
+              }]);
+
+            const completionMessage = "✅ *Survey Completed!*\n\n" +
+              "Thank you for completing our survey. Based on your responses, our team will recommend the best trading package for you.\n\n" +
+              "🎯 *Your Profile:*\n" +
+              `📈 Level: ${session5.surveyData.trading_level}\n` +
+              `🎯 Goal: ${session5.surveyData.main_goal}\n` +
+              `📅 Frequency: ${session5.surveyData.trading_frequency}\n` +
+              `💰 Budget: ${session5.surveyData.monthly_budget}\n\n` +
+              "A team member will contact you soon with personalized recommendations!";
+
+            const completionKeyboard = {
+              inline_keyboard: [
+                [{ text: "📦 View Packages", callback_data: "view_packages" }],
+                [{ text: "🔙 Main Menu", callback_data: "back_to_main" }]
+              ]
+            };
+
+            await sendMessage(chatId, completionMessage, completionKeyboard);
+            
+            // Clear survey data
+            session5.surveyData = {};
+            session5.awaitingInput = null;
+          } catch (error) {
+            await sendMessage(chatId, "❌ Error saving survey. Please try again.");
+          }
+          break;
+
+        // Admin broadcast functionality
+        case "admin_broadcast":
+          if (!isAdmin(userId)) return;
+          
+          const broadcastKeyboard = {
+            inline_keyboard: [
+              [{ text: "📢 Send to All Users", callback_data: "broadcast_all" }],
+              [{ text: "💎 Send to VIP Users", callback_data: "broadcast_vip" }],
+              [{ text: "📊 Send to Subscribers", callback_data: "broadcast_subscribers" }],
+              [{ text: "🔙 Back to Admin", callback_data: "back_to_admin" }]
+            ]
+          };
+          
+          await sendMessage(chatId, "📢 *Broadcast Message*\n\nChoose your target audience:", broadcastKeyboard);
+          break;
+
+        case "broadcast_all":
+        case "broadcast_vip":
+        case "broadcast_subscribers":
+          if (!isAdmin(userId)) return;
+          
+          const audienceType = data.replace('broadcast_', '');
+          const sessionB = getUserSession(userId);
+          sessionB.awaitingInput = 'broadcast_message';
+          sessionB.broadcastAudience = { type: audienceType };
+          
+          await sendMessage(chatId, `📢 *Broadcast to ${audienceType} users*\n\nSend me the message you want to broadcast:`);
           break;
 
         default:
