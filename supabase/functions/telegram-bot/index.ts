@@ -3152,3 +3152,4 @@ async function handleSetSupport(botToken: string, chatId: number, supportData: s
     await sendMessage(botToken, chatId, "❌ Error updating support settings. Please try again.");
   }
 }
+}
