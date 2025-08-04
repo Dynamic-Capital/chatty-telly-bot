@@ -308,6 +308,7 @@ async function exportData(tableName: string) {
   } catch (error) {
     console.error(`Error exporting ${tableName}:`, error);
     return [];
+  }
 }
 
 serve(async (req) => {
