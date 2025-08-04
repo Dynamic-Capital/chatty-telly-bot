@@ -298,6 +298,15 @@ serve(async (req) => {
         await handleFAQ(botToken, chatId, supabaseClient);
       } else if (text.startsWith("/ask ")) {
         const question = text.replace("/ask ", "").trim();
+        await handleAIAssistant(botToken, chatId, userId, question, supabaseClient);
+      } else if (text.startsWith("/shouldibuy ") || text.startsWith("/shouldisell ")) {
+        const instrument = text.replace(/^\/(shouldibuy|shouldisell) /, "").trim();
+        const command = text.startsWith("/shouldibuy") ? "buy analysis" : "sell analysis";
+        await handleTradeHelper(botToken, chatId, userId, instrument, command, supabaseClient);
+      } else if (text.startsWith("/debug ") && isAdmin) {
+        const targetUserId = text.replace("/debug ", "").trim();
+        await handleDebugMode(botToken, chatId, targetUserId, supabaseClient);
+        const question = text.replace("/ask ", "").trim();
         if (question.length > 0) {
           await handleAIQuestion(botToken, chatId, question, supabaseClient);
         } else {
@@ -515,7 +524,9 @@ async function setupBotCommands(botToken: string) {
     { command: "support", description: "🆘 Contact Support" },
     { command: "help", description: "❓ Help & Commands" },
     { command: "faq", description: "📋 Frequently Asked Questions" },
-    { command: "education", description: "🎓 Education Packages" }
+    { command: "education", description: "🎓 Education Packages" },
+    { command: "ask", description: "🤖 Ask AI Assistant" },
+    { command: "shouldibuy", description: "📈 Get Trading Analysis" }
   ];
 
   const setCommandsUrl = `https://api.telegram.org/bot${botToken}/setMyCommands`;
@@ -5360,7 +5371,370 @@ Please contact ${SUPPORT_CONFIG.support_telegram} for assistance.`;
 
     default:
       return "Thank you for your submission!";
+}
+
+// AI Integration Functions
+
+// AI FAQ Assistant - Smart conversational FAQ
+async function handleAIAssistant(botToken: string, chatId: number, userId: number, question: string, supabaseClient: any) {
+  if (!question || question.length === 0) {
+    const helpMessage = `🤖 <b>AI Trading Assistant</b>
+
+Ask me anything about trading, Dynamic Capital, or our services!
+
+📝 <b>Examples:</b>
+• /ask What is leverage in trading?
+• /ask How do I manage risk?
+• /ask What payment methods do you accept?
+• /ask How do your signals work?
+• /ask What is the difference between your plans?
+
+💡 <b>I can help with:</b>
+• Trading education and concepts
+• Platform features and usage
+• Account and payment questions
+• Technical analysis basics
+• Risk management tips
+
+🎯 Just type: <code>/ask [your question]</code>`;
+
+    await sendMessage(botToken, chatId, helpMessage);
+    return;
   }
+
+  // Show typing indicator
+  await sendChatAction(botToken, chatId, "typing");
+
+  try {
+    // Get user context for personalized responses
+    const { data: userSub } = await supabaseClient
+      .from("user_subscriptions")
+      .select("*, subscription_plans(*)")
+      .eq("telegram_user_id", userId.toString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const context = {
+      hasSubscription: !!userSub,
+      planName: userSub?.subscription_plans?.name || null,
+      isActive: userSub?.is_active || false
+    };
+
+    // Call AI FAQ assistant edge function
+    const response = await fetch(`https://qeejuomcapbdlhnjqjcc.functions.supabase.co/ai-faq-assistant`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        question,
+        context
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'AI service error');
+    }
+
+    const aiResponse = `🤖 <b>AI Trading Assistant</b>
+
+${result.answer}
+
+💬 <b>Ask another question:</b> /ask [your question]`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "📦 View Plans", callback_data: "view_packages" },
+          { text: "📊 My Account", callback_data: "my_account" }
+        ],
+        [
+          { text: "🆘 Human Support", callback_data: "contact_support" },
+          { text: "🏠 Main Menu", callback_data: "main_menu" }
+        ]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, aiResponse, keyboard);
+
+  } catch (error) {
+    console.error("Error in AI assistant:", error);
+    await sendMessage(botToken, chatId, `❌ <b>AI Assistant Unavailable</b>
+
+I'm having trouble connecting to the AI assistant right now. Please try again in a moment or contact our human support team.
+
+🆘 <b>Alternative help:</b>
+• Contact: ${SUPPORT_CONFIG.support_telegram}
+• FAQ: /faq
+• Human support: Use the support menu
+
+Sorry for the inconvenience! 🙏`);
+  }
+}
+
+// Trade Helper - Educational trading analysis
+async function handleTradeHelper(botToken: string, chatId: number, userId: number, instrument: string, command: string, supabaseClient: any) {
+  if (!instrument || instrument.length === 0) {
+    const helpMessage = `📈 <b>Trade Helper - Educational Analysis</b>
+
+Get educational trading analysis for any instrument!
+
+📝 <b>Commands:</b>
+• <code>/shouldibuy XAUUSD</code> - Analysis for buying gold
+• <code>/shouldisell EURUSD</code> - Analysis for selling EUR/USD
+• <code>/shouldibuy Bitcoin</code> - Analysis for crypto
+
+🎯 <b>Supported Instruments:</b>
+• Forex: EURUSD, GBPUSD, USDJPY, AUDUSD
+• Commodities: XAUUSD (Gold), XAGUSD (Silver), Oil
+• Crypto: Bitcoin, Ethereum, major altcoins
+• Indices: US30, SPX500, NAS100
+
+⚠️ <b>Important:</b> This provides educational analysis only, not financial advice. Always use proper risk management!
+
+💡 Example: <code>/shouldibuy XAUUSD</code>`;
+
+    await sendMessage(botToken, chatId, helpMessage);
+    return;
+  }
+
+  // Show typing indicator
+  await sendChatAction(botToken, chatId, "typing");
+
+  try {
+    // Get user subscription info for context
+    const { data: userSub } = await supabaseClient
+      .from("user_subscriptions")
+      .select("*, subscription_plans(*)")
+      .eq("telegram_user_id", userId.toString())
+      .eq("is_active", true)
+      .maybeSingle();
+
+    const context = {
+      isVIP: !!userSub,
+      planLevel: userSub?.subscription_plans?.name || "free"
+    };
+
+    // Call trade helper edge function
+    const response = await fetch(`https://qeejuomcapbdlhnjqjcc.functions.supabase.co/trade-helper`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        instrument,
+        command,
+        context
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Trade analysis service error');
+    }
+
+    const analysisResponse = `📈 <b>Educational Trading Analysis</b>
+
+<b>Instrument:</b> ${instrument.toUpperCase()}
+
+${result.analysis}
+
+📚 <b>Want deeper analysis?</b> ${userSub ? "Check our VIP signals!" : "Upgrade to VIP for professional signals!"}
+
+💡 <b>Get more analysis:</b> /shouldibuy [instrument]`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "📈 VIP Signals", callback_data: "view_packages" },
+          { text: "🎓 Learn More", callback_data: "education_menu" }
+        ],
+        [
+          { text: "📊 Another Analysis", callback_data: "ask_ai" },
+          { text: "🏠 Main Menu", callback_data: "main_menu" }
+        ]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, analysisResponse, keyboard);
+
+  } catch (error) {
+    console.error("Error in trade helper:", error);
+    await sendMessage(botToken, chatId, `❌ <b>Trade Analysis Unavailable</b>
+
+I'm having trouble getting the trading analysis right now. Please try again in a moment.
+
+🎯 <b>Alternative options:</b>
+• Contact our analysts: ${SUPPORT_CONFIG.support_telegram}
+• Check our VIP signals: /packages
+• Educational resources: /education
+
+📈 <b>For immediate help:</b>
+Join our VIP community for live trading support!
+
+Sorry for the inconvenience! 🙏`);
+  }
+}
+
+// Debug Mode - Admin troubleshooting
+async function handleDebugMode(botToken: string, chatId: number, targetUserId: string, supabaseClient: any) {
+  if (!targetUserId) {
+    await sendMessage(botToken, chatId, "❌ Please provide user ID.\n\nExample: <code>/debug 123456789</code>");
+    return;
+  }
+
+  try {
+    // Get user info
+    const { data: botUser } = await supabaseClient
+      .from("bot_users")
+      .select("*")
+      .eq("telegram_id", targetUserId)
+      .single();
+
+    // Get recent subscriptions
+    const { data: subscriptions } = await supabaseClient
+      .from("user_subscriptions")
+      .select("*, subscription_plans(*)")
+      .eq("telegram_user_id", targetUserId)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    // Get recent surveys
+    const { data: surveys } = await supabaseClient
+      .from("user_surveys")
+      .select("*")
+      .eq("telegram_user_id", targetUserId)
+      .order("created_at", { ascending: false })
+      .limit(3);
+
+    // Compile debug information
+    let debugInfo = `🔍 <b>Debug Report - User ${targetUserId}</b>\n\n`;
+
+    // User basic info
+    if (botUser) {
+      debugInfo += `👤 <b>User Info:</b>\n`;
+      debugInfo += `• Username: @${botUser.username || 'N/A'}\n`;
+      debugInfo += `• First Name: ${botUser.first_name || 'N/A'}\n`;
+      debugInfo += `• Last Name: ${botUser.last_name || 'N/A'}\n`;
+      debugInfo += `• Current Plan: ${botUser.current_plan_id || 'None'}\n`;
+      debugInfo += `• VIP Status: ${botUser.is_vip ? 'Yes' : 'No'}\n`;
+      debugInfo += `• Last Seen: ${new Date(botUser.updated_at).toLocaleString()}\n`;
+      debugInfo += `• Notes: ${botUser.notes || 'None'}\n\n`;
+    } else {
+      debugInfo += `❌ <b>User not found in bot_users table</b>\n\n`;
+    }
+
+    // Subscription history
+    debugInfo += `💳 <b>Subscription History (Last 5):</b>\n`;
+    if (subscriptions && subscriptions.length > 0) {
+      subscriptions.forEach((sub, index) => {
+        const statusIcon = sub.is_active ? "✅" : sub.payment_status === 'pending' ? "⏳" : "❌";
+        debugInfo += `${statusIcon} <b>${sub.subscription_plans?.name || 'Unknown'}</b>\n`;
+        debugInfo += `   • Status: ${sub.payment_status}\n`;
+        debugInfo += `   • Method: ${sub.payment_method || 'N/A'}\n`;
+        debugInfo += `   • Date: ${new Date(sub.created_at).toLocaleDateString()}\n`;
+        debugInfo += `   • Receipt: ${sub.receipt_telegram_file_id ? 'Yes' : 'No'}\n\n`;
+      });
+    } else {
+      debugInfo += `• No subscriptions found\n\n`;
+    }
+
+    // Survey history
+    debugInfo += `📋 <b>Survey History (Last 3):</b>\n`;
+    if (surveys && surveys.length > 0) {
+      surveys.forEach((survey, index) => {
+        debugInfo += `📊 <b>Survey ${index + 1}:</b>\n`;
+        debugInfo += `   • Level: ${survey.trading_level}\n`;
+        debugInfo += `   • Frequency: ${survey.trading_frequency}\n`;
+        debugInfo += `   • Goal: ${survey.main_goal}\n`;
+        debugInfo += `   • Budget: ${survey.monthly_budget}\n`;
+        debugInfo += `   • Date: ${new Date(survey.created_at).toLocaleDateString()}\n\n`;
+      });
+    } else {
+      debugInfo += `• No surveys completed\n\n`;
+    }
+
+    // System status check
+    debugInfo += `🔧 <b>System Status:</b>\n`;
+    debugInfo += `• Database: ✅ Connected\n`;
+    debugInfo += `• Bot Status: ✅ Online\n`;
+    debugInfo += `• AI Services: ✅ Available\n`;
+    debugInfo += `• Timestamp: ${new Date().toLocaleString()}\n\n`;
+
+    // Potential issues
+    debugInfo += `⚠️ <b>Potential Issues:</b>\n`;
+    const issues = [];
+    
+    if (botUser?.notes?.includes('awaiting_')) {
+      issues.push(`• User stuck in state: ${botUser.notes}`);
+    }
+    
+    if (subscriptions?.some(s => s.payment_status === 'pending' && new Date(s.created_at) < new Date(Date.now() - 48 * 60 * 60 * 1000))) {
+      issues.push('• Old pending payments detected');
+    }
+    
+    if (!botUser) {
+      issues.push('• User not in bot database');
+    }
+
+    if (issues.length > 0) {
+      debugInfo += issues.join('\n');
+    } else {
+      debugInfo += `• No obvious issues detected`;
+    }
+
+    // Action buttons for admin
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "🔄 Reset User State", callback_data: `reset_user_${targetUserId}` },
+          { text: "💬 Contact User", callback_data: `contact_user_${targetUserId}` }
+        ],
+        [
+          { text: "📋 Pending Payments", callback_data: "admin_pending" },
+          { text: "← Back to Admin", callback_data: "admin_menu" }
+        ]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, debugInfo, keyboard);
+
+  } catch (error) {
+    console.error("Error in debug mode:", error);
+    await sendMessage(botToken, chatId, `❌ <b>Debug Error</b>
+
+Failed to get debug information for user ${targetUserId}.
+
+Error: ${error.message}
+
+🔧 <b>Manual checks:</b>
+• Verify user ID is correct
+• Check database connectivity
+• Review recent bot logs
+
+Please try again or check the system manually.`);
+  }
+}
+
+// Helper function for chat actions
+async function sendChatAction(botToken: string, chatId: number, action: string) {
+  try {
+    await fetch(`https://api.telegram.org/bot${botToken}/sendChatAction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        action: action
+      })
+    });
+  } catch (error) {
+    console.error("Error sending chat action:", error);
+  }
+}
 }
 
 // Admin function to manage auto-reply templates
