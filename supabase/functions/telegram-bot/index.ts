@@ -501,11 +501,14 @@ Choose an option below:`;
         const adminMessage = `🔐 *Admin Dashboard*
 
 📊 *Available Commands:*
-• 📈 View Statistics
-• 👥 Manage Users  
+• 📈 View Statistics  
+• 👥 Manage Users
 • 💰 Manage Payments
 • 📢 Send Broadcast
 • 💾 Export Data
+• 💬 Manage Welcome Message
+• 📦 Manage Packages  
+• 🎁 Manage Promo Codes
 
 Choose an admin action:`;
 
@@ -520,7 +523,14 @@ Choose an admin action:`;
               { text: "📢 Broadcast", callback_data: "admin_broadcast" }
             ],
             [
-              { text: "💾 Export Data", callback_data: "admin_export" },
+              { text: "💬 Welcome Message", callback_data: "admin_welcome" },
+              { text: "📦 Packages", callback_data: "admin_packages" }
+            ],
+            [
+              { text: "🎁 Promo Codes", callback_data: "admin_promos" },
+              { text: "💾 Export Data", callback_data: "admin_export" }
+            ],
+            [
               { text: "🔙 Main Menu", callback_data: "back_to_main" }
             ]
           ]
@@ -528,6 +538,271 @@ Choose an admin action:`;
 
         await sendMessage(chatId, adminMessage, adminKeyboard);
         return new Response("OK", { status: 200 });
+      }
+
+      // Handle admin text input flows
+      if (text && isAdmin(userId)) {
+        const session = getUserSession(userId);
+        
+        // Handle welcome message editing
+        if (session.awaitingInput === 'edit_welcome_message') {
+          try {
+            // Store the new welcome message in auto_reply_templates table
+            await supabaseAdmin
+              .from('auto_reply_templates')
+              .upsert({
+                name: 'welcome_message',
+                trigger_type: 'start_command',
+                message_template: text,
+                is_active: true
+              });
+            
+            session.awaitingInput = null;
+            
+            await sendMessage(chatId, `✅ *Welcome Message Updated!*
+
+Your new welcome message has been saved and will be used for all new users.
+
+✨ Preview:
+${text}
+
+The changes are now live!`);
+            
+            return new Response("OK", { status: 200 });
+          } catch (error) {
+            await sendMessage(chatId, "❌ Error updating welcome message. Please try again.");
+            return new Response("OK", { status: 200 });
+          }
+        }
+
+        // Handle package creation flow
+        if (session.awaitingInput === 'add_package_name') {
+          session.packageData.name = text;
+          session.awaitingInput = 'add_package_price';
+          
+          await sendMessage(chatId, `📦 Package: "${text}"
+
+Step 2/5: Enter the package price (USD)
+Example: 99.99, 149, 299.95
+
+Send the price:`);
+          return new Response("OK", { status: 200 });
+        }
+
+        if (session.awaitingInput === 'add_package_price') {
+          const price = parseFloat(text);
+          if (isNaN(price) || price <= 0) {
+            await sendMessage(chatId, "❌ Invalid price. Please enter a valid number (e.g., 99.99):");
+            return new Response("OK", { status: 200 });
+          }
+          
+          session.packageData.price = price;
+          session.awaitingInput = 'add_package_duration';
+          
+          await sendMessage(chatId, `💰 Price: $${price}
+
+Step 3/5: Enter the package duration in months
+Example: 1, 3, 6, 12
+
+Send the duration:`);
+          return new Response("OK", { status: 200 });
+        }
+
+        if (session.awaitingInput === 'add_package_duration') {
+          const duration = parseInt(text);
+          if (isNaN(duration) || duration <= 0) {
+            await sendMessage(chatId, "❌ Invalid duration. Please enter a valid number of months (e.g., 3):");
+            return new Response("OK", { status: 200 });
+          }
+          
+          session.packageData.duration_months = duration;
+          session.awaitingInput = 'add_package_features';
+          
+          await sendMessage(chatId, `⏱ Duration: ${duration} months
+
+Step 4/5: Enter package features (separated by commas)
+Example: Premium signals, VIP chat, Daily analysis, Personal mentor
+
+Send the features:`);
+          return new Response("OK", { status: 200 });
+        }
+
+        if (session.awaitingInput === 'add_package_features') {
+          const features = text.split(',').map(f => f.trim()).filter(f => f.length > 0);
+          session.packageData.features = features;
+          session.awaitingInput = 'add_package_confirm';
+          
+          const summary = `📋 *Package Summary:*
+
+📦 Name: ${session.packageData.name}
+💰 Price: $${session.packageData.price}
+⏱ Duration: ${session.packageData.duration_months} months
+✨ Features: ${features.join(', ')}
+
+Is this correct? Reply with 'yes' to create or 'no' to cancel:`;
+          
+          await sendMessage(chatId, summary);
+          return new Response("OK", { status: 200 });
+        }
+
+        if (session.awaitingInput === 'add_package_confirm') {
+          if (text.toLowerCase() === 'yes') {
+            try {
+              const { data, error } = await supabaseAdmin
+                .from('subscription_plans')
+                .insert([session.packageData])
+                .select('*')
+                .single();
+              
+              if (error) throw error;
+              
+              session.awaitingInput = null;
+              session.packageData = null;
+              
+              await sendMessage(chatId, `✅ *Package Created Successfully!*
+
+📦 ${data.name} has been added to your VIP packages.
+💰 Price: $${data.price}
+📋 ID: \`${data.id}\`
+
+Users can now select this package!`);
+            } catch (error) {
+              await sendMessage(chatId, "❌ Error creating package. Please try again.");
+            }
+          } else {
+            session.awaitingInput = null;
+            session.packageData = null;
+            await sendMessage(chatId, "❌ Package creation cancelled.");
+          }
+          return new Response("OK", { status: 200 });
+        }
+
+        // Handle promo code creation flow
+        if (session.awaitingInput === 'create_promo_code') {
+          session.promoData.code = text.toUpperCase();
+          session.awaitingInput = 'create_promo_discount_type';
+          
+          const discountKeyboard = {
+            inline_keyboard: [
+              [{ text: "💰 Fixed Amount ($)", callback_data: "discount_fixed" }],
+              [{ text: "📊 Percentage (%)", callback_data: "discount_percentage" }]
+            ]
+          };
+          
+          await sendMessage(chatId, `🎁 Promo Code: "${text.toUpperCase()}"
+
+Step 2/5: Select discount type:`, discountKeyboard);
+          return new Response("OK", { status: 200 });
+        }
+
+        if (session.awaitingInput === 'create_promo_discount_value') {
+          const value = parseFloat(text);
+          if (isNaN(value) || value <= 0) {
+            await sendMessage(chatId, "❌ Invalid value. Please enter a valid number:");
+            return new Response("OK", { status: 200 });
+          }
+          
+          session.promoData.discount_value = value;
+          session.awaitingInput = 'create_promo_max_uses';
+          
+          await sendMessage(chatId, `💰 Discount: ${session.promoData.discount_type === 'percentage' ? value + '%' : '$' + value}
+
+Step 4/5: Enter maximum uses (or 0 for unlimited)
+Example: 100, 50, 0
+
+Send the maximum uses:`);
+          return new Response("OK", { status: 200 });
+        }
+
+        if (session.awaitingInput === 'create_promo_max_uses') {
+          const maxUses = parseInt(text);
+          if (isNaN(maxUses) || maxUses < 0) {
+            await sendMessage(chatId, "❌ Invalid number. Please enter 0 or a positive number:");
+            return new Response("OK", { status: 200 });
+          }
+          
+          session.promoData.max_uses = maxUses === 0 ? null : maxUses;
+          session.awaitingInput = 'create_promo_expiry';
+          
+          await sendMessage(chatId, `🔢 Max Uses: ${maxUses === 0 ? 'Unlimited' : maxUses}
+
+Step 5/5: Enter expiry date
+Format: YYYY-MM-DD
+Example: 2024-12-31
+
+Send the expiry date:`);
+          return new Response("OK", { status: 200 });
+        }
+
+        if (session.awaitingInput === 'create_promo_expiry') {
+          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+          if (!dateRegex.test(text)) {
+            await sendMessage(chatId, "❌ Invalid date format. Please use YYYY-MM-DD (e.g., 2024-12-31):");
+            return new Response("OK", { status: 200 });
+          }
+          
+          const expiryDate = new Date(text);
+          if (expiryDate <= new Date()) {
+            await sendMessage(chatId, "❌ Expiry date must be in the future. Please enter a valid date:");
+            return new Response("OK", { status: 200 });
+          }
+          
+          session.promoData.valid_until = expiryDate.toISOString();
+          session.awaitingInput = 'create_promo_confirm';
+          
+          const summary = `📋 *Promo Code Summary:*
+
+🏷 Code: ${session.promoData.code}
+💰 Discount: ${session.promoData.discount_type === 'percentage' ? session.promoData.discount_value + '%' : '$' + session.promoData.discount_value}
+🔢 Max Uses: ${session.promoData.max_uses || 'Unlimited'}
+📅 Expires: ${text}
+
+Is this correct? Reply with 'yes' to create or 'no' to cancel:`;
+          
+          await sendMessage(chatId, summary);
+          return new Response("OK", { status: 200 });
+        }
+
+        if (session.awaitingInput === 'create_promo_confirm') {
+          if (text.toLowerCase() === 'yes') {
+            try {
+              const promoData = {
+                ...session.promoData,
+                description: `${session.promoData.discount_value}${session.promoData.discount_type === 'percentage' ? '%' : '$'} off special offer`,
+                valid_from: new Date().toISOString(),
+                is_active: true,
+                current_uses: 0
+              };
+              
+              const { data, error } = await supabaseAdmin
+                .from('promotions')
+                .insert([promoData])
+                .select('*')
+                .single();
+              
+              if (error) throw error;
+              
+              session.awaitingInput = null;
+              session.promoData = null;
+              
+              await sendMessage(chatId, `✅ *Promo Code Created Successfully!*
+
+🎁 Code: \`${data.code}\`
+💰 Discount: ${data.discount_type === 'percentage' ? data.discount_value + '%' : '$' + data.discount_value}
+📅 Valid until: ${new Date(data.valid_until).toLocaleDateString()}
+📋 ID: \`${data.id}\`
+
+The promo code is now active and ready to use!`);
+            } catch (error) {
+              await sendMessage(chatId, "❌ Error creating promo code. Please try again.");
+            }
+          } else {
+            session.awaitingInput = null;
+            session.promoData = null;
+            await sendMessage(chatId, "❌ Promo code creation cancelled.");
+          }
+          return new Response("OK", { status: 200 });
+        }
       }
     }
 
@@ -829,6 +1104,323 @@ Welcome back! Choose what you'd like to do:`;
           } catch (error) {
             await sendMessage(chatId, "❌ Unable to load promotions. Please try again later.");
           }
+          break;
+
+        // Admin Management Commands
+        case data === 'admin_welcome':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+          
+          const welcomeManageMessage = `💬 *Welcome Message Management*
+          
+Current welcome message is displayed when users send /start command.
+
+Choose an action:`;
+
+          const welcomeKeyboard = {
+            inline_keyboard: [
+              [{ text: "📝 Edit Welcome Message", callback_data: "edit_welcome" }],
+              [{ text: "👀 Preview Welcome Message", callback_data: "preview_welcome" }],
+              [{ text: "🔙 Back to Admin", callback_data: "back_to_admin" }]
+            ]
+          };
+
+          await sendMessage(chatId, welcomeManageMessage, welcomeKeyboard);
+          break;
+
+        case data === 'edit_welcome':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+          
+          const session = getUserSession(userId);
+          session.awaitingInput = 'edit_welcome_message';
+          
+          await sendMessage(chatId, `📝 *Edit Welcome Message*
+
+Please send the new welcome message you'd like to use.
+
+You can use:
+• **Bold text** for emphasis
+• *Italic text* for style
+• Emojis 🎯
+• Line breaks for formatting
+
+Send your new welcome message now:`);
+          break;
+
+        case data === 'preview_welcome':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+          
+          const currentWelcome = `🎯 *Welcome to Dynamic Capital VIP!*
+
+👋 Hello ${firstName}! Ready to join our exclusive trading community?
+
+🌟 *What Our VIP Community Offers:*
+• 🔥 Premium trading signals & alerts
+• 📊 Daily market analysis & insights  
+• 🎓 Professional mentorship programs
+• 💎 Exclusive VIP chat access
+• 📈 Live market outlook sessions
+• 🎯 Personalized trading strategies
+
+🆓 *Free Member Benefits:*
+• Basic market updates
+• Limited community access
+• 3 educational resources per month
+
+💎 *Ready to unlock VIP benefits?*
+Choose an option below:`;
+
+          await sendMessage(chatId, `📋 *Current Welcome Message Preview:*\n\n${currentWelcome}`);
+          break;
+
+        case data === 'admin_packages':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+          
+          const packagesMessage = `📦 *Package Management*
+
+Manage VIP subscription packages.
+
+Choose an action:`;
+
+          const packagesKeyboard = {
+            inline_keyboard: [
+              [{ text: "➕ Add New Package", callback_data: "add_package" }],
+              [{ text: "📋 View All Packages", callback_data: "view_all_packages" }],
+              [{ text: "✏️ Edit Package", callback_data: "edit_package_list" }],
+              [{ text: "🗑 Delete Package", callback_data: "delete_package_list" }],
+              [{ text: "🔙 Back to Admin", callback_data: "back_to_admin" }]
+            ]
+          };
+
+          await sendMessage(chatId, packagesMessage, packagesKeyboard);
+          break;
+
+        case data === 'add_package':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+          
+          const addSession = getUserSession(userId);
+          addSession.awaitingInput = 'add_package_name';
+          addSession.packageData = {};
+          
+          await sendMessage(chatId, `➕ *Add New Package*
+
+Step 1/5: Enter the package name
+Example: "Premium VIP", "Gold Membership"
+
+Send the package name:`);
+          break;
+
+        case data === 'view_all_packages':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+          
+          try {
+            const packages = await getSubscriptionPlans();
+            let packagesList = "📋 *All Packages*\n\n";
+            
+            if (packages.length > 0) {
+              packages.forEach((pkg: any, index: number) => {
+                packagesList += `${index + 1}. **${pkg.name}**\n`;
+                packagesList += `   💰 Price: $${pkg.price}\n`;
+                packagesList += `   ⏱ Duration: ${pkg.duration_months} months\n`;
+                packagesList += `   📋 ID: \`${pkg.id}\`\n\n`;
+              });
+            } else {
+              packagesList += "No packages found.";
+            }
+
+            const viewKeyboard = {
+              inline_keyboard: [
+                [{ text: "🔙 Back to Packages", callback_data: "admin_packages" }]
+              ]
+            };
+
+            await sendMessage(chatId, packagesList, viewKeyboard);
+          } catch (error) {
+            await sendMessage(chatId, "❌ Error loading packages.");
+          }
+          break;
+
+        case data === 'admin_promos':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+          
+          const promosMessage = `🎁 *Promo Code Management*
+
+Manage promotional codes and discounts.
+
+Choose an action:`;
+
+          const promosKeyboard = {
+            inline_keyboard: [
+              [{ text: "➕ Create Promo Code", callback_data: "create_promo" }],
+              [{ text: "📋 View All Promos", callback_data: "view_all_promos" }],
+              [{ text: "✏️ Edit Promo Code", callback_data: "edit_promo_list" }],
+              [{ text: "🗑 Delete Promo Code", callback_data: "delete_promo_list" }],
+              [{ text: "🔙 Back to Admin", callback_data: "back_to_admin" }]
+            ]
+          };
+
+          await sendMessage(chatId, promosMessage, promosKeyboard);
+          break;
+
+        case data === 'create_promo':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+          
+          const promoSession = getUserSession(userId);
+          promoSession.awaitingInput = 'create_promo_code';
+          promoSession.promoData = {};
+          
+          await sendMessage(chatId, `➕ *Create Promo Code*
+
+Step 1/5: Enter the promo code
+Example: "SAVE20", "WELCOME50"
+
+Send the promo code:`);
+          break;
+
+        case data === 'view_all_promos':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+          
+          try {
+            const { data: promos } = await supabaseAdmin
+              .from('promotions')
+              .select('*')
+              .order('created_at', { ascending: false });
+            
+            let promosList = "📋 *All Promo Codes*\n\n";
+            
+            if (promos && promos.length > 0) {
+              promos.forEach((promo: any, index: number) => {
+                const status = promo.is_active ? "🟢 Active" : "🔴 Inactive";
+                promosList += `${index + 1}. **${promo.code}**\n`;
+                promosList += `   💰 Discount: ${promo.discount_type === 'percentage' ? promo.discount_value + '%' : '$' + promo.discount_value}\n`;
+                promosList += `   📅 Valid until: ${new Date(promo.valid_until).toLocaleDateString()}\n`;
+                promosList += `   📊 Status: ${status}\n`;
+                promosList += `   🔢 Uses: ${promo.current_uses}/${promo.max_uses || '∞'}\n`;
+                promosList += `   📋 ID: \`${promo.id}\`\n\n`;
+              });
+            } else {
+              promosList += "No promo codes found.";
+            }
+
+            const viewPromosKeyboard = {
+              inline_keyboard: [
+                [{ text: "🔙 Back to Promos", callback_data: "admin_promos" }]
+              ]
+            };
+
+            await sendMessage(chatId, promosList, viewPromosKeyboard);
+          } catch (error) {
+            await sendMessage(chatId, "❌ Error loading promo codes.");
+          }
+          break;
+
+        case data === 'back_to_admin':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+          
+          const backAdminMessage = `🔐 *Admin Dashboard*
+
+📊 *Available Commands:*
+• 📈 View Statistics  
+• 👥 Manage Users
+• 💰 Manage Payments
+• 📢 Send Broadcast
+• 💾 Export Data
+• 💬 Manage Welcome Message
+• 📦 Manage Packages  
+• 🎁 Manage Promo Codes
+
+Choose an admin action:`;
+
+          const backAdminKeyboard = {
+            inline_keyboard: [
+              [
+                { text: "📈 Statistics", callback_data: "admin_stats" },
+                { text: "👥 Users", callback_data: "admin_users" }
+              ],
+              [
+                { text: "💰 Payments", callback_data: "admin_payments" },
+                { text: "📢 Broadcast", callback_data: "admin_broadcast" }
+              ],
+              [
+                { text: "💬 Welcome Message", callback_data: "admin_welcome" },
+                { text: "📦 Packages", callback_data: "admin_packages" }
+              ],
+              [
+                { text: "🎁 Promo Codes", callback_data: "admin_promos" },
+                { text: "💾 Export Data", callback_data: "admin_export" }
+              ],
+              [
+                { text: "🔙 Main Menu", callback_data: "back_to_main" }
+              ]
+            ]
+          };
+
+          await sendMessage(chatId, backAdminMessage, backAdminKeyboard);
+          break;
+
+        case data === 'discount_fixed':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+          
+          const fixedSession = getUserSession(userId);
+          fixedSession.promoData.discount_type = 'fixed';
+          fixedSession.awaitingInput = 'create_promo_discount_value';
+          
+          await sendMessage(chatId, `💰 Discount Type: Fixed Amount ($)
+
+Step 3/5: Enter the discount amount in USD
+Example: 10, 25, 50
+
+Send the discount amount:`);
+          break;
+
+        case data === 'discount_percentage':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+          
+          const percentSession = getUserSession(userId);
+          percentSession.promoData.discount_type = 'percentage';
+          percentSession.awaitingInput = 'create_promo_discount_value';
+          
+          await sendMessage(chatId, `📊 Discount Type: Percentage (%)
+
+Step 3/5: Enter the discount percentage
+Example: 10, 20, 25, 50
+
+Send the discount percentage:`);
           break;
 
         default:
