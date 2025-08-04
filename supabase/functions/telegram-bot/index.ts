@@ -280,6 +280,12 @@ async function getActivePromotions() {
       .gte('valid_until', new Date().toISOString())
       .order('created_at', { ascending: false });
 
+    if (error) {
+      console.error('Promotions query error:', error);
+      return [];
+    }
+
+    console.log('Active promotions found:', data?.length || 0);
     return data || [];
   } catch (error) {
     console.error('Error fetching promotions:', error);
