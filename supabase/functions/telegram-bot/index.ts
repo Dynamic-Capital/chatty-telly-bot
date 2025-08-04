@@ -6,6 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
 
+// VIP Channel and Group Configuration
+// Note: You'll need to add the bot as admin to both channel and group
+// and get the actual chat IDs (these are placeholders)
+const VIP_CHANNEL_ID = "-1001234567890"; // Replace with actual channel ID
+const VIP_GROUP_ID = "-1001234567891";   // Replace with actual group ID
+
 // Helper logging function
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -92,6 +98,18 @@ serve(async (req) => {
       } else if (text.startsWith("/setcrypto ") && isAdmin) {
         const cryptoDetails = text.replace("/setcrypto ", "").trim();
         await handleSetCryptoDetails(botToken, chatId, cryptoDetails, supabaseClient);
+      } else if (text.startsWith("/addvip ") && isAdmin) {
+        const userId = text.replace("/addvip ", "").trim();
+        await handleAddVIP(botToken, chatId, userId, supabaseClient);
+      } else if (text.startsWith("/removevip ") && isAdmin) {
+        const userId = text.replace("/removevip ", "").trim();
+        await handleRemoveVIP(botToken, chatId, userId, supabaseClient);
+      } else if (text.startsWith("/checkvip ") && isAdmin) {
+        const userId = text.replace("/checkvip ", "").trim();
+        await handleCheckVIP(botToken, chatId, userId, supabaseClient);
+      } else if (text.startsWith("/checkexpired") && isAdmin) {
+        await checkExpiredSubscriptions(botToken, supabaseClient);
+        await sendMessage(botToken, chatId, "✅ Expired subscriptions check completed. Check logs for details.");
       } else if (text.startsWith("/addplan ") && isAdmin) {
         const planData = text.replace("/addplan ", "").trim();
         await handleAddPlan(botToken, chatId, planData, supabaseClient);
@@ -840,11 +858,11 @@ async function handleAdminMenu(botToken: string, chatId: number, supabaseClient:
         { text: "📦 Manage Plans", callback_data: "admin_plans" }
       ],
       [
-        { text: "⚙️ Bot Settings", callback_data: "admin_settings" },
+        { text: "👥 VIP Management", callback_data: "admin_vip" },
         { text: "💳 Payment Settings", callback_data: "admin_payments" }
       ],
       [
-        { text: "👥 User Management", callback_data: "admin_users" },
+        { text: "⚙️ Bot Settings", callback_data: "admin_settings" },
         { text: "📝 System Logs", callback_data: "admin_logs" }
       ],
       [
@@ -896,6 +914,15 @@ async function handleAdminCallback(botToken: string, chatId: number, data: strin
       break;
     case "admin_logs":
       await handleAdminLogs(botToken, chatId, supabaseClient);
+      break;
+    case "admin_vip":
+      await handleManageVIPAccess(botToken, chatId, supabaseClient);
+      break;
+    case "admin_check_expired":
+      await checkExpiredSubscriptions(botToken, supabaseClient);
+      await sendMessage(botToken, chatId, "✅ Expired subscriptions check completed. Check logs for details.", {
+        inline_keyboard: [[{ text: "← Back to VIP Management", callback_data: "admin_vip" }]]
+      });
       break;
     default:
       await sendMessage(botToken, chatId, "❌ Unknown admin command.");
@@ -1601,9 +1628,19 @@ Your ${plan.name} subscription has been activated!
 📅 <b>Start Date:</b> ${startDate.toLocaleDateString()}
 ${endDate ? `📅 <b>End Date:</b> ${endDate.toLocaleDateString()}` : '🔥 <b>Lifetime Access!</b>'}
 
-Welcome to VIP! 🌟`;
+🌟 <b>VIP Access Granted!</b>
+You're being added to our exclusive VIP channels...
+
+Welcome to VIP! 🎉`;
 
   await sendMessage(botToken, subscription.telegram_user_id, userNotification);
+
+  // Add user to VIP group and channel
+  const vipAccessGranted = await addUserToVIPAccess(
+    botToken, 
+    parseInt(subscription.telegram_user_id), 
+    subscription.telegram_username
+  );
 
   // Notify admin
   await sendMessage(botToken, chatId, `✅ <b>Payment Approved</b>
@@ -1611,8 +1648,9 @@ Welcome to VIP! 🌟`;
 Subscription ID: <code>${subscriptionId}</code>
 User: ${subscription.telegram_user_id} (@${subscription.telegram_username})
 Plan: ${plan.name} ($${plan.price})
+VIP Access: ${vipAccessGranted ? '✅ Granted' : '❌ Failed'}
 
-User has been notified. ✨`);
+User has been notified and ${vipAccessGranted ? 'added to VIP channels' : 'VIP access failed - check logs'}. ✨`);
 }
 
 async function handleRejectPayment(botToken: string, chatId: number, subscriptionId: string, reason: string, supabaseClient: any) {
@@ -1647,6 +1685,14 @@ async function handleRejectPayment(botToken: string, chatId: number, subscriptio
     await sendMessage(botToken, chatId, "❌ Failed to reject payment.");
     return;
   }
+
+  // Remove user from VIP access if they had it
+  await removeUserFromVIPAccess(
+    botToken, 
+    parseInt(subscription.telegram_user_id), 
+    subscription.telegram_username, 
+    `Payment rejected: ${reason}`
+  );
 
   const plan = subscription.subscription_plans;
 
@@ -1752,11 +1798,321 @@ Parameters:
   if (error) {
     await sendMessage(botToken, chatId, "❌ Failed to create plan. It might already exist.");
     return;
+}
+
+// === GROUP AND CHANNEL MANAGEMENT FUNCTIONS ===
+
+// Add user to VIP group and channel
+async function addUserToVIPAccess(botToken: string, userId: number, username: string) {
+  logStep("Adding user to VIP access", { userId, username });
+  
+  try {
+    // Add to VIP channel
+    await addUserToChat(botToken, VIP_CHANNEL_ID, userId);
+    logStep("User added to VIP channel", { userId, channelId: VIP_CHANNEL_ID });
+    
+    // Add to VIP group
+    await addUserToChat(botToken, VIP_GROUP_ID, userId);
+    logStep("User added to VIP group", { userId, groupId: VIP_GROUP_ID });
+    
+    // Send welcome message to user
+    const welcomeMessage = `🎉 <b>Welcome to VIP Access!</b>
+
+Congratulations! You now have access to:
+
+📢 <b>VIP Channel:</b> Exclusive announcements and signals
+💬 <b>VIP Group:</b> Premium discussion and community
+
+🌟 <b>Your VIP Benefits:</b>
+• Priority market analysis
+• Exclusive trading signals
+• Direct access to premium content
+• Community discussions with fellow VIP members
+
+Enjoy your premium experience! 💎`;
+
+    await sendMessage(botToken, userId, welcomeMessage);
+    
+    return true;
+  } catch (error) {
+    logStep("Error adding user to VIP access", { userId, error: error.message });
+    return false;
   }
+}
+
+// Remove user from VIP group and channel
+async function removeUserFromVIPAccess(botToken: string, userId: number, username: string, reason: string = "Subscription expired") {
+  logStep("Removing user from VIP access", { userId, username, reason });
+  
+  try {
+    // Remove from VIP channel
+    await removeUserFromChat(botToken, VIP_CHANNEL_ID, userId);
+    logStep("User removed from VIP channel", { userId, channelId: VIP_CHANNEL_ID });
+    
+    // Remove from VIP group
+    await removeUserFromChat(botToken, VIP_GROUP_ID, userId);
+    logStep("User removed from VIP group", { userId, groupId: VIP_GROUP_ID });
+    
+    // Send notification to user
+    const notificationMessage = `📢 <b>VIP Access Update</b>
+
+Your VIP access has been updated.
+
+<b>Reason:</b> ${reason}
+
+💡 <b>To regain access:</b>
+• Renew your subscription
+• Contact support: @DynamicCapital_Support
+• Use /start to see available plans
+
+Thank you for being part of our community! 🙏`;
+
+    await sendMessage(botToken, userId, notificationMessage);
+    
+    return true;
+  } catch (error) {
+    logStep("Error removing user from VIP access", { userId, error: error.message });
+    return false;
+  }
+}
+
+// Add user to specific chat
+async function addUserToChat(botToken: string, chatId: string, userId: number) {
+  const url = `https://api.telegram.org/bot${botToken}/approveChatJoinRequest`;
+  
+  try {
+    // First try to invite user directly
+    const inviteResponse = await fetch(`https://api.telegram.org/bot${botToken}/createChatInviteLink`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        member_limit: 1,
+        creates_join_request: false
+      })
+    });
+    
+    const inviteData = await inviteResponse.json();
+    if (inviteData.ok) {
+      // Send invite link to user
+      await sendMessage(botToken, userId, `🔗 <b>VIP Access Link</b>\n\nClick to join: ${inviteData.result.invite_link}`);
+    }
+    
+    return true;
+  } catch (error) {
+    logStep("Error adding user to chat", { chatId, userId, error: error.message });
+    throw error;
+  }
+}
+
+// Remove user from specific chat
+async function removeUserFromChat(botToken: string, chatId: string, userId: number) {
+  const url = `https://api.telegram.org/bot${botToken}/banChatMember`;
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        user_id: userId,
+        until_date: Math.floor(Date.now() / 1000) + 60, // Unban after 1 minute
+        revoke_messages: false
+      })
+    });
+    
+    const data = await response.json();
+    if (!data.ok) {
+      logStep("Failed to remove user from chat", { chatId, userId, error: data.description });
+    }
+    
+    // Unban user immediately so they can rejoin later if they renew
+    setTimeout(async () => {
+      await fetch(`https://api.telegram.org/bot${botToken}/unbanChatMember`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          user_id: userId,
+          only_if_banned: true
+        })
+      });
+    }, 2000);
+    
+    return true;
+  } catch (error) {
+    logStep("Error removing user from chat", { chatId, userId, error: error.message });
+    throw error;
+  }
+}
+
+// Check for expired subscriptions and remove access
+async function checkExpiredSubscriptions(botToken: string, supabaseClient: any) {
+  logStep("Checking for expired subscriptions");
+  
+  try {
+    const { data: expiredSubs, error } = await supabaseClient
+      .from("user_subscriptions")
+      .select("telegram_user_id, telegram_username, subscription_end_date")
+      .eq("is_active", true)
+      .lt("subscription_end_date", new Date().toISOString());
+    
+    if (error) {
+      logStep("Error fetching expired subscriptions", { error });
+      return;
+    }
+    
+    if (expiredSubs && expiredSubs.length > 0) {
+      logStep("Found expired subscriptions", { count: expiredSubs.length });
+      
+      for (const sub of expiredSubs) {
+        // Update subscription status
+        await supabaseClient
+          .from("user_subscriptions")
+          .update({
+            is_active: false,
+            payment_status: "expired",
+            updated_at: new Date().toISOString()
+          })
+          .eq("telegram_user_id", sub.telegram_user_id);
+        
+        // Remove from VIP access
+        await removeUserFromVIPAccess(
+          botToken, 
+          parseInt(sub.telegram_user_id), 
+          sub.telegram_username, 
+          "Subscription expired"
+        );
+        
+        logStep("Processed expired subscription", { 
+          userId: sub.telegram_user_id, 
+          username: sub.telegram_username 
+        });
+      }
+    } else {
+      logStep("No expired subscriptions found");
+    }
+  } catch (error) {
+    logStep("Error in checkExpiredSubscriptions", { error: error.message });
+  }
+}
+
+// Admin function to manually manage VIP access
+async function handleManageVIPAccess(botToken: string, chatId: number, supabaseClient: any) {
+  const { data: recentSubs } = await supabaseClient
+    .from("user_subscriptions")
+    .select("telegram_user_id, telegram_username, is_active, payment_status")
+    .order("created_at", { ascending: false })
+    .limit(10);
+  
+  let message = `👥 <b>VIP Access Management</b>\n\n`;
+  
+  if (recentSubs && recentSubs.length > 0) {
+    message += `<b>Recent Users:</b>\n\n`;
+    recentSubs.forEach((sub: any, index: number) => {
+      const status = sub.is_active ? "🟢 Active" : "🔴 Inactive";
+      message += `${index + 1}. ${sub.telegram_user_id} (@${sub.telegram_username || 'N/A'})\n`;
+      message += `   Status: ${status} (${sub.payment_status})\n\n`;
+    });
+  }
+  
+  message += `<b>Management Commands:</b>
+• <code>/addvip [user_id]</code> - Add user to VIP
+• <code>/removevip [user_id]</code> - Remove user from VIP
+• <code>/checkvip [user_id]</code> - Check user VIP status
+• <code>/checkexpired</code> - Check for expired subscriptions`;
+  
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "🔄 Check Expired Subscriptions", callback_data: "admin_check_expired" }],
+      [{ text: "← Back to Admin Panel", callback_data: "admin_menu" }]
+    ]
+  };
+  
+  await sendMessage(botToken, chatId, message, keyboard);
+}
 
   await sendMessage(botToken, chatId, `✅ <b>Plan Created!</b>
 
 📋 Name: ${name}
 💰 Price: $${price}
 ⏱️ Duration: ${isLifetime ? 'Lifetime' : `${months} month(s)`}`);
+}
+
+// Individual VIP management command functions
+async function handleAddVIP(botToken: string, chatId: number, userId: string, supabaseClient: any) {
+  if (!userId) {
+    await sendMessage(botToken, chatId, "❌ Please provide user ID.\n\nExample: <code>/addvip 123456789</code>");
+    return;
+  }
+
+  try {
+    const success = await addUserToVIPAccess(botToken, parseInt(userId), "manual_add");
+    if (success) {
+      await sendMessage(botToken, chatId, `✅ User ${userId} has been added to VIP channels.`);
+    } else {
+      await sendMessage(botToken, chatId, `❌ Failed to add user ${userId} to VIP channels. Check logs for details.`);
+    }
+  } catch (error) {
+    await sendMessage(botToken, chatId, `❌ Error adding user to VIP: ${error.message}`);
+  }
+}
+
+async function handleRemoveVIP(botToken: string, chatId: number, userId: string, supabaseClient: any) {
+  if (!userId) {
+    await sendMessage(botToken, chatId, "❌ Please provide user ID.\n\nExample: <code>/removevip 123456789</code>");
+    return;
+  }
+
+  try {
+    const success = await removeUserFromVIPAccess(botToken, parseInt(userId), "manual_remove", "Manually removed by admin");
+    if (success) {
+      await sendMessage(botToken, chatId, `✅ User ${userId} has been removed from VIP channels.`);
+    } else {
+      await sendMessage(botToken, chatId, `❌ Failed to remove user ${userId} from VIP channels. Check logs for details.`);
+    }
+  } catch (error) {
+    await sendMessage(botToken, chatId, `❌ Error removing user from VIP: ${error.message}`);
+  }
+}
+
+async function handleCheckVIP(botToken: string, chatId: number, userId: string, supabaseClient: any) {
+  if (!userId) {
+    await sendMessage(botToken, chatId, "❌ Please provide user ID.\n\nExample: <code>/checkvip 123456789</code>");
+    return;
+  }
+
+  try {
+    const { data: subscription } = await supabaseClient
+      .from("user_subscriptions")
+      .select("*, subscription_plans(*)")
+      .eq("telegram_user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let message = `👤 <b>VIP Status for User ${userId}</b>\n\n`;
+    
+    if (subscription) {
+      const plan = subscription.subscription_plans;
+      const status = subscription.is_active ? "🟢 Active" : "🔴 Inactive";
+      
+      message += `💎 <b>Subscription:</b> ${plan?.name || 'N/A'}\n`;
+      message += `💰 <b>Price:</b> $${plan?.price || '0'}\n`;
+      message += `📊 <b>Status:</b> ${status}\n`;
+      message += `💳 <b>Payment:</b> ${subscription.payment_status}\n`;
+      
+      if (subscription.subscription_end_date) {
+        message += `📅 <b>Expires:</b> ${new Date(subscription.subscription_end_date).toLocaleDateString()}\n`;
+      }
+      
+      message += `🕒 <b>Created:</b> ${new Date(subscription.created_at).toLocaleDateString()}`;
+    } else {
+      message += "❌ No subscription found for this user.";
+    }
+
+    await sendMessage(botToken, chatId, message);
+  } catch (error) {
+    await sendMessage(botToken, chatId, `❌ Error checking VIP status: ${error.message}`);
+  }
 }
