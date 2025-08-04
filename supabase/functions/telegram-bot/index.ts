@@ -2618,7 +2618,7 @@ Learn from industry experts and join our community of successful traders!
 // Education package details handler
 async function handleEducationPackageDetails(botToken: string, chatId: number, userId: number, username: string, packageId: string, supabaseClient: any) {
   try {
-    const { data: package, error } = await supabaseClient
+    const { data: pkg, error } = await supabaseClient
       .from("education_packages")
       .select(`
         *,
@@ -2628,59 +2628,59 @@ async function handleEducationPackageDetails(botToken: string, chatId: number, u
       .eq("is_active", true)
       .single();
 
-    if (error || !package) {
+    if (error || !pkg) {
       await sendMessage(botToken, chatId, "❌ Education program not found or no longer available.");
       return;
     }
 
-    let message = `🎓 <b>${package.name}</b>
+    let message = `🎓 <b>${pkg.name}</b>
 
 📝 <b>Description:</b>
-${package.detailed_description || package.description}
+${pkg.detailed_description || pkg.description}
 
-💰 <b>Investment:</b> $${package.price} ${package.currency}
-⏱️ <b>Duration:</b> ${package.duration_weeks} weeks
-📊 <b>Level:</b> ${package.difficulty_level}
-👨‍🏫 <b>Instructor:</b> ${package.instructor_name}
+💰 <b>Investment:</b> $${pkg.price} ${pkg.currency}
+⏱️ <b>Duration:</b> ${pkg.duration_weeks} weeks
+📊 <b>Level:</b> ${pkg.difficulty_level}
+👨‍🏫 <b>Instructor:</b> ${pkg.instructor_name}
 
 `;
 
-    if (package.instructor_bio) {
+    if (pkg.instructor_bio) {
       message += `👤 <b>About Instructor:</b>
-${package.instructor_bio}
+${pkg.instructor_bio}
 
 `;
     }
 
-    if (package.learning_outcomes && package.learning_outcomes.length > 0) {
+    if (pkg.learning_outcomes && pkg.learning_outcomes.length > 0) {
       message += `🎯 <b>What You'll Learn:</b>
-${package.learning_outcomes.map((outcome: string, index: number) => `${index + 1}. ${outcome}`).join('\n')}
+${pkg.learning_outcomes.map((outcome: string, index: number) => `${index + 1}. ${outcome}`).join('\n')}
 
 `;
     }
 
-    if (package.features && package.features.length > 0) {
+    if (pkg.features && pkg.features.length > 0) {
       message += `✨ <b>Program Features:</b>
-${package.features.map((feature: string) => `• ${feature}`).join('\n')}
+${pkg.features.map((feature: string) => `• ${feature}`).join('\n')}
 
 `;
     }
 
-    if (package.requirements && package.requirements.length > 0) {
+    if (pkg.requirements && pkg.requirements.length > 0) {
       message += `📋 <b>Requirements:</b>
-${package.requirements.map((req: string) => `• ${req}`).join('\n')}
+${pkg.requirements.map((req: string) => `• ${req}`).join('\n')}
 
 `;
     }
 
     // Check availability
-    const spotsLeft = package.max_students ? package.max_students - package.current_students : null;
+    const spotsLeft = pkg.max_students ? pkg.max_students - pkg.current_students : null;
     if (spotsLeft !== null) {
       message += `👥 <b>Availability:</b> ${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''} remaining\n\n`;
     }
 
-    if (package.enrollment_deadline) {
-      const deadline = new Date(package.enrollment_deadline);
+    if (pkg.enrollment_deadline) {
+      const deadline = new Date(pkg.enrollment_deadline);
       message += `⏰ <b>Enrollment Deadline:</b> ${deadline.toLocaleDateString()}\n\n`;
     }
 
@@ -2689,7 +2689,7 @@ ${package.requirements.map((req: string) => `• ${req}`).join('\n')}
     const keyboard = {
       inline_keyboard: [
         [
-          { text: `🚀 Enroll Now - $${package.price}`, callback_data: `enroll_education_${package.id}` }
+          { text: `🚀 Enroll Now - $${pkg.price}`, callback_data: `enroll_education_${pkg.id}` }
         ],
         [
           { text: "← Back to Education", callback_data: "education_menu" },
@@ -2730,20 +2730,20 @@ You are already enrolled in this program.
     }
 
     // Get package details
-    const { data: package, error: packageError } = await supabaseClient
+    const { data: pkg, error: packageError } = await supabaseClient
       .from("education_packages")
       .select("*")
       .eq("id", packageId)
       .eq("is_active", true)
       .single();
 
-    if (packageError || !package) {
+    if (packageError || !pkg) {
       await sendMessage(botToken, chatId, "❌ Education program not found.");
       return;
     }
 
     // Check availability
-    if (package.max_students && package.current_students >= package.max_students) {
+    if (pkg.max_students && pkg.current_students >= pkg.max_students) {
       await sendMessage(botToken, chatId, `❌ <b>Program Full</b>
 
 Unfortunately, this program is currently full.
@@ -2752,10 +2752,10 @@ Unfortunately, this program is currently full.
       return;
     }
 
-    const message = `🎓 <b>Enroll in ${package.name}</b>
+    const message = `🎓 <b>Enroll in ${pkg.name}</b>
 
-💰 <b>Investment:</b> $${package.price} ${package.currency}
-⏱️ <b>Duration:</b> ${package.duration_weeks} weeks
+💰 <b>Investment:</b> $${pkg.price} ${pkg.currency}
+⏱️ <b>Duration:</b> ${pkg.duration_weeks} weeks
 
 Choose your payment method:`;
 
@@ -2782,13 +2782,13 @@ Choose your payment method:`;
 // Education payment handler
 async function handleEducationPayment(botToken: string, chatId: number, userId: number, username: string, method: string, packageId: string, supabaseClient: any) {
   try {
-    const { data: package, error: packageError } = await supabaseClient
+    const { data: pkg, error: packageError } = await supabaseClient
       .from("education_packages")
       .select("*")
       .eq("id", packageId)
       .single();
 
-    if (packageError || !package) {
+    if (packageError || !pkg) {
       await sendMessage(botToken, chatId, "❌ Education program not found.");
       return;
     }
@@ -2801,7 +2801,7 @@ async function handleEducationPayment(botToken: string, chatId: number, userId: 
       enrollment_status: 'pending',
       payment_status: 'pending',
       payment_method: method,
-      payment_amount: package.price
+      payment_amount: pkg.price
     };
 
     const { data: enrollment, error: enrollmentError } = await supabaseClient
@@ -2818,8 +2818,8 @@ async function handleEducationPayment(botToken: string, chatId: number, userId: 
 
     let paymentMessage = `💳 <b>${method === 'bank' ? 'Bank Transfer' : 'Crypto'} Payment</b>
 
-📋 <b>Program:</b> ${package.name}
-💰 <b>Amount:</b> $${package.price}
+📋 <b>Program:</b> ${pkg.name}
+💰 <b>Amount:</b> $${pkg.price}
 🆔 <b>Reference:</b> <code>EDU-${userId}-${packageId.slice(-8)}</code>
 
 `;
@@ -2857,7 +2857,7 @@ async function handleEducationPayment(botToken: string, chatId: number, userId: 
 📸 <b>After payment, send to this chat:</b>
 • Transaction hash (TxID)
 • Screenshot of successful transaction
-• Your payment amount: <code>$${package.price}</code>
+• Your payment amount: <code>$${pkg.price}</code>
 
 ⏰ <b>Processing:</b> 1-2 hours after verification
 
