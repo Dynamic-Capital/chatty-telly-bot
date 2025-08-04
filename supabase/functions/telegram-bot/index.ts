@@ -725,12 +725,7 @@ Choose an option below to get started:`;
   });
 }
 
-
-  await sendMessage(botToken, chatId, welcomeMessage, mainMenuKeyboard);
-  
-  // Track main menu view
-  await trackInteraction(supabaseClient, userId.toString(), "menu_view", { menu: "main" }, "main_menu");
-}
+// Support function
 
 // Support function
 async function handleContactSupport(botToken: string, chatId: number, supabaseClient: any) {
