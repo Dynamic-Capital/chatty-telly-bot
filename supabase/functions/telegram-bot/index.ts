@@ -2,93 +2,15 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
 
-const supabaseClient = createClient(
-  Deno.env.get("SUPABASE_URL") ?? "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-  { auth: { persistSession: false } }
-);
-
-// Helper to log messages
-const logMessage = (step: string, details?: any) => {
-  console.log(`[TELEGRAM-BOT] ${step}`, details ? JSON.stringify(details) : '');
+// Helper logging function
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[TELEGRAM-BOT] ${step}${detailsStr}`);
 };
-
-// Helper to get or create bot user
-async function getOrCreateUser(telegramUser: any) {
-  const { data: existingUser } = await supabaseClient
-    .from('bot_users')
-    .select('*')
-    .eq('telegram_id', telegramUser.id.toString())
-    .maybeSingle();
-
-  if (existingUser) {
-    return existingUser;
-  }
-
-  const { data: newUser, error } = await supabaseClient
-    .from('bot_users')
-    .insert({
-      telegram_id: telegramUser.id.toString(),
-      username: telegramUser.username,
-      first_name: telegramUser.first_name,
-      last_name: telegramUser.last_name,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    logMessage("Error creating user", error);
-    throw error;
-  }
-
-  return newUser;
-}
-
-// Helper to send Telegram message
-async function sendTelegramMessage(chatId: string, text: string, replyMarkup?: any) {
-  const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
-  if (!botToken) {
-    throw new Error('TELEGRAM_BOT_TOKEN not set');
-  }
-
-  const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: text,
-      reply_markup: replyMarkup,
-      parse_mode: 'HTML'
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    logMessage("Error sending message", error);
-    throw new Error(`Failed to send message: ${error}`);
-  }
-
-  return await response.json();
-}
-
-// Helper to get subscription plans
-async function getSubscriptionPlans() {
-  const { data: plans, error } = await supabaseClient
-    .from('subscription_plans')
-    .select('*')
-    .order('price', { ascending: true });
-
-  if (error) {
-    logMessage("Error fetching plans", error);
-    throw error;
-  }
-
-  return plans;
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -96,211 +18,564 @@ serve(async (req) => {
   }
 
   try {
-    const update = await req.json();
-    logMessage("Received update", update);
+    logStep("Telegram bot webhook started");
 
-    // Handle callback queries (button presses)
+    const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    if (!botToken) {
+      throw new Error("TELEGRAM_BOT_TOKEN is not set");
+    }
+
+    // Initialize Supabase client with service role key
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
+    );
+
+    const update = await req.json();
+    logStep("Received update", { updateId: update.update_id });
+
+    // Handle text messages
+    if (update.message?.text) {
+      const message = update.message;
+      const chatId = message.chat.id;
+      const text = message.text;
+      const userId = message.from.id;
+      const username = message.from.username;
+
+      logStep("Processing message", { chatId, text, userId, username });
+
+      if (text === "/start") {
+        await handleStartCommand(botToken, chatId, userId, username, supabaseClient);
+      } else if (text.startsWith("/promo ") || text.startsWith("PROMO")) {
+        const promoCode = text.replace("/promo ", "").replace("PROMO", "").trim();
+        await handlePromoCode(botToken, chatId, userId, username, promoCode, supabaseClient);
+      } else {
+        await sendMessage(botToken, chatId, "I didn't understand that command. Use /start to see available options or send a promo code like: PROMO SAVE20");
+      }
+    }
+
+    // Handle photo uploads (receipts)
+    if (update.message?.photo || update.message?.document) {
+      const message = update.message;
+      const chatId = message.chat.id;
+      const userId = message.from.id;
+      const username = message.from.username;
+
+      logStep("Processing file upload", { chatId, userId, username });
+      await handleFileUpload(botToken, chatId, userId, username, message, supabaseClient);
+    }
+
+    // Handle callback queries (inline button presses)
     if (update.callback_query) {
       const callbackQuery = update.callback_query;
-      const chatId = callbackQuery.message.chat.id.toString();
+      const chatId = callbackQuery.message.chat.id;
       const data = callbackQuery.data;
-      const user = await getOrCreateUser(callbackQuery.from);
+      const userId = callbackQuery.from.id;
+      const username = callbackQuery.from.username;
 
-      if (data.startsWith('plan_')) {
-        const planId = data.replace('plan_', '');
-        
-        // Get plan details
-        const { data: plan } = await supabaseClient
-          .from('subscription_plans')
-          .select('*')
-          .eq('id', planId)
-          .single();
+      logStep("Processing callback query", { chatId, data, userId, username });
 
-        if (plan) {
-          const planDetails = `
-<b>${plan.name}</b>
-💰 Price: $${plan.price}
-⏰ Duration: ${plan.is_lifetime ? 'Lifetime' : `${plan.duration_months} month(s)`}
-✨ Features:
-${plan.features.map((f: string) => `• ${f}`).join('\n')}
-
-Choose your payment method:`;
-
-          const paymentKeyboard = {
-            inline_keyboard: [
-              [
-                { text: "💳 Stripe", callback_data: `payment_stripe_${planId}` },
-                { text: "🅿️ PayPal", callback_data: `payment_paypal_${planId}` }
-              ],
-              [
-                { text: "🪙 Binance", callback_data: `payment_binance_${planId}` },
-                { text: "🏦 Bank Transfer", callback_data: `payment_bank_${planId}` }
-              ],
-              [
-                { text: "⬅️ Back to Plans", callback_data: "show_plans" }
-              ]
-            ]
-          };
-
-          await sendTelegramMessage(chatId, planDetails, paymentKeyboard);
-        }
-      } else if (data.startsWith('payment_')) {
-        const [, method, planId] = data.split('_');
-        
-        // Create payment record
-        const { data: payment, error } = await supabaseClient
-          .from('payments')
-          .insert({
-            user_id: user.id,
-            plan_id: planId,
-            payment_method: method,
-            status: 'pending'
-          })
-          .select()
-          .single();
-
-        if (error) {
-          logMessage("Error creating payment", error);
-          await sendTelegramMessage(chatId, "❌ Error creating payment. Please try again.");
-          return new Response("OK");
-        }
-
-        // Get plan for amount
-        const { data: plan } = await supabaseClient
-          .from('subscription_plans')
-          .select('*')
-          .eq('id', planId)
-          .single();
-
-        if (method === 'stripe') {
-          // Create Stripe checkout session
-          const checkoutResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/create-checkout`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`
-            },
-            body: JSON.stringify({
-              plan_id: planId,
-              payment_id: payment.id,
-              telegram_chat_id: chatId,
-              amount: plan.price * 100, // Convert to cents
-            })
-          });
-
-          if (checkoutResponse.ok) {
-            const { url } = await checkoutResponse.json();
-            await sendTelegramMessage(chatId, `💳 <b>Stripe Payment</b>\n\nClick the link below to complete your payment:\n\n🔗 <a href="${url}">Complete Payment</a>\n\n⏱️ Payment link expires in 30 minutes.`);
-          } else {
-            await sendTelegramMessage(chatId, "❌ Error creating Stripe checkout. Please try again.");
-          }
-        } else {
-          // For other payment methods, show manual payment instructions
-          const instructions = getPaymentInstructions(method, plan.price, payment.id);
-          await sendTelegramMessage(chatId, instructions);
-        }
-      } else if (data === 'show_plans') {
-        await showPlans(chatId);
+      if (data?.startsWith("plan_")) {
+        const planId = data.replace("plan_", "");
+        await handlePlanSelection(botToken, chatId, userId, username, planId, supabaseClient);
+      } else if (data?.startsWith("payment_")) {
+        const [, method, planId] = data.split("_");
+        await handlePaymentMethod(botToken, chatId, userId, username, method, planId, supabaseClient);
+      } else if (data === "back_to_plans") {
+        await handleStartCommand(botToken, chatId, userId, username, supabaseClient);
       }
 
-      // Answer callback query
-      await fetch(`https://api.telegram.org/bot${Deno.env.get('TELEGRAM_BOT_TOKEN')}/answerCallbackQuery`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ callback_query_id: callbackQuery.id }),
-      });
+      // Answer the callback query to remove loading state
+      await answerCallbackQuery(botToken, callbackQuery.id);
     }
 
-    // Handle regular messages
-    if (update.message) {
-      const message = update.message;
-      const chatId = message.chat.id.toString();
-      const text = message.text;
-      const user = await getOrCreateUser(message.from);
-
-      if (text === '/start') {
-        const welcomeMessage = `
-🤖 <b>Welcome to VIP Trading Signals!</b>
-
-👋 Hello ${user.first_name || 'there'}!
-
-Get access to premium trading signals, market analysis, and exclusive VIP content.
-
-Choose your subscription plan:`;
-
-        await sendTelegramMessage(chatId, welcomeMessage);
-        await showPlans(chatId);
-      } else if (text === '/status') {
-        await showUserStatus(chatId, user);
-      } else if (text === '/plans') {
-        await showPlans(chatId);
-      } else {
-        // Default response
-        await sendTelegramMessage(chatId, "Use /start to begin or /plans to see subscription options.");
-      }
-    }
-
-    return new Response("OK", { headers: corsHeaders });
-  } catch (error) {
-    logMessage("Error processing update", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logStep("ERROR in telegram-bot", { message: errorMessage });
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
     });
   }
 });
 
-async function showPlans(chatId: string) {
-  const plans = await getSubscriptionPlans();
-  
-  const planButtons = plans.map(plan => ([{
-    text: `${plan.name} - $${plan.price}`,
-    callback_data: `plan_${plan.id}`
-  }]));
+async function handleStartCommand(botToken: string, chatId: number, userId: number, username: string, supabaseClient: any) {
+  logStep("Handling start command", { chatId, userId, username });
 
-  const keyboard = { inline_keyboard: planButtons };
+  // Fetch available subscription plans
+  const { data: plans, error } = await supabaseClient
+    .from("subscription_plans")
+    .select("*")
+    .order("price", { ascending: true });
 
-  const plansMessage = `
-💎 <b>VIP Subscription Plans</b>
-
-Choose the plan that works best for you:
-
-🔹 <b>1 Month VIP</b> - $9.99
-🔹 <b>3 Month VIP</b> - $24.99 (15% off)
-🔹 <b>6 Month VIP</b> - $44.99 (25% off)
-🔹 <b>Lifetime VIP</b> - $199.99 (Best Value!)
-
-✨ All plans include:
-• Priority trading signals
-• VIP chat access
-• Daily market analysis
-• Expert support
-
-Click a plan below for details:`;
-
-  await sendTelegramMessage(chatId, plansMessage, keyboard);
-}
-
-async function showUserStatus(chatId: string, user: any) {
-  const statusMessage = user.is_vip 
-    ? `✅ <b>VIP Status: Active</b>\n\n👤 User: ${user.first_name}\n⏰ Expires: ${user.subscription_expires_at ? new Date(user.subscription_expires_at).toLocaleDateString() : 'Never'}\n💎 Plan: ${user.current_plan_id ? 'VIP Member' : 'Free'}`
-    : `❌ <b>VIP Status: Inactive</b>\n\n👤 User: ${user.first_name}\n📝 Status: Free Member\n\n💡 Use /plans to upgrade to VIP!`;
-
-  await sendTelegramMessage(chatId, statusMessage);
-}
-
-function getPaymentInstructions(method: string, amount: number, paymentId: string): string {
-  switch (method) {
-    case 'paypal':
-      return `💰 <b>PayPal Payment</b>\n\nAmount: $${amount}\nPayment ID: ${paymentId}\n\n📧 Send payment to: payments@yourbot.com\n\n⚠️ Please include the Payment ID in the notes.\n\nOnce payment is confirmed, your VIP access will be activated automatically.`;
-    
-    case 'binance':
-      return `🪙 <b>Binance Payment</b>\n\nAmount: $${amount} USDT\nPayment ID: ${paymentId}\n\n💳 Binance Pay ID: @yourbot\n🔗 Or scan QR code: [QR_CODE_PLACEHOLDER]\n\n⚠️ Please include the Payment ID in the memo.\n\nOnce payment is confirmed, your VIP access will be activated automatically.`;
-    
-    case 'bank':
-      return `🏦 <b>Bank Transfer</b>\n\nAmount: $${amount}\nPayment ID: ${paymentId}\n\n🏛️ Bank Details:\nAccount: Your Bank Account\nRouting: 123456789\nSWIFT: ABCD1234\n\n⚠️ Please include the Payment ID in the transfer memo.\n\nProcessing time: 1-3 business days.`;
-    
-    default:
-      return `Payment method ${method} instructions coming soon.`;
+  if (error) {
+    logStep("Error fetching plans", { error });
+    await sendMessage(botToken, chatId, "Sorry, there was an error loading subscription plans. Please try again later.");
+    return;
   }
+
+  const keyboard = {
+    inline_keyboard: plans.map((plan: any) => [
+      {
+        text: `${plan.name} - $${plan.price}`,
+        callback_data: `plan_${plan.id}`
+      }
+    ])
+  };
+
+  const welcomeMessage = `🌟 Welcome to VIP Subscription Bot! 🌟
+
+Choose your subscription plan:
+
+💎 1 Month VIP - $9.99
+💎 3 Month VIP - $24.99  
+💎 6 Month VIP - $44.99
+💎 Lifetime VIP - $99.99
+
+Select a plan below to get started:`;
+
+  await sendMessage(botToken, chatId, welcomeMessage, keyboard);
+}
+
+async function handlePlanSelection(botToken: string, chatId: number, userId: number, username: string, planId: string, supabaseClient: any) {
+  logStep("Handling plan selection", { chatId, userId, planId });
+
+  // Get plan details
+  const { data: plan, error } = await supabaseClient
+    .from("subscription_plans")
+    .select("*")
+    .eq("id", planId)
+    .single();
+
+  if (error || !plan) {
+    logStep("Error fetching plan", { error });
+    await sendMessage(botToken, chatId, "Sorry, I couldn't find that plan. Please try again.");
+    return;
+  }
+
+  // First, check if user already has a subscription record
+  const { data: existingSubscription } = await supabaseClient
+    .from("user_subscriptions")
+    .select("id")
+    .eq("telegram_user_id", userId)
+    .maybeSingle();
+
+  let upsertError = null;
+  if (existingSubscription) {
+    // Update existing subscription
+    const { error: updateError } = await supabaseClient
+      .from("user_subscriptions")
+      .update({
+        telegram_username: username,
+        plan_id: planId,
+        payment_status: "pending",
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq("telegram_user_id", userId);
+    upsertError = updateError;
+  } else {
+    // Insert new subscription
+    const { error: insertError } = await supabaseClient
+      .from("user_subscriptions")
+      .insert({
+        telegram_user_id: userId,
+        telegram_username: username,
+        plan_id: planId,
+        payment_status: "pending",
+        is_active: false
+      });
+    upsertError = insertError;
+  }
+
+  if (upsertError) {
+    logStep("Error creating/updating subscription", { error: upsertError });
+    await sendMessage(botToken, chatId, "Sorry, there was an error processing your selection. Please try again.");
+    return;
+  }
+
+  const paymentKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "💳 Credit Card (Stripe)", callback_data: `payment_stripe_${planId}` },
+        { text: "🅿️ PayPal", callback_data: `payment_paypal_${planId}` }
+      ],
+      [
+        { text: "🏦 Bank Transfer", callback_data: `payment_bank_${planId}` },
+        { text: "₿ Crypto (Binance)", callback_data: `payment_crypto_${planId}` }
+      ],
+      [
+        { text: "← Back to Plans", callback_data: "back_to_plans" }
+      ]
+    ]
+  };
+
+  const planMessage = `📋 Plan Details:
+
+💎 ${plan.name}
+💰 Price: $${plan.price}
+⏱️ Duration: ${plan.is_lifetime ? "Lifetime Access" : `${plan.duration_months} month(s)`}
+
+Choose your payment method:`;
+
+  await sendMessage(botToken, chatId, planMessage, paymentKeyboard);
+}
+
+async function sendMessage(botToken: string, chatId: number, text: string, replyMarkup?: any) {
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+  const payload: any = {
+    chat_id: chatId,
+    text: text,
+    parse_mode: "HTML"
+  };
+
+  if (replyMarkup) {
+    payload.reply_markup = replyMarkup;
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      logStep("Error sending message", { error, status: response.status });
+    } else {
+      logStep("Message sent successfully", { chatId });
+    }
+  } catch (error) {
+    logStep("Error in sendMessage", { error });
+  }
+}
+
+async function answerCallbackQuery(botToken: string, callbackQueryId: string) {
+  const url = `https://api.telegram.org/bot${botToken}/answerCallbackQuery`;
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ callback_query_id: callbackQueryId })
+    });
+  } catch (error) {
+    logStep("Error answering callback query", { error });
+  }
+}
+
+async function handlePaymentMethod(botToken: string, chatId: number, userId: number, username: string, method: string, planId: string, supabaseClient: any) {
+  logStep("Handling payment method", { chatId, userId, method, planId });
+
+  // Get plan details
+  const { data: plan, error } = await supabaseClient
+    .from("subscription_plans")
+    .select("*")
+    .eq("id", planId)
+    .single();
+
+  if (error || !plan) {
+    await sendMessage(botToken, chatId, "Sorry, I couldn't find that plan. Please try again.");
+    return;
+  }
+
+  let paymentMessage = "";
+  let paymentInstructions = "";
+
+  switch (method) {
+    case "stripe":
+      paymentMessage = `💳 <b>Credit Card Payment (Stripe)</b>
+
+📋 Plan: ${plan.name}
+💰 Amount: $${plan.price}
+
+🔗 Click the link below to complete your payment:
+[Payment will be integrated with Stripe checkout]
+
+Once payment is confirmed, you'll get instant VIP access!`;
+      paymentInstructions = "Stripe checkout integration";
+      break;
+
+    case "paypal":
+      paymentMessage = `🅿️ <b>PayPal Payment</b>
+
+📋 Plan: ${plan.name}
+💰 Amount: $${plan.price}
+
+🔗 PayPal payment link:
+[PayPal integration will be added]
+
+Once payment is confirmed, you'll get instant VIP access!`;
+      paymentInstructions = "PayPal integration";
+      break;
+
+    case "bank":
+      paymentMessage = `🏦 <b>Bank Transfer Payment</b>
+
+📋 Plan: ${plan.name}
+💰 Amount: $${plan.price}
+
+💼 <b>Bank Details:</b>
+Bank Name: Your Bank Name
+Account Number: 1234567890
+Routing Number: 123456789
+Account Name: Your Business Name
+Reference: VIP-${userId}-${planId}
+
+📸 <b>Important:</b> After making the transfer, please send a screenshot or photo of your transfer receipt to this chat.
+
+⏰ Processing time: 1-2 business days after receipt verification.`;
+      paymentInstructions = "Bank transfer with receipt upload required";
+      break;
+
+    case "crypto":
+      paymentMessage = `₿ <b>Binance Pay / Crypto Payment</b>
+
+📋 Plan: ${plan.name}
+💰 Amount: $${plan.price}
+
+🔗 <b>Binance Pay ID:</b> 123456789
+💰 <b>Or send crypto to:</b>
+BTC: 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
+ETH: 0x742d35Cc7e8Ea3Fc05F5b8A6C4d8F0E5F9F1F1F1
+USDT (TRC20): TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+📸 <b>Important:</b> After making the payment, please send a screenshot of your transaction to this chat.
+
+⏰ Processing time: Usually within 30 minutes after confirmation.`;
+      paymentInstructions = "Binance Pay or crypto with receipt upload required";
+      break;
+
+    default:
+      await sendMessage(botToken, chatId, "Invalid payment method selected.");
+      return;
+  }
+
+  // Update subscription with payment method and instructions
+  await supabaseClient
+    .from("user_subscriptions")
+    .update({
+      payment_method: method,
+      payment_instructions: paymentInstructions,
+      bank_details: method === "bank" ? "Bank transfer details provided" : null
+    })
+    .eq("telegram_user_id", userId);
+
+  const backKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "← Back to Payment Methods", callback_data: `plan_${planId}` },
+        { text: "🏠 Start Over", callback_data: "back_to_plans" }
+      ]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, paymentMessage, backKeyboard);
+}
+
+async function handleFileUpload(botToken: string, chatId: number, userId: number, username: string, message: any, supabaseClient: any) {
+  logStep("Handling file upload", { chatId, userId });
+
+  // Check if user has a pending subscription
+  const { data: subscription, error } = await supabaseClient
+    .from("user_subscriptions")
+    .select("*, subscription_plans(*)")
+    .eq("telegram_user_id", userId)
+    .in("payment_status", ["pending", "crypto", "bank"]) // Accept multiple payment statuses
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    logStep("Error fetching subscription", { error });
+    await sendMessage(botToken, chatId, "❌ Error checking your subscription. Please try again.");
+    return;
+  }
+
+  if (!subscription) {
+    await sendMessage(botToken, chatId, "❌ No pending payment found. Please start by selecting a subscription plan first.\n\nUse /start to begin.");
+    return;
+  }
+
+  // Get file_id from photo or document
+  let fileId = "";
+  let fileName = "";
+
+  if (message.photo && message.photo.length > 0) {
+    // Get the largest photo
+    const photo = message.photo[message.photo.length - 1];
+    fileId = photo.file_id;
+    fileName = `receipt_${userId}_${Date.now()}.jpg`;
+  } else if (message.document) {
+    fileId = message.document.file_id;
+    fileName = message.document.file_name || `receipt_${userId}_${Date.now()}`;
+  }
+
+  if (!fileId) {
+    await sendMessage(botToken, chatId, "❌ No valid file received. Please send a photo or document.");
+    return;
+  }
+
+  try {
+    // Get file info from Telegram
+    const fileInfoResponse = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
+    const fileInfo = await fileInfoResponse.json();
+
+    if (!fileInfo.ok) {
+      throw new Error("Failed to get file info from Telegram");
+    }
+
+    // Download file from Telegram
+    const fileResponse = await fetch(`https://api.telegram.org/file/bot${botToken}/${fileInfo.result.file_path}`);
+    const fileBuffer = await fileResponse.arrayBuffer();
+
+    // Upload to Supabase Storage
+    const filePath = `${userId}/${fileName}`;
+    const { data: uploadData, error: uploadError } = await supabaseClient.storage
+      .from('payment-receipts')
+      .upload(filePath, fileBuffer, {
+        contentType: message.document?.mime_type || 'image/jpeg',
+        upsert: false
+      });
+
+    if (uploadError) {
+      logStep("Storage upload error", { error: uploadError });
+      await sendMessage(botToken, chatId, "❌ Failed to save your receipt. Please try again.");
+      return;
+    }
+
+    // Update subscription with receipt info
+    const { error: updateError } = await supabaseClient
+      .from("user_subscriptions")
+      .update({
+        receipt_file_path: filePath,
+        receipt_telegram_file_id: fileId,
+        payment_status: "receipt_submitted",
+        updated_at: new Date().toISOString()
+      })
+      .eq("telegram_user_id", userId);
+
+    if (updateError) {
+      logStep("Database update error", { error: updateError });
+      await sendMessage(botToken, chatId, "❌ Failed to update your payment status. Please contact support.");
+      return;
+    }
+
+    const successMessage = `✅ <b>Receipt Received Successfully!</b>
+
+📋 Plan: ${subscription.subscription_plans.name}
+💰 Amount: $${subscription.subscription_plans.price}
+💳 Payment Method: ${subscription.payment_method}
+
+📸 Your payment receipt has been submitted for verification.
+
+⏰ <b>What's next?</b>
+• Our team will verify your payment within 1-2 business days
+• You'll receive a confirmation message once approved
+• VIP access will be granted immediately after verification
+
+📞 For urgent matters, contact our support team.
+
+Thank you for your patience! 🙏`;
+
+    await sendMessage(botToken, chatId, successMessage);
+  } catch (error) {
+    logStep("Error processing file upload", { error });
+    await sendMessage(botToken, chatId, "❌ Failed to process your receipt. Please try again or contact support.");
+  }
+}
+
+async function handlePromoCode(botToken: string, chatId: number, userId: number, username: string, promoCode: string, supabaseClient: any) {
+  logStep("Handling promo code", { chatId, userId, promoCode });
+
+  if (!promoCode || promoCode.length === 0) {
+    await sendMessage(botToken, chatId, "❌ Please provide a valid promo code. Example: PROMO SAVE20");
+    return;
+  }
+
+  // Check if promo code exists and is valid
+  const { data: promotion, error } = await supabaseClient
+    .from("promotions")
+    .select("*")
+    .eq("code", promoCode.toUpperCase())
+    .eq("is_active", true)
+    .lte("valid_from", new Date().toISOString())
+    .gte("valid_until", new Date().toISOString())
+    .single();
+
+  if (error || !promotion) {
+    await sendMessage(botToken, chatId, `❌ <b>Invalid Promo Code</b>
+
+The promo code "${promoCode}" is either:
+• Not valid
+• Expired
+• Already used up
+
+💡 <b>Tip:</b> Make sure you typed the code correctly and it hasn't expired.
+
+Use /start to see available plans.`);
+    return;
+  }
+
+  // Check if user already used this promo
+  const { data: existingUsage } = await supabaseClient
+    .from("promotion_usage")
+    .select("*")
+    .eq("promotion_id", promotion.id)
+    .eq("telegram_user_id", userId)
+    .single();
+
+  if (existingUsage) {
+    await sendMessage(botToken, chatId, `❌ <b>Promo Code Already Used</b>
+
+You have already used the promo code "${promoCode}".
+
+Each promo code can only be used once per user.
+
+Use /start to see available plans.`);
+    return;
+  }
+
+  // Check if promo has usage limits
+  if (promotion.max_uses && promotion.current_uses >= promotion.max_uses) {
+    await sendMessage(botToken, chatId, `❌ <b>Promo Code Limit Reached</b>
+
+The promo code "${promoCode}" has reached its usage limit.
+
+Use /start to see available plans.`);
+    return;
+  }
+
+  // Save promo code for user's next purchase
+  await supabaseClient
+    .from("user_subscriptions")
+    .upsert({
+      telegram_user_id: userId,
+      telegram_username: username,
+      payment_status: "promo_applied",
+      is_active: false
+    }, { onConflict: "telegram_user_id" });
+
+  const discountText = promotion.discount_type === 'percentage' 
+    ? `${promotion.discount_value}%` 
+    : `$${promotion.discount_value}`;
+
+  const successMessage = `🎉 <b>Promo Code Applied Successfully!</b>
+
+💎 <b>Code:</b> ${promotion.code}
+💰 <b>Discount:</b> ${discountText} OFF
+
+✅ Your discount has been saved and will be applied to your next subscription purchase.
+
+🛍️ <b>Ready to subscribe?</b>
+Use /start to see plans with your discount applied!
+
+⏰ <b>Valid until:</b> ${new Date(promotion.valid_until).toLocaleDateString()}`;
+
+  await sendMessage(botToken, chatId, successMessage);
 }

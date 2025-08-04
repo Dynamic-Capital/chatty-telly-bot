@@ -118,6 +118,80 @@ export type Database = {
           },
         ]
       }
+      promotion_usage: {
+        Row: {
+          id: string
+          promotion_id: string
+          telegram_user_id: string
+          used_at: string
+        }
+        Insert: {
+          id?: string
+          promotion_id: string
+          telegram_user_id: string
+          used_at?: string
+        }
+        Update: {
+          id?: string
+          promotion_id?: string
+          telegram_user_id?: string
+          used_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_usage_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotions: {
+        Row: {
+          code: string
+          created_at: string
+          current_uses: number | null
+          description: string | null
+          discount_type: string
+          discount_value: number
+          id: string
+          is_active: boolean | null
+          max_uses: number | null
+          updated_at: string
+          valid_from: string
+          valid_until: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          current_uses?: number | null
+          description?: string | null
+          discount_type: string
+          discount_value: number
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          updated_at?: string
+          valid_from?: string
+          valid_until: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          current_uses?: number | null
+          description?: string | null
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string
+        }
+        Relationships: []
+      }
       subscription_plans: {
         Row: {
           created_at: string
@@ -153,6 +227,68 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      user_subscriptions: {
+        Row: {
+          bank_details: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          payment_instructions: string | null
+          payment_method: string | null
+          payment_status: string | null
+          plan_id: string | null
+          receipt_file_path: string | null
+          receipt_telegram_file_id: string | null
+          subscription_end_date: string | null
+          subscription_start_date: string | null
+          telegram_user_id: string
+          telegram_username: string | null
+          updated_at: string
+        }
+        Insert: {
+          bank_details?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          payment_instructions?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
+          plan_id?: string | null
+          receipt_file_path?: string | null
+          receipt_telegram_file_id?: string | null
+          subscription_end_date?: string | null
+          subscription_start_date?: string | null
+          telegram_user_id: string
+          telegram_username?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bank_details?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          payment_instructions?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
+          plan_id?: string | null
+          receipt_file_path?: string | null
+          receipt_telegram_file_id?: string | null
+          subscription_end_date?: string | null
+          subscription_start_date?: string | null
+          telegram_user_id?: string
+          telegram_username?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
