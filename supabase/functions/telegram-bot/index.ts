@@ -448,6 +448,8 @@ serve(async (req) => {
       if (data?.startsWith("plan_")) {
         const planId = data.replace("plan_", "");
         await handlePlanSelection(botToken, chatId, userId, username, planId, supabaseClient);
+      } else if (data === "payment_options") {
+        await handlePaymentOptions(botToken, chatId, supabaseClient);
       } else if (data?.startsWith("payment_")) {
         // Set payment session timeout
         updateUserSession(userId, 'payment');
@@ -488,8 +490,6 @@ serve(async (req) => {
       } else if (data?.startsWith("reupload_")) {
         const paymentId = data.replace("reupload_", "");
         await handleSpecificReupload(botToken, chatId, userId, paymentId, supabaseClient);
-      } else if (data === "payment_options") {
-        await handlePaymentOptions(botToken, chatId, supabaseClient);
       } else if (data === "enter_promo") {
         await handleEnterPromoMenu(botToken, chatId, userId, supabaseClient);
       } else if (data === "promo_help") {
