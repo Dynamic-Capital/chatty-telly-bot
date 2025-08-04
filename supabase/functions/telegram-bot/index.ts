@@ -43,8 +43,10 @@ const SUPPORT_GROUP_CONFIG = {
 const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
 const PAYMENT_TIMEOUT = 30 * 60 * 1000; // 30 minutes for payments
 const BUTTON_COOLDOWN = 2000; // 2 seconds cooldown between button presses
+const TYPING_TIMEOUT = 5 * 60 * 1000; // 5 minutes before showing typing indicator
 const userSessions = new Map(); // Store user session data
 const recentActions = new Map(); // Track recent button presses
+const typingTimers = new Map(); // Track typing indicators
 
 // Session management functions
 function updateUserSession(userId: number, action: string = 'activity') {
@@ -68,6 +70,17 @@ async function handleSessionTimeout(botToken: string, chatId: number, userId: nu
   const session = userSessions.get(userId);
   const timeoutType = session?.action === 'payment' ? 'payment' : 'chat';
   
+  // Only send timeout message if user was recently active (not if bot was "closed")
+  const lastActivity = session?.lastActivity || 0;
+  const timeSinceActivity = Date.now() - lastActivity;
+  
+  // If more than 2 hours passed, don't send timeout message (user likely closed bot)
+  if (timeSinceActivity > 2 * 60 * 60 * 1000) { // 2 hours
+    userSessions.delete(userId);
+    clearTypingIndicator(userId);
+    return;
+  }
+  
   await sendMessage(botToken, chatId, `⏰ <b>Session Timeout</b>
 
 Your ${timeoutType} session has expired for security purposes.
@@ -79,6 +92,54 @@ Your ${timeoutType} session has expired for security purposes.
   });
   
   userSessions.delete(userId);
+  clearTypingIndicator(userId);
+}
+
+// Typing indicator functions
+async function sendTypingAction(botToken: string, chatId: number, action: string = 'typing') {
+  try {
+    await fetch(`https://api.telegram.org/bot${botToken}/sendChatAction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        action: action // typing, find_location, record_video, upload_photo, etc.
+      })
+    });
+  } catch (error) {
+    console.error('Error sending typing action:', error);
+  }
+}
+
+function startTypingIndicator(botToken: string, chatId: number, userId: number) {
+  // Clear any existing timer
+  const existingTimer = typingTimers.get(userId);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+  }
+
+  // Start new typing timer (5 minutes)
+  const timer = setTimeout(async () => {
+    await sendTypingAction(botToken, chatId, 'typing');
+    logStep("Sent typing indicator for inactive user", { userId, chatId });
+    
+    // Send a gentle prompt after typing
+    setTimeout(async () => {
+      await sendMessage(botToken, chatId, `💭 <b>Still there?</b>\n\nI'm here to help you with VIP plans, trading questions, or any other support you need!\n\n💬 Just type your question or use /start for the main menu.`);
+    }, 3000); // 3 seconds after typing indicator
+    
+    typingTimers.delete(userId);
+  }, TYPING_TIMEOUT);
+
+  typingTimers.set(userId, timer);
+}
+
+function clearTypingIndicator(userId: number) {
+  const timer = typingTimers.get(userId);
+  if (timer) {
+    clearTimeout(timer);
+    typingTimers.delete(userId);
+  }
 }
 
 // Button press protection functions
@@ -176,8 +237,12 @@ serve(async (req) => {
         return new Response("OK", { status: 200 });
       }
 
-      // Update user session activity
+      // Update user session activity and clear typing indicators
       updateUserSession(userId);
+      clearTypingIndicator(userId);
+
+      // Start typing indicator for next user interaction
+      startTypingIndicator(botToken, chatId, userId);
 
       // Admin commands - Add your Telegram user ID here
       const adminIds = ["8486248025", "225513686"]; // Your admin and support admin user IDs
@@ -372,8 +437,12 @@ serve(async (req) => {
         return new Response("OK", { status: 200 });
       }
 
-      // Update user session activity
+      // Update user session activity and clear typing indicators
       updateUserSession(userId);
+      clearTypingIndicator(userId);
+
+      // Start typing indicator for next user interaction
+      startTypingIndicator(botToken, chatId, userId);
 
       if (data?.startsWith("plan_")) {
         const planId = data.replace("plan_", "");
@@ -3318,6 +3387,9 @@ We also teach why behind the trades inside the mentorship content.`;
 // AI-powered question handler
 async function handleAIQuestion(botToken: string, chatId: number, question: string, supabaseClient: any) {
   try {
+    // Show typing indicator while processing
+    await sendTypingAction(botToken, chatId, 'typing');
+    
     // Validate question
     if (!question || question.trim().length === 0) {
       await sendMessage(botToken, chatId, "💬 <b>Ask Dynamic Assistant</b>\n\nPlease provide a question for me to answer!\n\n<b>Examples:</b>\n• How do I change my subscription?\n• What payment methods do you accept?\n• How long does activation take?");
@@ -5604,6 +5676,8 @@ Sorry for the inconvenience! 🙏`);
 
 // Trade Helper - Educational trading analysis
 async function handleTradeHelper(botToken: string, chatId: number, userId: number, instrument: string, command: string, supabaseClient: any) {
+  // Show typing indicator while processing
+  await sendTypingAction(botToken, chatId, 'typing');
   if (!instrument || instrument.length === 0) {
     const helpMessage = `📈 <b>Trade Helper - Educational Analysis</b>
 
