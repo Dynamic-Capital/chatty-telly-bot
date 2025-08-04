@@ -19,11 +19,13 @@ serve(async (req) => {
 
   try {
     logStep("Telegram bot webhook started");
-
+    
     const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
     if (!botToken) {
       throw new Error("TELEGRAM_BOT_TOKEN is not set");
     }
+    
+    logStep("Bot token loaded", { tokenExists: !!botToken, tokenPrefix: botToken?.substring(0, 10) });
 
     // Initialize Supabase client with service role key
     const supabaseClient = createClient(
