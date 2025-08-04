@@ -248,6 +248,10 @@ async function handleAdminCommand(chatId: number, userId: string) {
       [
         { text: "📊 View Stats", callback_data: "admin_stats" },
         { text: "📥 Export Data", callback_data: "admin_export" }
+      ],
+      [
+        { text: "👥 Export Users", callback_data: "export_users" },
+        { text: "💳 Export Payments", callback_data: "export_payments" }
       ]
     ]
   };
