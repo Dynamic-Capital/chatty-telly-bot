@@ -554,16 +554,28 @@ Choose your payment method:`;
 💰 Amount: $${packageData.price}
 📋 Payment ID: ${payment.id}
 
-**Bank Transfer Details:**
-🏪 Bank: Dynamic Capital Bank
-💳 Account: 1234567890
-🔢 Routing: 987654321
-💬 Reference: ${payment.id}
+**Select Bank Account for Transfer:**
+
+**1. BML (MVR)**
+👤 Account: ABDL.M.I.AFLHAL
+💳 Number: 7730000133061
+💰 Currency: MVR
+
+**2. MIB (MVR)**  
+👤 Account: ABDL.M.I.AFLHAL
+💳 Number: 9010310167224100
+💰 Currency: MVR
+
+**3. MIB (USD)**
+👤 Account: ABDL.M.I.AFLHAL
+💳 Number: 9013101672242000
+💰 Currency: USD
 
 📤 **Next Steps:**
-1. Transfer the exact amount to the account above
-2. Upload your receipt/proof of payment
-3. Wait for admin approval (24-48 hours)
+1. Transfer the exact amount to any account above
+2. Include reference: ${payment.id}
+3. Upload your receipt/proof of payment
+4. Wait for admin approval (24-48 hours)
 
 Please upload your payment receipt now:`;
 
