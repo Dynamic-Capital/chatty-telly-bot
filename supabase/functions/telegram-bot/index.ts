@@ -513,6 +513,199 @@ async function trackDailyAnalytics() {
       
   } catch (error) {
     console.error('Analytics tracking error:', error);
+}
+
+// Enhanced admin helper functions
+async function getTotalRevenue() {
+  try {
+    const { data } = await supabaseAdmin
+      .from('payments')
+      .select('amount')
+      .eq('status', 'completed');
+    
+    return data?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0;
+  } catch (error) {
+    console.error('Error getting total revenue:', error);
+    return 0;
+  }
+}
+
+async function handleQuickStats(chatId: number) {
+  try {
+    const stats = await getBotStats();
+    const today = new Date().toISOString().split('T')[0];
+    
+    const [todayStatsResult, revenueResult, topPackagesResult] = await Promise.all([
+      supabaseAdmin.from('daily_analytics').select('*').eq('date', today).single(),
+      supabaseAdmin.from('payments').select('amount, subscription_plans(name)').eq('status', 'completed').limit(10),
+      supabaseAdmin.from('user_subscriptions').select('plan_id, subscription_plans(name)').eq('is_active', true)
+    ]);
+
+    const revenue = await getTotalRevenue();
+    const topPackages = topPackagesResult.data?.reduce((acc: any, sub: any) => {
+      const planName = sub.subscription_plans?.name || 'Unknown';
+      acc[planName] = (acc[planName] || 0) + 1;
+      return acc;
+    }, {});
+
+    const quickStats = `📈 *Live Statistics Dashboard*\n\n` +
+      `*📊 Overall Performance:*\n` +
+      `👥 Total Users: ${stats.totalUsers}\n` +
+      `💰 Total Revenue: $${revenue}\n` +
+      `📊 Active VIP: ${stats.activeSubscriptions}\n` +
+      `🎓 Enrollments: ${stats.totalEnrollments}\n\n` +
+      `*📅 Today's Activity:*\n` +
+      `👥 New Users: ${todayStatsResult.data?.new_users || 0}\n` +
+      `💬 Bot Interactions: ${Object.values(todayStatsResult.data?.button_clicks || {}).reduce((a: number, b: number) => a + b, 0)}\n\n` +
+      `*🏆 Top Packages:*\n` +
+      `${Object.entries(topPackages || {}).slice(0, 3).map(([name, count]) => `• ${name}: ${count} active`).join('\n')}\n\n` +
+      `🕒 Updated: ${new Date().toLocaleString()}`;
+
+    await sendMessage(chatId, quickStats);
+  } catch (error) {
+    await sendMessage(chatId, "❌ Error retrieving statistics");
+  }
+}
+
+async function handleUserLookup(chatId: number, text: string) {
+  try {
+    const targetUserId = text.split(' ')[1];
+    if (!targetUserId) {
+      await sendMessage(chatId, "Usage: /user <telegram_id>");
+      return;
+    }
+
+    const user = await fetchOrCreateBotUser(targetUserId);
+    if (!user) {
+      await sendMessage(chatId, "❌ User not found");
+      return;
+    }
+
+    // Get user's subscription info
+    const { data: subscription } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select('*, subscription_plans(*)')
+      .eq('telegram_user_id', targetUserId)
+      .eq('is_active', true)
+      .single();
+
+    // Get user's payment history
+    const { data: payments } = await supabaseAdmin
+      .from('payments')
+      .select('amount, status, created_at')
+      .eq('user_id', targetUserId)
+      .order('created_at', { ascending: false })
+      .limit(3);
+
+    const userInfo = `👤 *User Profile: ${user.first_name}*\n\n` +
+      `🆔 Telegram ID: ${user.telegram_id}\n` +
+      `👤 Full Name: ${user.first_name} ${user.last_name || ''}\n` +
+      `📧 Username: @${user.username || 'none'}\n` +
+      `💎 VIP Status: ${user.is_vip ? '✅ Active' : '❌ Inactive'}\n` +
+      `📅 Joined: ${new Date(user.created_at).toLocaleDateString()}\n\n` +
+      `*💳 Subscription Info:*\n` +
+      `${subscription ? 
+        `📦 Plan: ${subscription.subscription_plans?.name}\n` +
+        `📅 Expires: ${new Date(subscription.subscription_end_date).toLocaleDateString()}\n` +
+        `💰 Status: ${subscription.payment_status}` 
+        : '❌ No active subscription'}\n\n` +
+      `*💰 Recent Payments:*\n` +
+      `${payments?.length ? 
+        payments.map(p => `• $${p.amount} - ${p.status} (${new Date(p.created_at).toLocaleDateString()})`).join('\n')
+        : '❌ No payments found'}`;
+
+    const userControlKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "💎 Toggle VIP", callback_data: `admin_toggle_vip_${targetUserId}` },
+          { text: "📊 Full History", callback_data: `admin_user_history_${targetUserId}` }
+        ],
+        [
+          { text: "💬 Send Message", callback_data: `admin_message_user_${targetUserId}` },
+          { text: "🚫 Ban User", callback_data: `admin_ban_user_${targetUserId}` }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, userInfo, userControlKeyboard);
+  } catch (error) {
+    await sendMessage(chatId, "❌ Error retrieving user information");
+  }
+}
+
+async function handleSubscriptionControl(chatId: number, text: string) {
+  try {
+    const parts = text.split(' ');
+    const targetUserId = parts[1];
+    const action = parts[2]; // activate/deactivate/extend
+
+    if (!targetUserId || !action) {
+      await sendMessage(chatId, "Usage: /sub <telegram_id> <activate/deactivate/extend>");
+      return;
+    }
+
+    const user = await fetchOrCreateBotUser(targetUserId);
+    if (!user) {
+      await sendMessage(chatId, "❌ User not found");
+      return;
+    }
+
+    let result = "";
+    
+    switch (action.toLowerCase()) {
+      case 'activate':
+        await supabaseAdmin
+          .from('bot_users')
+          .update({ 
+            is_vip: true,
+            subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+          })
+          .eq('telegram_id', targetUserId);
+        
+        result = `✅ VIP activated for user ${targetUserId} (30 days)`;
+        break;
+        
+      case 'deactivate':
+        await supabaseAdmin
+          .from('bot_users')
+          .update({ 
+            is_vip: false,
+            subscription_expires_at: null
+          })
+          .eq('telegram_id', targetUserId);
+        
+        result = `❌ VIP deactivated for user ${targetUserId}`;
+        break;
+        
+      case 'extend':
+        const extendDays = parseInt(parts[3]) || 30;
+        const currentExpiry = user.subscription_expires_at ? new Date(user.subscription_expires_at) : new Date();
+        const newExpiry = new Date(currentExpiry.getTime() + extendDays * 24 * 60 * 60 * 1000);
+        
+        await supabaseAdmin
+          .from('bot_users')
+          .update({ 
+            is_vip: true,
+            subscription_expires_at: newExpiry.toISOString()
+          })
+          .eq('telegram_id', targetUserId);
+        
+        result = `⏰ VIP extended for user ${targetUserId} by ${extendDays} days`;
+        break;
+        
+      default:
+        result = "❌ Invalid action. Use: activate, deactivate, or extend";
+    }
+
+    await sendMessage(chatId, result);
+    
+    // Notify the user
+    await sendMessage(parseInt(targetUserId), 
+      `🔔 *Subscription Update*\n\nYour subscription has been ${action}d by an administrator.\n\nFor questions, contact support.`
+    );
+    
+  } catch (error) {
+    await sendMessage(chatId, "❌ Error managing subscription");
   }
 }
 
@@ -615,15 +808,54 @@ serve(async (req) => {
             }]);
         }
       } else if (text?.startsWith('/admin') && isAdmin(userId)) {
+        const stats = await getBotStats();
+        
         const adminKeyboard = {
           inline_keyboard: [
-            [{ text: "📊 View Stats", callback_data: "admin_stats" }],
-            [{ text: "📥 Export Data", callback_data: "admin_export" }],
-            [{ text: "👥 User Management", callback_data: "admin_users" }],
-            [{ text: "📢 Broadcast Message", callback_data: "admin_broadcast" }]
+            [
+              { text: "📊 Live Dashboard", callback_data: "admin_live_stats" },
+              { text: "👥 User Management", callback_data: "admin_users" }
+            ],
+            [
+              { text: "💳 Subscription Control", callback_data: "admin_subscriptions" },
+              { text: "📦 Package Performance", callback_data: "admin_packages" }
+            ],
+            [
+              { text: "📢 Broadcast System", callback_data: "admin_broadcast" },
+              { text: "📥 Data Export", callback_data: "admin_export" }
+            ],
+            [
+              { text: "⚙️ Bot Settings", callback_data: "admin_settings" },
+              { text: "🔧 System Tools", callback_data: "admin_tools" }
+            ]
           ]
         };
-        await sendMessage(chatId, "🔧 *Admin Panel*\n\nSelect an option:", adminKeyboard);
+
+        const adminMessage = `🔧 *Admin Control Panel*\n\n` +
+          `📊 *Current Statistics:*\n` +
+          `👥 Total Users: ${stats.totalUsers}\n` +
+          `💰 Total Revenue: $${await getTotalRevenue()}\n` +
+          `📊 Active Subs: ${stats.activeSubscriptions}\n` +
+          `🎓 Enrollments: ${stats.totalEnrollments}\n\n` +
+          `⚡ *System Status: Online*\n` +
+          `🕒 Last Update: ${new Date().toLocaleString()}\n\n` +
+          `Select a management option:`;
+
+        await sendMessage(chatId, adminMessage, adminKeyboard);
+      } else if (text?.startsWith('/stats') && isAdmin(userId)) {
+        // Quick stats command for admins
+        await handleQuickStats(chatId);
+      } else if (text?.startsWith('/broadcast') && isAdmin(userId)) {
+        const session = getUserSession(userId);
+        session.awaitingInput = 'admin_broadcast_quick';
+        
+        await sendMessage(chatId, "📢 *Quick Broadcast*\n\nSend me the message to broadcast to all users:");
+      } else if (text?.startsWith('/user') && isAdmin(userId)) {
+        // User lookup command: /user 123456789
+        await handleUserLookup(chatId, text);
+      } else if (text?.startsWith('/sub') && isAdmin(userId)) {
+        // Subscription management: /sub 123456789 activate/deactivate
+        await handleSubscriptionControl(chatId, text);
       } else if (text && !text.startsWith('/')) {
         const session = getUserSession(userId);
         
