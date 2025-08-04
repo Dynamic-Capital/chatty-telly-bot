@@ -118,8 +118,18 @@ serve(async (req) => {
       } else if (text.startsWith("/promo ") || text.startsWith("PROMO")) {
         const promoCode = text.replace("/promo ", "").replace("PROMO", "").trim();
         await handlePromoCode(botToken, chatId, userId, username, promoCode, supabaseClient);
+      } else if (text === "/faq") {
+        await handleFAQ(botToken, chatId, supabaseClient);
+      } else if (text.startsWith("/ask ")) {
+        const question = text.replace("/ask ", "").trim();
+        await handleAIQuestion(botToken, chatId, question, supabaseClient);
       } else {
-        await sendMessage(botToken, chatId, "Hi there! 👋 I'm here to help you with VIP plans and services. Type /help to see what I can do for you, or if you have a promo code, just type: PROMO [your code]");
+        // If user sends a question directly (not a command), treat it as an AI FAQ question
+        if (text.length > 10 && text.includes("?")) {
+          await handleAIQuestion(botToken, chatId, text, supabaseClient);
+        } else {
+          await sendMessage(botToken, chatId, "Hi there! 👋 I'm here to help you with VIP plans and services. Type /help to see what I can do for you, /faq for common questions, or just ask me anything!");
+        }
       }
     }
 
@@ -218,6 +228,10 @@ serve(async (req) => {
         }
         logStep("Admin menu access", { userId });
         await handleAdminMenu(botToken, chatId, supabaseClient);
+      } else if (data === "view_faq") {
+        await handleFAQ(botToken, chatId, supabaseClient);
+      } else if (data === "ask_ai") {
+        await sendMessage(botToken, chatId, "💬 <b>Ask AI Assistant</b>\n\nType your question and I'll help you! For example:\n\n/ask How do I change my subscription?\n/ask What payment methods do you accept?\n/ask How long does activation take?\n\nOr simply type your question directly!");
       }
 
       // Answer the callback query to remove loading state
@@ -2283,4 +2297,153 @@ async function handleManualCrypto(botToken: string, chatId: number, userId: numb
       payment_status: "pending",
       payment_instructions: "Manual crypto transfer - awaiting transaction proof"
     });
+}
+
+// FAQ handler
+async function handleFAQ(botToken: string, chatId: number, supabaseClient: any) {
+  const faqMessage = `❓ <b>Frequently Asked Questions</b>
+
+🔸 <b>How do I subscribe?</b>
+Choose a plan from /start and follow the payment instructions.
+
+🔸 <b>What payment methods do you accept?</b>
+Credit cards, PayPal, bank transfer, and cryptocurrency.
+
+🔸 <b>How long does activation take?</b>
+• Card/PayPal: Instant
+• Bank transfer: 1-2 business days
+• Crypto: 30 minutes - 2 hours
+
+🔸 <b>Can I change my plan?</b>
+Contact support to upgrade or modify your subscription.
+
+🔸 <b>Do you offer refunds?</b>
+Yes, we have a 7-day money-back guarantee.
+
+🔸 <b>How do I contact support?</b>
+Use /help or message @DynamicVIP_Support
+
+🔸 <b>Can I use promo codes?</b>
+Yes! Type PROMO [your code] or use /promo [code]
+
+💬 <b>Have another question?</b> Just ask me anything using /ask [your question] or simply type your question!`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "💬 Ask AI Assistant", callback_data: "ask_ai" }],
+      [{ text: "← Back to Main Menu", callback_data: "main_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, faqMessage, keyboard);
+}
+
+// AI-powered question handler
+async function handleAIQuestion(botToken: string, chatId: number, question: string, supabaseClient: any) {
+  try {
+    const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openaiKey) {
+      await sendMessage(botToken, chatId, "❌ AI assistant is currently unavailable. Please contact support or check our FAQ with /faq");
+      return;
+    }
+
+    // Send typing indicator
+    await sendTypingAction(botToken, chatId);
+
+    const systemPrompt = `You are a helpful customer support assistant for a VIP subscription service. Here's what you should know:
+
+SUBSCRIPTION PLANS:
+- We offer monthly, quarterly, semi-annual, and lifetime VIP plans
+- Prices range from $9.99 to $99.99
+- All plans include premium features, priority support, and exclusive content
+
+PAYMENT METHODS:
+- Credit/Debit cards (instant activation)
+- PayPal (instant activation)
+- Bank transfer (1-2 business days verification)
+- Cryptocurrency (Bitcoin, Ethereum, USDT via Binance Pay - 30 min to 2 hours processing)
+
+POLICIES:
+- 7-day money-back guarantee
+- 24/7 customer support
+- Secure payment processing
+- No hidden fees
+
+COMMANDS USERS CAN USE:
+- /start - View subscription plans
+- /help - Get help and commands
+- /faq - View frequently asked questions
+- /ask [question] - Ask AI assistant
+- PROMO [code] - Apply promo code
+
+SUPPORT:
+- Telegram: @DynamicVIP_Support
+- Email: support@dynamicvip.com
+- Response time: 2-4 hours
+
+Answer questions helpfully and professionally. If you don't know something specific, direct them to contact support. Keep responses concise but informative.`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: question }
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const aiResponse = data.choices[0].message.content;
+
+    const responseMessage = `🤖 <b>AI Assistant</b>
+
+${aiResponse}
+
+💬 <b>Need more help?</b> 
+• Type /faq for common questions
+• Contact support: @DynamicVIP_Support
+• Ask another question: /ask [your question]`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "❓ View FAQ", callback_data: "view_faq" }],
+        [{ text: "🆘 Contact Support", callback_data: "contact_support" }],
+        [{ text: "← Back to Main Menu", callback_data: "main_menu" }]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, responseMessage, keyboard);
+
+  } catch (error) {
+    console.error('AI question error:', error);
+    await sendMessage(botToken, chatId, "❌ Sorry, I couldn't process your question right now. Please try again later or contact support for immediate assistance.");
+  }
+}
+
+// Helper function to send typing action
+async function sendTypingAction(botToken: string, chatId: number) {
+  try {
+    await fetch(`https://api.telegram.org/bot${botToken}/sendChatAction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        action: 'typing'
+      })
+    });
+  } catch (error) {
+    console.error('Error sending typing action:', error);
+  }
 }
