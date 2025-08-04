@@ -3,6 +3,7 @@ import { Bot, Context, InlineKeyboard, SessionFlavor } from "https://deno.land/x
 import { Menu } from "https://deno.land/x/grammy_menu@v1.2.1/mod.ts";
 import { OpenAI } from "https://deno.land/x/openai@v4.20.1/mod.ts";
 import { load } from "https://deno.land/std@0.212.0/dotenv/mod.ts";
+import { createClient } from "https://deno.land/x/supabase@2.39.3/mod.ts";
 
 await load({ export: true });
 
@@ -76,7 +77,6 @@ function getErrorMessage(error: any): string {
 }
 
 // --- SUPABASE ---
-import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   SUPABASE_URL!,
