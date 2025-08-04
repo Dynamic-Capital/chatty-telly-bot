@@ -45,8 +45,8 @@ serve(async (req) => {
 
       logStep("Processing message", { chatId, text, userId, username });
 
-      // Admin commands (you can add your admin user IDs here)
-      const adminIds = ["YOUR_ADMIN_ID"]; // Replace with actual admin Telegram user IDs
+      // Admin commands - Add your Telegram user ID here
+      const adminIds = ["8486248025"]; // Your admin Telegram user ID (you can add more)
       const isAdmin = adminIds.includes(userId.toString());
 
       if (text === "/start") {
