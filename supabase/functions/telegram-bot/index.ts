@@ -49,12 +49,15 @@ const recentActions = new Map(); // Track recent button presses
 const typingTimers = new Map(); // Track typing indicators
 
 // Session management functions
-function updateUserSession(userId: number, action: string = 'activity') {
+function updateUserSession(userId: number, action: string = 'activity', additionalData: any = {}) {
   const now = Date.now();
+  const existingSession = userSessions.get(userId) || {};
   userSessions.set(userId, {
+    ...existingSession,
     lastActivity: now,
     action: action,
-    timestamp: now
+    timestamp: now,
+    ...additionalData
   });
 }
 
@@ -652,40 +655,47 @@ function createPersistentKeyboard() {
 async function handleMainMenu(botToken: string, chatId: number, userId: number, username: string, supabaseClient: any) {
   logStep("Handling main menu", { chatId, userId, username });
 
-  // Fast response for new users - send main menu immediately without database checks
-  const mainMenuKeyboard = {
-    inline_keyboard: [
-      [
-        { text: "📈 Trade Results", url: "https://t.me/DynamicCapital_Results" },
-        { text: "📦 View Packages", callback_data: "view_packages" }
-      ],
-      [
-        { text: "🎓 Education", callback_data: "education_menu" },
-        { text: "💰 Payment Options", callback_data: "payment_options" }
-      ],
-      [
-        { text: "🆘 Contact Support", callback_data: "contact_support" },
-        { text: "🎫 Enter Promo Code", callback_data: "enter_promo" }
-      ],
-      [
-        { text: "📊 My Plan", callback_data: "my_account" },
-        { text: "ℹ️ About Us", callback_data: "about_us" }
-      ],
-      [
-        { text: "❓ FAQ", callback_data: "view_faq" },
-        { text: "🤖 Dynamic Assistant", callback_data: "ai_assistant" }
-      ],
-      [
-        { text: "🤖 Get Plan Recommendation", callback_data: "start_survey" },
-        { text: "📌 Enable Quick Menu", callback_data: "enable_pinned" }
-      ],
-      [
-        { text: "❌ Close Menu", callback_data: "close_menu" }
-      ]
-    ]
-  };
+  // Check if user already has an active session with welcome message sent
+  const existingSession = userSessions.get(userId);
+  const isActiveSession = existingSession && !isSessionExpired(userId);
+  const welcomeAlreadySent = existingSession?.welcomeSent;
 
-  const welcomeMessage = `🌟 <b>Welcome to Dynamic Chatty Bot!</b> 🌟
+  // Only send welcome message if it's a new session or first time
+  if (!isActiveSession || !welcomeAlreadySent) {
+    // Fast response for new users - send main menu immediately without database checks
+    const mainMenuKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "📈 Trade Results", url: "https://t.me/DynamicCapital_Results" },
+          { text: "📦 View Packages", callback_data: "view_packages" }
+        ],
+        [
+          { text: "🎓 Education", callback_data: "education_menu" },
+          { text: "💰 Payment Options", callback_data: "payment_options" }
+        ],
+        [
+          { text: "🆘 Contact Support", callback_data: "contact_support" },
+          { text: "🎫 Enter Promo Code", callback_data: "enter_promo" }
+        ],
+        [
+          { text: "📊 My Plan", callback_data: "my_account" },
+          { text: "ℹ️ About Us", callback_data: "about_us" }
+        ],
+        [
+          { text: "❓ FAQ", callback_data: "view_faq" },
+          { text: "🤖 Dynamic Assistant", callback_data: "ai_assistant" }
+        ],
+        [
+          { text: "🤖 Get Plan Recommendation", callback_data: "start_survey" },
+          { text: "📌 Enable Quick Menu", callback_data: "enable_pinned" }
+        ],
+        [
+          { text: "❌ Close Menu", callback_data: "close_menu" }
+        ]
+      ]
+    };
+
+    const welcomeMessage = `🌟 <b>Welcome to Dynamic Chatty Bot!</b> 🌟
 
 Hi ${username ? `@${username}` : 'there'}! 👋
 
@@ -700,8 +710,48 @@ Access elite trading signals, market analysis, and exclusive VIP features.
 
 Choose an option below to get started:`;
 
-  // Send message immediately
-  await sendMessage(botToken, chatId, welcomeMessage, mainMenuKeyboard);
+    // Send message immediately
+    await sendMessage(botToken, chatId, welcomeMessage, mainMenuKeyboard);
+    
+    // Update session to mark welcome as sent
+    updateUserSession(userId, 'main_menu', { 
+      welcomeSent: true, 
+      isActive: true, 
+      username: username || `user_${userId}` 
+    });
+  } else {
+    // User already has active session, just show a brief menu refresh message
+    const quickMenuKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "📈 Trade Results", url: "https://t.me/DynamicCapital_Results" },
+          { text: "📦 View Packages", callback_data: "view_packages" }
+        ],
+        [
+          { text: "🎓 Education", callback_data: "education_menu" },
+          { text: "💰 Payment Options", callback_data: "payment_options" }
+        ],
+        [
+          { text: "🆘 Contact Support", callback_data: "contact_support" },
+          { text: "🎫 Enter Promo Code", callback_data: "enter_promo" }
+        ],
+        [
+          { text: "📊 My Plan", callback_data: "my_account" },
+          { text: "ℹ️ About Us", callback_data: "about_us" }
+        ],
+        [
+          { text: "❓ FAQ", callback_data: "view_faq" },
+          { text: "🤖 Dynamic Assistant", callback_data: "ai_assistant" }
+        ],
+        [
+          { text: "❌ Close Menu", callback_data: "close_menu" }
+        ]
+      ]
+    };
+    
+    await sendMessage(botToken, chatId, `🏠 <b>Main Menu</b>\n\nChoose an option:`, quickMenuKeyboard);
+    updateUserSession(userId, 'main_menu');
+  }
   
   // Setup bot commands and other background tasks without blocking response
   Promise.all([
