@@ -20,6 +20,46 @@ const SUPPORT_CONFIG = {
   website: "dynamicvip.com"
 };
 
+// Session timeout settings (15 minutes)
+const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
+const PAYMENT_TIMEOUT = 30 * 60 * 1000; // 30 minutes for payments
+const userSessions = new Map(); // Store user session data
+
+// Session management functions
+function updateUserSession(userId: number, action: string = 'activity') {
+  const now = Date.now();
+  userSessions.set(userId, {
+    lastActivity: now,
+    action: action,
+    timestamp: now
+  });
+}
+
+function isSessionExpired(userId: number): boolean {
+  const session = userSessions.get(userId);
+  if (!session) return false;
+  
+  const timeout = session.action === 'payment' ? PAYMENT_TIMEOUT : SESSION_TIMEOUT;
+  return (Date.now() - session.lastActivity) > timeout;
+}
+
+async function handleSessionTimeout(botToken: string, chatId: number, userId: number) {
+  const session = userSessions.get(userId);
+  const timeoutType = session?.action === 'payment' ? 'payment' : 'chat';
+  
+  await sendMessage(botToken, chatId, `⏰ <b>Session Timeout</b>
+
+Your ${timeoutType} session has expired for security purposes.
+
+🔄 Please start again by typing /start or click the button below.`, {
+    inline_keyboard: [[
+      { text: "🔄 Start Fresh", callback_data: "main_menu" }
+    ]]
+  });
+  
+  userSessions.delete(userId);
+}
+
 // Helper logging function
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -66,6 +106,15 @@ serve(async (req) => {
       const username = message.from.username;
 
       logStep("Processing message", { chatId, text, userId, username });
+
+      // Check for session timeout
+      if (isSessionExpired(userId)) {
+        await handleSessionTimeout(botToken, chatId, userId);
+        return new Response("OK", { status: 200 });
+      }
+
+      // Update user session activity
+      updateUserSession(userId);
 
       // Admin commands - Add your Telegram user ID here
       const adminIds = ["8486248025", "225513686"]; // Your admin and support admin user IDs
@@ -179,14 +228,32 @@ serve(async (req) => {
 
       logStep("Processing callback query", { chatId, data, userId, username });
 
+      // Check for session timeout
+      if (isSessionExpired(userId)) {
+        await handleSessionTimeout(botToken, chatId, userId);
+        return new Response("OK", { status: 200 });
+      }
+
+      // Update user session activity
+      updateUserSession(userId);
+
       if (data?.startsWith("plan_")) {
         const planId = data.replace("plan_", "");
         await handlePlanSelection(botToken, chatId, userId, username, planId, supabaseClient);
       } else if (data?.startsWith("payment_")) {
+        // Set payment session timeout
+        updateUserSession(userId, 'payment');
         const [, method, planId] = data.split("_");
         await handlePaymentMethod(botToken, chatId, userId, username, method, planId, supabaseClient);
       } else if (data === "main_menu") {
         await handleMainMenu(botToken, chatId, userId, username, supabaseClient);
+      } else if (data === "close_menu" || data === "close") {
+        // Close menu - available for all users
+        await sendMessage(botToken, chatId, "✅ <b>Menu Closed</b>\n\n👋 Thank you for using our service!\n\nType /start anytime to return to the main menu.", {
+          inline_keyboard: [[
+            { text: "🔄 Return to Main Menu", callback_data: "main_menu" }
+          ]]
+        });
       } else if (data === "view_packages") {
         await handleStartCommand(botToken, chatId, userId, username, supabaseClient);
       } else if (data === "contact_support") {
@@ -310,7 +377,11 @@ async function handleMainMenu(botToken: string, chatId: number, userId: number, 
         { text: "ℹ️ About Us", callback_data: "about_us" }
       ],
       [
-        { text: "📊 My Account", callback_data: "my_account" }
+        { text: "📊 My Account", callback_data: "my_account" },
+        { text: "❓ FAQ", callback_data: "view_faq" }
+      ],
+      [
+        { text: "❌ Close Menu", callback_data: "close_menu" }
       ]
     ]
   };
@@ -760,11 +831,16 @@ ETH: 0xYourEthereumAddressHere
       [
         { text: "← Back to Payment Methods", callback_data: `plan_${planId}` },
         { text: "🏠 Start Over", callback_data: "back_to_plans" }
+      ],
+      [
+        { text: "❌ Close", callback_data: "close_menu" }
       ]
     ]
   };
 
-  await sendMessage(botToken, chatId, paymentMessage, backKeyboard);
+  // Add payment timeout warning
+  const timeoutWarning = `\n\n⏰ <b>Security Notice:</b> This payment session will expire in 30 minutes for security purposes.`;
+  await sendMessage(botToken, chatId, paymentMessage + timeoutWarning, backKeyboard);
 }
 
 async function handleFileUpload(botToken: string, chatId: number, userId: number, username: string, message: any, supabaseClient: any) {
@@ -2703,6 +2779,7 @@ async function sendTypingAction(botToken: string, chatId: number) {
     });
   } catch (error) {
     console.error('Error sending typing action:', error);
+  }
 }
 
 // Education menu handler
