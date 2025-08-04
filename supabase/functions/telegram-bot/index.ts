@@ -2252,16 +2252,16 @@ async function handleManualCrypto(botToken: string, chatId: number, userId: numb
 📋 Plan: ${plan.name}
 💰 Amount: $${plan.price} USDT
 
-💰 <b>Send crypto to these addresses:</b>
+  💰 <b>Send crypto to these addresses:</b>
 
-🔸 <b>USDT (TRC20) - Recommended:</b>
-<code>TYourTrc20AddressHere</code>
+  🔸 <b>USDT (TRC20) - Recommended:</b>
+  <code>TQeAph1kiaVbwvY2NS1EwepqrnoTpK6Wss</code>
 
-🔸 <b>Bitcoin (BTC):</b>
-<code>1YourBitcoinAddressHere</code>
+  🔸 <b>BNB (BEP20):</b>
+  <code>0x6df5422b719a54201e80a80627d4f8daa611689c</code>
 
-🔸 <b>Ethereum (ETH):</b>
-<code>0xYourEthereumAddressHere</code>
+  🔸 <b>Bitcoin (BTC):</b>
+  <code>Contact support for BTC address</code>
 
 📸 <b>After payment, send to this chat:</b>
 • Transaction hash (TxID)
