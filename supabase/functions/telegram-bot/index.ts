@@ -110,6 +110,8 @@ serve(async (req) => {
       } else if (text.startsWith("/checkexpired") && isAdmin) {
         await checkExpiredSubscriptions(botToken, supabaseClient);
         await sendMessage(botToken, chatId, "✅ Expired subscriptions check completed. Check logs for details.");
+      } else if (text.startsWith("/getchatid") && isAdmin) {
+        await sendMessage(botToken, chatId, `📋 <b>Chat Information</b>\n\n🆔 Chat ID: <code>${chatId}</code>\n📍 Chat Type: ${message.chat.type}\n📝 Title: ${message.chat.title || 'Private Chat'}\n\n💡 <b>Tip:</b> Add your bot to your VIP channel/group and use this command there to get their IDs.`);
       } else if (text.startsWith("/addplan ") && isAdmin) {
         const planData = text.replace("/addplan ", "").trim();
         await handleAddPlan(botToken, chatId, planData, supabaseClient);
@@ -1515,6 +1517,13 @@ async function handleHelp(botToken: string, chatId: number, isAdmin: boolean, su
 • <code>/approve [id]</code> - Approve payment
 • <code>/reject [id] [reason]</code> - Reject payment
 • <code>/stats</code> - Bot statistics
+• <code>/getchatid</code> - Get current chat ID
+
+🎯 <b>VIP Management:</b>
+• <code>/addvip [user_id]</code> - Add user to VIP
+• <code>/removevip [user_id]</code> - Remove user from VIP
+• <code>/checkvip [user_id]</code> - Check VIP status
+• <code>/checkexpired</code> - Process expired subscriptions
 
 📋 <b>Promo Management:</b>
 • <code>/addpromo [code] [type] [value] [days] [uses]</code>
