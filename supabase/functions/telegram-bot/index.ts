@@ -154,17 +154,21 @@ serve(async (req) => {
 
       logStep("Processing message", { chatId, text, userId, username });
 
-      // Prevent rapid command spamming (except /start)
-      if (text !== "/start" && isRecentAction(userId, text)) {
+      // Prevent rapid command spamming (including /start)
+      if (isRecentAction(userId, text)) {
         logStep("Duplicate command prevented", { userId, command: text });
-        await sendMessage(botToken, chatId, "⏳ Please wait a moment before sending another command...");
+        
+        // For /start command, just answer with a brief message instead of the full welcome
+        if (text === "/start" || text === "🏠 Menu") {
+          await sendMessage(botToken, chatId, "⏳ Please wait a moment before requesting the menu again...");
+        } else {
+          await sendMessage(botToken, chatId, "⏳ Please wait a moment before sending another command...");
+        }
         return new Response("OK", { status: 200 });
       }
 
-      // Record this command
-      if (text !== "/start") {
-        recordAction(userId, text);
-      }
+      // Record this command (including /start now)
+      recordAction(userId, text);
 
       // Check for session timeout
       if (isSessionExpired(userId)) {
@@ -345,11 +349,16 @@ serve(async (req) => {
 
       logStep("Processing callback query", { chatId, data, userId, username });
 
-      // Prevent double button presses
+      // Prevent double button presses (including main_menu)
       if (isRecentAction(userId, data)) {
         logStep("Duplicate action prevented", { userId, action: data });
-        // Still answer the callback query to remove loading state
-        await answerCallbackQuery(botToken, callbackQuery.id, "⏳ Please wait...");
+        
+        // For main menu callbacks, show a more specific message
+        if (data === "main_menu") {
+          await answerCallbackQuery(botToken, callbackQuery.id, "⏳ Please wait before opening menu again...");
+        } else {
+          await answerCallbackQuery(botToken, callbackQuery.id, "⏳ Please wait...");
+        }
         return new Response("OK", { status: 200 });
       }
 
