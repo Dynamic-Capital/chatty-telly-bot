@@ -133,10 +133,16 @@ serve(async (req) => {
         await handleFAQ(botToken, chatId, supabaseClient);
       } else if (text.startsWith("/ask ")) {
         const question = text.replace("/ask ", "").trim();
-        await handleAIQuestion(botToken, chatId, question, supabaseClient);
+        if (question.length > 0) {
+          await handleAIQuestion(botToken, chatId, question, supabaseClient);
+        } else {
+          await sendMessage(botToken, chatId, "💬 <b>Ask AI Assistant</b>\n\nPlease include your question after /ask command.\n\n<b>Examples:</b>\n• <code>/ask How do I change my subscription?</code>\n• <code>/ask What payment methods do you accept?</code>\n• <code>/ask How long does activation take?</code>\n\nOr simply type your question directly without any command!");
+        }
+      } else if (text === "/ask") {
+        await sendMessage(botToken, chatId, "💬 <b>Ask AI Assistant</b>\n\nPlease include your question after /ask command.\n\n<b>Examples:</b>\n• <code>/ask How do I change my subscription?</code>\n• <code>/ask What payment methods do you accept?</code>\n• <code>/ask How long does activation take?</code>\n\nOr simply type your question directly without any command!");
       } else {
         // Enhanced FAQ: Any non-command message is treated as a question
-        if (text.length > 3 && !text.startsWith("/")) {
+        if (text.length > 2 && !text.startsWith("/")) {
           await handleAIQuestion(botToken, chatId, text, supabaseClient);
         } else {
           await sendMessage(botToken, chatId, "Hi there! 👋 I'm here to help you with VIP plans and services. Type /help to see what I can do for you, /faq for common questions, or just ask me anything!");
@@ -2366,9 +2372,15 @@ Yes! Type PROMO [your code] or use /promo [code]
 // AI-powered question handler
 async function handleAIQuestion(botToken: string, chatId: number, question: string, supabaseClient: any) {
   try {
+    // Validate question
+    if (!question || question.trim().length === 0) {
+      await sendMessage(botToken, chatId, "💬 <b>Ask AI Assistant</b>\n\nPlease provide a question for me to answer!\n\n<b>Examples:</b>\n• How do I change my subscription?\n• What payment methods do you accept?\n• How long does activation take?");
+      return;
+    }
+
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiKey) {
-      await sendMessage(botToken, chatId, "❌ AI assistant is currently unavailable. Please contact support or check our FAQ with /faq");
+      await sendMessage(botToken, chatId, `❌ AI assistant is currently unavailable. Please contact support ${SUPPORT_CONFIG.support_telegram} or check our FAQ with /faq`);
       return;
     }
 
@@ -2431,10 +2443,16 @@ Keep responses helpful, professional, and concise.`;
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      const errorData = await response.text();
+      console.error('OpenAI API error:', response.status, errorData);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
     }
 
     const data = await response.json();
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      throw new Error('Invalid response format from OpenAI');
+    }
+    
     const aiResponse = data.choices[0].message.content;
 
     const responseMessage = `🤖 <b>AI Assistant</b>
@@ -2458,7 +2476,19 @@ ${aiResponse}
 
   } catch (error) {
     console.error('AI question error:', error);
-    await sendMessage(botToken, chatId, "❌ Sorry, I couldn't process your question right now. Please try again later or contact support for immediate assistance.");
+    
+    // Provide more specific error messages
+    let errorMessage = "❌ Sorry, I couldn't process your question right now.";
+    
+    if (error.message?.includes('API error')) {
+      errorMessage += "\n\n🔧 AI service is temporarily unavailable.";
+    } else if (error.message?.includes('Invalid response')) {
+      errorMessage += "\n\n🔧 Received invalid response from AI service.";
+    }
+    
+    errorMessage += `\n\n💡 <b>Try these alternatives:</b>\n• Check our FAQ: /faq\n• Contact support: ${SUPPORT_CONFIG.support_telegram}\n• Ask a simpler question`;
+    
+    await sendMessage(botToken, chatId, errorMessage);
   }
 }
 
