@@ -3264,6 +3264,7 @@ async function handleSetSupport(botToken: string, chatId: number, supportData: s
   } catch (error) {
     console.error('Error in handleSetSupport:', error);
     await sendMessage(botToken, chatId, "❌ Error updating support settings. Please try again.");
+  }
 }
 
 // Bank Account Management Functions
