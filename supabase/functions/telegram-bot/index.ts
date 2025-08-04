@@ -390,6 +390,11 @@ serve(async (req) => {
         await handleAdminMenu(botToken, chatId, supabaseClient);
       } else if (data === "view_faq") {
         await handleFAQ(botToken, chatId, supabaseClient);
+      } else if (data === "start_survey") {
+        await handleStartSurvey(botToken, chatId, userId, supabaseClient);
+      } else if (data?.startsWith("survey_")) {
+        const surveyData = data.replace("survey_", "");
+        await handleSurveyResponse(botToken, chatId, userId, surveyData, supabaseClient);
       } else if (data === "ask_ai") {
         await sendMessage(botToken, chatId, "💬 <b>Ask AI Assistant</b>\n\nType your question and I'll help you! For example:\n\n/ask How do I change my subscription?\n/ask What payment methods do you accept?\n/ask How long does activation take?\n\nOr simply type your question directly!");
       } else if (data === "education_menu") {
@@ -479,6 +484,15 @@ async function handleMainMenu(botToken: string, chatId: number, userId: number, 
   // Setup bot commands (only needs to be done once, but doesn't hurt to repeat)
   await setupBotCommands(botToken);
 
+  // Check if user has completed survey recently
+  const { data: recentSurvey } = await supabaseClient
+    .from("user_surveys")
+    .select("*")
+    .eq("telegram_user_id", userId.toString())
+    .order("survey_completed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const mainMenuKeyboard = {
     inline_keyboard: [
       [
@@ -498,7 +512,11 @@ async function handleMainMenu(botToken: string, chatId: number, userId: number, 
         { text: "❓ FAQ", callback_data: "view_faq" }
       ],
       [
-        { text: "📌 Enable Quick Menu", callback_data: "enable_pinned" },
+        // Show recommendation button if user hasn't taken survey
+        ...(recentSurvey ? [] : [{ text: "🤖 Get Plan Recommendation", callback_data: "start_survey" }]),
+        { text: "📌 Enable Quick Menu", callback_data: "enable_pinned" }
+      ],
+      [
         { text: "❌ Close Menu", callback_data: "close_menu" }
       ]
     ]
@@ -3793,4 +3811,220 @@ async function getBankAccountsForPayment(supabaseClient: any) {
       { bank_name: "MIB", account_number: "9013101672242000", account_name: "ABDL.M.I.AFLHAL", currency: "USD" }
     ];
   }
+}
+
+// ========== AUTO PLAN RECOMMENDATION SYSTEM ==========
+
+// Survey states stored temporarily
+const surveyStates = new Map();
+
+async function handleStartSurvey(botToken: string, chatId: number, userId: number, supabaseClient: any) {
+  logStep("Starting recommendation survey", { chatId, userId });
+
+  const surveyMessage = `🤖 <b>Smart Plan Recommendation</b>
+
+✨ Let's find the perfect VIP plan for you! Just answer a few quick questions.
+
+<b>Question 1/4: What's your current trading level?</b>`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "🔰 Beginner", callback_data: "survey_level_beginner" }],
+      [{ text: "⚡ Intermediate", callback_data: "survey_level_intermediate" }],
+      [{ text: "🏆 Advanced", callback_data: "survey_level_advanced" }],
+      [{ text: "❌ Cancel", callback_data: "main_menu" }]
+    ]
+  };
+
+  // Initialize survey state
+  surveyStates.set(userId, {
+    step: 1,
+    answers: {}
+  });
+
+  await sendMessage(botToken, chatId, surveyMessage, keyboard);
+}
+
+async function handleSurveyResponse(botToken: string, chatId: number, userId: number, surveyData: string, supabaseClient: any) {
+  logStep("Handling survey response", { chatId, userId, surveyData });
+
+  const userState = surveyStates.get(userId) || { step: 1, answers: {} };
+  const [questionType, ...responseParts] = surveyData.split("_");
+  const response = responseParts.join("_");
+
+  // Store the answer
+  switch (questionType) {
+    case "level":
+      userState.answers.trading_level = response;
+      userState.step = 2;
+      break;
+    case "frequency":
+      userState.answers.trading_frequency = response;
+      userState.step = 3;
+      break;
+    case "goal":
+      userState.answers.main_goal = response;
+      userState.step = 4;
+      break;
+    case "budget":
+      userState.answers.monthly_budget = response;
+      userState.step = 5;
+      break;
+  }
+
+  surveyStates.set(userId, userState);
+
+  if (userState.step === 2) {
+    // Question 2: Trading frequency
+    const surveyMessage = `🤖 <b>Smart Plan Recommendation</b>
+
+<b>Question 2/4: How often do you trade?</b>`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "📈 Daily", callback_data: "survey_frequency_daily" }],
+        [{ text: "📊 Weekly", callback_data: "survey_frequency_weekly" }],
+        [{ text: "⏰ Occasionally", callback_data: "survey_frequency_occasionally" }],
+        [{ text: "❌ Cancel", callback_data: "main_menu" }]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, surveyMessage, keyboard);
+  } else if (userState.step === 3) {
+    // Question 3: Main goal
+    const surveyMessage = `🤖 <b>Smart Plan Recommendation</b>
+
+<b>Question 3/4: What's your main goal?</b>`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "📚 Learn and improve", callback_data: "survey_goal_learn_improve" }],
+        [{ text: "💡 Get quality trade ideas", callback_data: "survey_goal_quality_signals" }],
+        [{ text: "👥 Join the VIP community", callback_data: "survey_goal_vip_community" }],
+        [{ text: "❌ Cancel", callback_data: "main_menu" }]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, surveyMessage, keyboard);
+  } else if (userState.step === 4) {
+    // Question 4: Budget
+    const surveyMessage = `🤖 <b>Smart Plan Recommendation</b>
+
+<b>Question 4/4: What's your monthly budget for trading tools?</b>`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "💵 Less than $15", callback_data: "survey_budget_under_15" }],
+        [{ text: "💰 $15–$50", callback_data: "survey_budget_15_to_50" }],
+        [{ text: "💎 More than $50", callback_data: "survey_budget_over_50" }],
+        [{ text: "❌ Cancel", callback_data: "main_menu" }]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, surveyMessage, keyboard);
+  } else if (userState.step === 5) {
+    // Survey complete - generate recommendation
+    await generatePlanRecommendation(botToken, chatId, userId, userState.answers, supabaseClient);
+    surveyStates.delete(userId); // Clean up
+  }
+}
+
+async function generatePlanRecommendation(botToken: string, chatId: number, userId: number, answers: any, supabaseClient: any) {
+  logStep("Generating plan recommendation", { chatId, userId, answers });
+
+  // Fetch available plans
+  const { data: plans, error } = await supabaseClient
+    .from("subscription_plans")
+    .select("*")
+    .order("duration_months");
+
+  if (error || !plans || plans.length === 0) {
+    await sendMessage(botToken, chatId, "❌ Unable to fetch plans. Please try again later.");
+    return;
+  }
+
+  // Recommendation logic
+  let recommendedPlan = null;
+  let recommendationReason = "";
+
+  const { trading_level, trading_frequency, main_goal, monthly_budget } = answers;
+
+  // Simple recommendation algorithm
+  if (trading_level === "beginner" && main_goal === "learn_improve" && monthly_budget === "under_15") {
+    // Recommend 1-month plan
+    recommendedPlan = plans.find(p => p.duration_months === 1);
+    recommendationReason = "Perfect for beginners who want to learn and test our services";
+  } else if (trading_level === "intermediate" && trading_frequency === "daily" && monthly_budget === "15_to_50") {
+    // Recommend 3-month plan
+    recommendedPlan = plans.find(p => p.duration_months === 3);
+    recommendationReason = "Ideal for active traders who want sustained access to signals and community";
+  } else if (trading_level === "advanced" || main_goal === "vip_community" || monthly_budget === "over_50") {
+    // Recommend lifetime or 12-month plan
+    recommendedPlan = plans.find(p => p.is_lifetime) || plans.find(p => p.duration_months === 12);
+    recommendationReason = "Best value for serious traders looking for long-term commitment";
+  } else if (trading_frequency === "daily" || main_goal === "quality_signals") {
+    // Recommend 3-month plan
+    recommendedPlan = plans.find(p => p.duration_months === 3);
+    recommendationReason = "Great balance of value and commitment for regular traders";
+  } else {
+    // Default to 1-month plan
+    recommendedPlan = plans.find(p => p.duration_months === 1);
+    recommendationReason = "A great starting point to experience our premium services";
+  }
+
+  if (!recommendedPlan) {
+    recommendedPlan = plans[0]; // Fallback to first plan
+    recommendationReason = "Our most popular starter plan";
+  }
+
+  // Save survey results to database
+  try {
+    const { error: surveyError } = await supabaseClient
+      .from("user_surveys")
+      .insert([
+        {
+          telegram_user_id: userId.toString(),
+          trading_level,
+          trading_frequency,
+          main_goal,
+          monthly_budget,
+          recommended_plan_id: recommendedPlan.id
+        }
+      ]);
+
+    if (surveyError) {
+      logStep("Survey save error", { error: surveyError });
+    }
+  } catch (err) {
+    logStep("Survey save exception", { error: err });
+  }
+
+  // Generate recommendation message
+  const durationText = recommendedPlan.is_lifetime ? "🔥 Lifetime Access" : `📅 ${recommendedPlan.duration_months} Month${recommendedPlan.duration_months > 1 ? 's' : ''}`;
+  const features = recommendedPlan.features && recommendedPlan.features.length > 0 ? 
+    `\n\n✅ <b>What you get:</b>\n${recommendedPlan.features.map(f => `• ${f}`).join('\n')}` : '';
+
+  const recommendationMessage = `🎯 <b>Your Personalized Recommendation</b>
+
+Based on your answers, we recommend:
+
+💎 <b>${recommendedPlan.name}</b> - $${recommendedPlan.price}
+${durationText}
+
+🧠 <b>Why this plan?</b>
+${recommendationReason}${features}
+
+🔥 <b>Ready to get started?</b>
+This plan is perfectly tailored to your trading goals and experience level!`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: `🚀 Select ${recommendedPlan.name}`, callback_data: `plan_${recommendedPlan.id}` }],
+      [{ text: "📦 View All Plans", callback_data: "view_packages" }],
+      [{ text: "🔄 Retake Survey", callback_data: "start_survey" }],
+      [{ text: "🏠 Main Menu", callback_data: "main_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, recommendationMessage, keyboard);
 }

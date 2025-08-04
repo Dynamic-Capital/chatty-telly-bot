@@ -537,6 +537,45 @@ export type Database = {
           },
         ]
       }
+      user_surveys: {
+        Row: {
+          created_at: string
+          id: string
+          main_goal: string
+          monthly_budget: string
+          recommended_plan_id: string | null
+          survey_completed_at: string | null
+          telegram_user_id: string
+          trading_frequency: string
+          trading_level: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          main_goal: string
+          monthly_budget: string
+          recommended_plan_id?: string | null
+          survey_completed_at?: string | null
+          telegram_user_id: string
+          trading_frequency: string
+          trading_level: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          main_goal?: string
+          monthly_budget?: string
+          recommended_plan_id?: string | null
+          survey_completed_at?: string | null
+          telegram_user_id?: string
+          trading_frequency?: string
+          trading_level?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
