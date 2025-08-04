@@ -61,6 +61,217 @@ export type Database = {
           },
         ]
       }
+      education_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      education_enrollments: {
+        Row: {
+          completion_date: string | null
+          created_at: string
+          enrollment_date: string
+          enrollment_status: string
+          id: string
+          notes: string | null
+          package_id: string
+          payment_amount: number | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string
+          progress_percentage: number | null
+          receipt_file_path: string | null
+          receipt_telegram_file_id: string | null
+          start_date: string | null
+          student_email: string | null
+          student_first_name: string | null
+          student_last_name: string | null
+          student_phone: string | null
+          student_telegram_id: string
+          student_telegram_username: string | null
+          updated_at: string
+        }
+        Insert: {
+          completion_date?: string | null
+          created_at?: string
+          enrollment_date?: string
+          enrollment_status?: string
+          id?: string
+          notes?: string | null
+          package_id: string
+          payment_amount?: number | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string
+          progress_percentage?: number | null
+          receipt_file_path?: string | null
+          receipt_telegram_file_id?: string | null
+          start_date?: string | null
+          student_email?: string | null
+          student_first_name?: string | null
+          student_last_name?: string | null
+          student_phone?: string | null
+          student_telegram_id: string
+          student_telegram_username?: string | null
+          updated_at?: string
+        }
+        Update: {
+          completion_date?: string | null
+          created_at?: string
+          enrollment_date?: string
+          enrollment_status?: string
+          id?: string
+          notes?: string | null
+          package_id?: string
+          payment_amount?: number | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string
+          progress_percentage?: number | null
+          receipt_file_path?: string | null
+          receipt_telegram_file_id?: string | null
+          start_date?: string | null
+          student_email?: string | null
+          student_first_name?: string | null
+          student_last_name?: string | null
+          student_phone?: string | null
+          student_telegram_id?: string
+          student_telegram_username?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "education_enrollments_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "education_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      education_packages: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          currency: string
+          current_students: number | null
+          description: string | null
+          detailed_description: string | null
+          difficulty_level: string | null
+          duration_weeks: number
+          enrollment_deadline: string | null
+          features: string[] | null
+          id: string
+          instructor_bio: string | null
+          instructor_image_url: string | null
+          instructor_name: string | null
+          is_active: boolean
+          is_featured: boolean
+          is_lifetime: boolean
+          learning_outcomes: string[] | null
+          max_students: number | null
+          name: string
+          price: number
+          requirements: string[] | null
+          starts_at: string | null
+          thumbnail_url: string | null
+          updated_at: string
+          video_preview_url: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          currency?: string
+          current_students?: number | null
+          description?: string | null
+          detailed_description?: string | null
+          difficulty_level?: string | null
+          duration_weeks: number
+          enrollment_deadline?: string | null
+          features?: string[] | null
+          id?: string
+          instructor_bio?: string | null
+          instructor_image_url?: string | null
+          instructor_name?: string | null
+          is_active?: boolean
+          is_featured?: boolean
+          is_lifetime?: boolean
+          learning_outcomes?: string[] | null
+          max_students?: number | null
+          name: string
+          price: number
+          requirements?: string[] | null
+          starts_at?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          video_preview_url?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          currency?: string
+          current_students?: number | null
+          description?: string | null
+          detailed_description?: string | null
+          difficulty_level?: string | null
+          duration_weeks?: number
+          enrollment_deadline?: string | null
+          features?: string[] | null
+          id?: string
+          instructor_bio?: string | null
+          instructor_image_url?: string | null
+          instructor_name?: string | null
+          is_active?: boolean
+          is_featured?: boolean
+          is_lifetime?: boolean
+          learning_outcomes?: string[] | null
+          max_students?: number | null
+          name?: string
+          price?: number
+          requirements?: string[] | null
+          starts_at?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          video_preview_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "education_packages_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "education_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
