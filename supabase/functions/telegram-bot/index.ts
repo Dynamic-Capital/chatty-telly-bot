@@ -168,6 +168,9 @@ serve(async (req) => {
         await handleMyAccount(botToken, chatId, userId, supabaseClient);
       } else if (data === "back_to_plans") {
         await handleStartCommand(botToken, chatId, userId, username, supabaseClient);
+      } else if (data?.startsWith("manual_crypto_")) {
+        const planId = data.replace("manual_crypto_", "");
+        await handleManualCrypto(botToken, chatId, userId, username, planId, supabaseClient);
       } else if (data?.startsWith("admin_")) {
         // Admin dashboard callbacks - check if user is admin
         const adminIds = ["8486248025", "225513686"];
@@ -574,20 +577,89 @@ Reference: VIP-${userId}-${planId}
       break;
 
     case "crypto":
-      paymentMessage = `₿ <b>Binance Pay / Crypto Payment</b>
+      // Create Binance Pay checkout
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL');
+        const checkoutResponse = await fetch(`${supabaseUrl}/functions/v1/binance-pay-checkout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`
+          },
+          body: JSON.stringify({
+            planId: planId,
+            telegramUserId: userId.toString(),
+            telegramUsername: username
+          })
+        });
+
+        const checkoutData = await checkoutResponse.json();
+
+        if (checkoutData.success) {
+          paymentMessage = `₿ <b>Binance Pay / Crypto Payment</b>
 
 📋 Plan: ${plan.name}
-💰 Amount: $${plan.price}
+💰 Amount: $${plan.price} USDT
 
-🔗 <b>Binance Pay ID:</b> 123456789
-💰 <b>Or send crypto to:</b>
-BTC: 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
-ETH: 0x742d35Cc7e8Ea3Fc05F5b8A6C4d8F0E5F9F1F1F1
-USDT (TRC20): TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+🚀 <b>Choose your payment method:</b>
 
-📸 <b>Important:</b> After making the payment, please send a screenshot of your transaction to this chat.
+🔗 <b>Option 1: Binance Pay (Recommended)</b>
+• Click the link below for instant payment
+• Supports multiple cryptocurrencies
+• Instant confirmation
 
-⏰ Processing time: Usually within 30 minutes after confirmation.`;
+🔗 <b>Option 2: Direct Crypto Transfer</b>
+• Manual transfer with receipt upload
+• Verification required (1-2 hours)
+
+Click the buttons below to proceed:`;
+
+          const cryptoKeyboard = {
+            inline_keyboard: [
+              [{ text: "🚀 Pay with Binance Pay", url: checkoutData.checkoutUrl }],
+              [{ text: "📱 Open in Binance App", url: checkoutData.deeplink }],
+              [{ text: "📋 Manual Crypto Transfer", callback_data: `manual_crypto_${planId}` }],
+              [{ text: "← Back to Payment Methods", callback_data: `plan_${planId}` }]
+            ]
+          };
+
+          await sendMessage(botToken, chatId, paymentMessage, cryptoKeyboard);
+          return;
+        } else {
+          // Fallback to manual crypto if Binance Pay fails
+          paymentMessage = `₿ <b>Crypto Payment</b>
+
+📋 Plan: ${plan.name}
+💰 Amount: $${plan.price} USDT
+
+⚠️ <b>Binance Pay temporarily unavailable. Use manual transfer:</b>
+
+💰 <b>Send crypto to:</b>
+USDT (TRC20): TYourTrc20AddressHere
+BTC: 1YourBitcoinAddressHere
+ETH: 0xYourEthereumAddressHere
+
+📸 <b>Important:</b> After payment, send transaction hash or screenshot to this chat.
+
+⏰ Processing: 1-2 hours after verification.`;
+        }
+      } catch (error) {
+        console.error('Error creating Binance Pay checkout:', error);
+        paymentMessage = `₿ <b>Crypto Payment</b>
+
+📋 Plan: ${plan.name}
+💰 Amount: $${plan.price} USDT
+
+💰 <b>Send crypto to:</b>
+USDT (TRC20): TYourTrc20AddressHere
+BTC: 1YourBitcoinAddressHere
+ETH: 0xYourEthereumAddressHere
+
+📸 <b>After payment, send transaction screenshot to this chat.</b>
+
+⏰ Processing: 1-2 hours after verification.`;
+      }
+      
       paymentInstructions = "Binance Pay or crypto with receipt upload required";
       break;
 
@@ -2124,4 +2196,69 @@ async function handleCheckVIP(botToken: string, chatId: number, userId: string, 
   } catch (error) {
     await sendMessage(botToken, chatId, `❌ Error checking VIP status: ${error.message}`);
   }
+}
+
+async function handleManualCrypto(botToken: string, chatId: number, userId: number, username: string, planId: string, supabaseClient: any) {
+  // Get plan details
+  const { data: plan, error } = await supabaseClient
+    .from("subscription_plans")
+    .select("*")
+    .eq("id", planId)
+    .single();
+
+  if (error || !plan) {
+    await sendMessage(botToken, chatId, "Sorry, I couldn't find that plan. Please try again.");
+    return;
+  }
+
+  const manualCryptoMessage = `₿ <b>Manual Crypto Payment</b>
+
+📋 Plan: ${plan.name}
+💰 Amount: $${plan.price} USDT
+
+💰 <b>Send crypto to these addresses:</b>
+
+🔸 <b>USDT (TRC20) - Recommended:</b>
+<code>TYourTrc20AddressHere</code>
+
+🔸 <b>Bitcoin (BTC):</b>
+<code>1YourBitcoinAddressHere</code>
+
+🔸 <b>Ethereum (ETH):</b>
+<code>0xYourEthereumAddressHere</code>
+
+📸 <b>After payment, send to this chat:</b>
+• Transaction hash (TxID)
+• Screenshot of successful transaction
+• Your payment amount
+
+⏰ <b>Processing time:</b> 1-2 hours after verification
+
+💡 <b>Tips:</b>
+• Use exact amount to avoid delays
+• Include transaction fee in your calculation
+• Save transaction hash for your records
+
+📞 Need help? Contact @DynamicCapital_Support`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "← Back to Crypto Options", callback_data: `payment_crypto_${planId}` }],
+      [{ text: "🆘 Contact Support", callback_data: "contact_support" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, manualCryptoMessage, keyboard);
+
+  // Create subscription record for manual tracking
+  await supabaseClient
+    .from("user_subscriptions")
+    .upsert({
+      telegram_user_id: userId.toString(),
+      telegram_username: username,
+      plan_id: planId,
+      payment_method: "manual_crypto",
+      payment_status: "pending",
+      payment_instructions: "Manual crypto transfer - awaiting transaction proof"
+    });
 }
