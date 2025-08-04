@@ -652,18 +652,7 @@ function createPersistentKeyboard() {
 async function handleMainMenu(botToken: string, chatId: number, userId: number, username: string, supabaseClient: any) {
   logStep("Handling main menu", { chatId, userId, username });
 
-  // Setup bot commands (only needs to be done once, but doesn't hurt to repeat)
-  await setupBotCommands(botToken);
-
-  // Check if user has completed survey recently
-  const { data: recentSurvey } = await supabaseClient
-    .from("user_surveys")
-    .select("*")
-    .eq("telegram_user_id", userId.toString())
-    .order("survey_completed_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
+  // Fast response for new users - send main menu immediately without database checks
   const mainMenuKeyboard = {
     inline_keyboard: [
       [
@@ -687,8 +676,7 @@ async function handleMainMenu(botToken: string, chatId: number, userId: number, 
         { text: "🤖 Dynamic Assistant", callback_data: "ai_assistant" }
       ],
       [
-        // Show recommendation button if user hasn't taken survey
-        ...(recentSurvey ? [] : [{ text: "🤖 Get Plan Recommendation", callback_data: "start_survey" }]),
+        { text: "🤖 Get Plan Recommendation", callback_data: "start_survey" },
         { text: "📌 Enable Quick Menu", callback_data: "enable_pinned" }
       ],
       [
@@ -698,6 +686,44 @@ async function handleMainMenu(botToken: string, chatId: number, userId: number, 
   };
 
   const welcomeMessage = `🌟 <b>Welcome to Dynamic Chatty Bot!</b> 🌟
+
+Hi ${username ? `@${username}` : 'there'}! 👋
+
+🎯 <b>Your Gateway to Premium Trading Success!</b>
+Access elite trading signals, market analysis, and exclusive VIP features.
+
+💡 <b>Quick Start Guide:</b>
+📦 Browse our subscription packages
+📈 View live trading results  
+🎓 Access educational resources
+💬 Get instant support
+
+Choose an option below to get started:`;
+
+  // Send message immediately
+  await sendMessage(botToken, chatId, welcomeMessage, mainMenuKeyboard);
+  
+  // Setup bot commands and other background tasks without blocking response
+  Promise.all([
+    setupBotCommands(botToken),
+    // Check survey status in background (doesn't affect initial response)
+    supabaseClient
+      .from("user_surveys")
+      .select("*")
+      .eq("telegram_user_id", userId.toString())
+      .order("survey_completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data: recentSurvey }) => {
+        // Update keyboard if survey status changes (future enhancement)
+        if (!recentSurvey) {
+          logStep("User has not completed survey", { userId });
+        }
+      })
+  ]).catch(error => {
+    console.error("Background tasks error:", error);
+  });
+}
 
 Hi @DynamicCapital_Support 👋
 🚀 Unlock premium access to real-time trade signals, expert mentorship, and exclusive tools.
