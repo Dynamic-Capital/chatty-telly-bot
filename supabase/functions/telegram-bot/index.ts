@@ -126,6 +126,9 @@ serve(async (req) => {
       } else if (text.startsWith("/setsupport ") && isAdmin) {
         const supportData = text.replace("/setsupport ", "").trim();
         await handleSetSupport(botToken, chatId, supportData, supabaseClient);
+      } else if (text.startsWith("/addbank ") && isAdmin) {
+        const bankData = text.replace("/addbank ", "").trim();
+        await handleAddBankAccount(botToken, chatId, bankData, supabaseClient);
       } else if (text === "/education") {
         await handleEducationMenu(botToken, chatId, userId, username, supabaseClient);
       } else if (text.startsWith("/addedu ") && isAdmin) {
@@ -1016,6 +1019,10 @@ async function handleAdminMenu(botToken: string, chatId: number, supabaseClient:
         { text: "📝 System Logs", callback_data: "admin_logs" }
       ],
       [
+        { text: "🏦 Bank Accounts", callback_data: "admin_banks" },
+        { text: "⚙️ Support Settings", callback_data: "admin_support" }
+      ],
+      [
         { text: "🔙 Close Admin Panel", callback_data: "main_menu" }
       ]
     ]
@@ -1077,9 +1084,18 @@ async function handleAdminCallback(botToken: string, chatId: number, data: strin
     case "admin_analytics":
       await handleRevenueAnalytics(botToken, chatId, supabaseClient);
       break;
-    case "admin_packages":
-      await handlePackagePerformance(botToken, chatId, supabaseClient);
-      break;
+      case "admin_packages":
+        await handlePackagePerformance(botToken, chatId, supabaseClient);
+        break;
+      case "admin_banks":
+        await handleBankAccountsMenu(botToken, chatId, supabaseClient);
+        break;
+      case "bank_add":
+        await handleAddBankAccountForm(botToken, chatId);
+        break;
+      case "bank_list":
+        await handleListBankAccounts(botToken, chatId, supabaseClient);
+        break;
     default:
       await sendMessage(botToken, chatId, "❌ Unknown admin command.");
   }
@@ -3150,6 +3166,167 @@ async function handleSetSupport(botToken: string, chatId: number, supportData: s
   } catch (error) {
     console.error('Error in handleSetSupport:', error);
     await sendMessage(botToken, chatId, "❌ Error updating support settings. Please try again.");
+}
+
+// Bank Account Management Functions
+async function handleBankAccountsMenu(botToken: string, chatId: number, supabaseClient: any) {
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "➕ Add Bank Account", callback_data: "bank_add" },
+        { text: "📋 List Accounts", callback_data: "bank_list" }
+      ],
+      [
+        { text: "🔙 Back to Admin", callback_data: "admin_menu" }
+      ]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, "🏦 <b>Bank Account Management</b>\n\nManage payment bank accounts for user instructions.", keyboard);
+}
+
+async function handleAddBankAccountForm(botToken: string, chatId: number) {
+  const message = `➕ <b>Add Bank Account</b>
+
+Send bank details in this format:
+<code>/addbank [Bank Name]|[Account Number]|[Account Name]|[Currency]</code>
+
+<b>Example:</b>
+<code>/addbank BML|7730000133061|ABDL.M.I.AFLHAL|MVR</code>
+
+<b>Supported Currencies:</b> MVR, USD, EUR`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "🔙 Back", callback_data: "admin_banks" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, message, keyboard);
+}
+
+async function handleListBankAccounts(botToken: string, chatId: number, supabaseClient: any) {
+  try {
+    const { data: accounts, error } = await supabaseClient
+      .from("bank_accounts")
+      .select("*")
+      .order("display_order");
+
+    if (error) {
+      console.error("Error fetching bank accounts:", error);
+      await sendMessage(botToken, chatId, "❌ Error fetching bank accounts.");
+      return;
+    }
+
+    if (!accounts || accounts.length === 0) {
+      await sendMessage(botToken, chatId, "📋 <b>No bank accounts found.</b>\n\nUse 'Add Bank Account' to add the first one.");
+      return;
+    }
+
+    let message = "🏦 <b>Bank Accounts</b>\n\n";
+    
+    accounts.forEach((account: any, index: number) => {
+      const status = account.is_active ? "✅" : "❌";
+      message += `${status} <b>${account.bank_name}</b> (${account.currency})
+• Account: <code>${account.account_number}</code>
+• Name: ${account.account_name}
+• Status: ${account.is_active ? "Active" : "Inactive"}
+
+`;
+    });
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "🔙 Back", callback_data: "admin_banks" }]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, message, keyboard);
+
+  } catch (error) {
+    console.error("Error in handleListBankAccounts:", error);
+    await sendMessage(botToken, chatId, "❌ Error retrieving bank accounts.");
   }
+}
+
+async function handleAddBankAccount(botToken: string, chatId: number, bankData: string, supabaseClient: any) {
+  try {
+    const parts = bankData.split('|');
+    if (parts.length < 4) {
+      await sendMessage(botToken, chatId, `❌ <b>Invalid format!</b>
+
+<b>Usage:</b> <code>/addbank [Bank Name]|[Account Number]|[Account Name]|[Currency]</code>
+
+<b>Example:</b>
+<code>/addbank BML|7730000133061|ABDL.M.I.AFLHAL|MVR</code>`);
+      return;
+    }
+
+    const [bankName, accountNumber, accountName, currency] = parts.map(p => p.trim());
+
+    const bankAccount = {
+      bank_name: bankName,
+      account_number: accountNumber,
+      account_name: accountName,
+      currency: currency.toUpperCase(),
+      is_active: true,
+      display_order: 0
+    };
+
+    const { data, error } = await supabaseClient
+      .from("bank_accounts")
+      .insert(bankAccount)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error adding bank account:", error);
+      await sendMessage(botToken, chatId, "❌ Error adding bank account.");
+      return;
+    }
+
+    await sendMessage(botToken, chatId, `✅ <b>Bank Account Added!</b>
+
+🏦 <b>Bank:</b> ${bankName}
+💳 <b>Account:</b> ${accountNumber}
+👤 <b>Name:</b> ${accountName}
+💱 <b>Currency:</b> ${currency}
+
+🆔 <b>Account ID:</b> <code>${data.id}</code>`);
+
+  } catch (error) {
+    console.error("Error in handleAddBankAccount:", error);
+    await sendMessage(botToken, chatId, "❌ Error adding bank account.");
+  }
+}
+
+// Update payment messages to use dynamic bank accounts
+async function getBankAccountsForPayment(supabaseClient: any) {
+  try {
+    const { data: accounts, error } = await supabaseClient
+      .from("bank_accounts")
+      .select("*")
+      .eq("is_active", true)
+      .order("display_order");
+
+    if (error || !accounts || accounts.length === 0) {
+      // Fallback to hardcoded accounts if none found
+      return [
+        { bank_name: "BML", account_number: "7730000133061", account_name: "ABDL.M.I.AFLHAL", currency: "MVR" },
+        { bank_name: "MIB", account_number: "9010310167224100", account_name: "ABDL.M.I.AFLHAL", currency: "MVR" },
+        { bank_name: "MIB", account_number: "9013101672242000", account_name: "ABDL.M.I.AFLHAL", currency: "USD" }
+      ];
+    }
+
+    return accounts;
+  } catch (error) {
+    console.error("Error fetching bank accounts:", error);
+    return [
+      { bank_name: "BML", account_number: "7730000133061", account_name: "ABDL.M.I.AFLHAL", currency: "MVR" },
+      { bank_name: "MIB", account_number: "9010310167224100", account_name: "ABDL.M.I.AFLHAL", currency: "MVR" },
+      { bank_name: "MIB", account_number: "9013101672242000", account_name: "ABDL.M.I.AFLHAL", currency: "USD" }
+    ];
+  }
+}
 }
 }
