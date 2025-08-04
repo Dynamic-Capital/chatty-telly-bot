@@ -524,9 +524,16 @@ serve(async (req) => {
         });
       } else if (data === "view_packages") {
         // Track package view
-        await trackInteraction(supabaseClient, userId.toString(), "button_click", { button_name: "view_packages" }, "main_menu");
-        await trackConversion(supabaseClient, userId.toString(), "plan_view", null, null, null, 1);
-        await handleStartCommand(botToken, chatId, userId, username, supabaseClient);
+        logStep("Processing view_packages callback", { userId });
+        try {
+          await trackInteraction(supabaseClient, userId.toString(), "button_click", { button_name: "view_packages" }, "main_menu");
+          await trackConversion(supabaseClient, userId.toString(), "plan_view", null, null, null, 1);
+          await handleStartCommand(botToken, chatId, userId, username, supabaseClient);
+          logStep("view_packages callback completed", { userId });
+        } catch (error) {
+          logStep("Error in view_packages callback", { userId, error: error instanceof Error ? error.message : String(error) });
+          await sendMessage(botToken, chatId, "❌ Something went wrong loading packages. Please try again.");
+        }
       } else if (data === "contact_support") {
         await handleContactSupport(botToken, chatId, supabaseClient);
       } else if (data === "vip_guidelines") {
@@ -927,18 +934,29 @@ Ready to subscribe? Choose a package first!`;
 }
 
 async function handleStartCommand(botToken: string, chatId: number, userId: number, username: string, supabaseClient: any) {
+  logStep("Starting handleStartCommand", { chatId, userId, username });
 
-  // Fetch available subscription plans
-  const { data: plans, error } = await supabaseClient
-    .from("subscription_plans")
-    .select("*")
-    .order("price", { ascending: true });
+  try {
+    // Fetch available subscription plans
+    logStep("Fetching subscription plans");
+    const { data: plans, error } = await supabaseClient
+      .from("subscription_plans")
+      .select("*")
+      .order("price", { ascending: true });
 
-  if (error) {
-    logStep("Error fetching plans", { error });
-    await sendMessage(botToken, chatId, "Sorry, there was an error loading subscription plans. Please try again later.");
-    return;
-  }
+    if (error) {
+      logStep("Error fetching plans", { error });
+      await sendMessage(botToken, chatId, "Sorry, there was an error loading subscription plans. Please try again later.");
+      return;
+    }
+
+    if (!plans || plans.length === 0) {
+      logStep("No plans found in database");
+      await sendMessage(botToken, chatId, "No subscription plans are currently available. Please contact support.");
+      return;
+    }
+
+    logStep("Plans fetched successfully", { planCount: plans.length });
 
   const keyboard = {
     inline_keyboard: plans.map((plan: any) => [
@@ -995,7 +1013,14 @@ Gain full access to our elite trading community, top-tier analysis, and 24/7 sup
 
 👆 <b>Tap a plan below to upgrade your trading journey today!</b>`;
 
-  await sendMessage(botToken, chatId, welcomeMessage, keyboard);
+    logStep("Sending welcome message with plans", { messageLength: welcomeMessage.length });
+    await sendMessage(botToken, chatId, welcomeMessage, keyboard);
+    logStep("handleStartCommand completed successfully");
+
+  } catch (error) {
+    logStep("Error in handleStartCommand", { error: error instanceof Error ? error.message : String(error) });
+    await sendMessage(botToken, chatId, "❌ Something went wrong while loading plans. Please try again or contact support.");
+  }
 }
 
 async function handlePlanSelection(botToken: string, chatId: number, userId: number, username: string, planId: string, supabaseClient: any) {
