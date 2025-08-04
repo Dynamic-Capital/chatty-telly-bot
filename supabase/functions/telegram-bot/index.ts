@@ -314,10 +314,10 @@ serve(async (req) => {
         if (question.length > 0) {
           await handleAIQuestion(botToken, chatId, question, supabaseClient);
         } else {
-          await sendMessage(botToken, chatId, "💬 <b>Ask AI Assistant</b>\n\nPlease include your question after /ask command.\n\n<b>Examples:</b>\n• <code>/ask How do I change my subscription?</code>\n• <code>/ask What payment methods do you accept?</code>\n• <code>/ask How long does activation take?</code>\n\nOr simply type your question directly without any command!");
+          await sendMessage(botToken, chatId, "💬 <b>Ask Dynamic Assistant</b>\n\nPlease include your question after /ask command.\n\n<b>Examples:</b>\n• <code>/ask How do I change my subscription?</code>\n• <code>/ask What payment methods do you accept?</code>\n• <code>/ask How long does activation take?</code>\n\nOr simply type your question directly without any command!");
         }
       } else if (text === "/ask") {
-        await sendMessage(botToken, chatId, "💬 <b>Ask AI Assistant</b>\n\nPlease include your question after /ask command.\n\n<b>Examples:</b>\n• <code>/ask How do I change my subscription?</code>\n• <code>/ask What payment methods do you accept?</code>\n• <code>/ask How long does activation take?</code>\n\nOr simply type your question directly without any command!");
+        await sendMessage(botToken, chatId, "💬 <b>Ask Dynamic Assistant</b>\n\nPlease include your question after /ask command.\n\n<b>Examples:</b>\n• <code>/ask How do I change my subscription?</code>\n• <code>/ask What payment methods do you accept?</code>\n• <code>/ask How long does activation take?</code>\n\nOr simply type your question directly without any command!");
       } else {
         // Enhanced FAQ: Any non-command message is treated as a question
         if (text.length > 2 && !text.startsWith("/")) {
@@ -489,14 +489,14 @@ serve(async (req) => {
       } else if (data === "view_faq") {
         await handleFAQ(botToken, chatId, supabaseClient);
       } else if (data === "ai_assistant") {
-        await sendMessage(botToken, chatId, "🤖 <b>AI Assistant</b>\n\nI'm here to help you with any questions about VIP plans, trading, or our services!\n\n💬 <b>How to use:</b>\n• Type <code>/ask [your question]</code>\n• Or simply type your question directly\n\n📝 <b>Examples:</b>\n• How do I upgrade my plan?\n• What payment methods do you accept?\n• How long does VIP activation take?\n• Can I get a refund?\n\n🎯 <b>Pro tip:</b> You can ask me anything - I have access to all our FAQ and support information!");
+        await sendMessage(botToken, chatId, "🤖 <b>Dynamic Assistant</b>\n\nI'm here to help you with any questions about VIP plans, trading, or our services!\n\n💬 <b>How to use:</b>\n• Type <code>/ask [your question]</code>\n• Or simply type your question directly\n\n📝 <b>Examples:</b>\n• How do I upgrade my plan?\n• What payment methods do you accept?\n• How long does VIP activation take?\n• Can I get a refund?\n\n🎯 <b>Pro tip:</b> You can ask me anything - I have access to all our FAQ and support information!");
       } else if (data === "start_survey") {
         await handleStartSurvey(botToken, chatId, userId, supabaseClient);
       } else if (data?.startsWith("survey_")) {
         const surveyData = data.replace("survey_", "");
         await handleSurveyResponse(botToken, chatId, userId, surveyData, supabaseClient);
       } else if (data === "ask_ai") {
-        await sendMessage(botToken, chatId, "💬 <b>Ask AI Assistant</b>\n\nType your question and I'll help you! For example:\n\n/ask How do I change my subscription?\n/ask What payment methods do you accept?\n/ask How long does activation take?\n\nOr simply type your question directly!");
+        await sendMessage(botToken, chatId, "💬 <b>Ask Dynamic Assistant</b>\n\nType your question and I'll help you! For example:\n\n/ask How do I change my subscription?\n/ask What payment methods do you accept?\n/ask How long does activation take?\n\nOr simply type your question directly!");
       } else if (data === "education_menu") {
         await handleEducationMenu(botToken, chatId, userId, username, supabaseClient);
       } else if (data?.startsWith("education_package_")) {
@@ -534,12 +534,12 @@ async function setupBotCommands(botToken: string) {
     { command: "start", description: "🏠 Main Menu - Access all features" },
     { command: "packages", description: "📦 View VIP Packages" },
     { command: "promo", description: "🎫 View & Apply Promo Codes" },
-    { command: "account", description: "📊 My Account & Status" },
+    { command: "account", description: "📊 My Plan & Status" },
     { command: "support", description: "🆘 Contact Support" },
     { command: "help", description: "❓ Help & Commands" },
     { command: "faq", description: "📋 Frequently Asked Questions" },
     { command: "education", description: "🎓 Education Packages" },
-    { command: "ask", description: "🤖 Ask AI Assistant" },
+    { command: "ask", description: "🤖 Ask Dynamic Assistant" },
     { command: "shouldibuy", description: "📈 Get Trading Analysis" }
   ];
 
@@ -610,12 +610,12 @@ async function handleMainMenu(botToken: string, chatId: number, userId: number, 
         { text: "🎫 Enter Promo Code", callback_data: "enter_promo" }
       ],
       [
-        { text: "📊 My Account", callback_data: "my_account" },
+        { text: "📊 My Plan", callback_data: "my_account" },
         { text: "ℹ️ About Us", callback_data: "about_us" }
       ],
       [
         { text: "❓ FAQ", callback_data: "view_faq" },
-        { text: "🤖 AI Assistant", callback_data: "ai_assistant" }
+        { text: "🤖 Dynamic Assistant", callback_data: "ai_assistant" }
       ],
       [
         // Show recommendation button if user hasn't taken survey
@@ -1542,7 +1542,7 @@ Continue following our signals for consistent profits.`;
     inline_keyboard: [
       [
         { text: "📈 View All Results", url: "https://t.me/DynamicCapital_Results" },
-        { text: "📊 My Account", callback_data: "my_account" }
+        { text: "📊 My Plan", callback_data: "my_account" }
       ],
       [
         { text: "🤖 AI Trade Helper", callback_data: "trade_helper" },
@@ -2472,7 +2472,7 @@ async function handleMyAccount(botToken: string, chatId: number, userId: number,
     .limit(1)
     .maybeSingle();
 
-  let accountMessage = `📊 <b>My Account</b>\n\n`;
+  let accountMessage = `📊 <b>My Plan</b>\n\n`;
   accountMessage += `👤 <b>User ID:</b> ${userId}\n\n`;
 
   if (subscription) {
@@ -2546,9 +2546,9 @@ async function handleHelp(botToken: string, chatId: number, isAdmin: boolean, su
 • <code>/help</code> - Show this help message
 • <code>PROMO [code]</code> - Apply promo code
 
-💬 <b>AI Assistant:</b>
+💬 <b>Dynamic Assistant:</b>
 • <code>/faq</code> - View common questions
-• <code>/ask [question]</code> - Ask AI assistant
+• <code>/ask [question]</code> - Ask Dynamic assistant
 • Simply type any question and I'll help!
 
 📊 <b>Account:</b>
@@ -3306,7 +3306,7 @@ We also teach why behind the trades inside the mentorship content.`;
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: "💬 Ask AI Assistant", callback_data: "ask_ai" }],
+      [{ text: "💬 Ask Dynamic Assistant", callback_data: "ask_ai" }],
       [{ text: "📞 Contact Support", callback_data: "contact_support" }],
       [{ text: "← Back to Main Menu", callback_data: "main_menu" }]
     ]
@@ -3320,13 +3320,13 @@ async function handleAIQuestion(botToken: string, chatId: number, question: stri
   try {
     // Validate question
     if (!question || question.trim().length === 0) {
-      await sendMessage(botToken, chatId, "💬 <b>Ask AI Assistant</b>\n\nPlease provide a question for me to answer!\n\n<b>Examples:</b>\n• How do I change my subscription?\n• What payment methods do you accept?\n• How long does activation take?");
+      await sendMessage(botToken, chatId, "💬 <b>Ask Dynamic Assistant</b>\n\nPlease provide a question for me to answer!\n\n<b>Examples:</b>\n• How do I change my subscription?\n• What payment methods do you accept?\n• How long does activation take?");
       return;
     }
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiKey) {
-      await sendMessage(botToken, chatId, `❌ AI assistant is currently unavailable. Please contact support ${SUPPORT_CONFIG.support_telegram} or check our FAQ with /faq`);
+      await sendMessage(botToken, chatId, `❌ Dynamic assistant is currently unavailable. Please contact support ${SUPPORT_CONFIG.support_telegram} or check our FAQ with /faq`);
       return;
     }
 
@@ -3401,7 +3401,7 @@ Keep responses helpful, professional, and concise.`;
     
     const aiResponse = data.choices[0].message.content;
 
-    const responseMessage = `🤖 <b>AI Assistant</b>
+    const responseMessage = `🤖 <b>Dynamic Assistant</b>
 
 ${aiResponse}
 
@@ -4724,7 +4724,7 @@ Happy trading! 🚀💰`;
   const keyboard = {
     inline_keyboard: [
       [
-        { text: "📊 My Account", callback_data: "my_account" },
+        { text: "📊 My Plan", callback_data: "my_account" },
         { text: "💡 Trading Tips", callback_data: "trading_tips" }
       ],
       [
@@ -4864,7 +4864,7 @@ Use the main menu to select a plan and make a payment.`;
       inline_keyboard: [
         [
           { text: "📦 View Plans", callback_data: "view_packages" },
-          { text: "📊 My Account", callback_data: "my_account" }
+          { text: "📊 My Plan", callback_data: "my_account" }
         ],
         [
           { text: "← Back to Support", callback_data: "contact_support" }
@@ -5576,7 +5576,7 @@ ${result.answer}
       inline_keyboard: [
         [
           { text: "📦 View Plans", callback_data: "view_packages" },
-          { text: "📊 My Account", callback_data: "my_account" }
+          { text: "📊 My Plan", callback_data: "my_account" }
         ],
         [
           { text: "🆘 Human Support", callback_data: "contact_support" },
@@ -5588,10 +5588,10 @@ ${result.answer}
     await sendMessage(botToken, chatId, aiResponse, keyboard);
 
   } catch (error) {
-    console.error("Error in AI assistant:", error);
-    await sendMessage(botToken, chatId, `❌ <b>AI Assistant Unavailable</b>
+    console.error("Error in Dynamic assistant:", error);
+    await sendMessage(botToken, chatId, `❌ <b>Dynamic Assistant Unavailable</b>
 
-I'm having trouble connecting to the AI assistant right now. Please try again in a moment or contact our human support team.
+I'm having trouble connecting to the Dynamic assistant right now. Please try again in a moment or contact our human support team.
 
 🆘 <b>Alternative help:</b>
 • Contact: ${SUPPORT_CONFIG.support_telegram}
