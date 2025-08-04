@@ -3427,5 +3427,3 @@ async function getBankAccountsForPayment(supabaseClient: any) {
     ];
   }
 }
-}
-}
