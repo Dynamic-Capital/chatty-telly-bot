@@ -7,13 +7,58 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Signature verification function
+async function verifySignature(timestamp: string, nonce: string, body: string, signature: string, secretKey: string): Promise<boolean> {
+  const payload = timestamp + '\n' + nonce + '\n' + body + '\n';
+  
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secretKey);
+  const messageData = encoder.encode(payload);
+  
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-512' },
+    false,
+    ['sign']
+  );
+  
+  const expectedSignature = await crypto.subtle.sign('HMAC', key, messageData);
+  const expectedSignatureHex = Array.from(new Uint8Array(expectedSignature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .toUpperCase();
+  
+  return expectedSignatureHex === signature.toUpperCase();
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const webhookData = await req.json();
+    const rawBody = await req.text();
+    const webhookData = JSON.parse(rawBody);
+    
+    // Get signature headers for verification
+    const timestamp = req.headers.get('BinancePay-Timestamp');
+    const nonce = req.headers.get('BinancePay-Nonce');
+    const signature = req.headers.get('BinancePay-Signature');
+    
+    // Verify webhook signature (optional but recommended for production)
+    const secretKey = Deno.env.get('BINANCE_SECRET_KEY');
+    if (secretKey && timestamp && nonce && signature) {
+      const isValid = await verifySignature(timestamp, nonce, rawBody, signature, secretKey);
+      if (!isValid) {
+        console.error('Invalid webhook signature');
+        return new Response(JSON.stringify({ error: 'Invalid signature' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+    
     console.log('Binance Pay webhook received:', webhookData);
 
     // Initialize Supabase client

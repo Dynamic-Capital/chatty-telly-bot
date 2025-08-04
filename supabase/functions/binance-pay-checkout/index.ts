@@ -8,31 +8,32 @@ const corsHeaders = {
 };
 
 // Binance Pay API configuration
-const BINANCE_PAY_API_KEY = "RNlG6LBiXsT7M7w12BFgCULlTo3T9LEtxGbAkTQf8ZIoe2Hbftanf7SxKNFMMNvp";
+const BINANCE_PAY_API_KEY = Deno.env.get('BINANCE_API_KEY')!;
+const BINANCE_PAY_SECRET_KEY = Deno.env.get('BINANCE_SECRET_KEY')!;
 const BINANCE_PAY_MERCHANT_ID = "59586072";
 const BINANCE_PAY_BASE_URL = "https://bpay.binanceapi.com";
 
-function generateSignature(timestamp: string, nonce: string, body: string, secretKey: string): string {
+async function generateSignature(timestamp: string, nonce: string, body: string, secretKey: string): Promise<string> {
   const payload = timestamp + '\n' + nonce + '\n' + body + '\n';
   
   const encoder = new TextEncoder();
   const keyData = encoder.encode(secretKey);
   const messageData = encoder.encode(payload);
   
-  return crypto.subtle.importKey(
+  const key = await crypto.subtle.importKey(
     'raw',
     keyData,
     { name: 'HMAC', hash: 'SHA-512' },
     false,
     ['sign']
-  ).then(key => 
-    crypto.subtle.sign('HMAC', key, messageData)
-  ).then(signature => 
-    Array.from(new Uint8Array(signature))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('')
-      .toUpperCase()
   );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, messageData);
+  
+  return Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .toUpperCase();
 }
 
 function generateNonce(): string {
@@ -111,15 +112,15 @@ serve(async (req) => {
 
     const requestBody = JSON.stringify(orderData);
     
-    // Generate signature (Note: You'll need the secret key for this)
-    // For now, we'll skip signature validation in development
+    // Generate HMAC signature with your API keys
+    const signature = await generateSignature(timestamp, nonce, requestBody, BINANCE_PAY_SECRET_KEY);
     
     const headers = {
       'Content-Type': 'application/json',
       'BinancePay-Timestamp': timestamp,
       'BinancePay-Nonce': nonce,
       'BinancePay-Certificate-SN': BINANCE_PAY_API_KEY,
-      // 'BinancePay-Signature': signature, // Will be added when secret key is provided
+      'BinancePay-Signature': signature,
     };
 
     console.log('Creating Binance Pay checkout for payment:', payment.id);
