@@ -54,13 +54,25 @@ serve(async (req) => {
       logStep("Processing message", { chatId, text, userId, username });
 
       // Admin commands - Add your Telegram user ID here
-      const adminIds = ["8486248025"]; // Your admin Telegram user ID (you can add more)
+      const adminIds = ["8486248025", "225513686"]; // Your admin and support admin user IDs
       const isAdmin = adminIds.includes(userId.toString());
 
       if (text === "/start") {
         await handleMainMenu(botToken, chatId, userId, username, supabaseClient);
+      } else if (text === "/help" || text === "/commands") {
+        await handleHelp(botToken, chatId, isAdmin, supabaseClient);
       } else if (text === "/admin" && isAdmin) {
         await handleAdminMenu(botToken, chatId, supabaseClient);
+      } else if (text.startsWith("/approve ") && isAdmin) {
+        const subscriptionId = text.replace("/approve ", "").trim();
+        await handleApprovePayment(botToken, chatId, subscriptionId, supabaseClient);
+      } else if (text.startsWith("/reject ") && isAdmin) {
+        const parts = text.replace("/reject ", "").trim().split(" ");
+        const subscriptionId = parts[0];
+        const reason = parts.slice(1).join(" ") || "Payment verification failed";
+        await handleRejectPayment(botToken, chatId, subscriptionId, reason, supabaseClient);
+      } else if (text.startsWith("/pending") && isAdmin) {
+        await handlePendingPayments(botToken, chatId, supabaseClient);
       } else if (text.startsWith("/setwelcome ") && isAdmin) {
         const welcomeText = text.replace("/setwelcome ", "").trim();
         await handleSetWelcome(botToken, chatId, welcomeText, supabaseClient);
@@ -74,11 +86,20 @@ serve(async (req) => {
         await handleDeletePromo(botToken, chatId, promoCode, supabaseClient);
       } else if (text.startsWith("/stats") && isAdmin) {
         await handleStats(botToken, chatId, supabaseClient);
+      } else if (text.startsWith("/setbank ") && isAdmin) {
+        const bankDetails = text.replace("/setbank ", "").trim();
+        await handleSetBankDetails(botToken, chatId, bankDetails, supabaseClient);
+      } else if (text.startsWith("/setcrypto ") && isAdmin) {
+        const cryptoDetails = text.replace("/setcrypto ", "").trim();
+        await handleSetCryptoDetails(botToken, chatId, cryptoDetails, supabaseClient);
+      } else if (text.startsWith("/addplan ") && isAdmin) {
+        const planData = text.replace("/addplan ", "").trim();
+        await handleAddPlan(botToken, chatId, planData, supabaseClient);
       } else if (text.startsWith("/promo ") || text.startsWith("PROMO")) {
         const promoCode = text.replace("/promo ", "").replace("PROMO", "").trim();
         await handlePromoCode(botToken, chatId, userId, username, promoCode, supabaseClient);
       } else {
-        await sendMessage(botToken, chatId, "I didn't understand that command. Use /start to see available options or send a promo code like: PROMO SAVE20");
+        await sendMessage(botToken, chatId, "I didn't understand that command. Use /help to see available commands or send a promo code like: PROMO SAVE20");
       }
     }
 
@@ -636,6 +657,33 @@ async function handleFileUpload(botToken: string, chatId: number, userId: number
 Thank you for your patience! 🙏`;
 
     await sendMessage(botToken, chatId, successMessage);
+
+    // Notify admins about the receipt upload
+    const adminIds = ["8486248025", "225513686"];
+    const adminNotification = `🔔 <b>New Receipt Submitted!</b>
+
+📋 <b>Subscription Details:</b>
+• ID: <code>${subscription.id}</code>
+• User: ${subscription.telegram_user_id} (@${subscription.telegram_username || 'N/A'})
+• Plan: ${subscription.subscription_plans.name} ($${subscription.subscription_plans.price})
+• Payment Method: ${subscription.payment_method}
+• Date: ${new Date().toLocaleDateString()}
+
+📸 <b>Receipt uploaded and ready for verification.</b>
+
+<b>Actions:</b>
+<code>/approve ${subscription.id}</code> - Approve payment
+<code>/reject ${subscription.id} [reason]</code> - Reject payment
+<code>/pending</code> - View all pending payments`;
+
+    // Send notification to all admins
+    for (const adminId of adminIds) {
+      try {
+        await sendMessage(botToken, parseInt(adminId), adminNotification);
+      } catch (error) {
+        logStep("Error notifying admin", { adminId, error });
+      }
+    }
   } catch (error) {
     logStep("Error processing file upload", { error });
     await sendMessage(botToken, chatId, "❌ Failed to process your receipt. Please try again or contact support.");
@@ -991,4 +1039,303 @@ async function handleMyAccount(botToken: string, chatId: number, userId: number,
   };
 
   await sendMessage(botToken, chatId, accountMessage, accountKeyboard);
+}
+
+// Help command - shows all available commands
+async function handleHelp(botToken: string, chatId: number, isAdmin: boolean, supabaseClient: any) {
+  let helpMessage = `📚 <b>Available Commands</b>
+
+🏠 <b>Main Commands:</b>
+• <code>/start</code> - Show main menu
+• <code>/help</code> - Show this help message
+• <code>PROMO [code]</code> - Apply promo code
+
+📊 <b>Account:</b>
+• Use menu buttons for account status
+• Upload receipt for manual payments
+
+🆘 <b>Support:</b>
+• @DynamicCapital_Support
+• Email: support@dynamicvip.com`;
+
+  if (isAdmin) {
+    helpMessage += `
+
+🔧 <b>Admin Commands:</b>
+• <code>/admin</code> - Admin panel
+• <code>/pending</code> - View pending payments
+• <code>/approve [id]</code> - Approve payment
+• <code>/reject [id] [reason]</code> - Reject payment
+• <code>/stats</code> - Bot statistics
+
+📋 <b>Promo Management:</b>
+• <code>/addpromo [code] [type] [value] [days] [uses]</code>
+• <code>/listpromos</code> - List all promos
+• <code>/deletepromo [code]</code> - Delete promo
+
+⚙️ <b>Settings:</b>
+• <code>/setwelcome [message]</code> - Update welcome
+• <code>/setbank [details]</code> - Update bank info
+• <code>/setcrypto [details]</code> - Update crypto info
+• <code>/addplan [name] [price] [months] [lifetime]</code>
+
+<b>Examples:</b>
+<code>/addpromo SAVE20 percentage 20 30 100</code>
+<code>/approve 12345</code>
+<code>/reject 12345 Invalid receipt</code>`;
+  }
+
+  await sendMessage(botToken, chatId, helpMessage);
+}
+
+// Payment approval/rejection system
+async function handlePendingPayments(botToken: string, chatId: number, supabaseClient: any) {
+  const { data: pendingPayments, error } = await supabaseClient
+    .from("user_subscriptions")
+    .select("*, subscription_plans(*)")
+    .eq("payment_status", "receipt_submitted")
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (error) {
+    await sendMessage(botToken, chatId, "❌ Error fetching pending payments.");
+    return;
+  }
+
+  if (!pendingPayments || pendingPayments.length === 0) {
+    await sendMessage(botToken, chatId, "✅ No pending payments found.");
+    return;
+  }
+
+  let message = `📋 <b>Pending Payments (${pendingPayments.length})</b>\n\n`;
+  
+  pendingPayments.forEach((payment: any, index: number) => {
+    const plan = payment.subscription_plans;
+    message += `${index + 1}. <b>ID:</b> <code>${payment.id}</code>
+👤 User: ${payment.telegram_user_id} (@${payment.telegram_username || 'N/A'})
+💎 Plan: ${plan?.name} ($${plan?.price})
+💳 Method: ${payment.payment_method}
+📅 Date: ${new Date(payment.created_at).toLocaleDateString()}
+
+<code>/approve ${payment.id}</code> | <code>/reject ${payment.id} [reason]</code>
+
+`;
+  });
+
+  await sendMessage(botToken, chatId, message);
+}
+
+async function handleApprovePayment(botToken: string, chatId: number, subscriptionId: string, supabaseClient: any) {
+  if (!subscriptionId) {
+    await sendMessage(botToken, chatId, "❌ Please provide subscription ID.\n\nExample: <code>/approve 12345</code>");
+    return;
+  }
+
+  // Get subscription details
+  const { data: subscription, error: fetchError } = await supabaseClient
+    .from("user_subscriptions")
+    .select("*, subscription_plans(*)")
+    .eq("id", subscriptionId)
+    .single();
+
+  if (fetchError || !subscription) {
+    await sendMessage(botToken, chatId, "❌ Subscription not found.");
+    return;
+  }
+
+  // Calculate subscription end date
+  const plan = subscription.subscription_plans;
+  const startDate = new Date();
+  let endDate = null;
+  
+  if (!plan.is_lifetime) {
+    endDate = new Date();
+    endDate.setMonth(endDate.getMonth() + plan.duration_months);
+  }
+
+  // Update subscription status
+  const { error: updateError } = await supabaseClient
+    .from("user_subscriptions")
+    .update({
+      payment_status: "active",
+      is_active: true,
+      subscription_start_date: startDate.toISOString(),
+      subscription_end_date: endDate?.toISOString() || null,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", subscriptionId);
+
+  if (updateError) {
+    await sendMessage(botToken, chatId, "❌ Failed to approve payment.");
+    return;
+  }
+
+  // Notify user
+  const userNotification = `🎉 <b>Payment Approved!</b>
+
+Your ${plan.name} subscription has been activated!
+
+💎 <b>Plan:</b> ${plan.name}
+💰 <b>Price:</b> $${plan.price}
+📅 <b>Start Date:</b> ${startDate.toLocaleDateString()}
+${endDate ? `📅 <b>End Date:</b> ${endDate.toLocaleDateString()}` : '🔥 <b>Lifetime Access!</b>'}
+
+Welcome to VIP! 🌟`;
+
+  await sendMessage(botToken, subscription.telegram_user_id, userNotification);
+
+  // Notify admin
+  await sendMessage(botToken, chatId, `✅ <b>Payment Approved</b>
+
+Subscription ID: <code>${subscriptionId}</code>
+User: ${subscription.telegram_user_id} (@${subscription.telegram_username})
+Plan: ${plan.name} ($${plan.price})
+
+User has been notified. ✨`);
+}
+
+async function handleRejectPayment(botToken: string, chatId: number, subscriptionId: string, reason: string, supabaseClient: any) {
+  if (!subscriptionId) {
+    await sendMessage(botToken, chatId, "❌ Please provide subscription ID.\n\nExample: <code>/reject 12345 Invalid receipt</code>");
+    return;
+  }
+
+  // Get subscription details
+  const { data: subscription, error: fetchError } = await supabaseClient
+    .from("user_subscriptions")
+    .select("*, subscription_plans(*)")
+    .eq("id", subscriptionId)
+    .single();
+
+  if (fetchError || !subscription) {
+    await sendMessage(botToken, chatId, "❌ Subscription not found.");
+    return;
+  }
+
+  // Update subscription status
+  const { error: updateError } = await supabaseClient
+    .from("user_subscriptions")
+    .update({
+      payment_status: "rejected",
+      is_active: false,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", subscriptionId);
+
+  if (updateError) {
+    await sendMessage(botToken, chatId, "❌ Failed to reject payment.");
+    return;
+  }
+
+  const plan = subscription.subscription_plans;
+
+  // Notify user
+  const userNotification = `❌ <b>Payment Verification Failed</b>
+
+Your payment for ${plan.name} could not be verified.
+
+<b>Reason:</b> ${reason}
+
+💡 <b>What to do next:</b>
+• Check your payment receipt
+• Ensure all details are clearly visible
+• Upload a new receipt if needed
+• Contact support: @DynamicCapital_Support
+
+You can try uploading a new receipt or contact our support team for assistance.`;
+
+  await sendMessage(botToken, subscription.telegram_user_id, userNotification);
+
+  // Notify admin
+  await sendMessage(botToken, chatId, `❌ <b>Payment Rejected</b>
+
+Subscription ID: <code>${subscriptionId}</code>
+User: ${subscription.telegram_user_id} (@${subscription.telegram_username})
+Plan: ${plan.name} ($${plan.price})
+Reason: ${reason}
+
+User has been notified. 📝`);
+}
+
+// Settings management functions
+async function handleSetBankDetails(botToken: string, chatId: number, bankDetails: string, supabaseClient: any) {
+  if (!bankDetails) {
+    await sendMessage(botToken, chatId, `❌ Please provide bank details.
+
+Example:
+<code>/setbank Bank: XYZ Bank | Account: 1234567890 | Routing: 123456789 | Name: Business Account</code>`);
+    return;
+  }
+
+  // Store in a settings table (you might want to create this)
+  await sendMessage(botToken, chatId, `✅ <b>Bank Details Updated</b>
+
+New details:
+${bankDetails}
+
+Note: Update the bot code to use these details in payment instructions.`);
+}
+
+async function handleSetCryptoDetails(botToken: string, chatId: number, cryptoDetails: string, supabaseClient: any) {
+  if (!cryptoDetails) {
+    await sendMessage(botToken, chatId, `❌ Please provide crypto details.
+
+Example:
+<code>/setcrypto BTC: 1ABC...xyz | ETH: 0x123...abc | USDT: T123...xyz</code>`);
+    return;
+  }
+
+  await sendMessage(botToken, chatId, `✅ <b>Crypto Details Updated</b>
+
+New details:
+${cryptoDetails}
+
+Note: Update the bot code to use these details in payment instructions.`);
+}
+
+async function handleAddPlan(botToken: string, chatId: number, planData: string, supabaseClient: any) {
+  const parts = planData.split(' ');
+  if (parts.length < 3) {
+    await sendMessage(botToken, chatId, `❌ <b>Invalid format!</b>
+
+Usage: <code>/addplan [name] [price] [months] [lifetime]</code>
+
+Examples:
+• <code>/addplan "Weekly VIP" 4.99 0.25 false</code>
+• <code>/addplan "Ultimate VIP" 299.99 0 true</code>
+
+Parameters:
+• name: Plan name (use quotes for spaces)
+• price: Price in USD
+• months: Duration in months (0 for lifetime)
+• lifetime: true/false`);
+    return;
+  }
+
+  const name = parts[0].replace(/"/g, '');
+  const price = parseFloat(parts[1]);
+  const months = parseFloat(parts[2]);
+  const isLifetime = parts[3] === 'true';
+
+  const { error } = await supabaseClient
+    .from("subscription_plans")
+    .insert({
+      name: name,
+      price: price,
+      duration_months: Math.floor(months),
+      is_lifetime: isLifetime,
+      currency: 'USD',
+      features: ['Premium Access', 'Priority Support']
+    });
+
+  if (error) {
+    await sendMessage(botToken, chatId, "❌ Failed to create plan. It might already exist.");
+    return;
+  }
+
+  await sendMessage(botToken, chatId, `✅ <b>Plan Created!</b>
+
+📋 Name: ${name}
+💰 Price: $${price}
+⏱️ Duration: ${isLifetime ? 'Lifetime' : `${months} month(s)`}`);
 }
