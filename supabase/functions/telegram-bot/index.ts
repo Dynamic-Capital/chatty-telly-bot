@@ -13,6 +13,12 @@ const logStep = (step: string, details?: any) => {
 };
 
 serve(async (req) => {
+  // Log every incoming request for debugging
+  console.log("=== TELEGRAM BOT REQUEST ===");
+  console.log("Method:", req.method);
+  console.log("URL:", req.url);
+  console.log("Headers:", Object.fromEntries(req.headers.entries()));
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
