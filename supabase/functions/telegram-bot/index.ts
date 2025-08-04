@@ -62,6 +62,80 @@ const ADMIN_USER_IDS = [
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_MEDIA_TYPES = ['photo', 'video', 'document'];
 const ALLOWED_FILE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.mp4', '.mov', '.pdf', '.doc', '.docx'];
+
+// CSV export functionality
+function generateCSV(data: any[], filename: string): string {
+  if (!data.length) return '';
+  
+  const headers = Object.keys(data[0]);
+  const csvContent = [
+    headers.join(','),
+    ...data.map(row => headers.map(field => {
+      const value = row[field];
+      if (value === null || value === undefined) return '';
+      return `"${String(value).replace(/"/g, '""')}"`;
+    }).join(','))
+  ].join('\n');
+  
+  return csvContent;
+}
+
+async function exportUsersData(): Promise<any[]> {
+  const { data, error } = await supabase
+    .from('bot_users')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  return data || [];
+}
+
+async function exportPaymentsData(): Promise<any[]> {
+  const { data, error } = await supabase
+    .from('payments')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  return data || [];
+}
+
+async function exportSubscriptionsData(): Promise<any[]> {
+  const { data, error } = await supabase
+    .from('user_subscriptions')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  return data || [];
+}
+
+async function exportPromoAnalytics(): Promise<any[]> {
+  const { data, error } = await supabase
+    .from('promo_analytics')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  return data || [];
+}
+
+async function sendCSVFile(ctx: MyContext, data: any[], filename: string, caption: string) {
+  try {
+    const csvContent = generateCSV(data, filename);
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const buffer = await blob.arrayBuffer();
+    
+    await ctx.replyWithDocument({
+      source: new Uint8Array(buffer),
+      filename: `${filename}_${new Date().toISOString().split('T')[0]}.csv`
+    }, {
+      caption: `${caption}\n\n📊 Records: ${data.length}\n📅 Generated: ${new Date().toLocaleString()}`
+    });
+  } catch (error) {
+    await ctx.reply(`❌ Error generating CSV: ${getErrorMessage(error)}`);
+  }
+}
 const models = [
   { name: "GPT 3.5 Turbo", value: "gpt-3.5-turbo" },
   { name: "GPT 4", value: "gpt-4" },
@@ -793,6 +867,7 @@ bot.command("admin", async (ctx) => {
     .text("🖼️ Media Gallery", "admin_media")
     .text("👥 User Management", "admin_users")
     .row()
+    .text("📥 Export Data", "admin_export")
     .text("⚙️ Bot Settings", "admin_settings");
 
   await ctx.reply("🔧 *Admin Panel*\n\nSelect an option:", {
@@ -966,6 +1041,128 @@ bot.callbackQuery("admin_media", async (ctx) => {
     console.error('Error fetching media:', error);
     await ctx.answerCallbackQuery("❌ Error fetching media files.");
   }
+});
+
+bot.callbackQuery("admin_export", async (ctx) => {
+  const userId = ctx.from?.id.toString();
+  if (!userId || !isAdmin(userId)) {
+    await ctx.answerCallbackQuery("❌ Access denied.");
+    return;
+  }
+
+  const exportKeyboard = new InlineKeyboard()
+    .text("👥 Export Users", "export_users")
+    .text("💳 Export Payments", "export_payments")
+    .row()
+    .text("📊 Export Subscriptions", "export_subscriptions")
+    .text("🎯 Export Promo Analytics", "export_promos")
+    .row()
+    .text("🔙 Back to Admin", "back_to_admin");
+
+  await ctx.editMessageText(
+    "📥 *Export Data*\n\n" +
+    "Select what data you want to export as CSV:",
+    { 
+      reply_markup: exportKeyboard,
+      parse_mode: "Markdown" 
+    }
+  );
+});
+
+// Export handlers
+bot.callbackQuery("export_users", async (ctx) => {
+  const userId = ctx.from?.id.toString();
+  if (!userId || !isAdmin(userId)) {
+    await ctx.answerCallbackQuery("❌ Access denied.");
+    return;
+  }
+
+  await ctx.answerCallbackQuery("🔄 Exporting users data...");
+  
+  try {
+    const data = await exportUsersData();
+    await sendCSVFile(ctx, data, "bot_users", "👥 Bot Users Export");
+  } catch (error) {
+    console.error('Export users error:', error);
+    await ctx.reply("❌ Error exporting users data. Please try again.");
+  }
+});
+
+bot.callbackQuery("export_payments", async (ctx) => {
+  const userId = ctx.from?.id.toString();
+  if (!userId || !isAdmin(userId)) {
+    await ctx.answerCallbackQuery("❌ Access denied.");
+    return;
+  }
+
+  await ctx.answerCallbackQuery("🔄 Exporting payments data...");
+  
+  try {
+    const data = await exportPaymentsData();
+    await sendCSVFile(ctx, data, "payments", "💳 Payments Export");
+  } catch (error) {
+    console.error('Export payments error:', error);
+    await ctx.reply("❌ Error exporting payments data. Please try again.");
+  }
+});
+
+bot.callbackQuery("export_subscriptions", async (ctx) => {
+  const userId = ctx.from?.id.toString();
+  if (!userId || !isAdmin(userId)) {
+    await ctx.answerCallbackQuery("❌ Access denied.");
+    return;
+  }
+
+  await ctx.answerCallbackQuery("🔄 Exporting subscriptions data...");
+  
+  try {
+    const data = await exportSubscriptionsData();
+    await sendCSVFile(ctx, data, "user_subscriptions", "📊 Subscriptions Export");
+  } catch (error) {
+    console.error('Export subscriptions error:', error);
+    await ctx.reply("❌ Error exporting subscriptions data. Please try again.");
+  }
+});
+
+bot.callbackQuery("export_promos", async (ctx) => {
+  const userId = ctx.from?.id.toString();
+  if (!userId || !isAdmin(userId)) {
+    await ctx.answerCallbackQuery("❌ Access denied.");
+    return;
+  }
+
+  await ctx.answerCallbackQuery("🔄 Exporting promo analytics...");
+  
+  try {
+    const data = await exportPromoAnalytics();
+    await sendCSVFile(ctx, data, "promo_analytics", "🎯 Promo Analytics Export");
+  } catch (error) {
+    console.error('Export promos error:', error);
+    await ctx.reply("❌ Error exporting promo analytics. Please try again.");
+  }
+});
+
+bot.callbackQuery("back_to_admin", async (ctx) => {
+  const userId = ctx.from?.id.toString();
+  if (!userId || !isAdmin(userId)) {
+    await ctx.answerCallbackQuery("❌ Access denied.");
+    return;
+  }
+
+  const adminKeyboard = new InlineKeyboard()
+    .text("📊 View Stats", "admin_stats")
+    .text("📢 Create Broadcast", "admin_broadcast")
+    .row()
+    .text("🖼️ Media Gallery", "admin_media")
+    .text("👥 User Management", "admin_users")
+    .row()
+    .text("📥 Export Data", "admin_export")
+    .text("⚙️ Bot Settings", "admin_settings");
+
+  await ctx.editMessageText("🔧 *Admin Panel*\n\nSelect an option:", {
+    reply_markup: adminKeyboard,
+    parse_mode: "Markdown"
+  });
 });
 
 // Broadcast command
