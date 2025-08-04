@@ -46,6 +46,64 @@ const userSessions = new Map(); // Store user session data
 const recentActions = new Map(); // Track recent button presses
 const typingTimers = new Map(); // Track typing indicators
 
+// Analytics & Insights Functions
+
+// Track user interactions for analytics
+async function trackInteraction(supabaseClient: any, userId: string, type: string, data: any, context: string = "unknown") {
+  try {
+    const sessionId = `session_${userId}_${Date.now()}`;
+    
+    await supabaseClient
+      .from("user_interactions")
+      .insert([{
+        telegram_user_id: userId,
+        interaction_type: type,
+        interaction_data: data,
+        session_id: sessionId,
+        page_context: context
+      }]);
+  } catch (error) {
+    console.error("Error tracking interaction:", error);
+  }
+}
+
+// Track conversion events
+async function trackConversion(supabaseClient: any, userId: string, type: string, planId?: string, promoCode?: string, value?: number, step?: number) {
+  try {
+    await supabaseClient
+      .from("conversion_tracking")
+      .insert([{
+        telegram_user_id: userId,
+        conversion_type: type,
+        plan_id: planId,
+        promo_code: promoCode,
+        conversion_value: value,
+        funnel_step: step,
+        conversion_data: { timestamp: new Date().toISOString() }
+      }]);
+  } catch (error) {
+    console.error("Error tracking conversion:", error);
+  }
+}
+
+// Track promo code usage
+async function trackPromoUsage(supabaseClient: any, userId: string, promoCode: string, eventType: string, planId?: string, discountAmount?: number, finalAmount?: number) {
+  try {
+    await supabaseClient
+      .from("promo_analytics")
+      .insert([{
+        promo_code: promoCode,
+        telegram_user_id: userId,
+        event_type: eventType,
+        plan_id: planId,
+        discount_amount: discountAmount,
+        final_amount: finalAmount
+      }]);
+  } catch (error) {
+    console.error("Error tracking promo usage:", error);
+  }
+}
+
 // Session management functions
 function updateUserSession(userId: number, action: string = 'activity', additionalData: any = {}) {
   const now = Date.now();
@@ -5831,63 +5889,6 @@ Get educational trading analysis for any instrument!
     if (!response.ok) {
       throw new Error(result.error || 'Trade analysis service error');
 }
-
-// Analytics & Insights Functions
-
-// Track user interactions for analytics
-async function trackInteraction(supabaseClient: any, userId: string, type: string, data: any, context: string = "unknown") {
-  try {
-    const sessionId = `session_${userId}_${Date.now()}`;
-    
-    await supabaseClient
-      .from("user_interactions")
-      .insert([{
-        telegram_user_id: userId,
-        interaction_type: type,
-        interaction_data: data,
-        session_id: sessionId,
-        page_context: context
-      }]);
-  } catch (error) {
-    console.error("Error tracking interaction:", error);
-  }
-}
-
-// Track conversion events
-async function trackConversion(supabaseClient: any, userId: string, type: string, planId?: string, promoCode?: string, value?: number, step?: number) {
-  try {
-    await supabaseClient
-      .from("conversion_tracking")
-      .insert([{
-        telegram_user_id: userId,
-        conversion_type: type,
-        plan_id: planId,
-        promo_code: promoCode,
-        conversion_value: value,
-        funnel_step: step,
-        conversion_data: { timestamp: new Date().toISOString() }
-      }]);
-  } catch (error) {
-    console.error("Error tracking conversion:", error);
-  }
-}
-
-// Track promo code usage
-async function trackPromoUsage(supabaseClient: any, userId: string, promoCode: string, eventType: string, planId?: string, discountAmount?: number, finalAmount?: number) {
-  try {
-    await supabaseClient
-      .from("promo_analytics")
-      .insert([{
-        promo_code: promoCode,
-        telegram_user_id: userId,
-        event_type: eventType,
-        plan_id: planId,
-        discount_amount: discountAmount,
-        final_amount: finalAmount
-      }]);
-  } catch (error) {
-    console.error("Error tracking promo usage:", error);
-  }
 }
 
 // Admin Analytics Dashboard
