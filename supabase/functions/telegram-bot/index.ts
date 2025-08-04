@@ -3510,21 +3510,7 @@ ${aiResponse}
   }
 }
 
-// Helper function to send typing action
-async function sendTypingAction(botToken: string, chatId: number) {
-  try {
-    await fetch(`https://api.telegram.org/bot${botToken}/sendChatAction`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        action: 'typing'
-      })
-    });
-  } catch (error) {
-    console.error('Error sending typing action:', error);
-  }
-}
+// Note: sendTypingAction function is already defined above at line 99
 
 // Education menu handler
 async function handleEducationMenu(botToken: string, chatId: number, userId: number, username: string, supabaseClient: any) {
