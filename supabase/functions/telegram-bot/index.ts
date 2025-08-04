@@ -16,11 +16,9 @@ const VIP_GROUP_ID = "-1001234567891";   // Replace with actual group ID
 const SUPPORT_CONFIG = {
   support_telegram: "@DynamicCapital_Support",
   admin_telegram: "@DynamicCapital_Admin", // For future use
-  support_email: "support@dynamicvip.com",
-  website: "dynamicvip.com",
   instagram: "https://www.instagram.com/dynamic.capital?igsh=MnMwajhtdm50bDd2&utm_source=qr",
   facebook: "https://www.facebook.com/share/1EmFkq4dvG/?mibextid=wwXIfr",
-  tiktok: "https://www.tradingview.com/u/DynamicCapital-FX/",
+  tiktok: "https://www.tiktok.com/@dynamiccapitalfx",
   tradingview: "https://www.tradingview.com/u/DynamicCapital-FX/"
 };
 
@@ -789,11 +787,6 @@ We're here to help! 💪
 📞 <b>Contact Information</b>
 
 💬 <b>Telegram:</b> ${SUPPORT_CONFIG.support_telegram}
-📧 <b>Email:</b> ${SUPPORT_CONFIG.support_email}
-📸 <b>Instagram:</b> @dynamic.capital
-📘 <b>Facebook:</b> Dynamic Capital
-🎵 <b>TikTok:</b> Dynamic Capital FX
-📈 <b>TradingView:</b> DynamicCapital-FX
 
 ⏰ <b>Response Time:</b> Usually within 2-4 hours
 
@@ -818,6 +811,15 @@ We're here to help! 💪
         { text: "📸 Instagram", url: SUPPORT_CONFIG.instagram },
         { text: "📘 Facebook", url: SUPPORT_CONFIG.facebook }
       ],
+      [
+        { text: "🎵 TikTok", url: SUPPORT_CONFIG.tiktok },
+        { text: "📈 TradingView", url: SUPPORT_CONFIG.tradingview }
+      ],
+      [
+        { text: "← Back to Main Menu", callback_data: "main_menu" }
+      ]
+    ]
+  };
       [
         { text: "🎵 TikTok", url: SUPPORT_CONFIG.tiktok },
         { text: "📈 TradingView", url: SUPPORT_CONFIG.tradingview }
@@ -2623,15 +2625,25 @@ We're not just about signals — we're about building traders.
 Join the movement. Master the craft.
 Welcome to the Dynamic Capital family.
 
-📞 <b>Contact Information:</b>
-• Email: ${SUPPORT_CONFIG.support_email}
-• Telegram: ${SUPPORT_CONFIG.support_telegram}
-• Website: ${SUPPORT_CONFIG.website}`;
+📞 <b>Connect with us:</b>
+• Telegram: ${SUPPORT_CONFIG.support_telegram}`;
 
   const backKeyboard = {
     inline_keyboard: [
-      [{ text: "📞 Contact Support", callback_data: "contact_support" }],
-      [{ text: "← Back to Main Menu", callback_data: "main_menu" }]
+      [
+        { text: "📸 Instagram", url: SUPPORT_CONFIG.instagram },
+        { text: "📘 Facebook", url: SUPPORT_CONFIG.facebook }
+      ],
+      [
+        { text: "🎵 TikTok", url: SUPPORT_CONFIG.tiktok },
+        { text: "📈 TradingView", url: SUPPORT_CONFIG.tradingview }
+      ],
+      [
+        { text: "📞 Contact Support", callback_data: "contact_support" }
+      ],
+      [
+        { text: "← Back to Main Menu", callback_data: "main_menu" }
+      ]
     ]
   };
 
