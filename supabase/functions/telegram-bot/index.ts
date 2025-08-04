@@ -1371,67 +1371,121 @@ serve(async (req) => {
                 return;
               }
 
-              // Create payment record
-              const { data: payment, error: paymentError } = await supabaseAdmin
-                .from('payments')
-                .insert([{
-                  user_id: packageId, // We'll use the package ID temporarily since we don't have user table mapping
-                  plan_id: packageId,
-                  amount: selectedPlan.price,
-                  currency: selectedPlan.currency,
-                  payment_method: 'binance_pay',
-                  status: 'pending'
-                }])
-                .select('*')
-                .single();
+              // Call Binance Pay checkout edge function
+              const checkoutResponse = await supabase.functions.invoke('binance-pay-checkout', {
+                body: {
+                  planId: packageId,
+                  telegramUserId: userId,
+                  telegramUsername: callbackQuery.from.username || callbackQuery.from.first_name
+                }
+              });
+
+              if (checkoutResponse.error) {
+                throw new Error(checkoutResponse.error.message);
+              }
+
+              const checkoutData = checkoutResponse.data;
+
+              if (!checkoutData.success) {
+                throw new Error(checkoutData.error || 'Failed to create Binance Pay checkout');
+              }
 
               const checkoutMessage = `₿ *Binance Pay Checkout*\n\n` +
                 `📦 Package: **${selectedPlan.name}**\n` +
-                `💰 Amount: $${selectedPlan.price} ${selectedPlan.currency}\n` +
-                `🆔 Payment ID: ${payment?.id || 'N/A'}\n\n` +
-                `🔗 To complete your payment:\n` +
-                `1. Open Binance App\n` +
-                `2. Go to Pay section\n` +
-                `3. Scan QR code or use payment link\n` +
-                `4. Confirm payment\n\n` +
-                `💬 Need help? Contact support with your Payment ID.`;
+                `💰 Amount: $${selectedPlan.price} USDT\n` +
+                `🆔 Payment ID: ${checkoutData.paymentId}\n\n` +
+                `🚀 *Automatic Payment Options:*\n` +
+                `• Tap "Open Binance App" to pay instantly\n` +
+                `• Scan QR code with Binance app\n` +
+                `• Use the web checkout link\n\n` +
+                `⚡ Payment will be confirmed automatically!`;
 
               const checkoutKeyboard = {
                 inline_keyboard: [
-                  [{ text: "✅ Payment Completed", callback_data: `confirm_payment_${payment?.id}` }],
+                  [{ text: "🚀 Open Binance App", url: checkoutData.deeplink || checkoutData.universalUrl }],
+                  [{ text: "📱 QR Code Payment", url: checkoutData.qrCodeUrl }],
+                  [{ text: "🌐 Web Checkout", url: checkoutData.checkoutUrl }],
                   [
-                    { text: "💬 Contact Support", callback_data: "contact_support" },
-                    { text: "🔙 Back to Packages", callback_data: "view_packages" }
-                  ]
+                    { text: "📊 Check Payment Status", callback_data: `check_payment_${checkoutData.paymentId}` },
+                    { text: "💬 Support", callback_data: "contact_support" }
+                  ],
+                  [{ text: "🔙 Back to Packages", callback_data: "view_packages" }]
                 ]
               };
 
               await sendMessage(chatId, checkoutMessage, checkoutKeyboard);
             } catch (error) {
-              await sendMessage(chatId, "❌ Error creating Binance Pay checkout. Please try again.");
+              console.error('Binance Pay checkout error:', error);
+              await sendMessage(chatId, "❌ Error creating Binance Pay checkout. Please try again or contact support.");
             }
           }
-          // Handle payment confirmation
-          else if (data.startsWith('confirm_payment_')) {
-            const paymentId = data.replace('confirm_payment_', '');
+          // Handle payment status check
+          else if (data.startsWith('check_payment_')) {
+            const paymentId = data.replace('check_payment_', '');
             
-            const confirmMessage = "✅ *Payment Confirmation Received*\n\n" +
-              "Thank you for your payment! Our team will verify your transaction and activate your subscription within 24 hours.\n\n" +
-              "📧 You'll receive a confirmation message once your subscription is active.\n\n" +
-              "💬 For immediate assistance, contact our support team.";
+            try {
+              const { data: payment, error } = await supabaseAdmin
+                .from('payments')
+                .select('*')
+                .eq('id', paymentId)
+                .single();
 
-            const confirmKeyboard = {
-              inline_keyboard: [
-                [{ text: "📊 Check Status", callback_data: "user_status" }],
-                [{ text: "💬 Contact Support", callback_data: "contact_support" }],
-                [{ text: "🔙 Main Menu", callback_data: "back_to_main" }]
-              ]
-            };
+              if (error || !payment) {
+                await sendMessage(chatId, "❌ Payment not found. Please contact support.");
+                return;
+              }
 
-            await sendMessage(chatId, confirmMessage, confirmKeyboard);
+              let statusMessage = `📊 *Payment Status*\n\n`;
+              statusMessage += `🆔 Payment ID: ${payment.id}\n`;
+              statusMessage += `💰 Amount: $${payment.amount} ${payment.currency}\n`;
+              
+              if (payment.status === 'completed') {
+                statusMessage += `✅ Status: **COMPLETED**\n`;
+                statusMessage += `🎉 Your subscription has been activated!\n\n`;
+                statusMessage += `Thank you for your payment!`;
+              } else if (payment.status === 'pending') {
+                statusMessage += `⏳ Status: **PENDING**\n`;
+                statusMessage += `⏰ Waiting for payment confirmation...\n\n`;
+                statusMessage += `You'll be notified once payment is confirmed.`;
+              } else {
+                statusMessage += `❌ Status: **${payment.status.toUpperCase()}**\n`;
+                statusMessage += `Please contact support for assistance.`;
+              }
+
+              const statusKeyboard = {
+                inline_keyboard: [
+                  [{ text: "🔄 Refresh Status", callback_data: `check_payment_${paymentId}` }],
+                  [
+                    { text: "💬 Contact Support", callback_data: "contact_support" },
+                    { text: "🔙 Main Menu", callback_data: "back_to_main" }
+                  ]
+                ]
+              };
+
+              await sendMessage(chatId, statusMessage, statusKeyboard);
+            } catch (error) {
+              await sendMessage(chatId, "❌ Error checking payment status. Please try again.");
+            }
           }
           else {
-            await sendMessage(chatId, "🚧 Feature coming soon!");
+            // Handle contact support and other features
+            if (data === 'contact_support') {
+              const supportMessage = "💬 *Contact Support*\n\n" +
+                "Our support team is here to help! Choose how you'd like to get assistance:";
+
+              const supportKeyboard = {
+                inline_keyboard: [
+                  [{ text: "📞 Live Chat", url: "https://t.me/DynamicCapital_Support" }],
+                  [{ text: "📧 Email Support", url: "mailto:support@dynamiccapital.com" }],
+                  [{ text: "❓ FAQ", callback_data: "view_faq" }],
+                  [{ text: "🔙 Back to Menu", callback_data: "back_to_main" }]
+                ]
+              };
+
+              await sendMessage(chatId, supportMessage, supportKeyboard);
+            } else {
+              await sendMessage(chatId, "🚧 Feature coming soon!");
+            }
           }
           break;
       }
