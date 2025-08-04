@@ -55,7 +55,7 @@ const MAX_MESSAGE_HISTORY = 10;
 
 // Admin user IDs (add your Telegram user ID here)
 const ADMIN_USER_IDS = [
-  // Example: "123456789" - replace with actual admin Telegram IDs
+  "225513686", // The Wandering Trader (@DynamicCapital_Support)
 ];
 
 // Media file constraints
