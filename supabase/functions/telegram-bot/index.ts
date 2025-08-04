@@ -533,11 +533,12 @@ Choose your payment method:`;
             const { data: payment, error } = await supabaseAdmin
               .from('payments')
               .insert([{
-                user_id: userId,
+                user_id: botUser.id, // Use the bot_user UUID
                 plan_id: bankPackageId,
                 payment_method: 'bank_transfer',
                 amount: packageData.price,
-                status: 'pending'
+                status: 'pending',
+                currency: 'USD'
               }])
               .select('*')
               .single();
