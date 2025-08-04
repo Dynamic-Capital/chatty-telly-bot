@@ -680,6 +680,12 @@ serve(async (req) => {
             
             if (plans.length === 0) {
               packageMessage += "No packages available at the moment.";
+              const emptyKeyboard = {
+                inline_keyboard: [
+                  [{ text: "🔙 Back to Menu", callback_data: "back_to_main" }]
+                ]
+              };
+              await sendMessage(chatId, packageMessage, emptyKeyboard);
             } else {
               plans.forEach((plan, index) => {
                 packageMessage += `${index + 1}. **${plan.name}**\n`;
@@ -695,16 +701,21 @@ serve(async (req) => {
                 }
                 packageMessage += `\n`;
               });
+
+              // Create individual buttons for each package
+              const packageButtons = plans.map((plan, index) => [
+                { text: `📦 Select ${plan.name}`, callback_data: `select_package_${plan.id}` }
+              ]);
+
+              const packageKeyboard = {
+                inline_keyboard: [
+                  ...packageButtons,
+                  [{ text: "🔙 Back to Menu", callback_data: "back_to_main" }]
+                ]
+              };
+
+              await sendMessage(chatId, packageMessage, packageKeyboard);
             }
-
-            const packageKeyboard = {
-              inline_keyboard: [
-                [{ text: "💳 Subscribe Now", callback_data: "subscribe_menu" }],
-                [{ text: "🔙 Back to Menu", callback_data: "back_to_main" }]
-              ]
-            };
-
-            await sendMessage(chatId, packageMessage, packageKeyboard);
           } catch (error) {
             await sendMessage(chatId, "❌ Error loading packages. Please try again.");
           }
@@ -1281,7 +1292,48 @@ serve(async (req) => {
           break;
 
         default:
-          await sendMessage(chatId, "🚧 Feature coming soon!");
+          // Handle individual package selection
+          if (data.startsWith('select_package_')) {
+            const packageId = data.replace('select_package_', '');
+            
+            try {
+              const { data: selectedPlan, error } = await supabase
+                .from('subscription_plans')
+                .select('*')
+                .eq('id', packageId)
+                .single();
+
+              if (error || !selectedPlan) {
+                await sendMessage(chatId, "❌ Package not found. Please try again.");
+                return;
+              }
+
+              const packageDetails = `📦 *${selectedPlan.name}* Selected\n\n` +
+                `💰 Price: $${selectedPlan.price}${selectedPlan.duration_months > 0 ? `/${selectedPlan.duration_months}mo` : selectedPlan.is_lifetime ? ' (Lifetime)' : ''}\n` +
+                `💰 Currency: ${selectedPlan.currency}\n` +
+                (selectedPlan.features?.length > 0 ? `✨ Features:\n${selectedPlan.features.map(f => `• ${f}`).join('\n')}\n\n` : '\n') +
+                `Ready to subscribe to this package?`;
+
+              const packageSelectionKeyboard = {
+                inline_keyboard: [
+                  [
+                    { text: "💳 Subscribe Now", callback_data: "subscribe_menu" },
+                    { text: "🎯 Apply Promo", callback_data: "apply_promo" }
+                  ],
+                  [
+                    { text: "🔙 Back to Packages", callback_data: "view_packages" },
+                    { text: "💬 Contact Support", callback_data: "contact_support" }
+                  ]
+                ]
+              };
+
+              await sendMessage(chatId, packageDetails, packageSelectionKeyboard);
+            } catch (error) {
+              await sendMessage(chatId, "❌ Error loading package details. Please try again.");
+            }
+          } else {
+            await sendMessage(chatId, "🚧 Feature coming soon!");
+          }
           break;
       }
     }
