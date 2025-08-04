@@ -313,12 +313,9 @@ serve(async (req) => {
       } else if (data === "payment_options") {
         await handlePaymentOptions(botToken, chatId, supabaseClient);
       } else if (data === "enter_promo") {
-        await sendMessage(botToken, chatId, "🎫 <b>Enter Promo Code</b>\n\nPlease send your promo code in this format:\n<code>PROMO YOUR_CODE</code>\n\nExample: <code>PROMO SAVE20</code>", {
-          inline_keyboard: [[
-            { text: "← Back to Main Menu", callback_data: "main_menu" },
-            { text: "❌ Close", callback_data: "main_menu" }
-          ]]
-        });
+        await handleEnterPromoMenu(botToken, chatId, userId, supabaseClient);
+      } else if (data === "promo_help") {
+        await handlePromoHelp(botToken, chatId, supabaseClient);
       } else if (data === "about_us") {
         await handleAboutUs(botToken, chatId, supabaseClient);
       } else if (data === "my_account") {
@@ -1130,6 +1127,163 @@ Use /start to see plans with your discount applied!
 ⏰ <b>Valid until:</b> ${new Date(promotion.valid_until).toLocaleDateString()}`;
 
   await sendMessage(botToken, chatId, successMessage);
+}
+
+async function handleEnterPromoMenu(botToken: string, chatId: number, userId: number, supabaseClient: any) {
+  logStep("Showing promo menu", { chatId, userId });
+
+  // Fetch all active promo codes
+  const { data: activePromos, error: activeError } = await supabaseClient
+    .from("promotions")
+    .select("*")
+    .eq("is_active", true)
+    .lte("valid_from", new Date().toISOString())
+    .gte("valid_until", new Date().toISOString())
+    .order("valid_until", { ascending: true });
+
+  // Fetch recently expired promo codes (last 7 days)
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  
+  const { data: expiredPromos, error: expiredError } = await supabaseClient
+    .from("promotions")
+    .select("*")
+    .eq("is_active", true)
+    .lt("valid_until", new Date().toISOString())
+    .gte("valid_until", sevenDaysAgo.toISOString())
+    .order("valid_until", { ascending: false });
+
+  // Check which active promos the user has already used
+  const { data: userUsage, error: usageError } = await supabaseClient
+    .from("promotion_usage")
+    .select("promotion_id")
+    .eq("telegram_user_id", userId);
+
+  const usedPromoIds = new Set(userUsage?.map((usage: any) => usage.promotion_id) || []);
+
+  let message = "🎫 <b>Promotional Codes</b>\n\n";
+
+  if (activePromos && activePromos.length > 0) {
+    message += "🟢 <b>Available Promo Codes:</b>\n";
+    let hasAvailablePromos = false;
+
+    for (const promo of activePromos) {
+      // Check if user already used this promo
+      if (usedPromoIds.has(promo.id)) {
+        continue; // Skip already used promos
+      }
+
+      // Check if promo has reached usage limit
+      if (promo.max_uses && promo.current_uses >= promo.max_uses) {
+        continue; // Skip promos that reached limit
+      }
+
+      hasAvailablePromos = true;
+      const discountText = promo.discount_type === 'percentage' 
+        ? `${promo.discount_value}% OFF` 
+        : `$${promo.discount_value} OFF`;
+      
+      const expiresIn = Math.ceil((new Date(promo.valid_until).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+      const expiryText = expiresIn <= 3 ? `⚠️ Expires in ${expiresIn} day${expiresIn > 1 ? 's' : ''}!` : `Expires: ${new Date(promo.valid_until).toLocaleDateString()}`;
+      
+      const usageText = promo.max_uses ? `${promo.current_uses}/${promo.max_uses} used` : 'Unlimited uses';
+      
+      message += `\n💰 <code>${promo.code}</code> - ${discountText}
+📅 ${expiryText}
+👥 ${usageText}`;
+      
+      if (promo.description) {
+        message += `\n💬 ${promo.description}`;
+      }
+      message += "\n";
+    }
+
+    if (!hasAvailablePromos) {
+      message += "No available promo codes for you at the moment.\n";
+    }
+  } else {
+    message += "🟢 <b>Available Promo Codes:</b>\nNo active promo codes available.\n";
+  }
+
+  // Show recently expired promos
+  if (expiredPromos && expiredPromos.length > 0) {
+    message += "\n🔴 <b>Recently Expired:</b>\n";
+    for (const promo of expiredPromos) {
+      const discountText = promo.discount_type === 'percentage' 
+        ? `${promo.discount_value}% OFF` 
+        : `$${promo.discount_value} OFF`;
+      
+      message += `\n❌ <code>${promo.code}</code> - ${discountText}
+📅 Expired: ${new Date(promo.valid_until).toLocaleDateString()}\n`;
+    }
+  }
+
+  message += "\n📝 <b>How to use:</b>\nSend your promo code like this:\n<code>PROMO YOUR_CODE</code>\n\nExample: <code>PROMO SAVE20</code>";
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "🔄 Refresh Codes", callback_data: "enter_promo" },
+        { text: "❓ How to Use", callback_data: "promo_help" }
+      ],
+      [
+        { text: "← Back to Main Menu", callback_data: "main_menu" },
+        { text: "❌ Close", callback_data: "close_menu" }
+      ]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, message, keyboard);
+}
+
+async function handlePromoHelp(botToken: string, chatId: number, supabaseClient: any) {
+  const helpMessage = `📖 <b>How to Use Promo Codes</b>
+
+🎫 <b>Step-by-step guide:</b>
+
+1️⃣ <b>Get a promo code</b>
+   • Check available codes in the menu above
+   • Follow our social media for new codes
+   • Join our announcements channel
+
+2️⃣ <b>Apply the code</b>
+   • Type: <code>PROMO [YOUR_CODE]</code>
+   • Example: <code>PROMO SAVE20</code>
+   • Code must be typed exactly as shown
+
+3️⃣ <b>Choose your plan</b>
+   • Go back to main menu
+   • Select "📦 View Packages"
+   • Your discount will be applied automatically
+
+⚠️ <b>Important Notes:</b>
+• Each promo code can only be used once per user
+• Codes have expiration dates - use them quickly!
+• Some codes have limited uses (first come, first served)
+• Case doesn't matter: SAVE20 = save20 = Save20
+
+🎯 <b>Pro Tips:</b>
+• Check for new codes regularly
+• Act fast on limited-time offers
+• Combine with our best plans for maximum savings
+
+💡 <b>Having issues?</b>
+Contact our support team: ${SUPPORT_CONFIG.support_telegram}`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "🎫 View Available Codes", callback_data: "enter_promo" },
+        { text: "📦 View Plans", callback_data: "view_packages" }
+      ],
+      [
+        { text: "🆘 Contact Support", callback_data: "contact_support" },
+        { text: "← Back", callback_data: "enter_promo" }
+      ]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, helpMessage, keyboard);
 }
 
 // Admin functions
