@@ -126,6 +126,11 @@ serve(async (req) => {
       } else if (text.startsWith("/setsupport ") && isAdmin) {
         const supportData = text.replace("/setsupport ", "").trim();
         await handleSetSupport(botToken, chatId, supportData, supabaseClient);
+      } else if (text === "/education") {
+        await handleEducationMenu(botToken, chatId, userId, username, supabaseClient);
+      } else if (text.startsWith("/addedu ") && isAdmin) {
+        const eduData = text.replace("/addedu ", "").trim();
+        await handleAddEducation(botToken, chatId, eduData, supabaseClient);
       } else if (text.startsWith("/promo ") || text.startsWith("PROMO")) {
         const promoCode = text.replace("/promo ", "").replace("PROMO", "").trim();
         await handlePromoCode(botToken, chatId, userId, username, promoCode, supabaseClient);
@@ -249,6 +254,17 @@ serve(async (req) => {
         await handleFAQ(botToken, chatId, supabaseClient);
       } else if (data === "ask_ai") {
         await sendMessage(botToken, chatId, "💬 <b>Ask AI Assistant</b>\n\nType your question and I'll help you! For example:\n\n/ask How do I change my subscription?\n/ask What payment methods do you accept?\n/ask How long does activation take?\n\nOr simply type your question directly!");
+      } else if (data === "education_menu") {
+        await handleEducationMenu(botToken, chatId, userId, username, supabaseClient);
+      } else if (data?.startsWith("education_package_")) {
+        const packageId = data.replace("education_package_", "");
+        await handleEducationPackageDetails(botToken, chatId, userId, username, packageId, supabaseClient);
+      } else if (data?.startsWith("enroll_education_")) {
+        const packageId = data.replace("enroll_education_", "");
+        await handleEducationEnrollment(botToken, chatId, userId, username, packageId, supabaseClient);
+      } else if (data?.startsWith("education_payment_")) {
+        const [, method, packageId] = data.split("_");
+        await handleEducationPayment(botToken, chatId, userId, username, method, packageId, supabaseClient);
       }
 
       // Answer the callback query to remove loading state
@@ -277,14 +293,17 @@ async function handleMainMenu(botToken: string, chatId: number, userId: number, 
     inline_keyboard: [
       [
         { text: "📦 View Packages", callback_data: "view_packages" },
-        { text: "💰 Payment Options", callback_data: "payment_options" }
+        { text: "🎓 Education", callback_data: "education_menu" }
       ],
       [
-        { text: "🆘 Contact Support", callback_data: "contact_support" },
-        { text: "🎫 Enter Promo Code", callback_data: "enter_promo" }
+        { text: "💰 Payment Options", callback_data: "payment_options" },
+        { text: "🆘 Contact Support", callback_data: "contact_support" }
       ],
       [
-        { text: "ℹ️ About Us", callback_data: "about_us" },
+        { text: "🎫 Enter Promo Code", callback_data: "enter_promo" },
+        { text: "ℹ️ About Us", callback_data: "about_us" }
+      ],
+      [
         { text: "📊 My Account", callback_data: "my_account" }
       ]
     ]
@@ -1667,6 +1686,9 @@ async function handleHelp(botToken: string, chatId: number, isAdmin: boolean, su
 • <code>/setsupport [telegram] [email] [website]</code> - Update support info
 • <code>/addplan [name] [price] [months] [lifetime]</code>
 
+📚 <b>Education Management:</b>
+• <code>/addedu [name]|[desc]|[price]|[weeks]|[level]|[instructor]</code>
+
 <b>Examples:</b>
 <code>/addpromo SAVE20 percentage 20 30 100</code>
 <code>/approve 12345</code>
@@ -2505,6 +2527,444 @@ async function sendTypingAction(botToken: string, chatId: number) {
     });
   } catch (error) {
     console.error('Error sending typing action:', error);
+}
+
+// Education menu handler
+async function handleEducationMenu(botToken: string, chatId: number, userId: number, username: string, supabaseClient: any) {
+  try {
+    // Fetch education categories
+    const { data: categories, error: categoriesError } = await supabaseClient
+      .from("education_categories")
+      .select("*")
+      .eq("is_active", true)
+      .order("display_order");
+
+    if (categoriesError) {
+      console.error("Error fetching education categories:", categoriesError);
+      await sendMessage(botToken, chatId, "❌ Sorry, there was an error loading education programs. Please try again later.");
+      return;
+    }
+
+    // Fetch featured education packages
+    const { data: packages, error: packagesError } = await supabaseClient
+      .from("education_packages")
+      .select("*")
+      .eq("is_active", true)
+      .eq("is_featured", true)
+      .order("price");
+
+    if (packagesError) {
+      console.error("Error fetching education packages:", packagesError);
+      await sendMessage(botToken, chatId, "❌ Sorry, there was an error loading education programs. Please try again later.");
+      return;
+    }
+
+    let message = `🎓 <b>Education & Mentorship Programs</b>
+
+🌟 <b>Transform Your Trading Journey</b>
+Learn from industry experts and join our community of successful traders!
+
+📈 <b>Featured Programs:</b>
+
+`;
+
+    // Add featured packages
+    if (packages && packages.length > 0) {
+      packages.forEach((pkg: any, index: number) => {
+        message += `${index + 1}. <b>${pkg.name}</b>
+   💰 Price: $${pkg.price}
+   ⏱️ Duration: ${pkg.duration_weeks} weeks
+   📊 Level: ${pkg.difficulty_level}
+   👨‍🏫 Instructor: ${pkg.instructor_name}
+   
+`;
+      });
+    } else {
+      message += "No featured programs available at the moment.\n\n";
+    }
+
+    message += `💡 <b>Why Choose Our Education?</b>
+• Personal mentorship from experts
+• Live trading sessions
+• Proven strategies & techniques
+• Supportive community
+• Certificate of completion
+
+📞 <b>Need Help?</b> Contact ${SUPPORT_CONFIG.support_telegram}`;
+
+    const keyboard = {
+      inline_keyboard: [
+        ...(packages && packages.length > 0 ? packages.map((pkg: any) => [
+          { text: `📘 ${pkg.name} - $${pkg.price}`, callback_data: `education_package_${pkg.id}` }
+        ]) : []),
+        [
+          { text: "📚 View All Programs", callback_data: "education_all" },
+          { text: "❓ Education FAQ", callback_data: "education_faq" }
+        ],
+        [
+          { text: "← Back to Main Menu", callback_data: "main_menu" }
+        ]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, message, keyboard);
+
+  } catch (error) {
+    console.error("Error in handleEducationMenu:", error);
+    await sendMessage(botToken, chatId, "❌ Error loading education menu. Please try again.");
+  }
+}
+
+// Education package details handler
+async function handleEducationPackageDetails(botToken: string, chatId: number, userId: number, username: string, packageId: string, supabaseClient: any) {
+  try {
+    const { data: package, error } = await supabaseClient
+      .from("education_packages")
+      .select(`
+        *,
+        education_categories (name, icon)
+      `)
+      .eq("id", packageId)
+      .eq("is_active", true)
+      .single();
+
+    if (error || !package) {
+      await sendMessage(botToken, chatId, "❌ Education program not found or no longer available.");
+      return;
+    }
+
+    let message = `🎓 <b>${package.name}</b>
+
+📝 <b>Description:</b>
+${package.detailed_description || package.description}
+
+💰 <b>Investment:</b> $${package.price} ${package.currency}
+⏱️ <b>Duration:</b> ${package.duration_weeks} weeks
+📊 <b>Level:</b> ${package.difficulty_level}
+👨‍🏫 <b>Instructor:</b> ${package.instructor_name}
+
+`;
+
+    if (package.instructor_bio) {
+      message += `👤 <b>About Instructor:</b>
+${package.instructor_bio}
+
+`;
+    }
+
+    if (package.learning_outcomes && package.learning_outcomes.length > 0) {
+      message += `🎯 <b>What You'll Learn:</b>
+${package.learning_outcomes.map((outcome: string, index: number) => `${index + 1}. ${outcome}`).join('\n')}
+
+`;
+    }
+
+    if (package.features && package.features.length > 0) {
+      message += `✨ <b>Program Features:</b>
+${package.features.map((feature: string) => `• ${feature}`).join('\n')}
+
+`;
+    }
+
+    if (package.requirements && package.requirements.length > 0) {
+      message += `📋 <b>Requirements:</b>
+${package.requirements.map((req: string) => `• ${req}`).join('\n')}
+
+`;
+    }
+
+    // Check availability
+    const spotsLeft = package.max_students ? package.max_students - package.current_students : null;
+    if (spotsLeft !== null) {
+      message += `👥 <b>Availability:</b> ${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''} remaining\n\n`;
+    }
+
+    if (package.enrollment_deadline) {
+      const deadline = new Date(package.enrollment_deadline);
+      message += `⏰ <b>Enrollment Deadline:</b> ${deadline.toLocaleDateString()}\n\n`;
+    }
+
+    message += `💡 Ready to transform your trading skills?`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: `🚀 Enroll Now - $${package.price}`, callback_data: `enroll_education_${package.id}` }
+        ],
+        [
+          { text: "← Back to Education", callback_data: "education_menu" },
+          { text: "🏠 Main Menu", callback_data: "main_menu" }
+        ]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, message, keyboard);
+
+  } catch (error) {
+    console.error("Error in handleEducationPackageDetails:", error);
+    await sendMessage(botToken, chatId, "❌ Error loading program details. Please try again.");
+  }
+}
+
+// Education enrollment handler
+async function handleEducationEnrollment(botToken: string, chatId: number, userId: number, username: string, packageId: string, supabaseClient: any) {
+  try {
+    // Check if user is already enrolled
+    const { data: existingEnrollment } = await supabaseClient
+      .from("education_enrollments")
+      .select("*")
+      .eq("package_id", packageId)
+      .eq("student_telegram_id", userId.toString())
+      .single();
+
+    if (existingEnrollment) {
+      await sendMessage(botToken, chatId, `❌ <b>Already Enrolled</b>
+
+You are already enrolled in this program.
+
+<b>Status:</b> ${existingEnrollment.enrollment_status}
+<b>Payment:</b> ${existingEnrollment.payment_status}
+
+💬 Contact ${SUPPORT_CONFIG.support_telegram} if you need assistance.`);
+      return;
+    }
+
+    // Get package details
+    const { data: package, error: packageError } = await supabaseClient
+      .from("education_packages")
+      .select("*")
+      .eq("id", packageId)
+      .eq("is_active", true)
+      .single();
+
+    if (packageError || !package) {
+      await sendMessage(botToken, chatId, "❌ Education program not found.");
+      return;
+    }
+
+    // Check availability
+    if (package.max_students && package.current_students >= package.max_students) {
+      await sendMessage(botToken, chatId, `❌ <b>Program Full</b>
+
+Unfortunately, this program is currently full.
+
+📧 Contact ${SUPPORT_CONFIG.support_telegram} to join the waiting list.`);
+      return;
+    }
+
+    const message = `🎓 <b>Enroll in ${package.name}</b>
+
+💰 <b>Investment:</b> $${package.price} ${package.currency}
+⏱️ <b>Duration:</b> ${package.duration_weeks} weeks
+
+Choose your payment method:`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "🏦 Bank Transfer", callback_data: `education_payment_bank_${packageId}` },
+          { text: "₿ Crypto Payment", callback_data: `education_payment_crypto_${packageId}` }
+        ],
+        [
+          { text: "← Back to Program", callback_data: `education_package_${packageId}` }
+        ]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, message, keyboard);
+
+  } catch (error) {
+    console.error("Error in handleEducationEnrollment:", error);
+    await sendMessage(botToken, chatId, "❌ Error processing enrollment. Please try again.");
+  }
+}
+
+// Education payment handler
+async function handleEducationPayment(botToken: string, chatId: number, userId: number, username: string, method: string, packageId: string, supabaseClient: any) {
+  try {
+    const { data: package, error: packageError } = await supabaseClient
+      .from("education_packages")
+      .select("*")
+      .eq("id", packageId)
+      .single();
+
+    if (packageError || !package) {
+      await sendMessage(botToken, chatId, "❌ Education program not found.");
+      return;
+    }
+
+    // Create enrollment record
+    const enrollmentData = {
+      package_id: packageId,
+      student_telegram_id: userId.toString(),
+      student_telegram_username: username,
+      enrollment_status: 'pending',
+      payment_status: 'pending',
+      payment_method: method,
+      payment_amount: package.price
+    };
+
+    const { data: enrollment, error: enrollmentError } = await supabaseClient
+      .from("education_enrollments")
+      .insert(enrollmentData)
+      .select()
+      .single();
+
+    if (enrollmentError) {
+      console.error("Error creating enrollment:", enrollmentError);
+      await sendMessage(botToken, chatId, "❌ Error creating enrollment. Please try again.");
+      return;
+    }
+
+    let paymentMessage = `💳 <b>${method === 'bank' ? 'Bank Transfer' : 'Crypto'} Payment</b>
+
+📋 <b>Program:</b> ${package.name}
+💰 <b>Amount:</b> $${package.price}
+🆔 <b>Reference:</b> <code>EDU-${userId}-${packageId.slice(-8)}</code>
+
+`;
+
+    if (method === 'bank') {
+      paymentMessage += `🏦 <b>Bank Details - Choose Currency:</b>
+
+🏦 <b>BML Account (MVR):</b>
+• Account: <code>7730000133061</code>
+• Name: <code>ABDL.M.I.AFLHAL</code>
+• Currency: MVR
+
+🏦 <b>MIB Account (MVR):</b>
+• Account: <code>9010310167224100</code>
+• Currency: MVR
+
+🏦 <b>MIB Account (USD):</b>
+• Account: <code>9013101672242000</code>
+• Currency: USD
+
+📝 <b>Reference:</b> <code>EDU-${userId}-${packageId.slice(-8)}</code>
+
+📸 <b>Important:</b> After making the transfer, please send a screenshot or photo of your transfer receipt to this chat.
+
+⏰ <b>Processing:</b> 1-2 business days after verification`;
+    } else {
+      paymentMessage += `💰 <b>Send crypto to these addresses:</b>
+
+🔸 <b>USDT (TRC20) - Recommended:</b>
+<code>TQeAph1kiaVbwvY2NS1EwepqrnoTpK6Wss</code>
+
+🔸 <b>BNB (BEP20):</b>
+<code>0x6df5422b719a54201e80a80627d4f8daa611689c</code>
+
+📸 <b>After payment, send to this chat:</b>
+• Transaction hash (TxID)
+• Screenshot of successful transaction
+• Your payment amount: <code>$${package.price}</code>
+
+⏰ <b>Processing:</b> 1-2 hours after verification
+
+💡 <b>Tips:</b>
+• Use exact amount to avoid delays
+• Include transaction fee in your calculation
+• Save transaction hash for your records`;
+    }
+
+    paymentMessage += `\n\n📞 Need help? Contact ${SUPPORT_CONFIG.support_telegram}`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "← Back to Program", callback_data: `education_package_${packageId}` }],
+        [{ text: "🆘 Contact Support", callback_data: "contact_support" }]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, paymentMessage, keyboard);
+
+  } catch (error) {
+    console.error("Error in handleEducationPayment:", error);
+    await sendMessage(botToken, chatId, "❌ Error processing payment. Please try again.");
+  }
+}
+
+// Admin function to add education packages
+async function handleAddEducation(botToken: string, chatId: number, eduData: string, supabaseClient: any) {
+  try {
+    const parts = eduData.split('|');
+    if (parts.length < 6) {
+      await sendMessage(botToken, chatId, `❌ <b>Invalid format!</b>
+
+<b>Usage:</b> <code>/addedu [name]|[description]|[price]|[weeks]|[level]|[instructor]</code>
+
+<b>Example:</b> 
+<code>/addedu Trading Basics|Learn fundamental analysis|199.99|6|Beginner|John Smith</code>
+
+<b>Levels:</b> Beginner, Intermediate, Advanced`);
+      return;
+    }
+
+    const [name, description, priceStr, weeksStr, level, instructor] = parts.map(p => p.trim());
+    const price = parseFloat(priceStr);
+    const weeks = parseInt(weeksStr);
+
+    if (isNaN(price) || isNaN(weeks)) {
+      await sendMessage(botToken, chatId, "❌ Invalid price or duration format.");
+      return;
+    }
+
+    if (!['Beginner', 'Intermediate', 'Advanced'].includes(level)) {
+      await sendMessage(botToken, chatId, "❌ Level must be: Beginner, Intermediate, or Advanced");
+      return;
+    }
+
+    // Get default category (first one)
+    const { data: categories } = await supabaseClient
+      .from("education_categories")
+      .select("id")
+      .eq("is_active", true)
+      .order("display_order")
+      .limit(1);
+
+    const categoryId = categories && categories.length > 0 ? categories[0].id : null;
+
+    const packageData = {
+      category_id: categoryId,
+      name,
+      description,
+      detailed_description: description,
+      price,
+      duration_weeks: weeks,
+      difficulty_level: level,
+      instructor_name: instructor,
+      is_active: true,
+      is_featured: false,
+      features: ['Live sessions', 'Community access', 'Certificate'],
+      learning_outcomes: ['Master key concepts', 'Apply practical skills'],
+      requirements: ['Basic knowledge recommended']
+    };
+
+    const { data, error } = await supabaseClient
+      .from("education_packages")
+      .insert(packageData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error adding education package:", error);
+      await sendMessage(botToken, chatId, "❌ Error adding education package.");
+      return;
+    }
+
+    await sendMessage(botToken, chatId, `✅ <b>Education Package Added!</b>
+
+📘 <b>Name:</b> ${name}
+💰 <b>Price:</b> $${price}
+⏱️ <b>Duration:</b> ${weeks} weeks
+📊 <b>Level:</b> ${level}
+👨‍🏫 <b>Instructor:</b> ${instructor}
+
+🆔 <b>Package ID:</b> <code>${data.id}</code>`);
+
+  } catch (error) {
+    console.error("Error in handleAddEducation:", error);
+    await sendMessage(botToken, chatId, "❌ Error adding education package.");
   }
 }
 
