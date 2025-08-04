@@ -160,9 +160,19 @@ serve(async (req) => {
       const adminIds = ["8486248025", "225513686"]; // Your admin and support admin user IDs
       const isAdmin = adminIds.includes(userId.toString());
 
-      if (text === "/start") {
+      if (text === "/start" || text === "🏠 Menu") {
         await handleMainMenu(botToken, chatId, userId, username, supabaseClient);
-      } else if (text === "/help" || text === "/commands") {
+      } else if (text === "/packages" || text === "📦 Packages") {
+        await handleStartCommand(botToken, chatId, userId, username, supabaseClient);
+      } else if (text === "/promo" || text === "🎫 Promo") {
+        await handleEnterPromoMenu(botToken, chatId, userId, supabaseClient);
+      } else if (text === "/account" || text === "📊 Account") {
+        await handleMyAccount(botToken, chatId, userId, supabaseClient);
+      } else if (text === "/support" || text === "🆘 Support") {
+        await handleContactSupport(botToken, chatId, supabaseClient);
+      } else if (text === "/education") {
+        await handleEducationMenu(botToken, chatId, userId, username, supabaseClient);
+      } else if (text === "/help" || text === "/commands" || text === "❓ Help") {
         await handleHelp(botToken, chatId, isAdmin, supabaseClient);
       } else if (text === "/admin" && isAdmin) {
         await handleAdminMenu(botToken, chatId, supabaseClient);
@@ -316,6 +326,8 @@ serve(async (req) => {
         await handleEnterPromoMenu(botToken, chatId, userId, supabaseClient);
       } else if (data === "promo_help") {
         await handlePromoHelp(botToken, chatId, supabaseClient);
+      } else if (data === "enable_pinned") {
+        await handleEnablePinnedMenu(botToken, chatId, userId, username, supabaseClient);
       } else if (data === "about_us") {
         await handleAboutUs(botToken, chatId, supabaseClient);
       } else if (data === "my_account") {
@@ -411,9 +423,61 @@ serve(async (req) => {
   }
 });
 
+// Function to set up bot commands menu
+async function setupBotCommands(botToken: string) {
+  const commands = [
+    { command: "start", description: "🏠 Main Menu - Access all features" },
+    { command: "packages", description: "📦 View VIP Packages" },
+    { command: "promo", description: "🎫 View & Apply Promo Codes" },
+    { command: "account", description: "📊 My Account & Status" },
+    { command: "support", description: "🆘 Contact Support" },
+    { command: "help", description: "❓ Help & Commands" },
+    { command: "faq", description: "📋 Frequently Asked Questions" },
+    { command: "education", description: "🎓 Education Packages" }
+  ];
+
+  const setCommandsUrl = `https://api.telegram.org/bot${botToken}/setMyCommands`;
+  
+  try {
+    const response = await fetch(setCommandsUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commands })
+    });
+    
+    const result = await response.json();
+    logStep("Bot commands setup", { success: result.ok });
+  } catch (error) {
+    logStep("Failed to setup bot commands", { error });
+  }
+}
+
+// Create persistent keyboard for pinned menu
+function createPersistentKeyboard() {
+  return {
+    keyboard: [
+      [
+        { text: "📦 Packages" },
+        { text: "🎫 Promo" },
+        { text: "📊 Account" }
+      ],
+      [
+        { text: "🆘 Support" },
+        { text: "❓ Help" },
+        { text: "🏠 Menu" }
+      ]
+    ],
+    resize_keyboard: true,
+    persistent: true
+  };
+}
+
 // Main menu function - shows when user types /start
 async function handleMainMenu(botToken: string, chatId: number, userId: number, username: string, supabaseClient: any) {
   logStep("Handling main menu", { chatId, userId, username });
+
+  // Setup bot commands (only needs to be done once, but doesn't hurt to repeat)
+  await setupBotCommands(botToken);
 
   const mainMenuKeyboard = {
     inline_keyboard: [
@@ -434,6 +498,7 @@ async function handleMainMenu(botToken: string, chatId: number, userId: number, 
         { text: "❓ FAQ", callback_data: "view_faq" }
       ],
       [
+        { text: "📌 Enable Quick Menu", callback_data: "enable_pinned" },
         { text: "❌ Close Menu", callback_data: "close_menu" }
       ]
     ]
@@ -452,6 +517,11 @@ Hi ${username ? `@${username}` : 'there'}! 👋
 🆘 Get help from our support team
 🎫 Apply a promotional code
 📊 Check your account status
+
+💡 <b>Quick Navigation:</b>
+• Use the menu buttons below
+• Type / to see available commands
+• Click "📌 Enable Quick Menu" for persistent buttons
 
 Select an option below to get started:`;
 
@@ -1284,6 +1354,52 @@ Contact our support team: ${SUPPORT_CONFIG.support_telegram}`;
   };
 
   await sendMessage(botToken, chatId, helpMessage, keyboard);
+}
+
+async function handleEnablePinnedMenu(botToken: string, chatId: number, userId: number, username: string, supabaseClient: any) {
+  const pinnedMessage = `📌 <b>Quick Menu Enabled!</b>
+
+Great! I've activated the persistent menu buttons at the bottom of your chat.
+
+🚀 <b>Quick Access Buttons:</b>
+• 📦 Packages - View subscription plans
+• 🎫 Promo - Apply promo codes  
+• 📊 Account - Check your status
+• 🆘 Support - Get help instantly
+• ❓ Help - Commands & FAQ
+• 🏠 Menu - Return to main menu
+
+💡 <b>Pro Tip:</b> These buttons will stay visible for easy navigation. You can always type commands or use the main menu too!
+
+🔄 <b>To disable:</b> Type /start and the buttons will switch back to the inline menu.`;
+
+  // Send message with persistent keyboard
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+  
+  const payload = {
+    chat_id: chatId,
+    text: pinnedMessage,
+    parse_mode: 'HTML',
+    reply_markup: createPersistentKeyboard()
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    logStep("Pinned menu enabled", { chatId, userId });
+  } catch (error) {
+    logStep("Failed to enable pinned menu", { error, chatId });
+    // Fallback to regular message
+    await sendMessage(botToken, chatId, pinnedMessage);
+  }
 }
 
 // Admin functions
