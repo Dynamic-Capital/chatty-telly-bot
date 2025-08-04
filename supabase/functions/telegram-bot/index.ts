@@ -6315,7 +6315,6 @@ async function sendChatAction(botToken: string, chatId: number, action: string) 
     console.error("Error sending chat action:", error);
   }
 }
-}
 
 // Admin function to manage auto-reply templates
 async function handleAutoReplyManagement(botToken: string, chatId: number, supabaseClient: any) {
