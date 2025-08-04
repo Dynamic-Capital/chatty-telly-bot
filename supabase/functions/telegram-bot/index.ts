@@ -45,8 +45,27 @@ serve(async (req) => {
 
       logStep("Processing message", { chatId, text, userId, username });
 
+      // Admin commands (you can add your admin user IDs here)
+      const adminIds = ["YOUR_ADMIN_ID"]; // Replace with actual admin Telegram user IDs
+      const isAdmin = adminIds.includes(userId.toString());
+
       if (text === "/start") {
         await handleStartCommand(botToken, chatId, userId, username, supabaseClient);
+      } else if (text === "/admin" && isAdmin) {
+        await handleAdminMenu(botToken, chatId, supabaseClient);
+      } else if (text.startsWith("/setwelcome ") && isAdmin) {
+        const welcomeText = text.replace("/setwelcome ", "").trim();
+        await handleSetWelcome(botToken, chatId, welcomeText, supabaseClient);
+      } else if (text.startsWith("/addpromo ") && isAdmin) {
+        const promoData = text.replace("/addpromo ", "").trim();
+        await handleAddPromo(botToken, chatId, promoData, supabaseClient);
+      } else if (text.startsWith("/listpromos") && isAdmin) {
+        await handleListPromos(botToken, chatId, supabaseClient);
+      } else if (text.startsWith("/deletepromo ") && isAdmin) {
+        const promoCode = text.replace("/deletepromo ", "").trim();
+        await handleDeletePromo(botToken, chatId, promoCode, supabaseClient);
+      } else if (text.startsWith("/stats") && isAdmin) {
+        await handleStats(botToken, chatId, supabaseClient);
       } else if (text.startsWith("/promo ") || text.startsWith("PROMO")) {
         const promoCode = text.replace("/promo ", "").replace("PROMO", "").trim();
         await handlePromoCode(botToken, chatId, userId, username, promoCode, supabaseClient);
@@ -578,4 +597,176 @@ Use /start to see plans with your discount applied!
 ⏰ <b>Valid until:</b> ${new Date(promotion.valid_until).toLocaleDateString()}`;
 
   await sendMessage(botToken, chatId, successMessage);
+}
+
+// Admin functions
+async function handleAdminMenu(botToken: string, chatId: number, supabaseClient: any) {
+  const adminMessage = `🔧 <b>Admin Panel</b>
+
+Available commands:
+• <code>/setwelcome [message]</code> - Update welcome message
+• <code>/addpromo [code] [type] [value] [expires_days] [max_uses]</code> - Add promo code
+• <code>/listpromos</code> - List all promo codes
+• <code>/deletepromo [code]</code> - Delete promo code
+• <code>/stats</code> - View bot statistics
+
+<b>Example promo creation:</b>
+<code>/addpromo SAVE20 percentage 20 30 100</code>
+(20% off, valid for 30 days, max 100 uses)`;
+
+  await sendMessage(botToken, chatId, adminMessage);
+}
+
+async function handleSetWelcome(botToken: string, chatId: number, welcomeText: string, supabaseClient: any) {
+  if (!welcomeText) {
+    await sendMessage(botToken, chatId, "❌ Please provide a welcome message.\n\nExample: <code>/setwelcome 🌟 Welcome to our VIP Bot!</code>");
+    return;
+  }
+
+  // Store welcome message in database (you might want to create a settings table)
+  // For now, we'll just confirm the change
+  await sendMessage(botToken, chatId, `✅ <b>Welcome message updated!</b>
+
+New message:
+${welcomeText}
+
+Note: You'll need to update the bot code to use custom welcome messages from database.`);
+}
+
+async function handleAddPromo(botToken: string, chatId: number, promoData: string, supabaseClient: any) {
+  const parts = promoData.split(' ');
+  if (parts.length < 4) {
+    await sendMessage(botToken, chatId, `❌ <b>Invalid format!</b>
+
+Usage: <code>/addpromo [code] [type] [value] [expires_days] [max_uses]</code>
+
+Examples:
+• <code>/addpromo SAVE20 percentage 20 30 100</code>
+• <code>/addpromo FLAT50 fixed 50 7 50</code>
+
+Parameters:
+• code: Promo code name
+• type: "percentage" or "fixed"
+• value: Discount amount
+• expires_days: Days until expiration
+• max_uses: Maximum number of uses (optional)`);
+    return;
+  }
+
+  const [code, type, value, expireDays, maxUses] = parts;
+  
+  if (type !== 'percentage' && type !== 'fixed') {
+    await sendMessage(botToken, chatId, "❌ Type must be 'percentage' or 'fixed'");
+    return;
+  }
+
+  const validUntil = new Date();
+  validUntil.setDate(validUntil.getDate() + parseInt(expireDays));
+
+  const { error } = await supabaseClient
+    .from("promotions")
+    .insert({
+      code: code.toUpperCase(),
+      discount_type: type,
+      discount_value: parseFloat(value),
+      valid_from: new Date().toISOString(),
+      valid_until: validUntil.toISOString(),
+      max_uses: maxUses ? parseInt(maxUses) : null,
+      current_uses: 0,
+      is_active: true,
+      description: `${type === 'percentage' ? value + '%' : '$' + value} off promotion`
+    });
+
+  if (error) {
+    logStep("Error creating promo", { error });
+    await sendMessage(botToken, chatId, "❌ Failed to create promo code. It might already exist.");
+    return;
+  }
+
+  const discountText = type === 'percentage' ? `${value}%` : `$${value}`;
+  await sendMessage(botToken, chatId, `✅ <b>Promo Code Created!</b>
+
+📋 Code: <code>${code.toUpperCase()}</code>
+💰 Discount: ${discountText} OFF
+📅 Valid until: ${validUntil.toLocaleDateString()}
+🔢 Max uses: ${maxUses || 'Unlimited'}`);
+}
+
+async function handleListPromos(botToken: string, chatId: number, supabaseClient: any) {
+  const { data: promos, error } = await supabaseClient
+    .from("promotions")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    await sendMessage(botToken, chatId, "❌ Failed to fetch promo codes.");
+    return;
+  }
+
+  if (!promos || promos.length === 0) {
+    await sendMessage(botToken, chatId, "📋 No promo codes found.");
+    return;
+  }
+
+  let message = "📋 <b>Promo Codes</b>\n\n";
+  promos.forEach((promo: any) => {
+    const discountText = promo.discount_type === 'percentage' 
+      ? `${promo.discount_value}%` 
+      : `$${promo.discount_value}`;
+    const status = promo.is_active ? "🟢 Active" : "🔴 Inactive";
+    const expires = new Date(promo.valid_until).toLocaleDateString();
+    
+    message += `<code>${promo.code}</code> - ${discountText} ${status}
+Uses: ${promo.current_uses}/${promo.max_uses || '∞'}
+Expires: ${expires}\n\n`;
+  });
+
+  await sendMessage(botToken, chatId, message);
+}
+
+async function handleDeletePromo(botToken: string, chatId: number, promoCode: string, supabaseClient: any) {
+  if (!promoCode) {
+    await sendMessage(botToken, chatId, "❌ Please provide a promo code to delete.\n\nExample: <code>/deletepromo SAVE20</code>");
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("promotions")
+    .delete()
+    .eq("code", promoCode.toUpperCase());
+
+  if (error) {
+    await sendMessage(botToken, chatId, "❌ Failed to delete promo code. Make sure it exists.");
+    return;
+  }
+
+  await sendMessage(botToken, chatId, `✅ Promo code <code>${promoCode.toUpperCase()}</code> has been deleted.`);
+}
+
+async function handleStats(botToken: string, chatId: number, supabaseClient: any) {
+  const { data: subscriptions } = await supabaseClient
+    .from("user_subscriptions")
+    .select("payment_status");
+
+  const { data: promos } = await supabaseClient
+    .from("promotions")
+    .select("current_uses");
+
+  const pending = subscriptions?.filter((s: any) => s.payment_status === 'pending').length || 0;
+  const active = subscriptions?.filter((s: any) => s.payment_status === 'active').length || 0;
+  const total = subscriptions?.length || 0;
+  const totalPromoUses = promos?.reduce((sum: number, p: any) => sum + p.current_uses, 0) || 0;
+
+  const statsMessage = `📊 <b>Bot Statistics</b>
+
+👥 <b>Subscriptions:</b>
+• Total: ${total}
+• Active: ${active}
+• Pending: ${pending}
+
+🎫 <b>Promotions:</b>
+• Total uses: ${totalPromoUses}
+• Active codes: ${promos?.length || 0}`;
+
+  await sendMessage(botToken, chatId, statsMessage);
 }
