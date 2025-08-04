@@ -24,6 +24,14 @@ const SUPPORT_CONFIG = {
   tradingview: "https://www.tradingview.com/u/DynamicCapital-FX/"
 };
 
+// VIP Group Configuration
+const VIP_GROUP_CONFIG = {
+  vip_group_link: "https://t.me/+VIPGroupInviteLink", // Replace with your actual VIP group invite link
+  signals_group_link: "https://t.me/+SignalsGroupLink", // Replace with your signals group link
+  mentorship_group_link: "https://t.me/+MentorshipGroupLink", // Replace with your mentorship group link
+  community_group_link: "https://t.me/+CommunityGroupLink" // Replace with your community group link
+};
+
 // Session timeout settings (15 minutes)
 const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
 const PAYMENT_TIMEOUT = 30 * 60 * 1000; // 30 minutes for payments
@@ -324,6 +332,12 @@ serve(async (req) => {
         await handleStartCommand(botToken, chatId, userId, username, supabaseClient);
       } else if (data === "contact_support") {
         await handleContactSupport(botToken, chatId, supabaseClient);
+      } else if (data === "vip_guidelines") {
+        await handleVIPGuidelines(botToken, chatId, supabaseClient);
+      } else if (data === "confirm_group_join") {
+        await handleGroupJoinConfirmation(botToken, chatId, userId, supabaseClient);
+      } else if (data === "trading_tips") {
+        await handleTradingTips(botToken, chatId, supabaseClient);
       } else if (data === "payment_options") {
         await handlePaymentOptions(botToken, chatId, supabaseClient);
       } else if (data === "enter_promo") {
@@ -2453,7 +2467,7 @@ async function handleApprovePayment(botToken: string, chatId: number, subscripti
     return;
   }
 
-  // Notify user
+  // Notify user with VIP group access
   const userNotification = `🎉 <b>Payment Approved!</b>
 
 Your ${plan.name} subscription has been activated!
@@ -2464,11 +2478,15 @@ Your ${plan.name} subscription has been activated!
 ${endDate ? `📅 <b>End Date:</b> ${endDate.toLocaleDateString()}` : '🔥 <b>Lifetime Access!</b>'}
 
 🌟 <b>VIP Access Granted!</b>
-You're being added to our exclusive VIP channels...
+Your premium subscription is now active. Time to join our exclusive VIP community!
 
-Welcome to VIP! 🎉`;
+🚀 <b>Next Steps:</b>
+👇 Click the buttons below to join your VIP groups`;
 
-  await sendMessage(botToken, subscription.telegram_user_id, userNotification);
+  // Create VIP group access keyboard based on plan features
+  const vipKeyboard = await createVIPGroupKeyboard(plan, supabaseClient);
+
+  await sendMessage(botToken, parseInt(subscription.telegram_user_id), userNotification, vipKeyboard);
 
   // Add user to VIP group and channel
   const vipAccessGranted = await addUserToVIPAccess(
@@ -4353,4 +4371,203 @@ Safe zone to test changes before going live:
   };
 
   await sendMessage(botToken, chatId, message, keyboard);
+}
+
+// VIP Group Integration Functions
+
+// Create VIP group keyboard based on plan features
+async function createVIPGroupKeyboard(plan: any, supabaseClient: any) {
+  const keyboard = {
+    inline_keyboard: []
+  };
+
+  // Parse plan features to determine which groups to show
+  const features = plan.features || [];
+  const hasSignals = features.some(f => f.toLowerCase().includes('signal') || f.toLowerCase().includes('trade'));
+  const hasMentorship = features.some(f => f.toLowerCase().includes('mentor') || f.toLowerCase().includes('coaching'));
+  const hasAnalysis = features.some(f => f.toLowerCase().includes('analysis') || f.toLowerCase().includes('market'));
+
+  // Main VIP Group - always included for VIP plans
+  keyboard.inline_keyboard.push([
+    { text: "🏆 Join Main VIP Group", url: VIP_GROUP_CONFIG.vip_group_link }
+  ]);
+
+  // Add feature-specific groups
+  if (hasSignals) {
+    keyboard.inline_keyboard.push([
+      { text: "📈 Join Signals Group", url: VIP_GROUP_CONFIG.signals_group_link }
+    ]);
+  }
+
+  if (hasMentorship) {
+    keyboard.inline_keyboard.push([
+      { text: "🧑‍🏫 Join Mentorship Group", url: VIP_GROUP_CONFIG.mentorship_group_link }
+    ]);
+  }
+
+  if (hasAnalysis) {
+    keyboard.inline_keyboard.push([
+      { text: "📊 Join Analysis Community", url: VIP_GROUP_CONFIG.community_group_link }
+    ]);
+  }
+
+  // Add helpful actions
+  keyboard.inline_keyboard.push([
+    { text: "💡 Group Guidelines", callback_data: "vip_guidelines" },
+    { text: "🆘 Need Help?", callback_data: "contact_support" }
+  ]);
+
+  keyboard.inline_keyboard.push([
+    { text: "✅ I've Joined Groups", callback_data: "confirm_group_join" }
+  ]);
+
+  return keyboard;
+}
+
+// Handle VIP group guidelines
+async function handleVIPGuidelines(botToken: string, chatId: number, supabaseClient: any) {
+  const guidelinesMessage = `📋 <b>VIP Group Guidelines</b>
+
+Welcome to the Dynamic Capital VIP community! 🌟
+
+🔥 <b>What to Expect:</b>
+• High-quality trading signals 📈
+• Daily market analysis 📊
+• Live trading sessions 🎯
+• 1-on-1 mentorship access 🧑‍🏫
+• Premium educational content 📚
+
+⚠️ <b>Group Rules:</b>
+• Be respectful to all members
+• No spam or promotional content
+• Follow signal instructions carefully
+• Ask questions in designated channels
+• Keep discussions trading-related
+
+💡 <b>Getting Started:</b>
+1. Join all VIP groups you have access to
+2. Introduce yourself in the main group
+3. Read pinned messages for important updates
+4. Set notifications for signal alerts
+
+🎯 <b>Maximize Your Success:</b>
+• Follow risk management guidelines
+• Keep a trading journal
+• Engage with the community
+• Attend live sessions when possible
+
+Ready to start your VIP journey? 🚀`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "🏆 Join Main VIP Group", url: VIP_GROUP_CONFIG.vip_group_link }],
+      [{ text: "← Back", callback_data: "main_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, guidelinesMessage, keyboard);
+}
+
+// Handle group join confirmation
+async function handleGroupJoinConfirmation(botToken: string, chatId: number, userId: number, supabaseClient: any) {
+  // Update user record to mark groups as joined
+  const { error } = await supabaseClient
+    .from("user_subscriptions")
+    .update({ 
+      notes: "VIP groups joined",
+      updated_at: new Date().toISOString()
+    })
+    .eq("telegram_user_id", userId.toString())
+    .eq("is_active", true);
+
+  const confirmationMessage = `🎉 <b>Welcome to VIP!</b>
+
+Great! You've successfully joined the VIP community. Here's what happens next:
+
+🔥 <b>Immediate Access:</b>
+• Check your groups for the latest signals
+• Introduce yourself to the community
+• Review any pinned messages
+
+📈 <b>Daily Benefits:</b>
+• Morning market analysis
+• Live trading signals
+• Evening market wrap-up
+• Weekly strategy sessions
+
+💡 <b>Pro Tips:</b>
+• Enable notifications for all VIP groups
+• Use proper risk management (1-2% per trade)
+• Keep a trading journal
+• Engage with mentors and community
+
+🆘 <b>Need Support?</b>
+Contact ${SUPPORT_CONFIG.support_telegram} anytime!
+
+Happy trading! 🚀💰`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "📊 My Account", callback_data: "my_account" },
+        { text: "💡 Trading Tips", callback_data: "trading_tips" }
+      ],
+      [
+        { text: "🏠 Main Menu", callback_data: "main_menu" }
+      ]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, confirmationMessage, keyboard);
+}
+
+// Handle trading tips
+async function handleTradingTips(botToken: string, chatId: number, supabaseClient: any) {
+  const tipsMessage = `💡 <b>Pro Trading Tips</b>
+
+🎯 <b>Risk Management (Most Important!):</b>
+• Never risk more than 1-2% per trade
+• Use stop losses on every trade
+• Don't trade during high-impact news
+• Keep your emotions in check
+
+📈 <b>Signal Execution:</b>
+• Enter trades at specified prices
+• Follow exact lot sizes recommended
+• Set take profit levels as instructed
+• Don't modify trades without consultation
+
+📊 <b>Market Analysis:</b>
+• Read daily analysis before trading
+• Understand market sentiment
+• Check economic calendar daily
+• Follow major support/resistance levels
+
+🧠 <b>Psychology:</b>
+• Stay disciplined with your strategy
+• Don't chase losses with bigger trades
+• Take breaks after losing streaks
+• Celebrate small wins consistently
+
+📚 <b>Continuous Learning:</b>
+• Attend live trading sessions
+• Ask questions in mentorship groups
+• Review your trading journal weekly
+• Study winning and losing trades
+
+Remember: Consistency beats perfection! 🏆`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "📈 Join Signals Group", url: VIP_GROUP_CONFIG.signals_group_link },
+        { text: "🧑‍🏫 Join Mentorship", url: VIP_GROUP_CONFIG.mentorship_group_link }
+      ],
+      [
+        { text: "← Back", callback_data: "confirm_group_join" }
+      ]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, tipsMessage, keyboard);
 }
