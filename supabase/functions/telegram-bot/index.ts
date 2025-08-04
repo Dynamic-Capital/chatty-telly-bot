@@ -820,18 +820,9 @@ We're here to help! 💪
       ]
     ]
   };
-      [
-        { text: "🎵 TikTok", url: SUPPORT_CONFIG.tiktok },
-        { text: "📈 TradingView", url: SUPPORT_CONFIG.tradingview }
-      ],
-      [
-        { text: "💬 Telegram Support", url: `https://t.me/${SUPPORT_CONFIG.support_telegram.replace('@', '')}` }
-      ],
-      [
-        { text: "← Back to Main Menu", callback_data: "main_menu" }
-      ]
-    ]
-  };
+
+  await sendMessage(botToken, chatId, supportMessage, contactKeyboard);
+}
 
   await sendMessage(botToken, chatId, supportMessage, contactKeyboard);
 }
