@@ -155,16 +155,45 @@ serve(async (req) => {
           await sendMessage(botToken, chatId, "❌ Access denied. Admin privileges required.");
           return;
         }
+        logStep("Processing admin callback", { data, userId });
         await handleAdminCallback(botToken, chatId, data, userId, supabaseClient);
       } else if (data?.startsWith("approve_")) {
+        // Check admin access for approval
+        const adminIds = ["8486248025", "225513686"];
+        if (!adminIds.includes(userId.toString())) {
+          await sendMessage(botToken, chatId, "❌ Access denied. Admin privileges required.");
+          return;
+        }
         const subscriptionId = data.replace("approve_", "");
         await handleApprovePayment(botToken, chatId, subscriptionId, supabaseClient);
+      } else if (data?.startsWith("reject_") && !data.startsWith("reject_confirm_")) {
+        // Check admin access for rejection
+        const adminIds = ["8486248025", "225513686"];
+        if (!adminIds.includes(userId.toString())) {
+          await sendMessage(botToken, chatId, "❌ Access denied. Admin privileges required.");
+          return;
+        }
+        const subscriptionId = data.replace("reject_", "");
+        await handleRejectPaymentCallback(botToken, chatId, subscriptionId, supabaseClient);
       } else if (data?.startsWith("reject_confirm_")) {
+        // Check admin access for reject confirmation
+        const adminIds = ["8486248025", "225513686"];
+        if (!adminIds.includes(userId.toString())) {
+          await sendMessage(botToken, chatId, "❌ Access denied. Admin privileges required.");
+          return;
+        }
         const parts = data.replace("reject_confirm_", "").split("_");
         const subscriptionId = parts[0];
         const reason = parts.slice(1).join("_").replace(/_/g, " ");
         await handleRejectPayment(botToken, chatId, subscriptionId, reason, supabaseClient);
       } else if (data === "admin_menu") {
+        // Admin menu access - check if user is admin
+        const adminIds = ["8486248025", "225513686"];
+        if (!adminIds.includes(userId.toString())) {
+          await sendMessage(botToken, chatId, "❌ Access denied. Admin privileges required.");
+          return;
+        }
+        logStep("Admin menu access", { userId });
         await handleAdminMenu(botToken, chatId, supabaseClient);
       }
 
