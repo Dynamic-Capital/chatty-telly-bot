@@ -87,7 +87,6 @@ function recordAction(userId: number, action: string) {
     }
   }, 300000);
 }
-}
 
 // Helper logging function
 const logStep = (step: string, details?: any) => {
