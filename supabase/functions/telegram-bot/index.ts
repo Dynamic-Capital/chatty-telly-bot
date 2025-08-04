@@ -521,7 +521,7 @@ Hi ${username ? `@${username}` : '@DynamicCapital_Support'} 👋
 • Type / to see available commands
 • Click 📌 Enable Quick Menu to keep buttons always visible
 
-Select an option below to get started:`;
+📍 Select an option below to get started:`;
 
   await sendMessage(botToken, chatId, welcomeMessage, mainMenuKeyboard);
 }
