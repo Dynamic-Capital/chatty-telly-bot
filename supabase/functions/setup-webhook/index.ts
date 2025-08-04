@@ -16,12 +16,21 @@ serve(async (req) => {
       throw new Error("TELEGRAM_BOT_TOKEN is not set");
     }
 
+    console.log("Setting up Telegram webhook...");
+
     // Get the webhook URL for our telegram-bot function
     const webhookUrl = `https://qeejuomcapbdlhnjqjcc.supabase.co/functions/v1/telegram-bot`;
     
-    console.log("Setting up webhook...", { webhookUrl });
+    console.log("Webhook URL:", webhookUrl);
 
-    // Set the webhook
+    // Delete any existing webhook first
+    const deleteResponse = await fetch(`https://api.telegram.org/bot${botToken}/deleteWebhook`, {
+      method: 'POST',
+    });
+    const deleteResult = await deleteResponse.json();
+    console.log("Delete webhook result:", deleteResult);
+
+    // Set the new webhook
     const response = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
       method: 'POST',
       headers: {
@@ -29,7 +38,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         url: webhookUrl,
-        allowed_updates: ['message', 'callback_query'],
+        allowed_updates: ['message', 'callback_query', 'inline_query'],
         drop_pending_updates: true
       }),
     });
@@ -44,11 +53,19 @@ serve(async (req) => {
     // Get webhook info to confirm
     const infoResponse = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
     const webhookInfo = await infoResponse.json();
+    console.log("Webhook info:", webhookInfo);
+
+    // Test bot info
+    const botInfoResponse = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
+    const botInfo = await botInfoResponse.json();
+    console.log("Bot info:", botInfo);
 
     return new Response(JSON.stringify({
       success: true,
+      message: "Webhook configured successfully",
       webhook_set: result,
-      webhook_info: webhookInfo.result
+      webhook_info: webhookInfo.result,
+      bot_info: botInfo.result
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200
@@ -57,7 +74,8 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error setting up webhook:", error);
     return new Response(JSON.stringify({
-      error: error.message
+      error: error.message,
+      success: false
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500
