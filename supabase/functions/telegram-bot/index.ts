@@ -504,24 +504,51 @@ async function handleMainMenu(botToken: string, chatId: number, userId: number, 
     ]
   };
 
-  const welcomeMessage = `🌟 <b>Welcome to Dynamic Chatty Bot!</b> 🌟
+  const welcomeMessage = `✨ <b>Welcome to Dynamic Capital – VIP Access Portal</b> ✨
 
-Hi ${username ? `@${username}` : '@DynamicCapital_Support'} 👋
-🚀 Unlock premium access to real-time trade signals, expert mentorship, and exclusive tools.
+🎯 <b>Unlock Your Trading Edge with Premium Membership</b>
+Gain full access to our elite trading community, top-tier analysis, and 24/7 support.
 
-✨ <b>What would you like to do?</b>
-📦 Explore VIP subscription plans
-💳 Learn how to pay via USDT (crypto) or bank transfer
-🎁 Apply a promotional code
-🆘 Get help from our support team
-📊 Check your account and subscription status
+💠 <b>Why Go Premium?</b>
+• 🚀 Access High-Quality Trade Signals
+• 💬 Join Our Exclusive VIP Chatroom
+• 📊 Daily Market Analysis & Forecasts
+• 🧠 Expert Insights & Learning Materials
+• ⚡ Fast-track Support & Updates
+• 🔐 Secured, Private Access
 
-💡 <b>Quick Navigation Tips:</b>
-• Tap the menu buttons below to browse options
-• Type / to see available commands
-• Click 📌 Enable Quick Menu to keep buttons always visible
+💎 <b>Choose Your Plan:</b>
 
-📍 Select an option below to get started:`;
+🔹 <b>1-Month VIP – $49</b>
+📅 Valid for 30 days
+✅ Priority signals
+✅ Market outlooks
+✅ VIP chatroom access
+
+🔹 <b>3-Month VIP – $150 (Save 15%)</b>
+📅 Valid for 90 days
+✅ All features from 1-Month
+✅ Extended learning journey
+✅ Community engagement
+
+🔹 <b>12-Month VIP – $480 (Save 35%)</b>
+📅 Valid for 365 days
+✅ Best value for serious traders
+✅ Priority in support & feedback
+✅ Continuous learning support
+
+🔹 <b>Lifetime VIP – $999</b>
+🔥 One-time payment – forever access
+✅ All current & future features
+✅ Exclusive lifetime-only content
+✅ Access to all future programs
+
+🎁 <b>All plans come with:</b>
+• 🛟 24/7 Dedicated Support
+• 💵 Satisfaction Guarantee
+• 💼 Secure Access to Private Tools
+
+👆 <b>Tap a plan below to upgrade your trading journey today!</b>`;
 
   await sendMessage(botToken, chatId, welcomeMessage, mainMenuKeyboard);
 }
