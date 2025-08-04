@@ -12,7 +12,6 @@ const ADMIN_USER_IDS = ["225513686"];
 
 // User sessions for features
 const userSessions = new Map();
-const pendingRegistrations = new Map();
 const pendingBroadcasts = new Map();
 
 // Supabase clients
@@ -42,193 +41,240 @@ async function sendMessage(chatId: number, text: string, replyMarkup?: any) {
     parse_mode: "Markdown"
   };
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  return response.ok;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    return response.ok;
+  } catch (error) {
+    console.error("Error sending message:", error);
+    return false;
+  }
 }
 
 function getUserSession(userId: string) {
   if (!userSessions.has(userId)) {
     userSessions.set(userId, {
-      messageCount: 0,
-      lastReset: Date.now(),
-      messageHistory: [],
       awaitingInput: null,
-      surveyData: {}
+      messageHistory: []
     });
   }
   return userSessions.get(userId);
 }
 
-async function callOpenAI(messages: any[]) {
-  if (!OPENAI_API_KEY) {
-    throw new Error("OpenAI API key not configured");
+// Receipt upload and admin notification functions
+async function uploadReceiptToStorage(fileId: string, paymentId: string, userId: string) {
+  try {
+    // Download file from Telegram
+    const fileResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`);
+    const fileData = await fileResponse.json();
+    
+    if (!fileData.ok) return null;
+    
+    const filePath = fileData.result.file_path;
+    const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
+    
+    // Download the actual file
+    const downloadResponse = await fetch(fileUrl);
+    const fileBuffer = await downloadResponse.arrayBuffer();
+    
+    // Upload to Supabase Storage
+    const fileName = `${paymentId}-${Date.now()}.jpg`;
+    const { data, error } = await supabaseAdmin.storage
+      .from('payment-receipts')
+      .upload(fileName, fileBuffer, {
+        contentType: downloadResponse.headers.get('content-type') || 'image/jpeg',
+        upsert: false
+      });
+    
+    if (error) {
+      console.error('Storage upload error:', error);
+      return null;
+    }
+    
+    // Update payment record with receipt info
+    await supabaseAdmin
+      .from('payments')
+      .update({ 
+        receipt_file_path: fileName,
+        receipt_telegram_file_id: fileId,
+        status: 'pending_review'
+      })
+      .eq('id', paymentId);
+    
+    return fileName;
+  } catch (error) {
+    console.error('Receipt upload error:', error);
+    return null;
   }
-
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: messages,
-      max_tokens: 500,
-      temperature: 0.7,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error(`OpenAI API error: ${error}`);
-    throw new Error(`OpenAI API error: ${response.statusText}`);
-  }
-
-  return await response.json();
 }
 
-async function handleAIChat(chatId: number, text: string, userId: string) {
-  const session = getUserSession(userId);
-  
-  // Simple rate limiting: 10 messages per hour for free users
-  const hourAgo = Date.now() - (60 * 60 * 1000);
-  if (session.lastReset < hourAgo) {
-    session.messageCount = 0;
-    session.lastReset = Date.now();
-  }
-  
-  if (session.messageCount >= 10) {
-    const upgradeKeyboard = {
+async function notifyAdminsOfNewReceipt(paymentId: string, userId: string, userName: string) {
+  try {
+    const { data: payment } = await supabaseAdmin
+      .from('payments')
+      .select('*, subscription_plans(*)')
+      .eq('id', paymentId)
+      .single();
+    
+    if (!payment) return;
+    
+    const adminMessage = `🧾 *New Payment Receipt Uploaded*
+
+👤 User: ${userName} (${userId})
+📦 Package: ${payment.subscription_plans?.name || 'Unknown'}
+💰 Amount: $${payment.amount}
+💳 Method: ${payment.payment_method}
+📋 Payment ID: ${paymentId}
+
+⏰ Uploaded: ${new Date().toLocaleString()}
+
+Please review and approve/reject this payment:`;
+
+    const adminKeyboard = {
       inline_keyboard: [
-        [{ text: "📦 Upgrade to Premium", callback_data: "view_packages" }],
+        [
+          { text: "✅ Approve Payment", callback_data: `approve_payment_${paymentId}` },
+          { text: "❌ Reject Payment", callback_data: `reject_payment_${paymentId}` }
+        ]
+      ]
+    };
+
+    // Send to all admins
+    for (const adminId of ADMIN_USER_IDS) {
+      await sendMessage(parseInt(adminId), adminMessage, adminKeyboard);
+    }
+  } catch (error) {
+    console.error('Error notifying admins:', error);
+  }
+}
+
+async function handlePaymentDecision(paymentId: string, action: 'approve' | 'reject', adminId: string) {
+  try {
+    const { data: payment } = await supabaseAdmin
+      .from('payments')
+      .select('*, subscription_plans(*)')
+      .eq('id', paymentId)
+      .single();
+    
+    if (!payment) return false;
+    
+    const newStatus = action === 'approve' ? 'completed' : 'rejected';
+    
+    // Update payment status
+    await supabaseAdmin
+      .from('payments')
+      .update({ 
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', paymentId);
+    
+    // If approved, create/update subscription
+    if (action === 'approve') {
+      const subscriptionEndDate = new Date();
+      subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + payment.subscription_plans.duration_months);
+      
+      await supabaseAdmin
+        .from('user_subscriptions')
+        .upsert({
+          telegram_user_id: payment.user_id,
+          plan_id: payment.plan_id,
+          is_active: true,
+          payment_status: 'completed',
+          subscription_start_date: new Date().toISOString(),
+          subscription_end_date: subscriptionEndDate.toISOString()
+        });
+      
+      // Update bot_users table
+      await supabaseAdmin
+        .from('bot_users')
+        .update({
+          is_vip: true,
+          current_plan_id: payment.plan_id,
+          subscription_expires_at: subscriptionEndDate.toISOString()
+        })
+        .eq('telegram_id', payment.user_id);
+    }
+    
+    // Notify user
+    const userMessage = action === 'approve' 
+      ? `🎉 *Payment Approved!*
+
+✅ Your payment has been approved!
+📦 Package: ${payment.subscription_plans?.name}
+💰 Amount: $${payment.amount}
+
+🎊 Welcome to VIP! You now have access to:
+• Premium trading signals
+• VIP chat access  
+• Daily market analysis
+• Mentorship programs
+
+Enjoy your VIP benefits!`
+      : `❌ *Payment Rejected*
+
+Unfortunately, your payment could not be verified.
+📋 Payment ID: ${paymentId}
+💰 Amount: $${payment.amount}
+
+Please contact support for assistance or try uploading a clearer receipt.`;
+
+    const userKeyboard = {
+      inline_keyboard: [
+        action === 'approve' 
+          ? [{ text: "🎯 Access VIP Features", callback_data: "vip_features" }]
+          : [{ text: "💬 Contact Support", callback_data: "contact_support" }],
         [{ text: "🔙 Main Menu", callback_data: "back_to_main" }]
       ]
     };
-    await sendMessage(chatId, "🚫 You've reached your hourly limit of 10 free messages!\\n\\n💎 Upgrade to Premium for unlimited AI conversations!", upgradeKeyboard);
-    return;
-  }
 
-  try {
-    // Add user message to history
-    session.messageHistory.push({ role: "user", content: text });
+    await sendMessage(parseInt(payment.user_id), userMessage, userKeyboard);
     
-    // Keep only last 6 messages for context
-    if (session.messageHistory.length > 6) {
-      session.messageHistory = session.messageHistory.slice(-6);
-    }
-
-    // Prepare messages for OpenAI
-    const systemMessage = { 
-      role: "system", 
-      content: "You are a professional AI trading assistant. Provide helpful, accurate trading advice and market analysis. Keep responses concise and actionable. Always be supportive and educational." 
-    };
-
-    const messages = [systemMessage, ...session.messageHistory];
-    
-    // Show typing indicator
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendChatAction`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        chat_id: chatId, 
-        action: 'typing' 
-      }),
-    });
-
-    const response = await callOpenAI(messages);
-    const aiResponse = response.choices[0]?.message?.content;
-
-    if (aiResponse) {
-      // Add AI response to history
-      session.messageHistory.push({ role: "assistant", content: aiResponse });
-      session.messageCount++;
-      
-      const responseKeyboard = {
-        inline_keyboard: [
-          [
-            { text: "🔄 New Topic", callback_data: "new_chat" },
-            { text: "📈 Trading Tools", callback_data: "trading_tools" },
-            { text: "🔙 Main Menu", callback_data: "back_to_main" }
-          ]
-        ]
-      };
-      
-      const remainingMessages = 10 - session.messageCount;
-      let finalMessage = aiResponse;
-      
-      if (remainingMessages > 0) {
-        finalMessage += `\\n\\n💬 _${remainingMessages} free messages remaining this hour_`;
-      }
-      
-      await sendMessage(chatId, finalMessage, responseKeyboard);
-    } else {
-      await sendMessage(chatId, "❌ Sorry, I couldn't generate a response. Please try again.");
-    }
-
+    return true;
   } catch (error) {
-    console.error("AI Chat error:", error);
-    
-    if (error.message.includes("OpenAI API key not configured")) {
-      await sendMessage(chatId, "❌ AI service is temporarily unavailable. Please contact support.");
-    } else {
-      await sendMessage(chatId, "❌ An error occurred while processing your message. Please try again in a moment.");
-    }
+    console.error('Error handling payment decision:', error);
+    return false;
   }
 }
 
-async function fetchOrCreateBotUser(userId: string, firstName: string, lastName?: string, username?: string) {
+// Database functions
+async function fetchOrCreateBotUser(telegramId: string, firstName?: string, lastName?: string, username?: string) {
   try {
-    // First, try to fetch existing user
-    const { data: existingUser, error: fetchError } = await supabaseAdmin
-      .from('bot_users')
-      .select('*')
-      .eq('telegram_user_id', userId)
+    let { data: user, error } = await supabaseAdmin
+      .from("bot_users")
+      .select("*")
+      .eq("telegram_id", telegramId)
       .single();
 
-    if (existingUser) {
-      // Update user info if needed
-      const { data: updatedUser, error: updateError } = await supabaseAdmin
-        .from('bot_users')
-        .update({
-          first_name: firstName,
-          last_name: lastName,
-          username: username,
-          last_active: new Date().toISOString()
-        })
-        .eq('telegram_user_id', userId)
-        .select('*')
+    if (error && error.code !== 'PGRST116') {
+      console.error("Error fetching bot user:", error);
+    }
+
+    if (!user) {
+      const { data, error } = await supabaseAdmin
+        .from("bot_users")
+        .insert([{ 
+          telegram_id: telegramId,
+          first_name: firstName || null,
+          last_name: lastName || null,
+          username: username || null
+        }])
+        .select("*")
         .single();
 
-      return updatedUser || existingUser;
+      if (error) {
+        console.error("Error creating bot user:", error);
+        return null;
+      }
+      user = data;
     }
 
-    // Create new user
-    const { data: newUser, error: createError } = await supabaseAdmin
-      .from('bot_users')
-      .insert([{
-        telegram_user_id: userId,
-        first_name: firstName,
-        last_name: lastName,
-        username: username,
-        subscription_status: 'free',
-        last_active: new Date().toISOString()
-      }])
-      .select('*')
-      .single();
-
-    if (createError) {
-      console.error('Error creating user:', createError);
-      return null;
-    }
-
-    return newUser;
+    return user;
   } catch (error) {
-    console.error('Error in fetchOrCreateBotUser:', error);
+    console.error("Database error:", error);
     return null;
   }
 }
@@ -238,85 +284,36 @@ async function getSubscriptionPlans() {
     const { data, error } = await supabase
       .from('subscription_plans')
       .select('*')
-      .eq('is_active', true)
       .order('price', { ascending: true });
-
-    if (error) {
-      console.error('Error fetching subscription plans:', error);
-      return [];
-    }
 
     return data || [];
   } catch (error) {
-    console.error('Error in getSubscriptionPlans:', error);
+    console.error('Error fetching subscription plans:', error);
     return [];
   }
 }
 
-async function getTopCryptos() {
-  try {
-    if (!BINANCE_API_KEY) {
-      console.log('Binance API key not configured');
-      return [];
-    }
-
-    const response = await fetch('https://api.binance.com/api/v3/ticker/24hr');
-    const data = await response.json();
-    
-    // Filter for USDT pairs and get top 10 by volume
-    const usdtPairs = data
-      .filter((ticker: any) => ticker.symbol.endsWith('USDT'))
-      .sort((a: any, b: any) => parseFloat(b.volume) - parseFloat(a.volume))
-      .slice(0, 10);
-
-    return usdtPairs;
-  } catch (error) {
-    console.error('Error fetching crypto data:', error);
-    return [];
-  }
-}
-
+// Analytics tracking function
 async function trackDailyAnalytics() {
   try {
     const today = new Date().toISOString().split('T')[0];
     
-    // Check if analytics for today already exist
-    const { data: existing, error: fetchError } = await supabaseAdmin
+    // Get today's stats
+    const [usersResult, newUsersResult] = await Promise.all([
+      supabaseAdmin.from('bot_users').select('id', { count: 'exact', head: true }),
+      supabaseAdmin.from('bot_users').select('id', { count: 'exact', head: true }).gte('created_at', today)
+    ]);
+
+    // Update or create daily analytics
+    await supabaseAdmin
       .from('daily_analytics')
-      .select('*')
-      .eq('date', today)
-      .single();
-
-    if (existing) {
-      // Update existing record
-      const { error: updateError } = await supabaseAdmin
-        .from('daily_analytics')
-        .update({
-          total_users: existing.total_users + 1,
-          active_users: existing.active_users + 1
-        })
-        .eq('date', today);
-
-      if (updateError) {
-        console.error('Error updating daily analytics:', updateError);
-      }
-    } else {
-      // Create new record
-      const { error: insertError } = await supabaseAdmin
-        .from('daily_analytics')
-        .insert([{
-          date: today,
-          total_users: 1,
-          active_users: 1,
-          new_registrations: 1
-        }]);
-
-      if (insertError) {
-        console.error('Error inserting daily analytics:', insertError);
-      }
-    }
+      .upsert({
+        date: today,
+        total_users: usersResult.count || 0,
+        new_users: newUsersResult.count || 0
+      });
   } catch (error) {
-    console.error('Error in trackDailyAnalytics:', error);
+    console.error('Analytics tracking error:', error);
   }
 }
 
@@ -351,71 +348,83 @@ serve(async (req) => {
     // Handle regular messages
     if (update.message) {
       const text = update.message.text;
+      const document = update.message.document;
+      const photo = update.message.photo;
       
-      // Admin commands
-      if (isAdmin(userId)) {
-        if (text === '/admin') {
-          const adminKeyboard = {
-            inline_keyboard: [
-              [
-                { text: "📊 Dashboard Stats", callback_data: "admin_stats" },
-                { text: "👥 User Management", callback_data: "admin_users" }
-              ],
-              [
-                { text: "📢 Broadcast Message", callback_data: "admin_broadcast" },
-                { text: "💳 Payments", callback_data: "admin_payments" }
-              ],
-              [
-                { text: "📥 Export Data", callback_data: "admin_export" },
-                { text: "🔧 Bot Settings", callback_data: "admin_settings" }
-              ]
-            ]
-          };
+      // Handle receipt uploads (documents or photos)
+      if (document || photo) {
+        const session = getUserSession(userId);
+        if (session.awaitingInput && session.awaitingInput.startsWith('upload_receipt_')) {
+          const paymentId = session.awaitingInput.replace('upload_receipt_', '');
+          const fileId = document ? document.file_id : photo[photo.length - 1].file_id;
           
-          await sendMessage(chatId, "🛠 *Admin Dashboard*\\n\\nSelect an option:", adminKeyboard);
-          return new Response("OK", { status: 200 });
-        }
-      }
+          await sendMessage(chatId, "📤 *Uploading Receipt...*\n\nPlease wait while we process your receipt...");
+          
+          const fileName = await uploadReceiptToStorage(fileId, paymentId, userId);
+          if (fileName) {
+            session.awaitingInput = null;
+            await notifyAdminsOfNewReceipt(paymentId, userId, firstName || 'Unknown');
+            
+            const successMessage = `✅ *Receipt Uploaded Successfully!*
 
-      // Handle regular text messages for AI chat
-      const session = getUserSession(userId);
-      if (session.awaitingInput) {
-        // Handle pending input
-        if (session.awaitingInput === 'broadcast_message') {
-          pendingBroadcasts.set(userId, text);
-          session.awaitingInput = null;
+📋 Payment ID: ${paymentId}
+📎 Receipt: Uploaded and saved
+⏰ Status: Under Review
+
+Our team will review your payment within 24 hours and notify you once approved.
+
+Thank you for your patience!`;
+
+            const receiptKeyboard = {
+              inline_keyboard: [
+                [{ text: "🔍 Check Status", callback_data: `check_payment_${paymentId}` }],
+                [{ text: "🔙 Main Menu", callback_data: "back_to_main" }]
+              ]
+            };
+
+            await sendMessage(chatId, successMessage, receiptKeyboard);
+          } else {
+            await sendMessage(chatId, "❌ Failed to upload receipt. Please try again or contact support.");
+          }
           
-          const confirmKeyboard = {
-            inline_keyboard: [
-              [
-                { text: "✅ Send to All", callback_data: "confirm_broadcast_all" },
-                { text: "👑 Send to VIP Only", callback_data: "confirm_broadcast_vip" }
-              ],
-              [{ text: "❌ Cancel", callback_data: "cancel_broadcast" }]
-            ]
-          };
-          
-          await sendMessage(chatId, `📢 *Broadcast Preview*\\n\\n${text}\\n\\nSelect audience:`, confirmKeyboard);
           return new Response("OK", { status: 200 });
         }
       }
 
       if (text === '/start') {
-        const welcomeMessage = `🤖 *Welcome to AI Trading Assistant!*\n\n👋 Hello ${firstName}! Welcome to our community!\n\n🎉 You've just joined thousands of successful traders!\n\n✨ *What you get access to:*\n• 🤖 AI-powered trading advice\n• 📈 Real-time market analysis\n• 🎓 Professional trading education\n• 💎 Exclusive VIP features\n• 🎯 Personalized trading strategies\n\n🆓 *Free Trial User*\n📊 10 AI messages per hour\n💎 Upgrade to unlock unlimited features!\n\n🚀 Ready to start your trading journey?\nChoose an option below to get started:`;
+        const welcomeMessage = `🎯 *Welcome to Dynamic Capital VIP!*
+
+👋 Hello ${firstName}! Ready to join our exclusive trading community?
+
+🌟 *What Our VIP Community Offers:*
+• 🔥 Premium trading signals & alerts
+• 📊 Daily market analysis & insights  
+• 🎓 Professional mentorship programs
+• 💎 Exclusive VIP chat access
+• 📈 Live market outlook sessions
+• 🎯 Personalized trading strategies
+
+🆓 *Free Member Benefits:*
+• Basic market updates
+• Limited community access
+• 3 educational resources per month
+
+💎 *Ready to unlock VIP benefits?*
+Choose an option below:`;
 
         const keyboard = {
           inline_keyboard: [
             [
-              { text: "🎓 Education Hub", callback_data: "view_education" },
-              { text: "📦 VIP Packages", callback_data: "view_packages" }
+              { text: "💎 Join VIP Community", callback_data: "view_packages" },
+              { text: "🎓 Education Hub", callback_data: "view_education" }
             ],
             [
-              { text: "💬 AI Trading Chat", callback_data: "start_chat" },
-              { text: "📈 Trading Tools", callback_data: "trading_tools" }
+              { text: "📊 Market Analysis", callback_data: "market_overview" },
+              { text: "🎯 Trading Signals", callback_data: "trading_signals" }
             ],
             [
-              { text: "🎯 Active Promotions", callback_data: "view_promotions" },
-              { text: "📊 My Account", callback_data: "user_status" }
+              { text: "🎁 Active Promotions", callback_data: "view_promotions" },
+              { text: "👤 My Account", callback_data: "user_status" }
             ],
             [
               { text: "ℹ️ About Us", callback_data: "about_us" },
@@ -425,20 +434,8 @@ serve(async (req) => {
         };
 
         await sendMessage(chatId, welcomeMessage, keyboard);
-        
-        // Track daily analytics
         await trackDailyAnalytics();
         
-        return new Response("OK", { status: 200 });
-      } 
-      else if (text?.startsWith('/')) {
-        // Handle other bot commands
-        await sendMessage(chatId, "Use the menu buttons to navigate 👇");
-        return new Response("OK", { status: 200 });
-      }
-      else {
-        // Handle AI chat for regular messages
-        await handleAIChat(chatId, text, userId);
         return new Response("OK", { status: 200 });
       }
     }
@@ -448,115 +445,10 @@ serve(async (req) => {
       const data = update.callback_query.data;
       
       switch (true) {
-        case data === 'back_to_main':
-          // Return to main menu
-          const mainMenuMessage = `🤖 *AI Trading Assistant*\n\nWelcome back! Choose what you'd like to do:`;
-
-          const mainKeyboard = {
-            inline_keyboard: [
-              [
-                { text: "🎓 Education Hub", callback_data: "view_education" },
-                { text: "📦 VIP Packages", callback_data: "view_packages" }
-              ],
-              [
-                { text: "💬 AI Trading Chat", callback_data: "start_chat" },
-                { text: "📈 Trading Tools", callback_data: "trading_tools" }
-              ],
-              [
-                { text: "🎯 Active Promotions", callback_data: "view_promotions" },
-                { text: "📊 My Account", callback_data: "user_status" }
-              ],
-              [
-                { text: "ℹ️ About Us", callback_data: "about_us" },
-                { text: "💬 Get Support", callback_data: "contact_support" }
-              ]
-            ]
-          };
-
-          await sendMessage(chatId, mainMenuMessage, mainKeyboard);
-          break;
-
-        case data === 'start_chat':
-          const chatMessage = `💬 *AI Trading Chat*\n\n🤖 I'm your AI trading assistant! Ask me anything about:\n\n📈 Market analysis and trends\n💡 Trading strategies and tips\n📊 Specific cryptocurrency insights\n🎓 Trading education and concepts\n💰 Risk management advice\n\n*Just type your question below and I'll help you!*\n\n💡 _Tip: Be specific for better answers_`;
-
-          const chatKeyboard = {
-            inline_keyboard: [
-              [
-                { text: "📈 Market Overview", callback_data: "market_overview" },
-                { text: "💡 Trading Tips", callback_data: "trading_tips" }
-              ],
-              [
-                { text: "🔄 New Topic", callback_data: "new_chat" },
-                { text: "🔙 Main Menu", callback_data: "back_to_main" }
-              ]
-            ]
-          };
-
-          await sendMessage(chatId, chatMessage, chatKeyboard);
-          break;
-
-        case data === 'new_chat':
-          // Clear chat history
-          const session = getUserSession(userId);
-          session.messageHistory = [];
-          
-          await sendMessage(chatId, "🔄 *New Chat Started*\\n\\nYour conversation history has been cleared. What would you like to discuss?");
-          break;
-
-        case data === 'market_overview':
-          try {
-            const cryptos = await getTopCryptos();
-            let marketMessage = "📈 *Market Overview*\\n\\n";
-            
-            if (cryptos.length > 0) {
-              cryptos.forEach(crypto => {
-                const symbol = crypto.symbol.replace('USDT', '');
-                const price = parseFloat(crypto.lastPrice).toFixed(2);
-                const change = parseFloat(crypto.priceChangePercent).toFixed(2);
-                const emoji = change >= 0 ? '🟢' : '🔴';
-                
-                marketMessage += `${emoji} *${symbol}*: $${price} (${change}%)\\n`;
-              });
-            } else {
-              marketMessage += "Market data temporarily unavailable.";
-            }
-            
-            const marketKeyboard = {
-              inline_keyboard: [
-                [
-                  { text: "🔄 Refresh", callback_data: "market_overview" },
-                  { text: "💬 Ask AI", callback_data: "start_chat" }
-                ],
-                [{ text: "🔙 Main Menu", callback_data: "back_to_main" }]
-              ]
-            };
-            
-            await sendMessage(chatId, marketMessage, marketKeyboard);
-          } catch (error) {
-            await sendMessage(chatId, "❌ Unable to fetch market data. Please try again later.");
-          }
-          break;
-
-        case data === 'trading_tips':
-          const tipsMessage = `💡 *Quick Trading Tips*\n\n🎯 **Risk Management**\n• Never risk more than 2-3% per trade\n• Always set stop losses\n• Diversify your portfolio\n\n📊 **Technical Analysis**\n• Learn to read candlestick patterns\n• Use multiple timeframes\n• Don't rely on one indicator\n\n🧠 **Psychology**\n• Control your emotions\n• Stick to your strategy\n• Keep a trading journal\n\n💰 **Money Management**\n• Start small and scale up\n• Take profits systematically\n• Don't chase losses\n\nWant personalized advice? Chat with our AI!`;
-
-          const tipsKeyboard = {
-            inline_keyboard: [
-              [
-                { text: "💬 Ask AI for Details", callback_data: "start_chat" },
-                { text: "📈 Market Analysis", callback_data: "market_overview" }
-              ],
-              [{ text: "🔙 Main Menu", callback_data: "back_to_main" }]
-            ]
-          };
-
-          await sendMessage(chatId, tipsMessage, tipsKeyboard);
-          break;
-
         case data === 'view_packages':
           try {
             const packages = await getSubscriptionPlans();
-            let packagesMessage = "📦 *Available Packages*\\n\\n";
+            let packagesMessage = "💎 *VIP Membership Packages*\n\n";
             
             const packageKeyboard = {
               inline_keyboard: []
@@ -564,17 +456,15 @@ serve(async (req) => {
 
             if (packages.length > 0) {
               packages.forEach((pkg: any, index: number) => {
-                packagesMessage += `${index + 1}. ${pkg.name}\\n`;
-                packagesMessage += `   💰 Price: $${pkg.price}/${pkg.duration_months}mo\\n`;
-                packagesMessage += `   ✨ Features: ${pkg.features || 'Priority signals, VIP chat access, Daily market analysis'}\\n\\n`;
+                packagesMessage += `${index + 1}. **${pkg.name}**\n`;
+                packagesMessage += `   💰 Price: $${pkg.price}/${pkg.duration_months}mo\n`;
+                packagesMessage += `   ✨ Features: ${pkg.features ? pkg.features.join(', ') : 'Premium VIP benefits'}\n\n`;
                 
                 packageKeyboard.inline_keyboard.push([{
                   text: `📦 Select ${pkg.name}`,
                   callback_data: `select_package_${pkg.id}`
                 }]);
               });
-            } else {
-              packagesMessage += "No packages available at the moment.";
             }
             
             packageKeyboard.inline_keyboard.push([{ text: "🔙 Back to Menu", callback_data: "back_to_main" }]);
@@ -600,7 +490,14 @@ serve(async (req) => {
               break;
             }
 
-            const paymentMessage = `💳 *Payment for ${packageData.name}*\n\n📦 Package: ${packageData.name}\n💰 Price: $${packageData.price}\n⏱ Duration: ${packageData.duration_months} month(s)\n✨ Features: ${packageData.features || 'Premium features included'}\n\nChoose your payment method:`;
+            const paymentMessage = `💳 *Payment for ${packageData.name}*
+
+📦 Package: ${packageData.name}
+💰 Price: $${packageData.price}
+⏱ Duration: ${packageData.duration_months} month(s)
+✨ Features: ${packageData.features ? packageData.features.join(', ') : 'Premium features included'}
+
+Choose your payment method:`;
 
             const paymentKeyboard = {
               inline_keyboard: [
@@ -617,19 +514,29 @@ serve(async (req) => {
           }
           break;
 
-        case data.startsWith('pay_'):
-          const paymentParts = data.split('_');
-          const paymentMethod = paymentParts[1];
-          const selectedPackageId = paymentParts[2];
-
+        case data.startsWith('pay_bank_'):
+          const bankPackageId = data.replace('pay_bank_', '');
+          
           try {
+            const { data: packageData } = await supabase
+              .from('subscription_plans')
+              .select('*')
+              .eq('id', bankPackageId)
+              .single();
+
+            if (!packageData) {
+              await sendMessage(chatId, "❌ Package not found. Please try again.");
+              break;
+            }
+
             // Create payment record
             const { data: payment, error } = await supabaseAdmin
               .from('payments')
               .insert([{
-                telegram_user_id: userId,
-                subscription_plan_id: selectedPackageId,
-                payment_method: paymentMethod,
+                user_id: userId,
+                plan_id: bankPackageId,
+                payment_method: 'bank_transfer',
+                amount: packageData.price,
                 status: 'pending'
               }])
               .select('*')
@@ -640,94 +547,128 @@ serve(async (req) => {
               break;
             }
 
-            const processingMessage = `⏳ *Payment Processing*\n\n📋 Payment ID: ${payment.id}\n💳 Method: ${paymentMethod.toUpperCase()}\n💰 Status: Pending\n\nPlease wait while we generate your payment details...`;
+            const bankMessage = `🏦 *Bank Transfer Payment*
 
-            await sendMessage(chatId, processingMessage);
+📦 Package: ${packageData.name}
+💰 Amount: $${packageData.price}
+📋 Payment ID: ${payment.id}
 
-            // Here you would integrate with actual payment processors
-            // For now, we'll simulate the payment flow
+**Bank Transfer Details:**
+🏪 Bank: Dynamic Capital Bank
+💳 Account: 1234567890
+🔢 Routing: 987654321
+💬 Reference: ${payment.id}
 
-            const paymentDetailsMessage = `💳 *Payment Details*\n\n📋 Order ID: ${payment.id}\n💰 Amount: $${payment.amount || '49.00'}\n💳 Method: ${paymentMethod.toUpperCase()}\n\n${paymentMethod === 'bank' ? 
-              '🏦 **Bank Transfer Details:**\\nAccount: 1234567890\\nRouting: 987654321\\nMemo: ' + payment.id :
-              paymentMethod === 'crypto' ?
-              '₿ **Cryptocurrency Payment:**\\nBTC Address: bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh\\nAmount: 0.0012 BTC\\nMemo: ' + payment.id :
-              '💳 **Card Payment:**\\nRedirecting to secure payment portal...'
-            }\n\n⚠️ **Important:**\n• Include Payment ID: ${payment.id}\n• Payment expires in 30 minutes\n• Contact support if needed\n\nCheck payment status anytime:`;
+📤 **Next Steps:**
+1. Transfer the exact amount to the account above
+2. Upload your receipt/proof of payment
+3. Wait for admin approval (24-48 hours)
 
-            const statusKeyboard = {
+Please upload your payment receipt now:`;
+
+            const bankKeyboard = {
               inline_keyboard: [
-                [{ text: "🔍 Check Payment Status", callback_data: `check_payment_${payment.id}` }],
-                [
-                  { text: "💬 Contact Support", callback_data: "contact_support" },
-                  { text: "🔙 Main Menu", callback_data: "back_to_main" }
-                ]
+                [{ text: "📤 Upload Receipt", callback_data: `upload_receipt_${payment.id}` }],
+                [{ text: "💬 Contact Support", callback_data: "contact_support" }],
+                [{ text: "🔙 Main Menu", callback_data: "back_to_main" }]
               ]
             };
 
-            await sendMessage(chatId, paymentDetailsMessage, statusKeyboard);
+            await sendMessage(chatId, bankMessage, bankKeyboard);
           } catch (error) {
             await sendMessage(chatId, "❌ Error processing payment. Please try again.");
           }
           break;
 
-        case data.startsWith('check_payment_'):
-          const paymentId = data.replace('check_payment_', '');
+        case data.startsWith('upload_receipt_'):
+          const receiptPaymentId = data.replace('upload_receipt_', '');
+          const session = getUserSession(userId);
+          session.awaitingInput = `upload_receipt_${receiptPaymentId}`;
           
-          try {
-            const { data: payment, error } = await supabaseAdmin
-              .from('payments')
-              .select('*')
-              .eq('id', paymentId)
-              .single();
+          await sendMessage(chatId, `📤 *Upload Payment Receipt*
 
-            if (error || !payment) {
-              await sendMessage(chatId, "❌ Payment not found. Please check your Payment ID.");
-              break;
-            }
+Please send your payment receipt as:
+• 📷 Photo/Image
+• 📄 PDF Document  
+• 🗂 Any file format
 
-            let statusMessage = `🔍 *Payment Status*\\n\\n`;
-            statusMessage += `📋 Payment ID: ${payment.id}\\n`;
-            statusMessage += `💰 Amount: $${payment.amount}\\n`;
-            statusMessage += `📅 Created: ${new Date(payment.created_at).toLocaleDateString()}\\n\\n`;
+Make sure the receipt clearly shows:
+✅ Transaction amount
+✅ Date and time
+✅ Reference number: ${receiptPaymentId}
 
-            if (payment.status === 'completed') {
-              statusMessage += `✅ Status: **PAID** ✅\\n`;
-              statusMessage += `🎉 Your subscription is now active!\\n`;
-              statusMessage += `Thank you for choosing our service!`;
-            } else if (payment.status === 'pending') {
-              statusMessage += `⏳ Status: **PENDING**\\n`;
-              statusMessage += `Waiting for payment confirmation...\\n`;
-              statusMessage += `This usually takes 5-15 minutes.`;
-            } else {
-              statusMessage += `❌ Status: **${payment.status.toUpperCase()}**\\n`;
-              statusMessage += `Please contact support for assistance.`;
-            }
+Send your receipt now:`);
+          break;
 
-            const statusKeyboard = {
-              inline_keyboard: [
-                [{ text: "🔄 Refresh Status", callback_data: `check_payment_${paymentId}` }],
-                [
-                  { text: "💬 Contact Support", callback_data: "contact_support" },
-                  { text: "🔙 Main Menu", callback_data: "back_to_main" }
-                ]
-              ]
-            };
-
-            await sendMessage(chatId, statusMessage, statusKeyboard);
-          } catch (error) {
-            await sendMessage(chatId, "❌ Error checking payment status. Please try again.");
+        case data.startsWith('approve_payment_'):
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+          
+          const approvePaymentId = data.replace('approve_payment_', '');
+          const approveSuccess = await handlePaymentDecision(approvePaymentId, 'approve', userId);
+          
+          if (approveSuccess) {
+            await sendMessage(chatId, `✅ Payment ${approvePaymentId} has been approved and user has been granted VIP access.`);
+          } else {
+            await sendMessage(chatId, `❌ Failed to approve payment ${approvePaymentId}.`);
           }
           break;
 
+        case data.startsWith('reject_payment_'):
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+          
+          const rejectPaymentId = data.replace('reject_payment_', '');
+          const rejectSuccess = await handlePaymentDecision(rejectPaymentId, 'reject', userId);
+          
+          if (rejectSuccess) {
+            await sendMessage(chatId, `❌ Payment ${rejectPaymentId} has been rejected and user has been notified.`);
+          } else {
+            await sendMessage(chatId, `❌ Failed to reject payment ${rejectPaymentId}.`);
+          }
+          break;
+
+        case data === 'back_to_main':
+          const mainMenuMessage = `🎯 *Dynamic Capital VIP*
+
+Welcome back! Choose what you'd like to do:`;
+
+          const mainKeyboard = {
+            inline_keyboard: [
+              [
+                { text: "💎 Join VIP Community", callback_data: "view_packages" },
+                { text: "🎓 Education Hub", callback_data: "view_education" }
+              ],
+              [
+                { text: "📊 Market Analysis", callback_data: "market_overview" },
+                { text: "🎯 Trading Signals", callback_data: "trading_signals" }
+              ],
+              [
+                { text: "🎁 Active Promotions", callback_data: "view_promotions" },
+                { text: "👤 My Account", callback_data: "user_status" }
+              ],
+              [
+                { text: "ℹ️ About Us", callback_data: "about_us" },
+                { text: "💬 Get Support", callback_data: "contact_support" }
+              ]
+            ]
+          };
+
+          await sendMessage(chatId, mainMenuMessage, mainKeyboard);
+          break;
+
         case data === 'contact_support':
-          const supportMessage = "💬 *Contact Support*\\n\\n" +
+          const supportMessage = "💬 *Contact Support*\n\n" +
             "Our support team is here to help! Choose how you'd like to get assistance:";
 
           const supportKeyboard = {
             inline_keyboard: [
               [{ text: "📞 Live Chat", url: "https://t.me/DynamicCapital_Support" }],
               [{ text: "📧 Email Support", url: "mailto:support@dynamiccapital.com" }],
-              [{ text: "❓ FAQ", callback_data: "view_faq" }],
               [{ text: "🔙 Back to Menu", callback_data: "back_to_main" }]
             ]
           };
