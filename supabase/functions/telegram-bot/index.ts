@@ -32,6 +32,13 @@ const VIP_GROUP_CONFIG = {
   community_group_link: "https://t.me/+CommunityGroupLink" // Replace with your community group link
 };
 
+// Support Group Configuration
+const SUPPORT_GROUP_CONFIG = {
+  support_group_id: "-1002163512042", // Your support group chat ID
+  admin_user_ids: ["8486248025", "225513686"], // Admin user IDs for direct forwarding
+  log_upload_enabled: true
+};
+
 // Session timeout settings (15 minutes)
 const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
 const PAYMENT_TIMEOUT = 30 * 60 * 1000; // 30 minutes for payments
@@ -171,6 +178,45 @@ serve(async (req) => {
       // Admin commands - Add your Telegram user ID here
       const adminIds = ["8486248025", "225513686"]; // Your admin and support admin user IDs
       const isAdmin = adminIds.includes(userId.toString());
+
+      // Check if user is in support mode
+      const { data: userState } = await supabaseClient
+        .from("bot_users")
+        .select("notes")
+        .eq("telegram_id", userId.toString())
+        .single();
+
+      // Handle support mode messages
+      if (userState?.notes === "awaiting_human_message") {
+        const forwarded = await forwardToSupport(botToken, message, "Human Support Request");
+        if (forwarded) {
+          await sendMessage(botToken, chatId, "✅ <b>Message sent to support team!</b>\n\nYou'll receive a response within 1-2 hours. We'll reply directly to you.");
+          // Clear user state
+          await supabaseClient
+            .from("bot_users")
+            .update({ notes: null })
+            .eq("telegram_id", userId.toString());
+        } else {
+          await sendMessage(botToken, chatId, "❌ Failed to send message to support. Please try again or contact " + SUPPORT_CONFIG.support_telegram);
+        }
+        return new Response("OK", { status: 200 });
+      }
+
+      // Handle file upload state (for text descriptions)
+      if (userState?.notes === "awaiting_file_upload") {
+        const forwarded = await forwardToSupport(botToken, message, "File Upload Context");
+        if (forwarded) {
+          await sendMessage(botToken, chatId, "✅ <b>Description sent!</b>\n\nNow upload your file/screenshot, or we'll process your text description.");
+        }
+        return new Response("OK", { status: 200 });
+      }
+
+      // Handle re-upload receipt context
+      if (userState?.notes?.startsWith("reupload_receipt_")) {
+        const paymentId = userState.notes.replace("reupload_receipt_", "");
+        await sendMessage(botToken, chatId, "💬 <b>Note received!</b>\n\nNow please upload your new receipt image/document.");
+        return new Response("OK", { status: 200 });
+      }
 
       if (text === "/start" || text === "🏠 Menu") {
         await handleMainMenu(botToken, chatId, userId, username, supabaseClient);
@@ -338,6 +384,19 @@ serve(async (req) => {
         await handleGroupJoinConfirmation(botToken, chatId, userId, supabaseClient);
       } else if (data === "trading_tips") {
         await handleTradingTips(botToken, chatId, supabaseClient);
+      } else if (data === "talk_to_human") {
+        await handleTalkToHuman(botToken, chatId, userId, username, supabaseClient);
+      } else if (data === "upload_logs") {
+        await handleUploadLogs(botToken, chatId, userId, supabaseClient);
+      } else if (data === "reupload_receipt") {
+        await handleReuploadReceipt(botToken, chatId, userId, supabaseClient);
+      } else if (data === "cancel_human_support") {
+        await handleCancelHumanSupport(botToken, chatId, userId, supabaseClient);
+      } else if (data === "cancel_file_upload") {
+        await handleCancelFileUpload(botToken, chatId, userId, supabaseClient);
+      } else if (data?.startsWith("reupload_")) {
+        const paymentId = data.replace("reupload_", "");
+        await handleSpecificReupload(botToken, chatId, userId, paymentId, supabaseClient);
       } else if (data === "payment_options") {
         await handlePaymentOptions(botToken, chatId, supabaseClient);
       } else if (data === "enter_promo") {
@@ -579,15 +638,23 @@ We're here to help! 💪
 
 ⏰ <b>Response Time:</b> Usually within 2-4 hours
 
-🔗 <b>Quick Links:</b>
+🔗 <b>Quick Actions:</b>
 • FAQ: /faq
 • Technical Issues: /tech
 • Billing Questions: /billing
 
-💬 <b>Or simply describe your issue and we'll get back to you!</b>`;
+💬 <b>Need immediate help? Use the buttons below:</b>`;
 
   const contactKeyboard = {
     inline_keyboard: [
+      [
+        { text: "🙋‍♂️ Talk to Human", callback_data: "talk_to_human" },
+        { text: "📋 Upload Logs", callback_data: "upload_logs" }
+      ],
+      [
+        { text: "🔄 Re-upload Receipt", callback_data: "reupload_receipt" },
+        { text: "❓ FAQ", callback_data: "view_faq" }
+      ],
       [
         { text: "📸 Instagram", url: SUPPORT_CONFIG.instagram },
         { text: "📘 Facebook", url: SUPPORT_CONFIG.facebook }
@@ -600,7 +667,6 @@ We're here to help! 💪
         { text: "💬 Telegram Support", url: `https://t.me/${SUPPORT_CONFIG.support_telegram.replace('@', '')}` }
       ],
       [
-        { text: "❓ FAQ", callback_data: "view_faq" },
         { text: "← Back to Main Menu", callback_data: "main_menu" }
       ]
     ]
@@ -1051,6 +1117,27 @@ ETH: 0xYourEthereumAddressHere
 async function handleFileUpload(botToken: string, chatId: number, userId: number, username: string, message: any, supabaseClient: any) {
   logStep("Handling file upload", { chatId, userId });
 
+  // Check user state for support uploads
+  const { data: userState } = await supabaseClient
+    .from("bot_users")
+    .select("notes")
+    .eq("telegram_id", userId.toString())
+    .single();
+
+  // Handle support file uploads
+  if (userState?.notes === "awaiting_file_upload") {
+    await handleSupportFileUpload(botToken, chatId, userId, username, message, supabaseClient);
+    return;
+  }
+
+  // Handle receipt re-upload
+  if (userState?.notes?.startsWith("reupload_receipt_")) {
+    const paymentId = userState.notes.replace("reupload_receipt_", "");
+    await handleReceiptReupload(botToken, chatId, userId, username, paymentId, message, supabaseClient);
+    return;
+  }
+
+  // Regular receipt upload flow
   // Check if user has a pending subscription
   const { data: subscription, error } = await supabaseClient
     .from("user_subscriptions")
@@ -4521,6 +4608,313 @@ Happy trading! 🚀💰`;
   await sendMessage(botToken, chatId, confirmationMessage, keyboard);
 }
 
+// Support & Troubleshooting Functions
+
+// Talk to Human - Forward messages to support group
+async function handleTalkToHuman(botToken: string, chatId: number, userId: number, username: string, supabaseClient: any) {
+  const talkToHumanMessage = `🙋‍♂️ <b>Talk to Human Support</b>
+
+You're now connected to our human support team! 
+
+📝 <b>How it works:</b>
+• Type your message or question below
+• It will be forwarded to our support team
+• You'll get a direct response from a human agent
+• Response time: Usually within 1-2 hours
+
+💡 <b>Tips for faster help:</b>
+• Be specific about your issue
+• Include relevant details (plan, payment method, etc.)
+• Attach screenshots if helpful
+
+🔴 <b>Status:</b> Ready to receive your message
+
+👇 <b>Type your message now:</b>`;
+
+  // Set user state to "awaiting_human_message"
+  await supabaseClient
+    .from("bot_users")
+    .upsert({
+      telegram_id: userId.toString(),
+      username: username,
+      notes: "awaiting_human_message",
+      updated_at: new Date().toISOString()
+    });
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "❌ Cancel", callback_data: "cancel_human_support" },
+        { text: "📋 Upload File Instead", callback_data: "upload_logs" }
+      ],
+      [
+        { text: "← Back to Support", callback_data: "contact_support" }
+      ]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, talkToHumanMessage, keyboard);
+}
+
+// Upload logs functionality
+async function handleUploadLogs(botToken: string, chatId: number, userId: number, supabaseClient: any) {
+  const uploadLogsMessage = `📋 <b>Upload Logs / Files</b>
+
+Help us troubleshoot your issue by uploading relevant files:
+
+📎 <b>What you can upload:</b>
+• Screenshots of errors
+• Payment receipts
+• Transaction confirmations
+• App logs or error messages
+• Any relevant documents
+
+📝 <b>How to upload:</b>
+1. Tap the attachment button (📎)
+2. Select your file or take a screenshot
+3. Add a description of the issue
+4. Send it - we'll review and respond
+
+⚠️ <b>File requirements:</b>
+• Max size: 20MB
+• Supported: Images, PDFs, Documents
+• No sensitive personal data (passwords, etc.)
+
+🔴 <b>Status:</b> Ready to receive files
+
+👇 <b>Upload your file now or describe the issue:</b>`;
+
+  // Set user state to "awaiting_file_upload"
+  await supabaseClient
+    .from("bot_users")
+    .upsert({
+      telegram_id: userId.toString(),
+      notes: "awaiting_file_upload",
+      updated_at: new Date().toISOString()
+    });
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "💬 Send Text Instead", callback_data: "talk_to_human" },
+        { text: "❌ Cancel", callback_data: "cancel_file_upload" }
+      ],
+      [
+        { text: "← Back to Support", callback_data: "contact_support" }
+      ]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, uploadLogsMessage, keyboard);
+}
+
+// Re-upload receipt functionality
+async function handleReuploadReceipt(botToken: string, chatId: number, userId: number, supabaseClient: any) {
+  // Check if user has any pending or rejected payment
+  const { data: failedPayments } = await supabaseClient
+    .from("user_subscriptions")
+    .select("*, subscription_plans(*)")
+    .eq("telegram_user_id", userId.toString())
+    .in("payment_status", ["pending", "rejected"])
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (!failedPayments || failedPayments.length === 0) {
+    const noFailedMessage = `✅ <b>No Failed Receipts Found</b>
+
+Great news! You don't have any failed or pending receipt uploads.
+
+💡 <b>If you're experiencing issues:</b>
+• Contact support: ${SUPPORT_CONFIG.support_telegram}
+• Check your payment status: /account
+• Upload a new receipt: Choose a plan first
+
+📋 <b>Need help with a new payment?</b>
+Use the main menu to select a plan and make a payment.`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "📦 View Plans", callback_data: "view_packages" },
+          { text: "📊 My Account", callback_data: "my_account" }
+        ],
+        [
+          { text: "← Back to Support", callback_data: "contact_support" }
+        ]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, noFailedMessage, keyboard);
+    return;
+  }
+
+  let reuploadMessage = `🔄 <b>Re-upload Receipt</b>
+
+We found ${failedPayments.length} payment(s) that need attention:
+
+`;
+
+  failedPayments.forEach((payment, index) => {
+    const statusIcon = payment.payment_status === "rejected" ? "❌" : "⏳";
+    reuploadMessage += `${statusIcon} <b>${payment.subscription_plans?.name || 'Unknown Plan'}</b>
+💰 Amount: $${payment.subscription_plans?.price || 'N/A'}
+📅 Date: ${new Date(payment.created_at).toLocaleDateString()}
+📌 Status: ${payment.payment_status.toUpperCase()}
+
+`;
+  });
+
+  reuploadMessage += `📎 <b>To re-upload:</b>
+1. Select the payment below
+2. Upload your new receipt
+3. Wait for admin approval
+
+💡 <b>Upload tips:</b>
+• Clear, readable image
+• Full transaction details visible
+• Correct amount and date`;
+
+  const keyboard = {
+    inline_keyboard: []
+  };
+
+  // Add buttons for each failed payment
+  failedPayments.forEach((payment, index) => {
+    keyboard.inline_keyboard.push([{
+      text: `🔄 Re-upload: ${payment.subscription_plans?.name || 'Payment'} ($${payment.subscription_plans?.price || 'N/A'})`,
+      callback_data: `reupload_${payment.id}`
+    }]);
+  });
+
+  keyboard.inline_keyboard.push([
+    { text: "💬 Talk to Support", callback_data: "talk_to_human" },
+    { text: "← Back", callback_data: "contact_support" }
+  ]);
+
+  await sendMessage(botToken, chatId, reuploadMessage, keyboard);
+}
+
+// Handle specific receipt re-upload
+async function handleSpecificReupload(botToken: string, chatId: number, userId: number, paymentId: string, supabaseClient: any) {
+  // Get payment details
+  const { data: payment } = await supabaseClient
+    .from("user_subscriptions")
+    .select("*, subscription_plans(*)")
+    .eq("id", paymentId)
+    .eq("telegram_user_id", userId.toString())
+    .single();
+
+  if (!payment) {
+    await sendMessage(botToken, chatId, "❌ Payment not found or access denied.");
+    return;
+  }
+
+  const reuploadSpecificMessage = `🔄 <b>Re-upload Receipt</b>
+
+📦 <b>Plan:</b> ${payment.subscription_plans?.name}
+💰 <b>Amount:</b> $${payment.subscription_plans?.price}
+📅 <b>Original Date:</b> ${new Date(payment.created_at).toLocaleDateString()}
+📌 <b>Current Status:</b> ${payment.payment_status.toUpperCase()}
+
+📎 <b>Upload your new receipt:</b>
+• Send the image/document now
+• Make sure it shows the correct amount
+• Include transaction date and reference
+• Clear and readable quality
+
+⏳ <b>After upload:</b>
+• We'll review within 2-4 hours
+• You'll get approval notification
+• VIP access activated immediately
+
+👇 <b>Send your receipt now:</b>`;
+
+  // Set user state for specific re-upload
+  await supabaseClient
+    .from("bot_users")
+    .upsert({
+      telegram_id: userId.toString(),
+      notes: `reupload_receipt_${paymentId}`,
+      updated_at: new Date().toISOString()
+    });
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "❌ Cancel Re-upload", callback_data: "reupload_receipt" },
+        { text: "💬 Ask for Help", callback_data: "talk_to_human" }
+      ]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, reuploadSpecificMessage, keyboard);
+}
+
+// Cancel support actions
+async function handleCancelHumanSupport(botToken: string, chatId: number, userId: number, supabaseClient: any) {
+  // Clear user state
+  await supabaseClient
+    .from("bot_users")
+    .upsert({
+      telegram_id: userId.toString(),
+      notes: null,
+      updated_at: new Date().toISOString()
+    });
+
+  await sendMessage(botToken, chatId, "❌ <b>Human support cancelled.</b>\n\nReturning to support menu...");
+  await handleContactSupport(botToken, chatId, supabaseClient);
+}
+
+async function handleCancelFileUpload(botToken: string, chatId: number, userId: number, supabaseClient: any) {
+  // Clear user state
+  await supabaseClient
+    .from("bot_users")
+    .upsert({
+      telegram_id: userId.toString(),
+      notes: null,
+      updated_at: new Date().toISOString()
+    });
+
+  await sendMessage(botToken, chatId, "❌ <b>File upload cancelled.</b>\n\nReturning to support menu...");
+  await handleContactSupport(botToken, chatId, supabaseClient);
+}
+
+// Forward message to support group
+async function forwardToSupport(botToken: string, message: any, userContext: string) {
+  const userId = message.from.id;
+  const username = message.from.username || "No username";
+  const firstName = message.from.first_name || "";
+  const lastName = message.from.last_name || "";
+  
+  const supportMessage = `🆘 <b>Human Support Request</b>
+
+👤 <b>User:</b> ${firstName} ${lastName} (@${username})
+🆔 <b>ID:</b> ${userId}
+📝 <b>Context:</b> ${userContext}
+⏰ <b>Time:</b> ${new Date().toLocaleString()}
+
+💬 <b>Message:</b>
+${message.text || '[Media/Document sent]'}
+
+---
+Reply with: /reply_${userId} [your message]`;
+
+  // Send to support group
+  try {
+    await sendMessage(botToken, SUPPORT_GROUP_CONFIG.support_group_id, supportMessage);
+    
+    // Also notify first admin directly
+    if (SUPPORT_GROUP_CONFIG.admin_user_ids.length > 0) {
+      await sendMessage(botToken, SUPPORT_GROUP_CONFIG.admin_user_ids[0], supportMessage);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Failed to forward to support:", error);
+    return false;
+  }
+}
+
 // Handle trading tips
 async function handleTradingTips(botToken: string, chatId: number, supabaseClient: any) {
   const tipsMessage = `💡 <b>Pro Trading Tips</b>
@@ -4570,4 +4964,287 @@ Remember: Consistency beats perfection! 🏆`;
   };
 
   await sendMessage(botToken, chatId, tipsMessage, keyboard);
+}
+
+// Support File Upload Functions
+
+// Handle support file uploads (logs, screenshots, etc.)
+async function handleSupportFileUpload(botToken: string, chatId: number, userId: number, username: string, message: any, supabaseClient: any) {
+  logStep("Handling support file upload", { chatId, userId });
+
+  // Get file information
+  let fileId = "";
+  let fileName = "";
+  let fileType = "unknown";
+
+  if (message.photo && message.photo.length > 0) {
+    const photo = message.photo[message.photo.length - 1];
+    fileId = photo.file_id;
+    fileName = `support_${userId}_${Date.now()}.jpg`;
+    fileType = "screenshot";
+  } else if (message.document) {
+    fileId = message.document.file_id;
+    fileName = message.document.file_name || `support_${userId}_${Date.now()}`;
+    fileType = "document";
+  }
+
+  if (!fileId) {
+    await sendMessage(botToken, chatId, "❌ No valid file received. Please send a photo or document.");
+    return;
+  }
+
+  try {
+    // Get file info from Telegram
+    const fileInfoResponse = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
+    const fileInfo = await fileInfoResponse.json();
+
+    if (!fileInfo.ok) {
+      throw new Error("Failed to get file info from Telegram");
+    }
+
+    // Create support message with file info
+    const supportMessage = `🆘 <b>Support File Upload</b>
+
+👤 <b>User:</b> ${message.from.first_name} ${message.from.last_name || ''} (@${username || 'no_username'})
+🆔 <b>ID:</b> ${userId}
+📎 <b>File Type:</b> ${fileType}
+📝 <b>File Name:</b> ${fileName}
+⏰ <b>Time:</b> ${new Date().toLocaleString()}
+
+📋 <b>Context:</b> Support troubleshooting file upload
+
+---
+File uploaded to chat for admin review.`;
+
+    // Forward the actual file to support
+    if (message.photo) {
+      await forwardMessage(botToken, SUPPORT_GROUP_CONFIG.support_group_id, chatId, message.message_id);
+    } else if (message.document) {
+      await forwardMessage(botToken, SUPPORT_GROUP_CONFIG.support_group_id, chatId, message.message_id);
+    }
+
+    // Send context message to support
+    await sendMessage(botToken, SUPPORT_GROUP_CONFIG.support_group_id, supportMessage);
+
+    // Notify first admin directly
+    if (SUPPORT_GROUP_CONFIG.admin_user_ids.length > 0) {
+      await sendMessage(botToken, SUPPORT_GROUP_CONFIG.admin_user_ids[0], supportMessage);
+      if (message.photo) {
+        await forwardMessage(botToken, SUPPORT_GROUP_CONFIG.admin_user_ids[0], chatId, message.message_id);
+      } else if (message.document) {
+        await forwardMessage(botToken, SUPPORT_GROUP_CONFIG.admin_user_ids[0], chatId, message.message_id);
+      }
+    }
+
+    // Clear user state
+    await supabaseClient
+      .from("bot_users")
+      .update({ notes: null })
+      .eq("telegram_id", userId.toString());
+
+    const confirmationMessage = `✅ <b>File Uploaded Successfully!</b>
+
+📎 Your ${fileType} has been sent to our support team.
+
+🔔 <b>What happens next:</b>
+• Our team will review your file
+• You'll receive a response within 1-2 hours
+• We may ask for additional information if needed
+
+💡 <b>File Details:</b>
+• Name: ${fileName}
+• Type: ${fileType}
+• Size: ${fileInfo.result.file_size ? `${Math.round(fileInfo.result.file_size / 1024)} KB` : 'Unknown'}
+
+Thank you for providing the details! 🙏`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "📋 Upload Another File", callback_data: "upload_logs" },
+          { text: "💬 Send Message Too", callback_data: "talk_to_human" }
+        ],
+        [
+          { text: "← Back to Support", callback_data: "contact_support" }
+        ]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, confirmationMessage, keyboard);
+
+  } catch (error) {
+    logStep("Error processing support file upload", { error });
+    await sendMessage(botToken, chatId, "❌ Failed to upload file. Please try again or contact " + SUPPORT_CONFIG.support_telegram);
+  }
+}
+
+// Handle receipt re-upload
+async function handleReceiptReupload(botToken: string, chatId: number, userId: number, username: string, paymentId: string, message: any, supabaseClient: any) {
+  logStep("Handling receipt re-upload", { chatId, userId, paymentId });
+
+  // Verify payment belongs to user
+  const { data: payment } = await supabaseClient
+    .from("user_subscriptions")
+    .select("*, subscription_plans(*)")
+    .eq("id", paymentId)
+    .eq("telegram_user_id", userId.toString())
+    .single();
+
+  if (!payment) {
+    await sendMessage(botToken, chatId, "❌ Payment not found or access denied.");
+    return;
+  }
+
+  // Get file information
+  let fileId = "";
+  let fileName = "";
+
+  if (message.photo && message.photo.length > 0) {
+    const photo = message.photo[message.photo.length - 1];
+    fileId = photo.file_id;
+    fileName = `reupload_${userId}_${paymentId}_${Date.now()}.jpg`;
+  } else if (message.document) {
+    fileId = message.document.file_id;
+    fileName = message.document.file_name || `reupload_${userId}_${paymentId}_${Date.now()}`;
+  }
+
+  if (!fileId) {
+    await sendMessage(botToken, chatId, "❌ No valid file received. Please send a photo or document of your receipt.");
+    return;
+  }
+
+  try {
+    // Get file info and download
+    const fileInfoResponse = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
+    const fileInfo = await fileInfoResponse.json();
+
+    if (!fileInfo.ok) {
+      throw new Error("Failed to get file info from Telegram");
+    }
+
+    // Download file from Telegram
+    const fileResponse = await fetch(`https://api.telegram.org/file/bot${botToken}/${fileInfo.result.file_path}`);
+    const fileBuffer = await fileResponse.arrayBuffer();
+
+    // Upload to Supabase Storage (overwrite old receipt)
+    const filePath = `${userId}/${fileName}`;
+    const { data: uploadData, error: uploadError } = await supabaseClient.storage
+      .from('payment-receipts')
+      .upload(filePath, fileBuffer, {
+        contentType: message.document?.mime_type || 'image/jpeg',
+        upsert: true // Allow overwriting
+      });
+
+    if (uploadError) {
+      logStep("Storage upload error", { error: uploadError });
+      await sendMessage(botToken, chatId, "❌ Failed to save your receipt. Please try again.");
+      return;
+    }
+
+    // Update payment record
+    const { error: updateError } = await supabaseClient
+      .from("user_subscriptions")
+      .update({
+        receipt_file_path: filePath,
+        receipt_telegram_file_id: fileId,
+        payment_status: "receipt_submitted",
+        notes: "Receipt re-uploaded",
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", paymentId);
+
+    if (updateError) {
+      logStep("Database update error", { error: updateError });
+      await sendMessage(botToken, chatId, "❌ Failed to update payment status. Please contact support.");
+      return;
+    }
+
+    // Clear user state
+    await supabaseClient
+      .from("bot_users")
+      .update({ notes: null })
+      .eq("telegram_id", userId.toString());
+
+    const successMessage = `✅ <b>Receipt Re-uploaded Successfully!</b>
+
+📋 <b>Payment Details:</b>
+• Plan: ${payment.subscription_plans.name}
+• Amount: $${payment.subscription_plans.price}
+• Payment ID: ${paymentId}
+
+📸 <b>New receipt uploaded and ready for review!</b>
+
+⏰ <b>What's next:</b>
+• Our team will review your new receipt
+• Processing time: 1-2 hours
+• You'll get approval notification
+• VIP access activated immediately after approval
+
+🔄 <b>Status:</b> Pending review
+
+Thank you for re-uploading! 🙏`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "📊 Check Status", callback_data: "my_account" },
+          { text: "💬 Contact Support", callback_data: "contact_support" }
+        ],
+        [
+          { text: "🏠 Main Menu", callback_data: "main_menu" }
+        ]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, successMessage, keyboard);
+
+    // Notify admins about re-upload
+    const adminNotification = `🔄 <b>Receipt Re-uploaded!</b>
+
+📋 <b>Payment Details:</b>
+• ID: <code>${paymentId}</code>
+• User: ${userId} (@${username || 'N/A'})
+• Plan: ${payment.subscription_plans.name} ($${payment.subscription_plans.price})
+• Previous Status: ${payment.payment_status}
+
+📸 <b>New receipt uploaded - ready for verification.</b>
+
+<b>Actions:</b>
+<code>/approve ${paymentId}</code> - Approve payment
+<code>/reject ${paymentId} [reason]</code> - Reject payment`;
+
+    // Send to admins
+    for (const adminId of SUPPORT_GROUP_CONFIG.admin_user_ids) {
+      try {
+        await sendMessage(botToken, parseInt(adminId), adminNotification);
+      } catch (error) {
+        logStep("Error notifying admin", { adminId, error });
+      }
+    }
+
+  } catch (error) {
+    logStep("Error processing receipt re-upload", { error });
+    await sendMessage(botToken, chatId, "❌ Failed to process your receipt. Please try again or contact support.");
+  }
+}
+
+// Helper function to forward messages
+async function forwardMessage(botToken: string, toChatId: string | number, fromChatId: number, messageId: number) {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/forwardMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: toChatId,
+        from_chat_id: fromChatId,
+        message_id: messageId
+      })
+    });
+
+    const result = await response.json();
+    return result.ok;
+  } catch (error) {
+    console.error("Error forwarding message:", error);
+    return false;
+  }
 }
