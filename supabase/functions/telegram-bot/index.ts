@@ -371,16 +371,28 @@ async function handleStartCommand(botToken: string, chatId: number, userId: numb
     ])
   };
 
-  const welcomeMessage = `🌟 Welcome to VIP Subscription Bot! 🌟
+  const welcomeMessage = `✨ <b>Welcome to Premium VIP Services!</b> ✨
 
-Choose your subscription plan:
+🎯 <b>Unlock Exclusive Benefits:</b>
+🚀 Premium features and priority support
+💎 Exclusive content and early access
+🛡️ Enhanced security and reliability
+⚡ Lightning-fast performance
 
-💎 1 Month VIP - $9.99
-💎 3 Month VIP - $24.99  
-💎 6 Month VIP - $44.99
-💎 Lifetime VIP - $99.99
+💰 <b>Choose Your Perfect Plan:</b>
 
-Select a plan below to get started:`;
+${plans.map((plan: any) => {
+  const durationText = plan.is_lifetime ? "🔥 Lifetime Access" : `📅 ${plan.duration_months} Month${plan.duration_months > 1 ? 's' : ''}`;
+  const features = plan.features && plan.features.length > 0 ? 
+    `\n   ✓ ${plan.features.join('\n   ✓ ')}` : '';
+  
+  return `💎 <b>${plan.name}</b> - $${plan.price}
+   ${durationText}${features}`;
+}).join('\n\n')}
+
+🎁 <b>Special Offer:</b> All plans include 24/7 support and money-back guarantee!
+
+👆 <b>Select your plan below to get started:</b>`;
 
   await sendMessage(botToken, chatId, welcomeMessage, keyboard);
 }
