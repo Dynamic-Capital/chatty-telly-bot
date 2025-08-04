@@ -563,12 +563,22 @@ Once payment is confirmed, you'll get instant VIP access!`;
 📋 Plan: ${plan.name}
 💰 Amount: $${plan.price}
 
-💼 <b>Bank Details:</b>
-Bank Name: Your Bank Name
-Account Number: 1234567890
-Routing Number: 123456789
-Account Name: Your Business Name
-Reference: VIP-${userId}-${planId}
+💼 <b>Bank Details - Choose Currency:</b>
+
+🏦 <b>BML Account (MVR):</b>
+• Account: 7730000133061
+• Name: ABDL.M.I.AFLHAL
+• Currency: MVR
+
+🏦 <b>MIB Account (MVR):</b>
+• Account: 9010310167224100
+• Currency: MVR
+
+🏦 <b>MIB Account (USD):</b>
+• Account: 9013101672242000
+• Currency: USD
+
+📝 <b>Reference:</b> VIP-${userId}-${planId}
 
 📸 <b>Important:</b> After making the transfer, please send a screenshot or photo of your transfer receipt to this chat.
 
