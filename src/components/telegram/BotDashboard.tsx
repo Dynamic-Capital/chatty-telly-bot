@@ -386,6 +386,119 @@ const BotDashboard = () => {
     </div>
   );
 
+  const renderAnalyticsScreen = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold">Revenue Analytics</h2>
+          <p className="text-muted-foreground">Track revenue performance and package analytics</p>
+        </div>
+        <Button variant="outline" onClick={() => setCurrentView('welcome')}>
+          Back to Dashboard
+        </Button>
+      </div>
+
+      {/* Revenue Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+          <div className="text-center space-y-2">
+            <p className="text-sm text-muted-foreground">Today</p>
+            <p className="text-2xl font-bold text-green-500">$1,240</p>
+            <p className="text-xs text-muted-foreground">+12% vs yesterday</p>
+          </div>
+        </Card>
+        
+        <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+          <div className="text-center space-y-2">
+            <p className="text-sm text-muted-foreground">This Week</p>
+            <p className="text-2xl font-bold text-blue-500">$8,650</p>
+            <p className="text-xs text-muted-foreground">+8% vs last week</p>
+          </div>
+        </Card>
+        
+        <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+          <div className="text-center space-y-2">
+            <p className="text-sm text-muted-foreground">14 Days</p>
+            <p className="text-2xl font-bold text-purple-500">$18,420</p>
+            <p className="text-xs text-muted-foreground">+15% vs previous</p>
+          </div>
+        </Card>
+        
+        <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+          <div className="text-center space-y-2">
+            <p className="text-sm text-muted-foreground">This Month</p>
+            <p className="text-2xl font-bold text-telegram">$34,890</p>
+            <p className="text-xs text-muted-foreground">+23% vs last month</p>
+          </div>
+        </Card>
+      </div>
+
+      {/* Package Performance */}
+      <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+        <h3 className="text-lg font-semibold mb-4">Package Performance</h3>
+        <div className="space-y-4">
+          {[
+            { name: "1 Month VIP", sales: 156, revenue: "$1,540", percentage: 32, trend: "+8%" },
+            { name: "3 Month VIP", sales: 89, revenue: "$2,225", percentage: 45, trend: "+15%" },
+            { name: "12 Month VIP", sales: 34, revenue: "$1,632", percentage: 28, trend: "+12%" },
+            { name: "Lifetime VIP", sales: 12, revenue: "$1,199", percentage: 18, trend: "+25%" },
+          ].map((pkg, index) => (
+            <div key={index} className="flex items-center justify-between p-4 bg-background/50 rounded-lg">
+              <div className="flex items-center gap-4">
+                <div className="w-3 h-3 bg-telegram rounded-full"></div>
+                <div>
+                  <p className="font-medium">{pkg.name}</p>
+                  <p className="text-sm text-muted-foreground">{pkg.sales} sales</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-semibold">{pkg.revenue}</p>
+                <p className="text-sm text-green-500">{pkg.trend}</p>
+              </div>
+              <div className="w-24 bg-muted rounded-full h-2">
+                <div 
+                  className="bg-telegram h-2 rounded-full" 
+                  style={{ width: `${pkg.percentage}%` }}
+                ></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Revenue Chart Placeholder */}
+      <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+        <h3 className="text-lg font-semibold mb-4">Revenue Trend (Last 30 Days)</h3>
+        <div className="h-64 bg-background/30 rounded-lg flex items-center justify-center">
+          <p className="text-muted-foreground">Chart visualization would go here</p>
+        </div>
+      </Card>
+
+      {/* Quick Analytics Actions */}
+      <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+        <h3 className="text-lg font-semibold mb-4">Analytics Actions</h3>
+        <div className="flex flex-wrap gap-3">
+          <Button variant="outline" size="sm" className="gap-2">
+            <BarChart3 className="w-4 h-4" />
+            Export Revenue Report
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2">
+            <Package className="w-4 h-4" />
+            Package Performance Report
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2">
+            <Users className="w-4 h-4" />
+            User Analytics
+          </Button>
+          <Button variant="telegram" size="sm" className="gap-2">
+            <MessageSquare className="w-4 h-4" />
+            Edit via Telegram
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+
   const renderSupportScreen = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -481,6 +594,7 @@ const BotDashboard = () => {
         {currentView === 'config' && renderConfigScreen()}
         {currentView === 'packages' && renderPackagesScreen()}
         {currentView === 'support' && renderSupportScreen()}
+        {currentView === 'analytics' && renderAnalyticsScreen()}
       </div>
     </div>
   );
