@@ -2130,35 +2130,32 @@ async function handleStats(botToken: string, chatId: number, supabaseClient: any
 
 // About Us function
 async function handleAboutUs(botToken: string, chatId: number, supabaseClient: any) {
-  const aboutMessage = `ℹ️ <b>About Dynamic VIP Bot</b>
+  const aboutMessage = `📌 <b>About Us – Dynamic Capital</b>
 
-🚀 <b>Your Premium Access Solution</b>
+Welcome to Dynamic Capital — Maldives' first-ever private trading & investment community built by traders, for traders.
 
-We provide exclusive VIP access to premium features and services that elevate your experience to the next level.
+Since 2021, we've helped traders grow from beginners to confident, consistent performers through structured mentorship, live signals, and in-depth market discussions.
 
-🌟 <b>What We Offer:</b>
-• Premium subscription plans
-• Multiple payment options
-• 24/7 customer support
-• Instant activation
-• Secure payment processing
+💡 <b>What We Offer:</b>
+• 💬 Real-time trade ideas & breakdowns
+• 📚 Structured mentorship programs
+• 🔔 VIP signals with precision entries
+• 🧠 Psychology, risk & routine building
+• 🤝 A private circle of serious traders
 
-💎 <b>Why Choose Us?</b>
-• Trusted by thousands of users
-• Competitive pricing
-• Flexible payment methods
-• Excellent customer service
-• Regular updates and improvements
+We're not just about signals — we're about building traders.
+
+Join the movement. Master the craft.
+Welcome to the Dynamic Capital family.
 
 📞 <b>Contact Information:</b>
 • Email: ${SUPPORT_CONFIG.support_email}
 • Telegram: ${SUPPORT_CONFIG.support_telegram}
-• Website: ${SUPPORT_CONFIG.website}
-
-Thank you for choosing Dynamic VIP! 🙏`;
+• Website: ${SUPPORT_CONFIG.website}`;
 
   const backKeyboard = {
     inline_keyboard: [
+      [{ text: "📞 Contact Support", callback_data: "contact_support" }],
       [{ text: "← Back to Main Menu", callback_data: "main_menu" }]
     ]
   };
