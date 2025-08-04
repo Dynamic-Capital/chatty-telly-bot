@@ -753,26 +753,29 @@ Choose an option below to get started:`;
     updateUserSession(userId, 'main_menu');
   }
   
-  // Setup bot commands and other background tasks without blocking response
-  Promise.all([
-    setupBotCommands(botToken),
-    // Check survey status in background (doesn't affect initial response)
-    supabaseClient
-      .from("user_surveys")
-      .select("*")
-      .eq("telegram_user_id", userId.toString())
-      .order("survey_completed_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data: recentSurvey }) => {
-        // Update keyboard if survey status changes (future enhancement)
-        if (!recentSurvey) {
-          logStep("User has not completed survey", { userId });
-        }
-      })
-  ]).catch(error => {
-    console.error("Background tasks error:", error);
-  });
+  // Only run background tasks for returning users, not first-time users
+  if (isActiveSession && welcomeAlreadySent) {
+    // Setup bot commands and other background tasks without blocking response
+    Promise.all([
+      setupBotCommands(botToken),
+      // Check survey status in background (doesn't affect initial response)
+      supabaseClient
+        .from("user_surveys")
+        .select("*")
+        .eq("telegram_user_id", userId.toString())
+        .order("survey_completed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data: recentSurvey }) => {
+          // Update keyboard if survey status changes (future enhancement)
+          if (!recentSurvey) {
+            logStep("User has not completed survey", { userId });
+          }
+        })
+    ]).catch(error => {
+      console.error("Background tasks error:", error);
+    });
+  }
 }
 
 // Support function

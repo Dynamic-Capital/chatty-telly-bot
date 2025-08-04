@@ -94,6 +94,7 @@ export type Database = {
           id: string
           is_vip: boolean
           last_name: string | null
+          notes: string | null
           subscription_expires_at: string | null
           telegram_id: string
           updated_at: string
@@ -106,6 +107,7 @@ export type Database = {
           id?: string
           is_vip?: boolean
           last_name?: string | null
+          notes?: string | null
           subscription_expires_at?: string | null
           telegram_id: string
           updated_at?: string
@@ -118,6 +120,7 @@ export type Database = {
           id?: string
           is_vip?: boolean
           last_name?: string | null
+          notes?: string | null
           subscription_expires_at?: string | null
           telegram_id?: string
           updated_at?: string
