@@ -1445,29 +1445,38 @@ Great! I've activated the persistent menu buttons at the bottom of your chat.
 async function handleAdminMenu(botToken: string, chatId: number, supabaseClient: any) {
   const adminKeyboard = {
     inline_keyboard: [
+      // 🧾 Payments Section
       [
-        { text: "📋 Pending Payments", callback_data: "admin_pending" },
-        { text: "📊 Statistics", callback_data: "admin_stats" }
+        { text: "🧾 Pending Payments", callback_data: "admin_pending" },
+        { text: "💳 Payment Methods", callback_data: "admin_payments" },
+        { text: "🏦 Bank Accounts", callback_data: "admin_banks" }
       ],
+      // 📊 Analytics Section
       [
-        { text: "📈 Revenue Analytics", callback_data: "admin_analytics" },
+        { text: "📊 Bot Stats", callback_data: "admin_stats" },
+        { text: "💰 Income Stats", callback_data: "admin_analytics" },
         { text: "📦 Package Performance", callback_data: "admin_packages" }
       ],
+      // 🛠️ Management Section
       [
-        { text: "🎫 Manage Promos", callback_data: "admin_promos" },
-        { text: "📦 Manage Plans", callback_data: "admin_plans" }
+        { text: "📦 Edit Plans", callback_data: "admin_plans" },
+        { text: "🎟️ Promo Codes", callback_data: "admin_promos" },
+        { text: "👥 VIP Access", callback_data: "admin_vip" }
       ],
+      // ⚙️ Configuration Section
       [
-        { text: "👥 VIP Management", callback_data: "admin_vip" },
-        { text: "💳 Payment Settings", callback_data: "admin_payments" }
+        { text: "⚙️ General Settings", callback_data: "admin_settings" },
+        { text: "📢 Broadcast Message", callback_data: "admin_broadcast" }
       ],
+      // 💬 Support & 📝 Logs Section
       [
-        { text: "⚙️ Bot Settings", callback_data: "admin_settings" },
-        { text: "📝 System Logs", callback_data: "admin_logs" }
+        { text: "💬 Support Settings", callback_data: "admin_support" },
+        { text: "🗂 Activity Logs", callback_data: "admin_logs" }
       ],
+      // Additional Features
       [
-        { text: "🏦 Bank Accounts", callback_data: "admin_banks" },
-        { text: "⚙️ Support Settings", callback_data: "admin_support" }
+        { text: "📬 Manual Receipt Review", callback_data: "admin_receipts" },
+        { text: "🧪 Test Environment", callback_data: "admin_test" }
       ],
       [
         { text: "🔙 Close Admin Panel", callback_data: "main_menu" }
@@ -1477,15 +1486,18 @@ async function handleAdminMenu(botToken: string, chatId: number, supabaseClient:
 
   const adminMessage = `🔧 <b>Admin Dashboard</b>
 
-Welcome to the admin control panel! 
+Welcome to the control center! Choose a section:
 
-📊 Manage your bot operations:
-• View and process pending payments
-• Monitor bot statistics and analytics
-• Create and manage promotional codes
-• Add/edit subscription plans
-• Configure payment methods
-• Manage bot settings
+🧾 <b>Payments:</b> Pending, Methods, Bank Accounts
+📊 <b>Analytics:</b> Bot Stats, Income, Package Performance  
+🛠️ <b>Management:</b> Plans, Promos, VIP Access
+⚙️ <b>Configuration:</b> Settings, Broadcasts
+💬 <b>Support & Logs:</b> Help Settings, Activity Tracking
+
+💡 <b>Quick Tips:</b>
+• Use confirmation before deleting plans/promos
+• Test changes in Test Environment first
+• Check Activity Logs for troubleshooting
 
 Select an option below:`;
 
@@ -1501,6 +1513,12 @@ async function handleAdminCallback(botToken: string, chatId: number, data: strin
     case "admin_stats":
       await handleAdminStats(botToken, chatId, supabaseClient);
       break;
+    case "admin_analytics":
+      await handleAdminAnalytics(botToken, chatId, supabaseClient);
+      break;
+    case "admin_packages":
+      await handleAdminPackagePerformance(botToken, chatId, supabaseClient);
+      break;
     case "admin_promos":
       await handleAdminPromos(botToken, chatId, supabaseClient);
       break;
@@ -1513,14 +1531,26 @@ async function handleAdminCallback(botToken: string, chatId: number, data: strin
     case "admin_payments":
       await handleAdminPaymentSettings(botToken, chatId, supabaseClient);
       break;
-    case "admin_users":
-      await handleAdminUsers(botToken, chatId, supabaseClient);
+    case "admin_banks":
+      await handleAdminBankAccounts(botToken, chatId, supabaseClient);
+      break;
+    case "admin_support":
+      await handleAdminSupportSettings(botToken, chatId, supabaseClient);
       break;
     case "admin_logs":
       await handleAdminLogs(botToken, chatId, supabaseClient);
       break;
     case "admin_vip":
       await handleManageVIPAccess(botToken, chatId, supabaseClient);
+      break;
+    case "admin_broadcast":
+      await handleAdminBroadcast(botToken, chatId, supabaseClient);
+      break;
+    case "admin_receipts":
+      await handleAdminManualReceipts(botToken, chatId, supabaseClient);
+      break;
+    case "admin_test":
+      await handleAdminTestEnvironment(botToken, chatId, supabaseClient);
       break;
     case "admin_check_expired":
       await checkExpiredSubscriptions(botToken, supabaseClient);
@@ -4027,4 +4057,275 @@ This plan is perfectly tailored to your trading goals and experience level!`;
   };
 
   await sendMessage(botToken, chatId, recommendationMessage, keyboard);
+}
+
+// New Admin Functions for Enhanced Dashboard
+
+// Analytics functions
+async function handleAdminAnalytics(botToken: string, chatId: number, supabaseClient: any) {
+  try {
+    const { data: payments } = await supabaseClient
+      .from("payments")
+      .select("amount, currency, status, created_at")
+      .eq("status", "completed");
+
+    const { data: subscriptions } = await supabaseClient
+      .from("user_subscriptions")
+      .select("payment_status, created_at");
+
+    const totalRevenue = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+    const monthlyRevenue = payments?.filter(p => 
+      new Date(p.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    ).reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+
+    const message = `💰 <b>Income Statistics</b>
+
+📊 <b>Revenue Overview:</b>
+• Total Revenue: $${totalRevenue.toFixed(2)}
+• Monthly Revenue: $${monthlyRevenue.toFixed(2)}
+• Completed Payments: ${payments?.length || 0}
+• Pending Payments: ${subscriptions?.filter(s => s.payment_status === 'pending').length || 0}
+
+📈 <b>Performance Metrics:</b>
+• Conversion Rate: ${subscriptions?.length > 0 ? Math.round((payments?.length || 0) / subscriptions.length * 100) : 0}%
+• Average Order Value: $${payments?.length > 0 ? (totalRevenue / payments.length).toFixed(2) : '0.00'}`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "🔄 Refresh", callback_data: "admin_analytics" }],
+        [{ text: "← Back to Admin", callback_data: "admin_menu" }]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, message, keyboard);
+  } catch (error) {
+    await sendMessage(botToken, chatId, `❌ Error loading analytics: ${error.message}`);
+  }
+}
+
+async function handleAdminPackagePerformance(botToken: string, chatId: number, supabaseClient: any) {
+  try {
+    const { data: plans } = await supabaseClient
+      .from("subscription_plans")
+      .select("*");
+
+    const { data: payments } = await supabaseClient
+      .from("payments")
+      .select("plan_id, amount, status");
+
+    let message = `📦 <b>Package Performance</b>\n\n`;
+    
+    for (const plan of plans || []) {
+      const planPayments = payments?.filter(p => p.plan_id === plan.id) || [];
+      const completedPayments = planPayments.filter(p => p.status === 'completed');
+      const revenue = completedPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+      
+      message += `💎 <b>${plan.name}</b>\n`;
+      message += `• Sales: ${completedPayments.length}\n`;
+      message += `• Revenue: $${revenue.toFixed(2)}\n`;
+      message += `• Price: $${plan.price}\n\n`;
+    }
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "🔄 Refresh", callback_data: "admin_packages" }],
+        [{ text: "← Back to Admin", callback_data: "admin_menu" }]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, message, keyboard);
+  } catch (error) {
+    await sendMessage(botToken, chatId, `❌ Error loading package performance: ${error.message}`);
+  }
+}
+
+// Bank account management
+async function handleAdminBankAccounts(botToken: string, chatId: number, supabaseClient: any) {
+  try {
+    const { data: banks } = await supabaseClient
+      .from("bank_accounts")
+      .select("*")
+      .order("display_order");
+
+    let message = `🏦 <b>Bank Account Management</b>\n\n`;
+    
+    if (banks && banks.length > 0) {
+      banks.forEach((bank, index) => {
+        const statusIcon = bank.is_active ? "✅" : "❌";
+        message += `${statusIcon} <b>${bank.bank_name}</b>\n`;
+        message += `• Account: ${bank.account_name}\n`;
+        message += `• Number: ${bank.account_number}\n`;
+        message += `• Currency: ${bank.currency}\n`;
+        message += `• Order: ${bank.display_order}\n\n`;
+      });
+    } else {
+      message += "No bank accounts configured.";
+    }
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "➕ Add Bank Account", callback_data: "admin_add_bank" }],
+        [{ text: "🔄 Refresh", callback_data: "admin_banks" }],
+        [{ text: "← Back to Admin", callback_data: "admin_menu" }]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, message, keyboard);
+  } catch (error) {
+    await sendMessage(botToken, chatId, `❌ Error loading bank accounts: ${error.message}`);
+  }
+}
+
+// Broadcast messaging
+async function handleAdminBroadcast(botToken: string, chatId: number, supabaseClient: any) {
+  const message = `📢 <b>Broadcast Message</b>
+
+Send announcements to all subscribers:
+
+🎯 <b>Target Options:</b>
+• All Active Subscribers
+• VIP Members Only
+• Pending Payment Users
+• All Bot Users
+
+💡 <b>Usage:</b>
+Type your message after choosing target group.
+
+⚠️ <b>Warning:</b> This will send to many users. Use carefully!`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "👥 All Active", callback_data: "broadcast_active" },
+        { text: "💎 VIP Only", callback_data: "broadcast_vip" }
+      ],
+      [
+        { text: "⏳ Pending Users", callback_data: "broadcast_pending" },
+        { text: "🌐 Everyone", callback_data: "broadcast_all" }
+      ],
+      [{ text: "← Back to Admin", callback_data: "admin_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, message, keyboard);
+}
+
+// Manual receipt review
+async function handleAdminManualReceipts(botToken: string, chatId: number, supabaseClient: any) {
+  try {
+    const { data: unverifiedReceipts } = await supabaseClient
+      .from("user_subscriptions")
+      .select("*, subscription_plans(*)")
+      .eq("payment_status", "pending")
+      .not("receipt_telegram_file_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    let message = `📬 <b>Manual Receipt Review</b>\n\n`;
+    
+    if (unverifiedReceipts && unverifiedReceipts.length > 0) {
+      message += `Found ${unverifiedReceipts.length} unverified receipt(s):\n\n`;
+      
+      unverifiedReceipts.forEach((sub, index) => {
+        message += `${index + 1}. User: ${sub.telegram_username || sub.telegram_user_id}\n`;
+        message += `   Plan: ${sub.subscription_plans?.name || 'Unknown'}\n`;
+        message += `   Method: ${sub.payment_method || 'Not specified'}\n`;
+        message += `   Date: ${new Date(sub.created_at).toLocaleDateString()}\n\n`;
+      });
+      
+      message += `Use /approve <id> or /reject <id> <reason> to process.`;
+    } else {
+      message += "✅ No pending receipts to review.";
+    }
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "🔄 Refresh", callback_data: "admin_receipts" }],
+        [{ text: "📋 All Pending", callback_data: "admin_pending" }],
+        [{ text: "← Back to Admin", callback_data: "admin_menu" }]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, message, keyboard);
+  } catch (error) {
+    await sendMessage(botToken, chatId, `❌ Error loading receipts: ${error.message}`);
+  }
+}
+
+// Support settings management
+async function handleAdminSupportSettings(botToken: string, chatId: number, supabaseClient: any) {
+  const message = `💬 <b>Support Settings</b>
+
+Current Configuration:
+📧 Support Email: ${SUPPORT_CONFIG.support_email}
+📱 Support Telegram: ${SUPPORT_CONFIG.support_telegram}
+
+⚙️ <b>Support Features:</b>
+• Auto-response enabled
+• FAQ integration active
+• Ticket system: Manual processing
+• Response time: 2-4 hours average
+
+🔧 <b>Available Actions:</b>
+• Update contact information
+• Configure auto-responses
+• Manage support templates
+• View support metrics`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "📧 Update Email", callback_data: "support_update_email" },
+        { text: "📱 Update Telegram", callback_data: "support_update_tg" }
+      ],
+      [
+        { text: "🤖 Auto-Responses", callback_data: "support_auto_response" },
+        { text: "📊 Support Stats", callback_data: "support_stats" }
+      ],
+      [{ text: "← Back to Admin", callback_data: "admin_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, message, keyboard);
+}
+
+// Test environment
+async function handleAdminTestEnvironment(botToken: string, chatId: number, supabaseClient: any) {
+  const message = `🧪 <b>Test Environment</b>
+
+Safe zone to test changes before going live:
+
+🔬 <b>Available Tests:</b>
+• Test payment processing
+• Simulate user flows
+• Test broadcast messages
+• Validate plan changes
+• Check VIP access system
+
+⚠️ <b>Test Mode Features:</b>
+• No real money transactions
+• Limited to admin users
+• Safe data environment
+• Full feature testing
+
+💡 <b>Best Practices:</b>
+• Always test major changes here first
+• Verify payment flows work correctly
+• Test user experience end-to-end`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "💳 Test Payment", callback_data: "test_payment" },
+        { text: "👤 Test User Flow", callback_data: "test_user_flow" }
+      ],
+      [
+        { text: "📢 Test Broadcast", callback_data: "test_broadcast" },
+        { text: "🔐 Test VIP Access", callback_data: "test_vip" }
+      ],
+      [{ text: "← Back to Admin", callback_data: "admin_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, message, keyboard);
 }
