@@ -24,7 +24,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 const BotDashboard = () => {
-  const [currentView, setCurrentView] = useState<'welcome' | 'config' | 'packages' | 'support' | 'analytics'>('welcome');
+  const [currentView, setCurrentView] = useState<'welcome' | 'config' | 'packages' | 'support' | 'analytics' | 'promos'>('welcome');
   const [botToken, setBotToken] = useState("");
   const [isConnected, setIsConnected] = useState(false);
   const [message, setMessage] = useState("");
@@ -206,7 +206,10 @@ const BotDashboard = () => {
           </div>
         </Card>
 
-        <Card className="p-8 bg-gradient-card border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group">
+        <Card 
+          className="p-8 bg-gradient-card border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
+          onClick={() => setCurrentView('promos')}
+        >
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-500/10 rounded-2xl group-hover:bg-orange-500/20 transition-colors">
               <Gift className="w-8 h-8 text-orange-500" />
@@ -587,6 +590,149 @@ const BotDashboard = () => {
     </div>
   );
 
+  const renderPromosScreen = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold">Promo Codes Management</h2>
+          <p className="text-muted-foreground">Create and manage discount codes for your users</p>
+        </div>
+        <Button variant="outline" onClick={() => setCurrentView('welcome')}>
+          Back to Dashboard
+        </Button>
+      </div>
+
+      {/* Active Launch Promo */}
+      <Card className="p-6 bg-gradient-card border-0 shadow-lg border-l-4 border-l-green-500">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-green-500/10 rounded-lg">
+              <Gift className="w-6 h-6 text-green-500" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-green-600">🚀 VIP Bot Launch Special!</h3>
+              <p className="text-muted-foreground">VIPBOTLAUNCH50 - 50% OFF Lifetime Access</p>
+              <div className="flex items-center gap-4 mt-2">
+                <Badge className="bg-green-500 text-white">ACTIVE</Badge>
+                <span className="text-sm text-muted-foreground">Valid for 30 days • 0/100 uses</span>
+              </div>
+            </div>
+          </div>
+          <div className="text-right">
+            <Button variant="outline" size="sm" className="mr-2">
+              Edit
+            </Button>
+            <Button variant="destructive" size="sm">
+              Disable
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Promo Codes List */}
+      <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold">All Promo Codes</h3>
+          <Button variant="telegram" className="gap-2">
+            <Gift className="w-4 h-4" />
+            Create New Promo
+          </Button>
+        </div>
+        
+        <div className="space-y-4">
+          {[
+            { 
+              code: "VIPBOTLAUNCH50", 
+              description: "VIP Bot Launch - 50% OFF Lifetime", 
+              discount: "50%", 
+              type: "Percentage",
+              uses: "0/100",
+              status: "Active",
+              expires: "30 days"
+            },
+            { 
+              code: "WELCOME20", 
+              description: "Welcome discount for new users", 
+              discount: "20%", 
+              type: "Percentage",
+              uses: "45/500",
+              status: "Disabled",
+              expires: "60 days"
+            },
+            { 
+              code: "SUMMER25", 
+              description: "Summer special offer", 
+              discount: "$25", 
+              type: "Fixed",
+              uses: "123/200",
+              status: "Disabled",
+              expires: "Expired"
+            }
+          ].map((promo, index) => (
+            <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-orange-500/10 rounded-lg">
+                  <Gift className="w-5 h-5 text-orange-500" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-mono font-semibold">{promo.code}</p>
+                    <Badge 
+                      variant="outline" 
+                      className={
+                        promo.status === 'Active' ? 'border-green-500 text-green-600' :
+                        promo.status === 'Disabled' ? 'border-orange-500 text-orange-600' :
+                        'border-red-500 text-red-600'
+                      }
+                    >
+                      {promo.status}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{promo.description}</p>
+                  <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                    <span>{promo.discount} {promo.type}</span>
+                    <span>Uses: {promo.uses}</span>
+                    <span>Expires: {promo.expires}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm">
+                  {promo.status === 'Active' ? 'Disable' : 'Enable'}
+                </Button>
+                <Button variant="outline" size="sm">
+                  Edit
+                </Button>
+                <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                  Delete
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Promo Performance */}
+      <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+        <h3 className="text-lg font-semibold mb-4">Promo Performance</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="text-center p-4 bg-background/50 rounded-lg">
+            <p className="text-2xl font-bold text-green-500">$2,450</p>
+            <p className="text-sm text-muted-foreground">Revenue from promos</p>
+          </div>
+          <div className="text-center p-4 bg-background/50 rounded-lg">
+            <p className="text-2xl font-bold text-blue-500">168</p>
+            <p className="text-sm text-muted-foreground">Total redemptions</p>
+          </div>
+          <div className="text-center p-4 bg-background/50 rounded-lg">
+            <p className="text-2xl font-bold text-purple-500">23%</p>
+            <p className="text-sm text-muted-foreground">Conversion rate</p>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-accent/10 p-6">
       <div className="max-w-7xl mx-auto">
@@ -595,6 +741,7 @@ const BotDashboard = () => {
         {currentView === 'packages' && renderPackagesScreen()}
         {currentView === 'support' && renderSupportScreen()}
         {currentView === 'analytics' && renderAnalyticsScreen()}
+        {currentView === 'promos' && renderPromosScreen()}
       </div>
     </div>
   );
