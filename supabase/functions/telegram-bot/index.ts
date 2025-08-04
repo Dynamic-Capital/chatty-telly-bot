@@ -484,6 +484,38 @@ async function sendBroadcastMessage(messageText: string, targetAudience: any = {
   }
 }
 
+// Analytics tracking function
+async function trackDailyAnalytics() {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Get today's stats
+    const [usersResult, newUsersResult, interactionsResult] = await Promise.all([
+      supabaseAdmin.from('bot_users').select('id', { count: 'exact', head: true }),
+      supabaseAdmin.from('bot_users').select('id', { count: 'exact', head: true }).gte('created_at', today),
+      supabaseAdmin.from('user_interactions').select('interaction_type').gte('created_at', today)
+    ]);
+
+    // Update or create daily analytics
+    await supabaseAdmin
+      .from('daily_analytics')
+      .upsert([{
+        date: today,
+        total_users: usersResult.count || 0,
+        new_users: newUsersResult.count || 0,
+        button_clicks: {
+          start_chat: interactionsResult.data?.filter(i => i.interaction_type === 'start_chat').length || 0,
+          view_packages: interactionsResult.data?.filter(i => i.interaction_type === 'view_packages').length || 0,
+          trading_tools: interactionsResult.data?.filter(i => i.interaction_type === 'trading_tools').length || 0
+        },
+        updated_at: new Date().toISOString()
+      }]);
+      
+  } catch (error) {
+    console.error('Analytics tracking error:', error);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -513,40 +545,75 @@ serve(async (req) => {
         const user = await fetchOrCreateBotUser(userId, firstName, lastName, username);
         const isSubscribed = user?.subscription_expires_at && new Date(user.subscription_expires_at) > new Date();
         
+        // Enhanced welcome message
+        let welcomeMessage = `🤖 *Welcome to AI Trading Assistant!*\n\n`;
+        
+        if (user && user.created_at && new Date(user.created_at).toDateString() === new Date().toDateString()) {
+          // New user
+          welcomeMessage += `👋 Hello ${firstName || 'Trader'}! Welcome to our community!\n\n`;
+          welcomeMessage += `🎉 *You've just joined thousands of successful traders!*\n\n`;
+          welcomeMessage += `✨ *What you get access to:*\n`;
+          welcomeMessage += `• 🤖 AI-powered trading advice\n`;
+          welcomeMessage += `• 📈 Real-time market analysis\n`;
+          welcomeMessage += `• 🎓 Professional trading education\n`;
+          welcomeMessage += `• 💎 Exclusive VIP features\n`;
+          welcomeMessage += `• 🎯 Personalized trading strategies\n\n`;
+        } else {
+          // Returning user
+          welcomeMessage += `👋 Welcome back, ${firstName || 'Trader'}!\n\n`;
+        }
+        
+        if (isSubscribed) {
+          welcomeMessage += `✅ *Premium Member Status*\n`;
+          welcomeMessage += `📅 Valid until: ${new Date(user.subscription_expires_at!).toLocaleDateString()}\n`;
+          welcomeMessage += `💎 You have access to all premium features!\n\n`;
+        } else {
+          welcomeMessage += `🆓 *Free Trial User*\n`;
+          welcomeMessage += `📊 10 AI messages per hour\n`;
+          welcomeMessage += `💎 Upgrade to unlock unlimited features!\n\n`;
+        }
+        
+        welcomeMessage += `🚀 *Ready to start your trading journey?*\n`;
+        welcomeMessage += `Choose an option below to get started:`;
+        
         const mainMenu = {
           inline_keyboard: [
             [
-              { text: "📦 Packages", callback_data: "view_packages" },
-              { text: "🎓 Education", callback_data: "view_education" }
+              { text: "🎓 Education Hub", callback_data: "view_education" },
+              { text: "📦 VIP Packages", callback_data: "view_packages" }
             ],
             [
-              { text: "💬 AI Chat", callback_data: "start_chat" },
+              { text: "💬 AI Trading Chat", callback_data: "start_chat" },
               { text: "📈 Trading Tools", callback_data: "trading_tools" }
             ],
             [
-              { text: "🎯 Promotions", callback_data: "view_promotions" },
-              { text: "📊 My Status", callback_data: "user_status" }
+              { text: "🎯 Active Promotions", callback_data: "view_promotions" },
+              { text: "📊 My Account", callback_data: "user_status" }
             ],
             [
-              { text: "ℹ️ About Us", callback_data: "about_us" }
+              { text: "ℹ️ About Us", callback_data: "about_us" },
+              { text: "💬 Get Support", callback_data: "contact_support" }
             ]
           ]
         };
 
-        let welcomeMessage = `🤖 *Welcome to AI Trading Assistant!*\n\n`;
-        welcomeMessage += `Hello ${firstName || 'Trader'}! 👋\n\n`;
-        
-        if (isSubscribed) {
-          welcomeMessage += `✅ *Premium Member*\n`;
-          welcomeMessage += `📅 Valid until: ${new Date(user.subscription_expires_at!).toLocaleDateString()}\n\n`;
-        } else {
-          welcomeMessage += `🆓 *Free Trial User*\n`;
-          welcomeMessage += `💎 Upgrade to unlock premium features!\n\n`;
-        }
-        
-        welcomeMessage += `What would you like to do today?`;
-        
         await sendMessage(chatId, welcomeMessage, mainMenu);
+        
+        // Track new user analytics
+        if (user && user.created_at && new Date(user.created_at).toDateString() === new Date().toDateString()) {
+          await supabaseAdmin
+            .from('user_interactions')
+            .insert([{
+              telegram_user_id: userId,
+              interaction_type: 'bot_start',
+              page_context: 'welcome',
+              interaction_data: { 
+                is_new_user: true,
+                first_name: firstName,
+                username: username
+              }
+            }]);
+        }
       } else if (text?.startsWith('/admin') && isAdmin(userId)) {
         const adminKeyboard = {
           inline_keyboard: [
