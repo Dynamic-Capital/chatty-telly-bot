@@ -58,7 +58,7 @@ serve(async (req) => {
       const isAdmin = adminIds.includes(userId.toString());
 
       if (text === "/start") {
-        await handleStartCommand(botToken, chatId, userId, username, supabaseClient);
+        await handleMainMenu(botToken, chatId, userId, username, supabaseClient);
       } else if (text === "/admin" && isAdmin) {
         await handleAdminMenu(botToken, chatId, supabaseClient);
       } else if (text.startsWith("/setwelcome ") && isAdmin) {
@@ -109,6 +109,22 @@ serve(async (req) => {
       } else if (data?.startsWith("payment_")) {
         const [, method, planId] = data.split("_");
         await handlePaymentMethod(botToken, chatId, userId, username, method, planId, supabaseClient);
+      } else if (data === "main_menu") {
+        await handleMainMenu(botToken, chatId, userId, username, supabaseClient);
+      } else if (data === "view_packages") {
+        await handleStartCommand(botToken, chatId, userId, username, supabaseClient);
+      } else if (data === "contact_support") {
+        await handleContactSupport(botToken, chatId, supabaseClient);
+      } else if (data === "payment_options") {
+        await handlePaymentOptions(botToken, chatId, supabaseClient);
+      } else if (data === "enter_promo") {
+        await sendMessage(botToken, chatId, "🎫 <b>Enter Promo Code</b>\n\nPlease send your promo code in this format:\n<code>PROMO YOUR_CODE</code>\n\nExample: <code>PROMO SAVE20</code>", {
+          inline_keyboard: [[{ text: "← Back to Main Menu", callback_data: "main_menu" }]]
+        });
+      } else if (data === "about_us") {
+        await handleAboutUs(botToken, chatId, supabaseClient);
+      } else if (data === "my_account") {
+        await handleMyAccount(botToken, chatId, userId, supabaseClient);
       } else if (data === "back_to_plans") {
         await handleStartCommand(botToken, chatId, userId, username, supabaseClient);
       }
@@ -131,8 +147,117 @@ serve(async (req) => {
   }
 });
 
+// Main menu function - shows when user types /start
+async function handleMainMenu(botToken: string, chatId: number, userId: number, username: string, supabaseClient: any) {
+  logStep("Handling main menu", { chatId, userId, username });
+
+  const mainMenuKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "📦 View Packages", callback_data: "view_packages" },
+        { text: "💰 Payment Options", callback_data: "payment_options" }
+      ],
+      [
+        { text: "🆘 Contact Support", callback_data: "contact_support" },
+        { text: "🎫 Enter Promo Code", callback_data: "enter_promo" }
+      ],
+      [
+        { text: "ℹ️ About Us", callback_data: "about_us" },
+        { text: "📊 My Account", callback_data: "my_account" }
+      ]
+    ]
+  };
+
+  const welcomeMessage = `🌟 <b>Welcome to Dynamic VIP Bot!</b> 🌟
+
+Hi ${username ? `@${username}` : 'there'}! 👋
+
+🚀 Your gateway to exclusive VIP access and premium features!
+
+✨ <b>What would you like to do?</b>
+
+📦 View our subscription packages
+💰 Learn about payment methods
+🆘 Get help from our support team
+🎫 Apply a promotional code
+📊 Check your account status
+
+Select an option below to get started:`;
+
+  await sendMessage(botToken, chatId, welcomeMessage, mainMenuKeyboard);
+}
+
+// Support function
+async function handleContactSupport(botToken: string, chatId: number, supabaseClient: any) {
+  const supportMessage = `🆘 <b>Contact Support</b>
+
+We're here to help! 💪
+
+📧 <b>Email:</b> support@dynamicvip.com
+📱 <b>Telegram:</b> @DynamicVIP_Support
+⏰ <b>Response Time:</b> Usually within 2-4 hours
+
+🔗 <b>Quick Links:</b>
+• FAQ: /faq
+• Technical Issues: /tech
+• Billing Questions: /billing
+
+💬 <b>Or simply describe your issue and we'll get back to you!</b>`;
+
+  const backKeyboard = {
+    inline_keyboard: [
+      [{ text: "← Back to Main Menu", callback_data: "main_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, supportMessage, backKeyboard);
+}
+
+// Payment options overview
+async function handlePaymentOptions(botToken: string, chatId: number, supabaseClient: any) {
+  const paymentMessage = `💰 <b>Payment Methods Available</b>
+
+We accept multiple payment methods for your convenience:
+
+💳 <b>Credit/Debit Cards (Stripe)</b>
+• Instant activation
+• Visa, Mastercard, American Express
+• Secure & encrypted
+
+🅿️ <b>PayPal</b>
+• Fast & reliable
+• Buyer protection included
+• Instant activation
+
+🏦 <b>Bank Transfer</b>
+• Direct bank-to-bank transfer
+• Manual verification (1-2 business days)
+• Perfect for large amounts
+
+₿ <b>Cryptocurrency</b>
+• Bitcoin, Ethereum, USDT
+• Via Binance Pay
+• Fast processing (30 mins average)
+
+🎫 <b>Promo Codes</b>
+• Get discounts on any plan
+• Special offers and seasonal deals
+
+Ready to subscribe? Choose a package first!`;
+
+  const backKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "📦 View Packages", callback_data: "view_packages" },
+        { text: "← Back to Main Menu", callback_data: "main_menu" }
+      ]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, paymentMessage, backKeyboard);
+}
+
 async function handleStartCommand(botToken: string, chatId: number, userId: number, username: string, supabaseClient: any) {
-  logStep("Handling start command", { chatId, userId, username });
 
   // Fetch available subscription plans
   const { data: plans, error } = await supabaseClient
@@ -777,4 +902,93 @@ async function handleStats(botToken: string, chatId: number, supabaseClient: any
 • Active codes: ${promos?.length || 0}`;
 
   await sendMessage(botToken, chatId, statsMessage);
+}
+
+// About Us function
+async function handleAboutUs(botToken: string, chatId: number, supabaseClient: any) {
+  const aboutMessage = `ℹ️ <b>About Dynamic VIP Bot</b>
+
+🚀 <b>Your Premium Access Solution</b>
+
+We provide exclusive VIP access to premium features and services that elevate your experience to the next level.
+
+🌟 <b>What We Offer:</b>
+• Premium subscription plans
+• Multiple payment options
+• 24/7 customer support
+• Instant activation
+• Secure payment processing
+
+💎 <b>Why Choose Us?</b>
+• Trusted by thousands of users
+• Competitive pricing
+• Flexible payment methods
+• Excellent customer service
+• Regular updates and improvements
+
+📞 <b>Contact Information:</b>
+• Email: support@dynamicvip.com
+• Telegram: @DynamicVIP_Support
+• Website: dynamicvip.com
+
+Thank you for choosing Dynamic VIP! 🙏`;
+
+  const backKeyboard = {
+    inline_keyboard: [
+      [{ text: "← Back to Main Menu", callback_data: "main_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, aboutMessage, backKeyboard);
+}
+
+// My Account function
+async function handleMyAccount(botToken: string, chatId: number, userId: number, supabaseClient: any) {
+  // Get user's subscription status
+  const { data: subscription } = await supabaseClient
+    .from("user_subscriptions")
+    .select("*, subscription_plans(*)")
+    .eq("telegram_user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let accountMessage = `📊 <b>My Account</b>\n\n`;
+  accountMessage += `👤 <b>User ID:</b> ${userId}\n\n`;
+
+  if (subscription) {
+    const plan = subscription.subscription_plans;
+    const status = subscription.is_active ? "🟢 Active" : "🔴 Inactive";
+    const paymentStatus = subscription.payment_status;
+    
+    accountMessage += `💎 <b>Current Subscription:</b>\n`;
+    accountMessage += `• Plan: ${plan?.name || 'N/A'}\n`;
+    accountMessage += `• Price: $${plan?.price || '0'}\n`;
+    accountMessage += `• Status: ${status}\n`;
+    accountMessage += `• Payment: ${paymentStatus}\n`;
+    
+    if (subscription.subscription_end_date) {
+      accountMessage += `• Expires: ${new Date(subscription.subscription_end_date).toLocaleDateString()}\n`;
+    }
+    
+    accountMessage += `\n📅 <b>Subscription Date:</b> ${new Date(subscription.created_at).toLocaleDateString()}`;
+  } else {
+    accountMessage += `💎 <b>Subscription Status:</b>\n`;
+    accountMessage += `• No active subscription found\n`;
+    accountMessage += `• Ready to get started? Choose a plan!`;
+  }
+
+  const accountKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "📦 View Plans", callback_data: "view_packages" },
+        { text: "🆘 Support", callback_data: "contact_support" }
+      ],
+      [
+        { text: "← Back to Main Menu", callback_data: "main_menu" }
+      ]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, accountMessage, accountKeyboard);
 }
