@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      auto_reply_templates: {
+        Row: {
+          conditions: Json | null
+          created_at: string
+          display_order: number | null
+          id: string
+          is_active: boolean
+          message_template: string
+          name: string
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          conditions?: Json | null
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean
+          message_template: string
+          name: string
+          trigger_type: string
+          updated_at?: string
+        }
+        Update: {
+          conditions?: Json | null
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean
+          message_template?: string
+          name?: string
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bank_accounts: {
         Row: {
           account_name: string

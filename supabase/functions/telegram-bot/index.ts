@@ -1223,24 +1223,14 @@ async function handleFileUpload(botToken: string, chatId: number, userId: number
       return;
     }
 
-    const successMessage = `✅ <b>Receipt Received Successfully!</b>
+    // Get custom auto-reply based on context
+    const autoReplyMessage = await getCustomAutoReply(
+      "receipt_upload", 
+      subscription, 
+      supabaseClient
+    );
 
-📋 Plan: ${subscription.subscription_plans.name}
-💰 Amount: $${subscription.subscription_plans.price}
-💳 Payment Method: ${subscription.payment_method}
-
-📸 Your payment receipt has been submitted for verification.
-
-⏰ <b>What's next?</b>
-• Our team will verify your payment within 1-2 business days
-• You'll receive a confirmation message once approved
-• VIP access will be granted immediately after verification
-
-📞 For urgent matters, contact our support team.
-
-Thank you for your patience! 🙏`;
-
-    await sendMessage(botToken, chatId, successMessage);
+    await sendMessage(botToken, chatId, autoReplyMessage);
 
     // Notify admins about the receipt upload
     const adminIds = ["8486248025", "225513686"];
@@ -5247,4 +5237,175 @@ async function forwardMessage(botToken: string, toChatId: string | number, fromC
     console.error("Error forwarding message:", error);
     return false;
   }
+}
+
+// Custom Auto-Reply System
+
+// Get appropriate auto-reply based on context
+async function getCustomAutoReply(triggerType: string, context: any, supabaseClient: any): Promise<string> {
+  try {
+    // Get all active auto-reply templates for this trigger type
+    const { data: templates, error } = await supabaseClient
+      .from("auto_reply_templates")
+      .select("*")
+      .eq("trigger_type", triggerType)
+      .eq("is_active", true)
+      .order("display_order", { ascending: true });
+
+    if (error || !templates || templates.length === 0) {
+      return getDefaultAutoReply(triggerType, context);
+    }
+
+    // Find the best matching template
+    for (const template of templates) {
+      if (matchesConditions(template.conditions, context)) {
+        return processMessageTemplate(template.message_template, context);
+      }
+    }
+
+    // Fallback to default if no conditions match
+    return getDefaultAutoReply(triggerType, context);
+  } catch (error) {
+    console.error("Error getting custom auto-reply:", error);
+    return getDefaultAutoReply(triggerType, context);
+  }
+}
+
+// Check if context matches template conditions
+function matchesConditions(conditions: any, context: any): boolean {
+  if (!conditions) return true; // No conditions means always match
+
+  const { subscription_plans: plan, payment_method, ...subscription } = context;
+
+  // Check payment method
+  if (conditions.payment_method && payment_method !== conditions.payment_method) {
+    return false;
+  }
+
+  // Check plan type (check if plan name contains certain keywords)
+  if (conditions.plan_type) {
+    const planName = plan?.name?.toLowerCase() || "";
+    if (conditions.plan_type === "vip" && !planName.includes("vip") && !planName.includes("premium")) {
+      return false;
+    }
+    if (conditions.plan_type === "standard" && (planName.includes("vip") || planName.includes("premium"))) {
+      return false;
+    }
+  }
+
+  // Check minimum amount
+  if (conditions.amount_min && plan?.price < conditions.amount_min) {
+    return false;
+  }
+
+  // Check maximum amount
+  if (conditions.amount_max && plan?.price > conditions.amount_max) {
+    return false;
+  }
+
+  return true;
+}
+
+// Process message template with variables
+function processMessageTemplate(template: string, context: any): string {
+  const { subscription_plans: plan, payment_method, telegram_username, ...subscription } = context;
+  
+  let message = template;
+
+  // Replace common variables
+  message = message.replace(/{plan_name}/g, plan?.name || "Your Plan");
+  message = message.replace(/{plan_price}/g, plan?.price || "0");
+  message = message.replace(/{payment_method}/g, payment_method || "Unknown");
+  message = message.replace(/{username}/g, telegram_username || "Valued Customer");
+  message = message.replace(/{support_telegram}/g, SUPPORT_CONFIG.support_telegram);
+  message = message.replace(/{support_email}/g, SUPPORT_CONFIG.support_email);
+
+  return message;
+}
+
+// Default auto-reply messages (fallback)
+function getDefaultAutoReply(triggerType: string, context: any): string {
+  const { subscription_plans: plan, payment_method } = context;
+
+  switch (triggerType) {
+    case "receipt_upload":
+      return `✅ <b>Receipt Received Successfully!</b>
+
+📋 Plan: ${plan?.name || "Your Plan"}
+💰 Amount: $${plan?.price || "0"}
+💳 Payment Method: ${payment_method || "Unknown"}
+
+📸 Your payment receipt has been submitted for verification.
+
+⏰ <b>What's next?</b>
+• Our team will verify your payment within 1-2 business days
+• You'll receive a confirmation message once approved
+• VIP access will be granted immediately after verification
+
+📞 For urgent matters, contact our support team.
+
+Thank you for your patience! 🙏`;
+
+    case "payment_approved":
+      return `🎉 <b>Payment Approved!</b>
+
+Your ${plan?.name || "subscription"} has been activated!
+Welcome to Dynamic Capital! 🚀`;
+
+    case "payment_rejected":
+      return `❌ <b>Payment Issue</b>
+
+There was an issue with your payment verification.
+Please contact ${SUPPORT_CONFIG.support_telegram} for assistance.`;
+
+    default:
+      return "Thank you for your submission!";
+  }
+}
+
+// Admin function to manage auto-reply templates
+async function handleAutoReplyManagement(botToken: string, chatId: number, supabaseClient: any) {
+  const { data: templates } = await supabaseClient
+    .from("auto_reply_templates")
+    .select("*")
+    .order("trigger_type", { ascending: true })
+    .order("display_order", { ascending: true });
+
+  let message = `📝 <b>Auto-Reply Templates</b>
+
+Current templates:
+
+`;
+
+  if (templates && templates.length > 0) {
+    templates.forEach((template, index) => {
+      const statusIcon = template.is_active ? "✅" : "❌";
+      message += `${statusIcon} <b>${template.name}</b>
+🎯 Trigger: ${template.trigger_type}
+📋 Conditions: ${JSON.stringify(template.conditions || {})}
+📊 Order: ${template.display_order}
+
+`;
+    });
+  } else {
+    message += "No templates found.";
+  }
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "➕ Add Template", callback_data: "add_auto_reply" },
+        { text: "✏️ Edit Template", callback_data: "edit_auto_reply" }
+      ],
+      [
+        { text: "🗑 Delete Template", callback_data: "delete_auto_reply" },
+        { text: "🔄 Toggle Active", callback_data: "toggle_auto_reply" }
+      ],
+      [
+        { text: "← Back to Admin", callback_data: "admin_menu" }
+      ]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, message, keyboard);
 }
