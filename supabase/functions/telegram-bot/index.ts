@@ -6388,11 +6388,3 @@ Current templates:
   await sendMessage(botToken, chatId, message, keyboard);
 }
 
-    // Return OK response
-    return new Response("OK", { status: 200 });
-    
-  } catch (error) {
-    logStep("ERROR in telegram-bot", { message: error instanceof Error ? error.message : String(error) });
-    return new Response("Internal Server Error", { status: 500 });
-  }
-});
