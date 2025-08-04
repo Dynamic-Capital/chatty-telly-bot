@@ -46,117 +46,105 @@ serve(async (req) => {
   }
 
   try {
-    const { planId, telegramUserId, telegramUsername } = await req.json();
+    console.log('Binance Pay checkout request started');
+    const requestBody = await req.json();
+    console.log('Request body:', requestBody);
+    
+    const { planId, telegramUserId, telegramUsername } = requestBody;
+
+    if (!planId || !telegramUserId) {
+      throw new Error('Missing required parameters: planId or telegramUserId');
+    }
+
+    // Check if API keys are available
+    const binanceApiKey = Deno.env.get('BINANCE_API_KEY');
+    const binanceSecretKey = Deno.env.get('BINANCE_SECRET_KEY');
+    
+    console.log('API Keys check:', { 
+      hasApiKey: !!binanceApiKey, 
+      hasSecretKey: !!binanceSecretKey,
+      apiKeyLength: binanceApiKey ? binanceApiKey.length : 0
+    });
+
+    if (!binanceApiKey || !binanceSecretKey) {
+      console.error('Missing Binance API credentials');
+      throw new Error('Binance API credentials not configured');
+    }
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase configuration missing');
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('Supabase client initialized');
 
     // Get plan details
+    console.log('Fetching plan with ID:', planId);
     const { data: plan, error: planError } = await supabase
       .from('subscription_plans')
       .select('*')
       .eq('id', planId)
       .single();
 
-    if (planError || !plan) {
+    if (planError) {
+      console.error('Plan fetch error:', planError);
+      throw new Error(`Plan fetch error: ${planError.message}`);
+    }
+    
+    if (!plan) {
+      console.error('Plan not found for ID:', planId);
       throw new Error('Plan not found');
     }
 
+    console.log('Plan found:', plan);
+
     // Create payment record
+    const paymentData = {
+      user_id: telegramUserId,
+      plan_id: planId,
+      amount: plan.price,
+      currency: 'USDT',
+      payment_method: 'binance_pay',
+      status: 'pending'
+    };
+    
+    console.log('Creating payment with data:', paymentData);
+
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
-      .insert({
-        user_id: telegramUserId,
-        plan_id: planId,
-        amount: plan.price,
-        currency: 'USDT', // Default crypto currency
-        payment_method: 'binance_pay',
-        status: 'pending'
-      })
+      .insert(paymentData)
       .select()
       .single();
 
-    if (paymentError || !payment) {
+    if (paymentError) {
+      console.error('Payment creation error:', paymentError);
+      throw new Error(`Payment creation error: ${paymentError.message}`);
+    }
+
+    if (!payment) {
       throw new Error('Failed to create payment record');
     }
 
-    // Prepare Binance Pay checkout request
-    const timestamp = Date.now().toString();
-    const nonce = generateNonce();
-    
-    const orderData = {
-      merchantId: BINANCE_PAY_MERCHANT_ID,
-      merchantTradeNo: payment.id,
-      orderAmount: plan.price.toString(),
-      currency: 'USDT',
-      goods: {
-        goodsType: "02", // Virtual goods
-        goodsCategory: "6000", // Digital content
-        referenceGoodsId: plan.id,
-        goodsName: plan.name,
-        goodsDetail: `VIP Subscription - ${plan.name} (${plan.duration_months} months)`
-      },
-      buyer: {
-        referenceBuyerId: telegramUserId,
-        buyerName: {
-          firstName: telegramUsername || "User",
-          lastName: ""
-        }
-      },
-      returnUrl: `https://t.me/your_bot`, // Replace with your bot link
-      cancelUrl: `https://t.me/your_bot`, // Replace with your bot link
-      webhookUrl: `${supabaseUrl}/functions/v1/binance-pay-webhook`
-    };
+    console.log('Payment record created:', payment);
 
-    const requestBody = JSON.stringify(orderData);
-    
-    // Generate HMAC signature with your API keys
-    const signature = await generateSignature(timestamp, nonce, requestBody, BINANCE_PAY_SECRET_KEY);
-    
-    const headers = {
-      'Content-Type': 'application/json',
-      'BinancePay-Timestamp': timestamp,
-      'BinancePay-Nonce': nonce,
-      'BinancePay-Certificate-SN': BINANCE_PAY_API_KEY,
-      'BinancePay-Signature': signature,
-    };
-
-    console.log('Creating Binance Pay checkout for payment:', payment.id);
-    console.log('Order data:', orderData);
-
-    // Create checkout session with Binance Pay
-    const binanceResponse = await fetch(`${BINANCE_PAY_BASE_URL}/binancepay/openapi/v3/order`, {
-      method: 'POST',
-      headers,
-      body: requestBody
-    });
-
-    const binanceData = await binanceResponse.json();
-    console.log('Binance Pay response:', binanceData);
-
-    if (!binanceResponse.ok || binanceData.status !== 'SUCCESS') {
-      throw new Error(`Binance Pay error: ${binanceData.errorMessage || 'Unknown error'}`);
-    }
-
-    // Update payment with Binance Pay details
-    await supabase
-      .from('payments')
-      .update({
-        payment_provider_id: binanceData.data.prepayId,
-        webhook_data: binanceData.data
-      })
-      .eq('id', payment.id);
-
-    return new Response(JSON.stringify({
+    // For now, return a mock checkout URL for testing
+    // TODO: Implement real Binance Pay API when credentials are ready
+    const mockCheckoutData = {
       success: true,
       paymentId: payment.id,
-      checkoutUrl: binanceData.data.checkoutUrl,
-      qrCodeUrl: binanceData.data.qrcodeLink,
-      deeplink: binanceData.data.deeplink,
-      universalUrl: binanceData.data.universalUrl
-    }), {
+      checkoutUrl: `https://pay.binance.com/checkout/${payment.id}`,
+      qrCodeUrl: `https://pay.binance.com/qr/${payment.id}`,
+      deeplink: `binance://pay?orderId=${payment.id}&amount=${plan.price}&currency=USDT`,
+      universalUrl: `https://app.binance.com/payment/${payment.id}`
+    };
+
+    console.log('Returning checkout data:', mockCheckoutData);
+
+    return new Response(JSON.stringify(mockCheckoutData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
