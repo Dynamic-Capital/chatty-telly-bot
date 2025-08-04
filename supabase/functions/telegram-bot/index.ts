@@ -725,22 +725,6 @@ Choose an option below to get started:`;
   });
 }
 
-Hi @DynamicCapital_Support 👋
-🚀 Unlock premium access to real-time trade signals, expert mentorship, and exclusive tools.
-
-✨ <b>What would you like to do?</b>
-📦 Explore VIP subscription plans
-💳 Learn how to pay via USDT (crypto) or bank transfer
-🎁 Apply a promotional code
-🆘 Get help from our support team
-📊 Check your account and subscription status
-
-💡 <b>Quick Navigation Tips:</b>
-• Tap the menu buttons below to browse options
-• Type / to see available commands
-• Click 📌 Enable Quick Menu to keep buttons always visible
-
-📍 Select an option below to get started:`;
 
   await sendMessage(botToken, chatId, welcomeMessage, mainMenuKeyboard);
   
