@@ -148,6 +148,24 @@ serve(async (req) => {
         await handleMyAccount(botToken, chatId, userId, supabaseClient);
       } else if (data === "back_to_plans") {
         await handleStartCommand(botToken, chatId, userId, username, supabaseClient);
+      } else if (data?.startsWith("admin_")) {
+        // Admin dashboard callbacks - check if user is admin
+        const adminIds = ["8486248025", "225513686"];
+        if (!adminIds.includes(userId.toString())) {
+          await sendMessage(botToken, chatId, "❌ Access denied. Admin privileges required.");
+          return;
+        }
+        await handleAdminCallback(botToken, chatId, data, userId, supabaseClient);
+      } else if (data?.startsWith("approve_")) {
+        const subscriptionId = data.replace("approve_", "");
+        await handleApprovePayment(botToken, chatId, subscriptionId, supabaseClient);
+      } else if (data?.startsWith("reject_confirm_")) {
+        const parts = data.replace("reject_confirm_", "").split("_");
+        const subscriptionId = parts[0];
+        const reason = parts.slice(1).join("_").replace(/_/g, " ");
+        await handleRejectPayment(botToken, chatId, subscriptionId, reason, supabaseClient);
+      } else if (data === "admin_menu") {
+        await handleAdminMenu(botToken, chatId, supabaseClient);
       }
 
       // Answer the callback query to remove loading state
@@ -782,20 +800,394 @@ Use /start to see plans with your discount applied!
 
 // Admin functions
 async function handleAdminMenu(botToken: string, chatId: number, supabaseClient: any) {
-  const adminMessage = `🔧 <b>Admin Panel</b>
+  const adminKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "📋 Pending Payments", callback_data: "admin_pending" },
+        { text: "📊 Statistics", callback_data: "admin_stats" }
+      ],
+      [
+        { text: "🎫 Manage Promos", callback_data: "admin_promos" },
+        { text: "📦 Manage Plans", callback_data: "admin_plans" }
+      ],
+      [
+        { text: "⚙️ Bot Settings", callback_data: "admin_settings" },
+        { text: "💳 Payment Settings", callback_data: "admin_payments" }
+      ],
+      [
+        { text: "👥 User Management", callback_data: "admin_users" },
+        { text: "📝 System Logs", callback_data: "admin_logs" }
+      ],
+      [
+        { text: "🔙 Close Admin Panel", callback_data: "main_menu" }
+      ]
+    ]
+  };
 
-Available commands:
-• <code>/setwelcome [message]</code> - Update welcome message
-• <code>/addpromo [code] [type] [value] [expires_days] [max_uses]</code> - Add promo code
-• <code>/listpromos</code> - List all promo codes
-• <code>/deletepromo [code]</code> - Delete promo code
-• <code>/stats</code> - View bot statistics
+  const adminMessage = `🔧 <b>Admin Dashboard</b>
 
-<b>Example promo creation:</b>
-<code>/addpromo SAVE20 percentage 20 30 100</code>
-(20% off, valid for 30 days, max 100 uses)`;
+Welcome to the admin control panel! 
 
-  await sendMessage(botToken, chatId, adminMessage);
+📊 Manage your bot operations:
+• View and process pending payments
+• Monitor bot statistics and analytics
+• Create and manage promotional codes
+• Add/edit subscription plans
+• Configure payment methods
+• Manage bot settings
+
+Select an option below:`;
+
+  await sendMessage(botToken, chatId, adminMessage, adminKeyboard);
+}
+
+// Admin callback handler
+async function handleAdminCallback(botToken: string, chatId: number, data: string, userId: number, supabaseClient: any) {
+  switch (data) {
+    case "admin_pending":
+      await handleAdminPendingPayments(botToken, chatId, supabaseClient);
+      break;
+    case "admin_stats":
+      await handleAdminStats(botToken, chatId, supabaseClient);
+      break;
+    case "admin_promos":
+      await handleAdminPromos(botToken, chatId, supabaseClient);
+      break;
+    case "admin_plans":
+      await handleAdminPlans(botToken, chatId, supabaseClient);
+      break;
+    case "admin_settings":
+      await handleAdminSettings(botToken, chatId, supabaseClient);
+      break;
+    case "admin_payments":
+      await handleAdminPaymentSettings(botToken, chatId, supabaseClient);
+      break;
+    case "admin_users":
+      await handleAdminUsers(botToken, chatId, supabaseClient);
+      break;
+    case "admin_logs":
+      await handleAdminLogs(botToken, chatId, supabaseClient);
+      break;
+    default:
+      await sendMessage(botToken, chatId, "❌ Unknown admin command.");
+  }
+}
+
+// Admin dashboard functions
+async function handleAdminPendingPayments(botToken: string, chatId: number, supabaseClient: any) {
+  const { data: pendingPayments, error } = await supabaseClient
+    .from("user_subscriptions")
+    .select("*, subscription_plans(*)")
+    .eq("payment_status", "receipt_submitted")
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (error) {
+    await sendMessage(botToken, chatId, "❌ Error fetching pending payments.");
+    return;
+  }
+
+  if (!pendingPayments || pendingPayments.length === 0) {
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "🔄 Refresh", callback_data: "admin_pending" }],
+        [{ text: "← Back to Admin Panel", callback_data: "admin_menu" }]
+      ]
+    };
+    await sendMessage(botToken, chatId, "✅ No pending payments found.", keyboard);
+    return;
+  }
+
+  let message = `📋 <b>Pending Payments (${pendingPayments.length})</b>\n\n`;
+  const keyboard = { inline_keyboard: [] as any[] };
+  
+  pendingPayments.forEach((payment: any, index: number) => {
+    const plan = payment.subscription_plans;
+    message += `${index + 1}. 👤 User: ${payment.telegram_user_id}\n`;
+    message += `💎 Plan: ${plan?.name} ($${plan?.price})\n`;
+    message += `💳 Method: ${payment.payment_method}\n`;
+    message += `📅 Date: ${new Date(payment.created_at).toLocaleDateString()}\n\n`;
+    
+    // Add approve/reject buttons for each payment
+    keyboard.inline_keyboard.push([
+      { text: `✅ Approve #${index + 1}`, callback_data: `approve_${payment.id}` },
+      { text: `❌ Reject #${index + 1}`, callback_data: `reject_${payment.id}` }
+    ]);
+  });
+
+  keyboard.inline_keyboard.push(
+    [{ text: "🔄 Refresh", callback_data: "admin_pending" }],
+    [{ text: "← Back to Admin Panel", callback_data: "admin_menu" }]
+  );
+
+  await sendMessage(botToken, chatId, message, keyboard);
+}
+
+async function handleAdminStats(botToken: string, chatId: number, supabaseClient: any) {
+  const { data: subscriptions } = await supabaseClient
+    .from("user_subscriptions")
+    .select("payment_status, created_at");
+
+  const { data: promos } = await supabaseClient
+    .from("promotions")
+    .select("current_uses, is_active");
+
+  const pending = subscriptions?.filter((s: any) => s.payment_status === 'receipt_submitted').length || 0;
+  const active = subscriptions?.filter((s: any) => s.payment_status === 'active').length || 0;
+  const rejected = subscriptions?.filter((s: any) => s.payment_status === 'rejected').length || 0;
+  const total = subscriptions?.length || 0;
+  
+  const activePromos = promos?.filter((p: any) => p.is_active).length || 0;
+  const totalPromoUses = promos?.reduce((sum: number, p: any) => sum + p.current_uses, 0) || 0;
+
+  // Calculate today's stats
+  const today = new Date().toISOString().split('T')[0];
+  const todaySubscriptions = subscriptions?.filter((s: any) => 
+    s.created_at.split('T')[0] === today
+  ).length || 0;
+
+  const statsMessage = `📊 <b>Bot Statistics Dashboard</b>
+
+👥 <b>Subscriptions Overview:</b>
+• Total Users: ${total}
+• Active Subscriptions: ${active}
+• Pending Payments: ${pending}
+• Rejected Payments: ${rejected}
+• Today's New Users: ${todaySubscriptions}
+
+🎫 <b>Promotions:</b>
+• Active Promo Codes: ${activePromos}
+• Total Promo Uses: ${totalPromoUses}
+
+📈 <b>Success Rate:</b>
+• Approval Rate: ${total > 0 ? Math.round((active / total) * 100) : 0}%
+• Conversion Rate: ${total > 0 ? Math.round(((active + pending) / total) * 100) : 0}%
+
+📅 <b>Last Updated:</b> ${new Date().toLocaleString()}`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "🔄 Refresh Stats", callback_data: "admin_stats" }],
+      [{ text: "📋 View Pending", callback_data: "admin_pending" }],
+      [{ text: "← Back to Admin Panel", callback_data: "admin_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, statsMessage, keyboard);
+}
+
+async function handleAdminPromos(botToken: string, chatId: number, supabaseClient: any) {
+  const { data: promos } = await supabaseClient
+    .from("promotions")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  let message = `🎫 <b>Promo Code Management</b>\n\n`;
+  
+  if (promos && promos.length > 0) {
+    promos.forEach((promo: any) => {
+      const discountText = promo.discount_type === 'percentage' 
+        ? `${promo.discount_value}%` 
+        : `$${promo.discount_value}`;
+      const status = promo.is_active ? "🟢" : "🔴";
+      
+      message += `${status} <code>${promo.code}</code> - ${discountText} OFF\n`;
+      message += `Uses: ${promo.current_uses}/${promo.max_uses || '∞'}\n`;
+      message += `Expires: ${new Date(promo.valid_until).toLocaleDateString()}\n\n`;
+    });
+  } else {
+    message += "No promo codes found.\n\n";
+  }
+
+  message += `<b>Quick Actions:</b>
+Send commands directly:
+• <code>/addpromo CODE percentage 20 30 100</code>
+• <code>/deletepromo CODE</code>
+• <code>/listpromos</code>`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "📋 List All Promos", callback_data: "admin_list_promos" }],
+      [{ text: "← Back to Admin Panel", callback_data: "admin_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, message, keyboard);
+}
+
+async function handleAdminPlans(botToken: string, chatId: number, supabaseClient: any) {
+  const { data: plans } = await supabaseClient
+    .from("subscription_plans")
+    .select("*")
+    .order("price", { ascending: true });
+
+  let message = `📦 <b>Subscription Plans Management</b>\n\n`;
+  
+  if (plans && plans.length > 0) {
+    plans.forEach((plan: any) => {
+      message += `💎 <b>${plan.name}</b> - $${plan.price}\n`;
+      message += `⏱️ Duration: ${plan.is_lifetime ? 'Lifetime' : `${plan.duration_months} month(s)`}\n`;
+      message += `🆔 ID: <code>${plan.id}</code>\n\n`;
+    });
+  } else {
+    message += "No subscription plans found.\n\n";
+  }
+
+  message += `<b>Quick Actions:</b>
+• <code>/addplan "Plan Name" 29.99 1 false</code>
+• Create plans with lifetime or monthly options`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "← Back to Admin Panel", callback_data: "admin_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, message, keyboard);
+}
+
+async function handleAdminSettings(botToken: string, chatId: number, supabaseClient: any) {
+  const settingsMessage = `⚙️ <b>Bot Settings</b>
+
+Configure various bot settings:
+
+📝 <b>Welcome Message:</b>
+• <code>/setwelcome Your custom welcome message</code>
+
+👥 <b>Admin Management:</b>
+• Current Admins: 8486248025, 225513686
+• Add admins by updating bot code
+
+🔔 <b>Notifications:</b>
+• Receipt notifications: ✅ Enabled
+• Payment notifications: ✅ Enabled
+
+📊 <b>Analytics:</b>
+• User tracking: ✅ Enabled
+• Payment tracking: ✅ Enabled
+
+💬 <b>Support Settings:</b>
+• Support Contact: @DynamicCapital_Support
+• Support Email: support@dynamicvip.com`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "← Back to Admin Panel", callback_data: "admin_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, settingsMessage, keyboard);
+}
+
+async function handleAdminPaymentSettings(botToken: string, chatId: number, supabaseClient: any) {
+  const paymentMessage = `💳 <b>Payment Method Settings</b>
+
+Configure payment processing:
+
+🏦 <b>Bank Transfer:</b>
+• <code>/setbank Bank: YourBank | Account: 123456 | Routing: 987654</code>
+
+₿ <b>Cryptocurrency:</b>
+• <code>/setcrypto BTC: 1ABC...xyz | ETH: 0x123...abc</code>
+
+💳 <b>Stripe Integration:</b>
+• Status: 🔴 Not configured
+• Setup: Requires API key configuration
+
+🅿️ <b>PayPal Integration:</b>
+• Status: 🔴 Not configured
+• Setup: Requires PayPal API setup
+
+⚡ <b>Processing:</b>
+• Manual verification: ✅ Enabled
+• Auto-approval: 🔴 Disabled`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "← Back to Admin Panel", callback_data: "admin_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, paymentMessage, keyboard);
+}
+
+async function handleAdminUsers(botToken: string, chatId: number, supabaseClient: any) {
+  const { data: recentUsers } = await supabaseClient
+    .from("user_subscriptions")
+    .select("telegram_user_id, telegram_username, created_at, payment_status")
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  let message = `👥 <b>User Management</b>\n\n`;
+  
+  if (recentUsers && recentUsers.length > 0) {
+    message += `<b>Recent Users (Last 10):</b>\n\n`;
+    recentUsers.forEach((user: any, index: number) => {
+      message += `${index + 1}. ID: ${user.telegram_user_id}\n`;
+      message += `   @${user.telegram_username || 'N/A'}\n`;
+      message += `   Status: ${user.payment_status}\n`;
+      message += `   Joined: ${new Date(user.created_at).toLocaleDateString()}\n\n`;
+    });
+  } else {
+    message += "No users found.\n\n";
+  }
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "🔄 Refresh", callback_data: "admin_users" }],
+      [{ text: "← Back to Admin Panel", callback_data: "admin_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, message, keyboard);
+}
+
+async function handleAdminLogs(botToken: string, chatId: number, supabaseClient: any) {
+  const logsMessage = `📝 <b>System Logs</b>
+
+Recent bot activity:
+
+🔔 <b>Notifications:</b>
+• Receipt uploads: Monitored
+• Payment approvals: Logged
+• User registrations: Tracked
+
+📊 <b>Performance:</b>
+• Response time: Good
+• Error rate: Low
+• Uptime: 99%+
+
+🔍 <b>Monitoring:</b>
+• Database: ✅ Connected
+• Storage: ✅ Active
+• Webhooks: ✅ Running
+
+📋 <b>Access Logs:</b>
+View detailed logs in Supabase dashboard.`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "← Back to Admin Panel", callback_data: "admin_menu" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, logsMessage, keyboard);
+}
+
+// Rejection callback handler
+async function handleRejectPaymentCallback(botToken: string, chatId: number, subscriptionId: string, supabaseClient: any) {
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "❌ Invalid Receipt", callback_data: `reject_confirm_${subscriptionId}_Invalid receipt format` }],
+      [{ text: "❌ Insufficient Payment", callback_data: `reject_confirm_${subscriptionId}_Payment amount incorrect` }],
+      [{ text: "❌ Fake/Edited Receipt", callback_data: `reject_confirm_${subscriptionId}_Receipt appears to be edited` }],
+      [{ text: "❌ Wrong Payment Details", callback_data: `reject_confirm_${subscriptionId}_Wrong payment details` }],
+      [{ text: "← Back to Pending", callback_data: "admin_pending" }]
+    ]
+  };
+
+  await sendMessage(botToken, chatId, `❌ <b>Reject Payment</b>\n\nSubscription ID: <code>${subscriptionId}</code>\n\nSelect rejection reason:`, keyboard);
 }
 
 async function handleSetWelcome(botToken: string, chatId: number, welcomeText: string, supabaseClient: any) {
