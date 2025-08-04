@@ -133,6 +133,81 @@ export type Database = {
           },
         ]
       }
+      conversion_tracking: {
+        Row: {
+          conversion_data: Json | null
+          conversion_type: string
+          conversion_value: number | null
+          created_at: string
+          funnel_step: number | null
+          id: string
+          plan_id: string | null
+          promo_code: string | null
+          telegram_user_id: string
+        }
+        Insert: {
+          conversion_data?: Json | null
+          conversion_type: string
+          conversion_value?: number | null
+          created_at?: string
+          funnel_step?: number | null
+          id?: string
+          plan_id?: string | null
+          promo_code?: string | null
+          telegram_user_id: string
+        }
+        Update: {
+          conversion_data?: Json | null
+          conversion_type?: string
+          conversion_value?: number | null
+          created_at?: string
+          funnel_step?: number | null
+          id?: string
+          plan_id?: string | null
+          promo_code?: string | null
+          telegram_user_id?: string
+        }
+        Relationships: []
+      }
+      daily_analytics: {
+        Row: {
+          button_clicks: Json | null
+          conversion_rates: Json | null
+          created_at: string
+          date: string
+          id: string
+          new_users: number | null
+          revenue: number | null
+          top_promo_codes: Json | null
+          total_users: number | null
+          updated_at: string
+        }
+        Insert: {
+          button_clicks?: Json | null
+          conversion_rates?: Json | null
+          created_at?: string
+          date: string
+          id?: string
+          new_users?: number | null
+          revenue?: number | null
+          top_promo_codes?: Json | null
+          total_users?: number | null
+          updated_at?: string
+        }
+        Update: {
+          button_clicks?: Json | null
+          conversion_rates?: Json | null
+          created_at?: string
+          date?: string
+          id?: string
+          new_users?: number | null
+          revenue?: number | null
+          top_promo_codes?: Json | null
+          total_users?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       education_categories: {
         Row: {
           created_at: string
@@ -401,6 +476,39 @@ export type Database = {
           },
         ]
       }
+      promo_analytics: {
+        Row: {
+          created_at: string
+          discount_amount: number | null
+          event_type: string
+          final_amount: number | null
+          id: string
+          plan_id: string | null
+          promo_code: string
+          telegram_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          discount_amount?: number | null
+          event_type: string
+          final_amount?: number | null
+          id?: string
+          plan_id?: string | null
+          promo_code: string
+          telegram_user_id: string
+        }
+        Update: {
+          created_at?: string
+          discount_amount?: number | null
+          event_type?: string
+          final_amount?: number | null
+          id?: string
+          plan_id?: string | null
+          promo_code?: string
+          telegram_user_id?: string
+        }
+        Relationships: []
+      }
       promotion_usage: {
         Row: {
           id: string
@@ -511,6 +619,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_interactions: {
+        Row: {
+          created_at: string
+          id: string
+          interaction_data: Json | null
+          interaction_type: string
+          page_context: string | null
+          session_id: string | null
+          telegram_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interaction_data?: Json | null
+          interaction_type: string
+          page_context?: string | null
+          session_id?: string | null
+          telegram_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interaction_data?: Json | null
+          interaction_type?: string
+          page_context?: string | null
+          session_id?: string | null
+          telegram_user_id?: string
+        }
+        Relationships: []
+      }
       user_subscriptions: {
         Row: {
           bank_details: string | null
@@ -617,7 +755,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      update_daily_analytics: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

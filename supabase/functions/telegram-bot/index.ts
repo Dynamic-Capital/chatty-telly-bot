@@ -384,6 +384,9 @@ serve(async (req) => {
           ]]
         });
       } else if (data === "view_packages") {
+        // Track package view
+        await trackInteraction(supabaseClient, userId.toString(), "button_click", { button_name: "view_packages" }, "main_menu");
+        await trackConversion(supabaseClient, userId.toString(), "plan_view", null, null, null, 1);
         await handleStartCommand(botToken, chatId, userId, username, supabaseClient);
       } else if (data === "contact_support") {
         await handleContactSupport(botToken, chatId, supabaseClient);
@@ -630,6 +633,9 @@ Hi @DynamicCapital_Support 👋
 📍 Select an option below to get started:`;
 
   await sendMessage(botToken, chatId, welcomeMessage, mainMenuKeyboard);
+  
+  // Track main menu view
+  await trackInteraction(supabaseClient, userId.toString(), "menu_view", { menu: "main" }, "main_menu");
 }
 
 // Support function
@@ -1278,6 +1284,9 @@ async function handleFileUpload(botToken: string, chatId: number, userId: number
 async function handlePromoCode(botToken: string, chatId: number, userId: number, username: string, promoCode: string, supabaseClient: any) {
   logStep("Handling promo code", { chatId, userId, promoCode });
 
+  // Track promo code entry
+  await trackPromoUsage(supabaseClient, userId.toString(), promoCode.toUpperCase(), "code_entered");
+
   if (!promoCode || promoCode.length === 0) {
     await sendMessage(botToken, chatId, "❌ Please provide a valid promo code. Example: PROMO SAVE20");
     return;
@@ -1606,6 +1615,10 @@ async function handleAdminMenu(botToken: string, chatId: number, supabaseClient:
         { text: "🧪 Test Environment", callback_data: "admin_test" }
       ],
       [
+        { text: "📊 Analytics & Insights", callback_data: "admin_analytics_dashboard" },
+        { text: "🔍 Conversion Funnel", callback_data: "admin_conversion_funnel" }
+      ],
+      [
         { text: "🔙 Close Admin Panel", callback_data: "main_menu" }
       ]
     ]
@@ -1678,6 +1691,12 @@ async function handleAdminCallback(botToken: string, chatId: number, data: strin
       break;
     case "admin_test":
       await handleAdminTestEnvironment(botToken, chatId, supabaseClient);
+      break;
+    case "admin_analytics_dashboard":
+      await handleAnalyticsDashboard(botToken, chatId, supabaseClient);
+      break;
+    case "admin_conversion_funnel":
+      await handleConversionFunnel(botToken, chatId, supabaseClient);
       break;
     case "admin_check_expired":
       await checkExpiredSubscriptions(botToken, supabaseClient);
@@ -5535,7 +5554,291 @@ Get educational trading analysis for any instrument!
 
     if (!response.ok) {
       throw new Error(result.error || 'Trade analysis service error');
+}
+
+// Analytics & Insights Functions
+
+// Track user interactions for analytics
+async function trackInteraction(supabaseClient: any, userId: string, type: string, data: any, context: string = "unknown") {
+  try {
+    const sessionId = `session_${userId}_${Date.now()}`;
+    
+    await supabaseClient
+      .from("user_interactions")
+      .insert([{
+        telegram_user_id: userId,
+        interaction_type: type,
+        interaction_data: data,
+        session_id: sessionId,
+        page_context: context
+      }]);
+  } catch (error) {
+    console.error("Error tracking interaction:", error);
+  }
+}
+
+// Track conversion events
+async function trackConversion(supabaseClient: any, userId: string, type: string, planId?: string, promoCode?: string, value?: number, step?: number) {
+  try {
+    await supabaseClient
+      .from("conversion_tracking")
+      .insert([{
+        telegram_user_id: userId,
+        conversion_type: type,
+        plan_id: planId,
+        promo_code: promoCode,
+        conversion_value: value,
+        funnel_step: step,
+        conversion_data: { timestamp: new Date().toISOString() }
+      }]);
+  } catch (error) {
+    console.error("Error tracking conversion:", error);
+  }
+}
+
+// Track promo code usage
+async function trackPromoUsage(supabaseClient: any, userId: string, promoCode: string, eventType: string, planId?: string, discountAmount?: number, finalAmount?: number) {
+  try {
+    await supabaseClient
+      .from("promo_analytics")
+      .insert([{
+        promo_code: promoCode,
+        telegram_user_id: userId,
+        event_type: eventType,
+        plan_id: planId,
+        discount_amount: discountAmount,
+        final_amount: finalAmount
+      }]);
+  } catch (error) {
+    console.error("Error tracking promo usage:", error);
+  }
+}
+
+// Admin Analytics Dashboard
+async function handleAnalyticsDashboard(botToken: string, chatId: number, supabaseClient: any) {
+  try {
+    // Get today's stats
+    const today = new Date().toISOString().split('T')[0];
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    // Button click heatmap (last 7 days)
+    const { data: interactions } = await supabaseClient
+      .from("user_interactions")
+      .select("interaction_type, interaction_data, created_at")
+      .gte("created_at", weekAgo)
+      .eq("interaction_type", "button_click");
+
+    // Conversion rates (last 7 days)
+    const { data: conversions } = await supabaseClient
+      .from("conversion_tracking")
+      .select("conversion_type, plan_id, conversion_value, created_at")
+      .gte("created_at", weekAgo);
+
+    // Promo performance (last 7 days)
+    const { data: promoStats } = await supabaseClient
+      .from("promo_analytics")
+      .select("promo_code, event_type, discount_amount, created_at")
+      .gte("created_at", weekAgo);
+
+    // Process button clicks heatmap
+    const buttonClicks = {};
+    interactions?.forEach(int => {
+      const buttonName = int.interaction_data?.button_name || int.interaction_data?.callback_data || 'unknown';
+      buttonClicks[buttonName] = (buttonClicks[buttonName] || 0) + 1;
+    });
+
+    // Process conversion rates
+    const planViews = conversions?.filter(c => c.conversion_type === 'plan_view').length || 0;
+    const paymentStarts = conversions?.filter(c => c.conversion_type === 'payment_start').length || 0;
+    const paymentCompletes = conversions?.filter(c => c.conversion_type === 'payment_complete').length || 0;
+
+    const viewToPaymentRate = planViews > 0 ? (paymentStarts / planViews * 100).toFixed(1) : 0;
+    const paymentCompleteRate = paymentStarts > 0 ? (paymentCompletes / paymentStarts * 100).toFixed(1) : 0;
+
+    // Process promo performance
+    const promoPerformance = {};
+    promoStats?.forEach(promo => {
+      if (!promoPerformance[promo.promo_code]) {
+        promoPerformance[promo.promo_code] = { entered: 0, applied: 0, completed: 0, total_discount: 0 };
+      }
+      if (promo.event_type === 'code_entered') promoPerformance[promo.promo_code].entered++;
+      if (promo.event_type === 'code_applied') promoPerformance[promo.promo_code].applied++;
+      if (promo.event_type === 'payment_completed') {
+        promoPerformance[promo.promo_code].completed++;
+        promoPerformance[promo.promo_code].total_discount += promo.discount_amount || 0;
+      }
+    });
+
+    let analyticsMessage = `📊 <b>Analytics Dashboard (Last 7 Days)</b>
+
+🔥 <b>User Behavior Heatmap:</b>
+`;
+
+    // Top button clicks
+    const sortedButtons = Object.entries(buttonClicks)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 8);
+
+    sortedButtons.forEach(([button, clicks], index) => {
+      const emoji = index === 0 ? "🏆" : index === 1 ? "🥈" : index === 2 ? "🥉" : "•";
+      analyticsMessage += `${emoji} ${button}: ${clicks} clicks\n`;
+    });
+
+    analyticsMessage += `\n📈 <b>VIP Conversion Rates:</b>
+• Plan Views: ${planViews}
+• Payment Starts: ${paymentStarts}
+• Payments Completed: ${paymentCompletes}
+• View → Payment: ${viewToPaymentRate}%
+• Payment → Complete: ${paymentCompleteRate}%
+
+🎟️ <b>Promo Code Performance:</b>
+`;
+
+    // Top promo codes
+    const sortedPromos = Object.entries(promoPerformance)
+      .sort(([,a], [,b]) => b.completed - a.completed)
+      .slice(0, 5);
+
+    if (sortedPromos.length > 0) {
+      sortedPromos.forEach(([code, stats], index) => {
+        const conversionRate = stats.entered > 0 ? (stats.completed / stats.entered * 100).toFixed(1) : 0;
+        analyticsMessage += `🎯 <b>${code}</b>\n`;
+        analyticsMessage += `   • Used: ${stats.entered} | Paid: ${stats.completed}\n`;
+        analyticsMessage += `   • Conversion: ${conversionRate}%\n`;
+        analyticsMessage += `   • Discount Given: $${stats.total_discount.toFixed(2)}\n\n`;
+      });
+    } else {
+      analyticsMessage += "No promo codes used in this period.\n\n";
     }
+
+    // Calculate drop-off points
+    const dropOffAnalysis = `📉 <b>Drop-off Analysis:</b>
+• ${planViews - paymentStarts} users viewed plans but didn't start payment
+• ${paymentStarts - paymentCompletes} users started payment but didn't complete
+• Main drop-off: ${planViews > paymentStarts ? "Plan View → Payment Start" : "Payment Start → Complete"}`;
+
+    analyticsMessage += dropOffAnalysis;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "📅 Daily Report", callback_data: "analytics_daily" },
+          { text: "📊 Weekly Trends", callback_data: "analytics_weekly" }
+        ],
+        [
+          { text: "🎯 Conversion Funnel", callback_data: "analytics_funnel" },
+          { text: "🔥 User Heatmap", callback_data: "analytics_heatmap" }
+        ],
+        [
+          { text: "🎟️ Promo Analysis", callback_data: "analytics_promos" },
+          { text: "💰 Revenue Report", callback_data: "analytics_revenue" }
+        ],
+        [
+          { text: "🔄 Refresh Data", callback_data: "analytics_refresh" },
+          { text: "← Back to Admin", callback_data: "admin_menu" }
+        ]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, analyticsMessage, keyboard);
+
+  } catch (error) {
+    console.error("Error in analytics dashboard:", error);
+    await sendMessage(botToken, chatId, `❌ <b>Analytics Error</b>
+
+Failed to load analytics dashboard.
+
+Error: ${error.message}
+
+🔧 <b>Troubleshooting:</b>
+• Check database connectivity
+• Verify analytics tables exist
+• Review recent logs
+
+Please try again or contact technical support.`);
+  }
+}
+
+// Detailed conversion funnel analysis
+async function handleConversionFunnel(botToken: string, chatId: number, supabaseClient: any) {
+  try {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Get funnel data
+    const { data: funnelData } = await supabaseClient
+      .from("conversion_tracking")
+      .select("conversion_type, plan_id, telegram_user_id, created_at")
+      .gte("created_at", weekAgo);
+
+    // Get plan data for context
+    const { data: plans } = await supabaseClient
+      .from("subscription_plans")
+      .select("id, name, price");
+
+    // Process funnel by plan
+    const funnelByPlan = {};
+    plans?.forEach(plan => {
+      funnelByPlan[plan.id] = {
+        name: plan.name,
+        price: plan.price,
+        views: 0,
+        starts: 0,
+        completes: 0
+      };
+    });
+
+    funnelData?.forEach(item => {
+      if (item.plan_id && funnelByPlan[item.plan_id]) {
+        if (item.conversion_type === 'plan_view') funnelByPlan[item.plan_id].views++;
+        if (item.conversion_type === 'payment_start') funnelByPlan[item.plan_id].starts++;
+        if (item.conversion_type === 'payment_complete') funnelByPlan[item.plan_id].completes++;
+      }
+    });
+
+    let funnelMessage = `🎯 <b>Conversion Funnel Analysis (7 Days)</b>
+
+📊 <b>Per-Plan Performance:</b>
+
+`;
+
+    Object.values(funnelByPlan).forEach((plan: any) => {
+      const viewToStartRate = plan.views > 0 ? (plan.starts / plan.views * 100).toFixed(1) : 0;
+      const startToCompleteRate = plan.starts > 0 ? (plan.completes / plan.starts * 100).toFixed(1) : 0;
+      const overallConversion = plan.views > 0 ? (plan.completes / plan.views * 100).toFixed(1) : 0;
+
+      funnelMessage += `💎 <b>${plan.name}</b> ($${plan.price})
+🔍 Views: ${plan.views}
+▶️ Payment Starts: ${plan.starts} (${viewToStartRate}%)
+✅ Completed: ${plan.completes} (${startToCompleteRate}%)
+🎯 Overall Conversion: ${overallConversion}%
+
+`;
+    });
+
+    // Calculate total revenue potential
+    const totalViews = Object.values(funnelByPlan).reduce((sum: number, plan: any) => sum + plan.views, 0);
+    const totalCompletes = Object.values(funnelByPlan).reduce((sum: number, plan: any) => sum + plan.completes, 0);
+    const totalRevenue = Object.values(funnelByPlan).reduce((sum: number, plan: any) => sum + (plan.completes * plan.price), 0);
+
+    funnelMessage += `💰 <b>Revenue Impact:</b>
+• Total Views: ${totalViews}
+• Total Conversions: ${totalCompletes}
+• Revenue Generated: $${totalRevenue.toFixed(2)}
+• Potential Revenue: $${Object.values(funnelByPlan).reduce((sum: number, plan: any) => sum + (plan.views * plan.price), 0).toFixed(2)}`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "← Back to Analytics", callback_data: "admin_analytics" }]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, funnelMessage, keyboard);
+
+  } catch (error) {
+    console.error("Error in conversion funnel:", error);
+    await sendMessage(botToken, chatId, "❌ Failed to load conversion funnel data.");
+  }
+}
 
     const analysisResponse = `📈 <b>Educational Trading Analysis</b>
 
