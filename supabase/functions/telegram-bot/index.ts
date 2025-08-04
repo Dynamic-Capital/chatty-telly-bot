@@ -124,8 +124,8 @@ serve(async (req) => {
         const question = text.replace("/ask ", "").trim();
         await handleAIQuestion(botToken, chatId, question, supabaseClient);
       } else {
-        // If user sends a question directly (not a command), treat it as an AI FAQ question
-        if (text.length > 10 && text.includes("?")) {
+        // Enhanced FAQ: Any non-command message is treated as a question
+        if (text.length > 3 && !text.startsWith("/")) {
           await handleAIQuestion(botToken, chatId, text, supabaseClient);
         } else {
           await sendMessage(botToken, chatId, "Hi there! 👋 I'm here to help you with VIP plans and services. Type /help to see what I can do for you, /faq for common questions, or just ask me anything!");
@@ -1608,6 +1608,11 @@ async function handleHelp(botToken: string, chatId: number, isAdmin: boolean, su
 • <code>/help</code> - Show this help message
 • <code>PROMO [code]</code> - Apply promo code
 
+💬 <b>AI Assistant:</b>
+• <code>/faq</code> - View common questions
+• <code>/ask [question]</code> - Ask AI assistant
+• Simply type any question and I'll help!
+
 📊 <b>Account:</b>
 • Use menu buttons for account status
 • Upload receipt for manual payments
@@ -2358,7 +2363,7 @@ async function handleAIQuestion(botToken: string, chatId: number, question: stri
     // Send typing indicator
     await sendTypingAction(botToken, chatId);
 
-    const systemPrompt = `You are a helpful customer support assistant for a VIP subscription service. Here's what you should know:
+    const systemPrompt = `You are a helpful customer support assistant for Dynamic Capital VIP services. Here's what you should know:
 
 SUBSCRIPTION PLANS:
 - We offer monthly, quarterly, semi-annual, and lifetime VIP plans
@@ -2366,30 +2371,35 @@ SUBSCRIPTION PLANS:
 - All plans include premium features, priority support, and exclusive content
 
 PAYMENT METHODS:
-- Credit/Debit cards (instant activation)
+- Credit/Debit cards (Stripe - instant activation)
 - PayPal (instant activation)
-- Bank transfer (1-2 business days verification)
-- Cryptocurrency (Bitcoin, Ethereum, USDT via Binance Pay - 30 min to 2 hours processing)
+- Bank transfer to BML or MIB accounts (1-2 business days verification)
+- Cryptocurrency (USDT TRC20, BNB BEP20 - manual verification)
+
+BANK DETAILS:
+- BML Account: 7730000133061 (MVR)
+- MIB Account: 9010310167224100 (MVR)
+- MIB Account: 9013101672242000 (USD)
+
+CRYPTO ADDRESSES:
+- USDT (TRC20): TQeAph1kiaVbwvY2NS1EwepqrnoTpK6Wss
+- BNB (BEP20): 0x6df5422b719a54201e80a80627d4f8daa611689c
 
 POLICIES:
 - 7-day money-back guarantee
-- 24/7 customer support
+- 24/7 customer support via @DynamicCapital_Support
 - Secure payment processing
-- No hidden fees
+- Manual verification for bank transfers and crypto
 
-COMMANDS USERS CAN USE:
-- /start - View subscription plans
-- /help - Get help and commands
-- /faq - View frequently asked questions
-- /ask [question] - Ask AI assistant
-- PROMO [code] - Apply promo code
+HOW IT WORKS:
+1. Choose a subscription plan
+2. Select payment method
+3. Send payment with reference code
+4. Upload receipt/proof
+5. Get activated within 1-2 hours (crypto) or 1-2 days (bank)
 
-SUPPORT:
-- Telegram: @DynamicVIP_Support
-- Email: support@dynamicvip.com
-- Response time: 2-4 hours
-
-Answer questions helpfully and professionally. If you don't know something specific, direct them to contact support. Keep responses concise but informative.`;
+For questions about specific issues, always direct users to contact @DynamicCapital_Support.
+Keep responses helpful, professional, and concise.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
