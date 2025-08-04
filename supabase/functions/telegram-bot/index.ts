@@ -491,6 +491,44 @@ Choose an option below:`;
         
         return new Response("OK", { status: 200 });
       }
+
+      if (text === '/admin') {
+        if (!isAdmin(userId.toString())) {
+          await sendMessage(chatId, "❌ Access denied. Admin privileges required.");
+          return new Response("OK", { status: 200 });
+        }
+
+        const adminMessage = `🔐 *Admin Dashboard*
+
+📊 *Available Commands:*
+• 📈 View Statistics
+• 👥 Manage Users  
+• 💰 Manage Payments
+• 📢 Send Broadcast
+• 💾 Export Data
+
+Choose an admin action:`;
+
+        const adminKeyboard = {
+          inline_keyboard: [
+            [
+              { text: "📈 Statistics", callback_data: "admin_stats" },
+              { text: "👥 Users", callback_data: "admin_users" }
+            ],
+            [
+              { text: "💰 Payments", callback_data: "admin_payments" },
+              { text: "📢 Broadcast", callback_data: "admin_broadcast" }
+            ],
+            [
+              { text: "💾 Export Data", callback_data: "admin_export" },
+              { text: "🔙 Main Menu", callback_data: "back_to_main" }
+            ]
+          ]
+        };
+
+        await sendMessage(chatId, adminMessage, adminKeyboard);
+        return new Response("OK", { status: 200 });
+      }
     }
 
     // Handle callback queries (button presses)
