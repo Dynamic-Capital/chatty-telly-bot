@@ -557,23 +557,22 @@ Choose your payment method:`;
 **Select Bank Account for Transfer:**
 
 **1. BML (MVR)**
-👤 Account: ABDL.M.I.AFLHAL
-💳 Number: 7730000133061
-💰 Currency: MVR
+👤 ABDL.M.I.AFLHAL
+💳 \`7730000133061\`
 
 **2. MIB (MVR)**  
-👤 Account: ABDL.M.I.AFLHAL
-💳 Number: 9010310167224100
-💰 Currency: MVR
+👤 ABDL.M.I.AFLHAL
+💳 \`9010310167224100\`
 
 **3. MIB (USD)**
-👤 Account: ABDL.M.I.AFLHAL
-💳 Number: 9013101672242000
-💰 Currency: USD
+👤 ABDL.M.I.AFLHAL
+💳 \`9013101672242000\`
+
+📋 **Payment Reference:** \`${payment.id}\`
 
 📤 **Next Steps:**
 1. Transfer the exact amount to any account above
-2. Include reference: ${payment.id}
+2. Include the payment reference number
 3. Upload your receipt/proof of payment
 4. Wait for admin approval (24-48 hours)
 
