@@ -824,9 +824,6 @@ We're here to help! 💪
   await sendMessage(botToken, chatId, supportMessage, contactKeyboard);
 }
 
-  await sendMessage(botToken, chatId, supportMessage, contactKeyboard);
-}
-
 // Payment options overview
 async function handlePaymentOptions(botToken: string, chatId: number, supabaseClient: any) {
   const paymentMessage = `💰 <b>Payment Methods Available</b>
