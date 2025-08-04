@@ -1032,7 +1032,8 @@ Choose your payment method:`;
   await sendMessage(botToken, chatId, planMessage, paymentKeyboard);
 }
 
-async function sendMessage(botToken: string, chatId: number, text: string, replyMarkup?: any) {
+// Enhanced message sending with auto-delete support
+async function sendMessage(botToken: string, chatId: number, text: string, replyMarkup?: any, autoDelete?: { enabled: boolean, delay?: number, messageType?: string }) {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
   const payload: any = {
     chat_id: chatId,
@@ -1055,11 +1056,61 @@ async function sendMessage(botToken: string, chatId: number, text: string, reply
       const error = await response.text();
       logStep("Error sending message", { error, status: response.status });
     } else {
-      logStep("Message sent successfully", { chatId });
+      const result = await response.json();
+      logStep("Message sent successfully", { chatId, messageId: result.result?.message_id });
+      
+      // Schedule auto-delete if enabled
+      if (autoDelete?.enabled && result.result?.message_id) {
+        const deleteDelay = autoDelete.delay || 45000; // Default 45 seconds
+        const messageType = autoDelete.messageType || "system";
+        
+        logStep("Scheduling auto-delete", { 
+          chatId, 
+          messageId: result.result.message_id, 
+          delay: deleteDelay,
+          type: messageType 
+        });
+        
+        setTimeout(async () => {
+          try {
+            await fetch(`https://api.telegram.org/bot${botToken}/deleteMessage`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: chatId,
+                message_id: result.result.message_id
+              })
+            });
+            logStep("Auto-deleted message", { chatId, messageId: result.result.message_id, type: messageType });
+          } catch (deleteError) {
+            console.error("Failed to auto-delete message:", deleteError);
+          }
+        }, deleteDelay);
+      }
+      
+      return result;
     }
   } catch (error) {
     logStep("Error in sendMessage", { error });
   }
+}
+
+// Helper function for auto-delete confirmation messages
+async function sendConfirmationMessage(botToken: string, chatId: number, text: string, replyMarkup?: any, delay: number = 30000) {
+  return await sendMessage(botToken, chatId, text, replyMarkup, { 
+    enabled: true, 
+    delay: delay, 
+    messageType: "confirmation" 
+  });
+}
+
+// Helper function for auto-delete system messages
+async function sendSystemMessage(botToken: string, chatId: number, text: string, replyMarkup?: any, delay: number = 45000) {
+  return await sendMessage(botToken, chatId, text, replyMarkup, { 
+    enabled: true, 
+    delay: delay, 
+    messageType: "system" 
+  });
 }
 
 async function answerCallbackQuery(botToken: string, callbackQueryId: string, text?: string) {
@@ -1498,7 +1549,8 @@ Use /start to see available plans.`);
     ? `${promotion.discount_value}%` 
     : `$${promotion.discount_value}`;
 
-  const successMessage = `🎉 <b>Promo Code Applied Successfully!</b>
+  // Send promo success with auto-delete
+  await sendConfirmationMessage(botToken, chatId, `🎉 <b>Promo Code Applied Successfully!</b>
 
 💎 <b>Code:</b> ${promotion.code}
 💰 <b>Discount:</b> ${discountText} OFF
@@ -1508,9 +1560,7 @@ Use /start to see available plans.`);
 🛍️ <b>Ready to subscribe?</b>
 Use /start to see plans with your discount applied!
 
-⏰ <b>Valid until:</b> ${new Date(promotion.valid_until).toLocaleDateString()}`;
-
-  await sendMessage(botToken, chatId, successMessage);
+⏰ <b>Valid until:</b> ${new Date(promotion.valid_until).toLocaleDateString()}`, null, 45000); // Auto-delete after 45 seconds
 }
 
 async function handleEnterPromoMenu(botToken: string, chatId: number, userId: number, supabaseClient: any) {
@@ -2834,15 +2884,15 @@ Your premium subscription is now active. Time to join our exclusive VIP communit
     subscription.telegram_username
   );
 
-  // Notify admin
-  await sendMessage(botToken, chatId, `✅ <b>Payment Approved</b>
+  // Send admin confirmation with auto-delete
+  await sendSystemMessage(botToken, chatId, `✅ <b>Payment Approved</b>
 
 Subscription ID: <code>${subscriptionId}</code>
 User: ${subscription.telegram_user_id} (@${subscription.telegram_username})
 Plan: ${plan.name} ($${plan.price})
 VIP Access: ${vipAccessGranted ? '✅ Granted' : '❌ Failed'}
 
-User has been notified and ${vipAccessGranted ? 'added to VIP channels' : 'VIP access failed - check logs'}. ✨`);
+User has been notified and ${vipAccessGranted ? 'added to VIP channels' : 'VIP access failed - check logs'}. ✨`, null, 60000); // Auto-delete after 60 seconds
 }
 
 async function handleRejectPayment(botToken: string, chatId: number, subscriptionId: string, reason: string, supabaseClient: any) {
