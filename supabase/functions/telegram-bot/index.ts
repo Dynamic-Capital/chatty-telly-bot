@@ -360,6 +360,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Add basic health check
+  if (req.method === "GET") {
+    return new Response("Telegram Bot is running!", { status: 200 });
+  }
+
   try {
     const update = await req.json();
     logStep("Received update", update);
