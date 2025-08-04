@@ -195,7 +195,10 @@ serve(async (req) => {
         await handlePaymentOptions(botToken, chatId, supabaseClient);
       } else if (data === "enter_promo") {
         await sendMessage(botToken, chatId, "🎫 <b>Enter Promo Code</b>\n\nPlease send your promo code in this format:\n<code>PROMO YOUR_CODE</code>\n\nExample: <code>PROMO SAVE20</code>", {
-          inline_keyboard: [[{ text: "← Back to Main Menu", callback_data: "main_menu" }]]
+          inline_keyboard: [[
+            { text: "← Back to Main Menu", callback_data: "main_menu" },
+            { text: "❌ Close", callback_data: "main_menu" }
+          ]]
         });
       } else if (data === "about_us") {
         await handleAboutUs(botToken, chatId, supabaseClient);
@@ -510,15 +513,16 @@ async function handlePlanSelection(botToken: string, chatId: number, userId: num
   const paymentKeyboard = {
     inline_keyboard: [
       [
-        { text: "💳 Credit Card (Stripe)", callback_data: `payment_stripe_${planId}` },
-        { text: "🅿️ PayPal", callback_data: `payment_paypal_${planId}` }
+        { text: "💳 Credit Card 🔜", callback_data: `payment_stripe_${planId}` },
+        { text: "🅿️ PayPal 🔜", callback_data: `payment_paypal_${planId}` }
       ],
       [
         { text: "🏦 Bank Transfer", callback_data: `payment_bank_${planId}` },
         { text: "₿ Crypto (Binance)", callback_data: `payment_crypto_${planId}` }
       ],
       [
-        { text: "← Back to Plans", callback_data: "back_to_plans" }
+        { text: "← Back to Plans", callback_data: "back_to_plans" },
+        { text: "❌ Close", callback_data: "main_menu" }
       ]
     ]
   };
@@ -597,16 +601,15 @@ async function handlePaymentMethod(botToken: string, chatId: number, userId: num
 
   switch (method) {
     case "stripe":
-      paymentMessage = `💳 <b>Credit Card Payment (Stripe)</b>
+      paymentMessage = `💳 <b>Credit Card Payment</b>
 
 📋 Plan: ${plan.name}
 💰 Amount: $${plan.price}
 
-🔗 Click the link below to complete your payment:
-[Payment will be integrated with Stripe checkout]
+🔜 <b>Coming Soon:</b> Credit card payment integration is being developed.
 
-Once payment is confirmed, you'll get instant VIP access!`;
-      paymentInstructions = "Stripe checkout integration";
+📞 For now, please use Bank Transfer or contact ${SUPPORT_CONFIG.support_telegram} for assistance.`;
+      paymentInstructions = "Credit card payment coming soon";
       break;
 
     case "paypal":
@@ -615,11 +618,10 @@ Once payment is confirmed, you'll get instant VIP access!`;
 📋 Plan: ${plan.name}
 💰 Amount: $${plan.price}
 
-🔗 PayPal payment link:
-[PayPal integration will be added]
+🔜 <b>Coming Soon:</b> PayPal payment integration is being developed.
 
-Once payment is confirmed, you'll get instant VIP access!`;
-      paymentInstructions = "PayPal integration";
+📞 For now, please use Bank Transfer or contact ${SUPPORT_CONFIG.support_telegram} for assistance.`;
+      paymentInstructions = "PayPal payment coming soon";
       break;
 
     case "bank":
@@ -1078,7 +1080,10 @@ async function handleAdminCallback(botToken: string, chatId: number, data: strin
     case "admin_check_expired":
       await checkExpiredSubscriptions(botToken, supabaseClient);
       await sendMessage(botToken, chatId, "✅ Expired subscriptions check completed. Check logs for details.", {
-        inline_keyboard: [[{ text: "← Back to VIP Management", callback_data: "admin_vip" }]]
+        inline_keyboard: [[
+          { text: "← Back to VIP Management", callback_data: "admin_vip" },
+          { text: "❌ Close", callback_data: "main_menu" }
+        ]]
       });
       break;
     case "admin_analytics":
@@ -1119,7 +1124,10 @@ async function handleAdminPendingPayments(botToken: string, chatId: number, supa
     const keyboard = {
       inline_keyboard: [
         [{ text: "🔄 Refresh", callback_data: "admin_pending" }],
-        [{ text: "← Back to Admin Panel", callback_data: "admin_menu" }]
+        [
+          { text: "← Back to Admin Panel", callback_data: "admin_menu" },
+          { text: "❌ Close", callback_data: "main_menu" }
+        ]
       ]
     };
     await sendMessage(botToken, chatId, "✅ No pending payments found.", keyboard);
@@ -1145,7 +1153,10 @@ async function handleAdminPendingPayments(botToken: string, chatId: number, supa
 
   keyboard.inline_keyboard.push(
     [{ text: "🔄 Refresh", callback_data: "admin_pending" }],
-    [{ text: "← Back to Admin Panel", callback_data: "admin_menu" }]
+    [
+      { text: "← Back to Admin Panel", callback_data: "admin_menu" },
+      { text: "❌ Close", callback_data: "main_menu" }
+    ]
   );
 
   await sendMessage(botToken, chatId, message, keyboard);
@@ -1197,7 +1208,10 @@ async function handleAdminStats(botToken: string, chatId: number, supabaseClient
     inline_keyboard: [
       [{ text: "🔄 Refresh Stats", callback_data: "admin_stats" }],
       [{ text: "📋 View Pending", callback_data: "admin_pending" }],
-      [{ text: "← Back to Admin Panel", callback_data: "admin_menu" }]
+      [
+        { text: "← Back to Admin Panel", callback_data: "admin_menu" },
+        { text: "❌ Close", callback_data: "main_menu" }
+      ]
     ]
   };
 
@@ -1462,7 +1476,10 @@ Use the buttons below to view detailed breakdowns.`;
         { text: "📦 Package Performance", callback_data: "admin_packages" },
         { text: "📄 Export Report", callback_data: "analytics_export" }
       ],
-      [{ text: "← Back to Admin Panel", callback_data: "admin_menu" }]
+      [
+        { text: "← Back to Admin Panel", callback_data: "admin_menu" },
+        { text: "❌ Close", callback_data: "main_menu" }
+      ]
     ]
   };
 
@@ -2761,7 +2778,8 @@ Learn from industry experts and join our community of successful traders!
           { text: "❓ Education FAQ", callback_data: "education_faq" }
         ],
         [
-          { text: "← Back to Main Menu", callback_data: "main_menu" }
+          { text: "← Back to Main Menu", callback_data: "main_menu" },
+          { text: "❌ Close", callback_data: "main_menu" }
         ]
       ]
     };
@@ -2853,6 +2871,9 @@ ${pkg.requirements.map((req: string) => `• ${req}`).join('\n')}
         [
           { text: "← Back to Education", callback_data: "education_menu" },
           { text: "🏠 Main Menu", callback_data: "main_menu" }
+        ],
+        [
+          { text: "❌ Close", callback_data: "main_menu" }
         ]
       ]
     };
@@ -3177,7 +3198,8 @@ async function handleBankAccountsMenu(botToken: string, chatId: number, supabase
         { text: "📋 List Accounts", callback_data: "bank_list" }
       ],
       [
-        { text: "🔙 Back to Admin", callback_data: "admin_menu" }
+        { text: "🔙 Back to Admin", callback_data: "admin_menu" },
+        { text: "❌ Close", callback_data: "main_menu" }
       ]
     ]
   };
