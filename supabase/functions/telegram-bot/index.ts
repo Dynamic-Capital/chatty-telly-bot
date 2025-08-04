@@ -23,7 +23,9 @@ const SUPPORT_CONFIG = {
 // Session timeout settings (15 minutes)
 const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
 const PAYMENT_TIMEOUT = 30 * 60 * 1000; // 30 minutes for payments
+const BUTTON_COOLDOWN = 2000; // 2 seconds cooldown between button presses
 const userSessions = new Map(); // Store user session data
+const recentActions = new Map(); // Track recent button presses
 
 // Session management functions
 function updateUserSession(userId: number, action: string = 'activity') {
@@ -58,6 +60,33 @@ Your ${timeoutType} session has expired for security purposes.
   });
   
   userSessions.delete(userId);
+}
+
+// Button press protection functions
+function getActionKey(userId: number, action: string): string {
+  return `${userId}_${action}`;
+}
+
+function isRecentAction(userId: number, action: string): boolean {
+  const key = getActionKey(userId, action);
+  const lastAction = recentActions.get(key);
+  if (!lastAction) return false;
+  
+  return (Date.now() - lastAction) < BUTTON_COOLDOWN;
+}
+
+function recordAction(userId: number, action: string) {
+  const key = getActionKey(userId, action);
+  recentActions.set(key, Date.now());
+  
+  // Clean up old actions (older than 5 minutes)
+  setTimeout(() => {
+    const actionTime = recentActions.get(key);
+    if (actionTime && (Date.now() - actionTime) > 300000) {
+      recentActions.delete(key);
+    }
+  }, 300000);
+}
 }
 
 // Helper logging function
@@ -106,6 +135,18 @@ serve(async (req) => {
       const username = message.from.username;
 
       logStep("Processing message", { chatId, text, userId, username });
+
+      // Prevent rapid command spamming (except /start)
+      if (text !== "/start" && isRecentAction(userId, text)) {
+        logStep("Duplicate command prevented", { userId, command: text });
+        await sendMessage(botToken, chatId, "⏳ Please wait a moment before sending another command...");
+        return new Response("OK", { status: 200 });
+      }
+
+      // Record this command
+      if (text !== "/start") {
+        recordAction(userId, text);
+      }
 
       // Check for session timeout
       if (isSessionExpired(userId)) {
@@ -228,9 +269,21 @@ serve(async (req) => {
 
       logStep("Processing callback query", { chatId, data, userId, username });
 
+      // Prevent double button presses
+      if (isRecentAction(userId, data)) {
+        logStep("Duplicate action prevented", { userId, action: data });
+        // Still answer the callback query to remove loading state
+        await answerCallbackQuery(botToken, callbackQuery.id, "⏳ Please wait...");
+        return new Response("OK", { status: 200 });
+      }
+
+      // Record this action
+      recordAction(userId, data);
+
       // Check for session timeout
       if (isSessionExpired(userId)) {
         await handleSessionTimeout(botToken, chatId, userId);
+        await answerCallbackQuery(botToken, callbackQuery.id);
         return new Response("OK", { status: 200 });
       }
 
@@ -293,6 +346,8 @@ serve(async (req) => {
           return;
         }
         const subscriptionId = data.replace("approve_", "");
+        // Show loading feedback
+        await answerCallbackQuery(botToken, callbackQuery.id, "✅ Processing approval...");
         await handleApprovePayment(botToken, chatId, subscriptionId, supabaseClient);
       } else if (data?.startsWith("reject_") && !data.startsWith("reject_confirm_")) {
         // Check admin access for rejection
@@ -302,6 +357,8 @@ serve(async (req) => {
           return;
         }
         const subscriptionId = data.replace("reject_", "");
+        // Show loading feedback
+        await answerCallbackQuery(botToken, callbackQuery.id, "❌ Processing rejection...");
         await handleRejectPaymentCallback(botToken, chatId, subscriptionId, supabaseClient);
       } else if (data?.startsWith("reject_confirm_")) {
         // Check admin access for reject confirmation
@@ -341,7 +398,7 @@ serve(async (req) => {
       }
 
       // Answer the callback query to remove loading state
-      await answerCallbackQuery(botToken, callbackQuery.id);
+      await answerCallbackQuery(botToken, callbackQuery.id, "✅ Action completed");
     }
 
     return new Response(JSON.stringify({ ok: true }), {
@@ -639,13 +696,17 @@ async function sendMessage(botToken: string, chatId: number, text: string, reply
   }
 }
 
-async function answerCallbackQuery(botToken: string, callbackQueryId: string) {
+async function answerCallbackQuery(botToken: string, callbackQueryId: string, text?: string) {
   const url = `https://api.telegram.org/bot${botToken}/answerCallbackQuery`;
   try {
     await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ callback_query_id: callbackQueryId })
+      body: JSON.stringify({ 
+        callback_query_id: callbackQueryId,
+        text: text || undefined,
+        show_alert: false
+      })
     });
   } catch (error) {
     logStep("Error answering callback query", { error });
