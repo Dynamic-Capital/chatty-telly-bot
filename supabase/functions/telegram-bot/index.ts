@@ -5888,7 +5888,49 @@ Get educational trading analysis for any instrument!
 
     if (!response.ok) {
       throw new Error(result.error || 'Trade analysis service error');
-}
+    }
+
+    // Process the response from trade helper
+    const analysisResponse = `🤖 <b>Dynamic Trade Analysis</b>
+
+${result.message || 'Analysis completed successfully'}
+
+⚠️ <b>Educational Purpose Only</b>
+This analysis is for educational purposes and should not be considered as financial advice. Always do your own research and use proper risk management.
+
+🎯 <b>For more advanced analysis:</b>
+Join our VIP community for live market insights!`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "📦 View VIP Packages", callback_data: "view_packages" },
+          { text: "🆘 Contact Support", callback_data: "contact_support" }
+        ],
+        [
+          { text: "← Back to Main Menu", callback_data: "main_menu" }
+        ]
+      ]
+    };
+
+    await sendMessage(botToken, chatId, analysisResponse, keyboard);
+
+  } catch (error) {
+    console.error("Error in trade helper:", error);
+    await sendMessage(botToken, chatId, `❌ <b>Trade Analysis Unavailable</b>
+
+I'm having trouble getting the trading analysis right now. Please try again in a moment.
+
+🎯 <b>Alternative options:</b>
+• Contact our analysts: ${SUPPORT_CONFIG.support_telegram}
+• Check our VIP signals: /packages
+• Educational resources: /education
+
+📈 <b>For immediate help:</b>
+Join our VIP community for live trading support!
+
+Sorry for the inconvenience! 🙏`);
+  }
 }
 
 // Admin Analytics Dashboard
@@ -6117,48 +6159,6 @@ async function handleConversionFunnel(botToken: string, chatId: number, supabase
   }
 }
 
-    const analysisResponse = `📈 <b>Educational Trading Analysis</b>
-
-<b>Instrument:</b> ${instrument.toUpperCase()}
-
-${result.analysis}
-
-📚 <b>Want deeper analysis?</b> ${userSub ? "Check our VIP signals!" : "Upgrade to VIP for professional signals!"}
-
-💡 <b>Get more analysis:</b> /shouldibuy [instrument]`;
-
-    const keyboard = {
-      inline_keyboard: [
-        [
-          { text: "📈 VIP Signals", callback_data: "view_packages" },
-          { text: "🎓 Learn More", callback_data: "education_menu" }
-        ],
-        [
-          { text: "📊 Another Analysis", callback_data: "ask_ai" },
-          { text: "🏠 Main Menu", callback_data: "main_menu" }
-        ]
-      ]
-    };
-
-    await sendMessage(botToken, chatId, analysisResponse, keyboard);
-
-  } catch (error) {
-    console.error("Error in trade helper:", error);
-    await sendMessage(botToken, chatId, `❌ <b>Trade Analysis Unavailable</b>
-
-I'm having trouble getting the trading analysis right now. Please try again in a moment.
-
-🎯 <b>Alternative options:</b>
-• Contact our analysts: ${SUPPORT_CONFIG.support_telegram}
-• Check our VIP signals: /packages
-• Educational resources: /education
-
-📈 <b>For immediate help:</b>
-Join our VIP community for live trading support!
-
-Sorry for the inconvenience! 🙏`);
-  }
-}
 
 // Debug Mode - Admin troubleshooting
 async function handleDebugMode(botToken: string, chatId: number, targetUserId: string, supabaseClient: any) {
