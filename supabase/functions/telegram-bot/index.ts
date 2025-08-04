@@ -587,24 +587,24 @@ Once payment is confirmed, you'll get instant VIP access!`;
       paymentMessage = `🏦 <b>Bank Transfer Payment</b>
 
 📋 Plan: ${plan.name}
-💰 Amount: $${plan.price}
+💰 Amount: <code>$${plan.price}</code>
 
 💼 <b>Bank Details - Choose Currency:</b>
 
 🏦 <b>BML Account (MVR):</b>
-• Account: 7730000133061
-• Name: ABDL.M.I.AFLHAL
+• Account: <code>7730000133061</code>
+• Name: <code>ABDL.M.I.AFLHAL</code>
 • Currency: MVR
 
 🏦 <b>MIB Account (MVR):</b>
-• Account: 9010310167224100
+• Account: <code>9010310167224100</code>
 • Currency: MVR
 
 🏦 <b>MIB Account (USD):</b>
-• Account: 9013101672242000
+• Account: <code>9013101672242000</code>
 • Currency: USD
 
-📝 <b>Reference:</b> VIP-${userId}-${planId}
+📝 <b>Reference:</b> <code>VIP-${userId}-${planId}</code>
 
 📸 <b>Important:</b> After making the transfer, please send a screenshot or photo of your transfer receipt to this chat.
 
@@ -2250,30 +2250,38 @@ async function handleManualCrypto(botToken: string, chatId: number, userId: numb
   const manualCryptoMessage = `₿ <b>Manual Crypto Payment</b>
 
 📋 Plan: ${plan.name}
-💰 Amount: $${plan.price} USDT
+💰 Amount: <code>$${plan.price}</code> USDT
 
-  💰 <b>Send crypto to these addresses:</b>
+💰 <b>Send crypto to these addresses:</b>
 
-  🔸 <b>USDT (TRC20) - Recommended:</b>
-  <code>TQeAph1kiaVbwvY2NS1EwepqrnoTpK6Wss</code>
+🔸 <b>USDT (TRC20) - Recommended:</b>
+<code>TQeAph1kiaVbwvY2NS1EwepqrnoTpK6Wss</code>
 
-  🔸 <b>BNB (BEP20):</b>
-  <code>0x6df5422b719a54201e80a80627d4f8daa611689c</code>
+🔸 <b>BNB (BEP20):</b>
+<code>0x6df5422b719a54201e80a80627d4f8daa611689c</code>
 
-  🔸 <b>Bitcoin (BTC):</b>
-  <code>Contact support for BTC address</code>
+🔸 <b>Bitcoin (BTC):</b>
+<code>Contact support for BTC address</code>
+
+🏦 <b>Bank Transfer Details:</b>
+Bank Name: <code>Your Bank Name</code>
+Account Name: <code>Your Business Name</code>
+Account Number: <code>1234567890</code>
+SWIFT/IBAN: <code>YOURSWIFTCODE</code>
 
 📸 <b>After payment, send to this chat:</b>
-• Transaction hash (TxID)
+• Transaction hash (TxID) or bank reference
 • Screenshot of successful transaction
-• Your payment amount
+• Your payment amount: <code>$${plan.price}</code>
 
-⏰ <b>Processing time:</b> 1-2 hours after verification
+⏰ <b>Processing time:</b> 
+• Crypto: 1-2 hours after verification
+• Bank: 1-2 business days
 
 💡 <b>Tips:</b>
 • Use exact amount to avoid delays
 • Include transaction fee in your calculation
-• Save transaction hash for your records
+• Save transaction hash/reference for your records
 
 📞 Need help? Contact @DynamicCapital_Support`;
 
