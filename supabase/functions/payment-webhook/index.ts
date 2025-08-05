@@ -13,7 +13,7 @@ const supabaseClient = createClient(
   { auth: { persistSession: false } }
 );
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   console.log(`[PAYMENT-WEBHOOK] ${step}`, details ? JSON.stringify(details) : '');
 };
 
@@ -186,7 +186,7 @@ serve(async (req) => {
     // Handle failed payment
     if (event.type === 'checkout.session.expired' || 
         event.type === 'payment_intent.payment_failed') {
-      const session = event.data.object as any;
+      const session = event.data.object as Stripe.Checkout.Session;
       const { payment_id, telegram_chat_id } = session.metadata || {};
 
       if (payment_id) {
