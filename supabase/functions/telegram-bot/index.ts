@@ -960,8 +960,8 @@ Please upload your payment receipt now:`;
 
         case data.startsWith('upload_receipt_'):
           const receiptPaymentId = data.replace('upload_receipt_', '');
-          const session = getUserSession(userId);
-          session.awaitingInput = `upload_receipt_${receiptPaymentId}`;
+          const receiptSession = getUserSession(userId);
+          receiptSession.awaitingInput = `upload_receipt_${receiptPaymentId}`;
           
           await sendMessage(chatId, `📤 *Upload Payment Receipt*
 
