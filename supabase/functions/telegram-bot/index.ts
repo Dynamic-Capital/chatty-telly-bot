@@ -492,7 +492,14 @@ Choose an option below:`;
         return new Response("OK", { status: 200 });
       }
 
-      if (text === '/admin') {
+      // Handle admin commands with flexible text matching
+      const cleanText = text?.trim()?.toLowerCase();
+      
+      if (cleanText === '/admin' || cleanText === 'admin' || cleanText === '/admin@dynamic_vip_bot') {
+        console.log(`Admin command received from user ${userId}, checking admin status...`);
+        console.log(`User ID type: ${typeof userId}, Admin IDs: ${JSON.stringify(ADMIN_USER_IDS)}`);
+        console.log(`isAdmin result: ${isAdmin(userId.toString())}`);
+        
         if (!isAdmin(userId.toString())) {
           await sendMessage(chatId, "❌ Access denied. Admin privileges required.");
           return new Response("OK", { status: 200 });
@@ -549,8 +556,15 @@ Choose an admin action:`;
         return new Response("OK", { status: 200 });
       }
 
+      // Simple admin test command
+      if ((cleanText === '/test' || cleanText === 'test') && isAdmin(userId.toString())) {
+        await sendMessage(chatId, `✅ Admin test successful! Your ID: ${userId}`);
+        return new Response("OK", { status: 200 });
+      }
+
       // Admin-only quick commands
       if (text === '/users' && isAdmin(userId.toString())) {
+        console.log(`/users command received from user ${userId}`);
         try {
           const { data: users, error } = await supabaseAdmin
             .from('bot_users')
