@@ -32,7 +32,11 @@ function isAdmin(userId: string): boolean {
   return ADMIN_USER_IDS.includes(userId);
 }
 
-async function sendMessage(chatId: number, text: string, replyMarkup?: any) {
+async function sendMessage(
+  chatId: number,
+  text: string,
+  replyMarkup?: Record<string, unknown>
+) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const payload = {
     chat_id: chatId,
@@ -256,18 +260,30 @@ async function fetchOrCreateBotUser(telegramId: string, firstName?: string, last
     if (!user) {
       const { data, error } = await supabaseAdmin
         .from("bot_users")
-        .insert([{ 
-          telegram_id: telegramId,
-          first_name: firstName || null,
-          last_name: lastName || null,
-          username: username || null
-        }])
+        .insert([
+          {
+            telegram_id: telegramId,
+            first_name: firstName || null,
+            last_name: lastName || null,
+            username: username || null,
+          },
+        ])
         .select("*")
         .single();
 
       if (error) {
         console.error("Error creating bot user:", error);
         return null;
+      }
+
+      user = data;
+    }
+
+    return user;
+  } catch (error) {
+    console.error("Database error:", error);
+    return null;
+  }
 }
 
 // FAQ and Promo Code functions
@@ -298,38 +314,29 @@ async function getFAQs() {
   return [
     {
       question: "What is VIP membership?",
-      answer: "VIP membership gives you access to premium trading signals, daily market analysis, mentorship programs, and exclusive VIP chat access."
+      answer: "VIP membership gives you access to premium trading signals, daily market analysis, mentorship programs, and exclusive VIP chat access.",
     },
     {
       question: "How do I join the VIP community?",
-      answer: "Select a VIP package, make payment via bank transfer, upload your receipt, and wait for admin approval (24-48 hours)."
+      answer: "Select a VIP package, make payment via bank transfer, upload your receipt, and wait for admin approval (24-48 hours).",
     },
     {
       question: "What payment methods do you accept?",
-      answer: "We accept bank transfers to BML and MIB accounts in both MVR and USD currencies."
+      answer: "We accept bank transfers to BML and MIB accounts in both MVR and USD currencies.",
     },
     {
       question: "How long does approval take?",
-      answer: "Payment approvals typically take 24-48 hours. You'll receive a notification once approved."
+      answer: "Payment approvals typically take 24-48 hours. You'll receive a notification once approved.",
     },
     {
       question: "Can I get a refund?",
-      answer: "Refunds are available within 7 days of payment approval. Contact support for assistance."
+      answer: "Refunds are available within 7 days of payment approval. Contact support for assistance.",
     },
     {
       question: "How do I access mentorship programs?",
-      answer: "Mentorship programs are available to VIP members. You'll receive access details once your membership is approved."
-    }
+      answer: "Mentorship programs are available to VIP members. You'll receive access details once your membership is approved.",
+    },
   ];
-}
-      user = data;
-    }
-
-    return user;
-  } catch (error) {
-    console.error("Database error:", error);
-    return null;
-  }
 }
 
 async function getSubscriptionPlans() {
@@ -403,10 +410,10 @@ serve(async (req) => {
       const text = update.message.text;
       const document = update.message.document;
       const photo = update.message.photo;
-      
+      const session = getUserSession(userId);
+
       // Handle receipt uploads (documents or photos)
       if (document || photo) {
-        const session = getUserSession(userId);
         if (session.awaitingInput && session.awaitingInput.startsWith('upload_receipt_')) {
           const paymentId = session.awaitingInput.replace('upload_receipt_', '');
           const fileId = document ? document.file_id : photo[photo.length - 1].file_id;
@@ -442,6 +449,22 @@ Thank you for your patience!`;
           
           return new Response("OK", { status: 200 });
         }
+      }
+
+      if (text && session.awaitingInput === 'register_wallet') {
+        const wallet = text.trim();
+        try {
+          await supabaseAdmin.from('shares').upsert({
+            telegram_id: userId.toString(),
+            wallet_address: wallet,
+          }, { onConflict: 'telegram_id' });
+          await sendMessage(chatId, "✅ Registration complete!");
+        } catch (error) {
+          console.error('Save wallet error:', error);
+          await sendMessage(chatId, "❌ Failed to save wallet address. Please try again.");
+        }
+        session.awaitingInput = null;
+        return new Response("OK", { status: 200 });
       }
 
       if (text === '/start') {
@@ -493,9 +516,56 @@ Choose an option below:`;
       }
 
       // Handle admin commands with flexible text matching
-      const cleanText = text?.trim()?.toLowerCase();
-      
-      if (cleanText === '/admin' || cleanText === 'admin' || cleanText === '/admin@dynamic_vip_bot') {
+      const cleanText = text?.trim();
+      const lowerText = cleanText?.toLowerCase();
+
+      if (lowerText === '/register' || lowerText?.startsWith('/register ')) {
+        const parts = cleanText.split(' ');
+        const wallet = parts[1];
+        if (wallet) {
+          try {
+            await supabaseAdmin.from('shares').upsert({
+              telegram_id: userId.toString(),
+              wallet_address: wallet,
+            }, { onConflict: 'telegram_id' });
+            await sendMessage(chatId, "✅ Registration complete!");
+          } catch (error) {
+            console.error('Register error:', error);
+            await sendMessage(chatId, "❌ Failed to register. Please try again.");
+          }
+        } else {
+          session.awaitingInput = 'register_wallet';
+          await sendMessage(chatId, "📝 Please send your wallet address to complete registration.");
+        }
+        return new Response("OK", { status: 200 });
+      }
+
+      if (lowerText === '/myshares') {
+        try {
+          const { data } = await supabaseAdmin
+            .from('shares')
+            .select('share_percent, reinvested_amount')
+            .eq('telegram_id', userId.toString())
+            .single();
+
+          if (data) {
+            const share = Number(data.share_percent ?? 0);
+            const reinvested = Number(data.reinvested_amount ?? 0);
+            await sendMessage(
+              chatId,
+              `📊 *Your Shares*\n\n• Share: ${share}%\n• Reinvested Amount: $${reinvested.toFixed(2)}`,
+            );
+          } else {
+            await sendMessage(chatId, "❌ No share information found. Use /register to set up your wallet.");
+          }
+        } catch (error) {
+          console.error('Share query error:', error);
+          await sendMessage(chatId, "❌ Error fetching share information.");
+        }
+        return new Response("OK", { status: 200 });
+      }
+
+      if (lowerText === '/admin' || lowerText === 'admin' || lowerText === '/admin@dynamic_vip_bot') {
         console.log(`Admin command received from user ${userId}, checking admin status...`);
         console.log(`User ID type: ${typeof userId}, Admin IDs: ${JSON.stringify(ADMIN_USER_IDS)}`);
         console.log(`isAdmin result: ${isAdmin(userId.toString())}`);
@@ -557,7 +627,7 @@ Choose an admin action:`;
       }
 
       // Simple admin test command
-      if ((cleanText === '/test' || cleanText === 'test') && isAdmin(userId.toString())) {
+      if ((lowerText === '/test' || lowerText === 'test') && isAdmin(userId.toString())) {
         await sendMessage(chatId, `✅ Admin test successful! Your ID: ${userId}`);
         return new Response("OK", { status: 200 });
       }
