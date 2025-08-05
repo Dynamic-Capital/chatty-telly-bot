@@ -8,7 +8,12 @@ const BINANCE_SECRET_KEY = Deno.env.get("BINANCE_SECRET_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const ADMIN_USER_IDS = ["225513686"];
+
+// Allow configuring admin IDs via environment variable (comma-separated)
+const ADMIN_USER_IDS = (Deno.env.get("ADMIN_USER_IDS")
+  ?.split(",")
+  .map((id) => id.trim())
+  .filter(Boolean)) ?? ["225513686"];
 
 // User sessions for features
 const userSessions = new Map();
@@ -376,7 +381,7 @@ serve(async (req) => {
   }
 
   if (req.method === "GET") {
-    return new Response("Bot is running!", { status: 200 });
+    return new Response("🤖 Bot is live!", { status: 200 });
   }
 
   try {
@@ -411,22 +416,22 @@ serve(async (req) => {
           const paymentId = session.awaitingInput.replace('upload_receipt_', '');
           const fileId = document ? document.file_id : photo[photo.length - 1].file_id;
           
-          await sendMessage(chatId, "📤 *Uploading Receipt...*\n\nPlease wait while we process your receipt...");
+          await sendMessage(chatId, "📤 Uploading your receipt...\n\nHang tight while we save it.");
           
           const fileName = await uploadReceiptToStorage(fileId, paymentId, userId);
           if (fileName) {
             session.awaitingInput = null;
             await notifyAdminsOfNewReceipt(paymentId, userId, firstName || 'Unknown');
             
-            const successMessage = `✅ *Receipt Uploaded Successfully!*
+            const successMessage = `✅ *Receipt received!*
 
 📋 Payment ID: ${paymentId}
-📎 Receipt: Uploaded and saved
-⏰ Status: Under Review
+📎 File: saved
+⏳ Status: awaiting review
 
-Our team will review your payment within 24 hours and notify you once approved.
+We'll take a look and update you soon.
 
-Thank you for your patience!`;
+Thanks for your patience!`;
 
             const receiptKeyboard = {
               inline_keyboard: [
@@ -445,25 +450,21 @@ Thank you for your patience!`;
       }
 
       if (text === '/start') {
-        const welcomeMessage = `🎯 *Welcome to Dynamic Capital VIP!*
+        const welcomeMessage = `👋 Hey ${firstName}!
 
-👋 Hello ${firstName}! Ready to join our exclusive trading community?
+Welcome to *Dynamic Capital VIP*.
 
-🌟 *What Our VIP Community Offers:*
-• 🔥 Premium trading signals & alerts
-• 📊 Daily market analysis & insights  
-• 🎓 Professional mentorship programs
-• 💎 Exclusive VIP chat access
-• 📈 Live market outlook sessions
-• 🎯 Personalized trading strategies
+✨ *VIP perks*
+• Premium signals
+• Daily market insights
+• Mentorship & VIP chat
 
-🆓 *Free Member Benefits:*
-• Basic market updates
-• Limited community access
-• 3 educational resources per month
+🆓 *Free tier*
+• Market updates
+• Community access
+• 3 lessons monthly
 
-💎 *Ready to unlock VIP benefits?*
-Choose an option below:`;
+Pick an option to get started:`;
 
         const keyboard = {
           inline_keyboard: [
@@ -501,30 +502,30 @@ Choose an option below:`;
         console.log(`isAdmin result: ${isAdmin(userId.toString())}`);
         
         if (!isAdmin(userId.toString())) {
-          await sendMessage(chatId, "❌ Access denied. Admin privileges required.");
+          await sendMessage(chatId, "🚫 This command is for admins only.");
           return new Response("OK", { status: 200 });
         }
 
-        const adminMessage = `🔐 *Admin Dashboard*
+        const adminMessage = `🔐 *Admin Panel*
 
-📊 *Available Commands:*
-• 📈 View Statistics  
-• 👥 Manage Users
-• 💰 Manage Payments
-• 📢 Send Broadcast
-• 💾 Export Data
-• 💬 Manage Welcome Message
-• 📦 Manage Packages  
-• 🎁 Manage Promo Codes
+Here are your tools:
+• 📈 View statistics
+• 👥 Manage users
+• 💰 Review payments
+• 📢 Send broadcast
+• 💾 Export data
+• 💬 Edit welcome message
+• 📦 Manage packages
+• 🎁 Manage promo codes
 
-*⚡ Quick Commands:*
-/users - View users list
-/stats - Bot statistics  
-/packages - Manage packages
-/promos - Manage promos
-/welcome - Edit welcome message
-/broadcast - Send broadcast
-/help_admin - Commands help
+*⚡ Quick commands:*
+/users - user list
+/stats - bot stats
+/packages - manage packages
+/promos - manage promos
+/welcome - edit welcome message
+/broadcast - send broadcast
+/help_admin - commands help
 
 Choose an admin action:`;
 
