@@ -32,6 +32,10 @@ function isAdmin(userId: string): boolean {
   return ADMIN_USER_IDS.includes(userId);
 }
 
+function formatCommand(command: string): string {
+  return `\\\`${command.replace(/`/g, '\\`')}\\\``;
+}
+
 async function sendMessage(chatId: number, text: string, replyMarkup?: any) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const payload = {
@@ -508,23 +512,23 @@ Choose an option below:`;
         const adminMessage = `🔐 *Admin Dashboard*
 
 📊 *Available Commands:*
-• 📈 View Statistics  
+• 📈 View Statistics
 • 👥 Manage Users
 • 💰 Manage Payments
 • 📢 Send Broadcast
 • 💾 Export Data
 • 💬 Manage Welcome Message
-• 📦 Manage Packages  
+• 📦 Manage Packages
 • 🎁 Manage Promo Codes
 
 *⚡ Quick Commands:*
-/users - View users list
-/stats - Bot statistics  
-/packages - Manage packages
-/promos - Manage promos
-/welcome - Edit welcome message
-/broadcast - Send broadcast
-/help_admin - Commands help
+${formatCommand('/users')} - View users list
+${formatCommand('/stats')} - Bot statistics
+${formatCommand('/packages')} - Manage packages
+${formatCommand('/promos')} - Manage promos
+${formatCommand('/welcome')} - Edit welcome message
+${formatCommand('/broadcast')} - Send broadcast
+${formatCommand('/help_admin')} - Commands help
 
 Choose an admin action:`;
 
@@ -744,14 +748,14 @@ You can use:
         const helpMessage = `🔧 *Admin Commands Help*
 
 *Quick Commands:*
-/admin - Main admin dashboard
-/users - View recent users list
-/stats - View bot statistics  
-/packages - Quick package management
-/promos - Quick promo management
-/welcome - Edit welcome message
-/broadcast - Send message to all users
-/help_admin - This help message
+${formatCommand('/admin')} - Main admin dashboard
+${formatCommand('/users')} - View recent users list
+${formatCommand('/stats')} - View bot statistics
+${formatCommand('/packages')} - Quick package management
+${formatCommand('/promos')} - Quick promo management
+${formatCommand('/welcome')} - Edit welcome message
+${formatCommand('/broadcast')} - Send message to all users
+${formatCommand('/help_admin')} - This help message
 
 *Dashboard Features:*
 • 📊 Analytics & user management
