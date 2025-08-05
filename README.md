@@ -71,3 +71,14 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Telegram bot configuration
+
+The Supabase edge function located at `supabase/functions/telegram-bot` reads several environment variables:
+
+- `TELEGRAM_BOT_TOKEN` – token for your Telegram bot.
+- `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` – Supabase project URL.
+- `SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` – Supabase anon key.
+- `ADMIN_USER_IDS` – comma‑separated list of Telegram user IDs allowed to access the `/admin` command.
+
+Ensure these variables are set when deploying the function so admin users can access the dashboard.

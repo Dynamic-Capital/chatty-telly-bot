@@ -5,10 +5,16 @@ const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const BINANCE_API_KEY = Deno.env.get("BINANCE_API_KEY");
 const BINANCE_SECRET_KEY = Deno.env.get("BINANCE_SECRET_KEY");
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+const SUPABASE_URL =
+  Deno.env.get("SUPABASE_URL") || Deno.env.get("NEXT_PUBLIC_SUPABASE_URL");
+const SUPABASE_ANON_KEY =
+  Deno.env.get("SUPABASE_ANON_KEY") ||
+  Deno.env.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const ADMIN_USER_IDS = ["225513686"];
+// Comma-separated list of Telegram user IDs allowed to access admin features
+const ADMIN_USER_IDS =
+  Deno.env.get("ADMIN_USER_IDS")?.split(",").map((id) => id.trim()).filter(Boolean) ??
+  ["225513686"];
 
 // User sessions for features
 const userSessions = new Map();
