@@ -510,6 +510,15 @@ Choose an option below:`;
 • 📦 Manage Packages  
 • 🎁 Manage Promo Codes
 
+*⚡ Quick Commands:*
+/users - View users list
+/stats - Bot statistics  
+/packages - Manage packages
+/promos - Manage promos
+/welcome - Edit welcome message
+/broadcast - Send broadcast
+/help_admin - Commands help
+
 Choose an admin action:`;
 
         const adminKeyboard = {
@@ -537,6 +546,221 @@ Choose an admin action:`;
         };
 
         await sendMessage(chatId, adminMessage, adminKeyboard);
+        return new Response("OK", { status: 200 });
+      }
+
+      // Admin-only quick commands
+      if (text === '/users' && isAdmin(userId)) {
+        try {
+          const { data: users, error } = await supabaseAdmin
+            .from('bot_users')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+          if (error) throw error;
+
+          let usersMessage = `👥 *Recent Users (Last 20)*\n\n`;
+          
+          if (users && users.length > 0) {
+            users.forEach((user, index) => {
+              const vipStatus = user.is_vip ? "🌟 VIP" : "👤 Regular";
+              const name = user.first_name || user.username || "Unknown";
+              const created = new Date(user.created_at).toLocaleDateString();
+              
+              usersMessage += `${index + 1}. ${name} (${vipStatus})\n`;
+              usersMessage += `   📱 ID: ${user.telegram_id}\n`;
+              usersMessage += `   📅 Joined: ${created}\n`;
+              if (user.subscription_expires_at) {
+                const expires = new Date(user.subscription_expires_at).toLocaleDateString();
+                usersMessage += `   ⏰ Expires: ${expires}\n`;
+              }
+              usersMessage += `\n`;
+            });
+          } else {
+            usersMessage += "No users found.";
+          }
+
+          const usersKeyboard = {
+            inline_keyboard: [
+              [{ text: "🔙 Back to Admin", callback_data: "admin_users" }]
+            ]
+          };
+
+          await sendMessage(chatId, usersMessage, usersKeyboard);
+        } catch (error) {
+          await sendMessage(chatId, "❌ Error fetching users data.");
+        }
+        return new Response("OK", { status: 200 });
+      }
+
+      if (text === '/stats' && isAdmin(userId)) {
+        try {
+          // Get user statistics
+          const { data: totalUsers } = await supabaseAdmin
+            .from('bot_users')
+            .select('id', { count: 'exact' });
+
+          const { data: vipUsers } = await supabaseAdmin
+            .from('bot_users')
+            .select('id', { count: 'exact' })
+            .eq('is_vip', true);
+
+          const { data: recentUsers } = await supabaseAdmin
+            .from('bot_users')
+            .select('id', { count: 'exact' })
+            .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+
+          const { data: totalPayments } = await supabaseAdmin
+            .from('user_subscriptions')
+            .select('id', { count: 'exact' })
+            .eq('payment_status', 'approved');
+
+          const { data: pendingPayments } = await supabaseAdmin
+            .from('user_subscriptions')
+            .select('id', { count: 'exact' })
+            .eq('payment_status', 'pending');
+
+          const statsMessage = `📊 *Bot Statistics*
+
+👥 *Users:*
+• Total Users: ${totalUsers?.length || 0}
+• VIP Users: ${vipUsers?.length || 0}
+• New Users (7 days): ${recentUsers?.length || 0}
+
+💰 *Payments:*
+• Approved: ${totalPayments?.length || 0}
+• Pending: ${pendingPayments?.length || 0}
+
+📈 *Growth:*
+• Conversion Rate: ${totalUsers?.length ? ((vipUsers?.length || 0) / totalUsers.length * 100).toFixed(1) : 0}%
+• Weekly Growth: ${recentUsers?.length || 0} new users`;
+
+          const statsKeyboard = {
+            inline_keyboard: [
+              [{ text: "🔙 Back to Admin", callback_data: "admin_stats" }]
+            ]
+          };
+
+          await sendMessage(chatId, statsMessage, statsKeyboard);
+        } catch (error) {
+          await sendMessage(chatId, "❌ Error fetching statistics.");
+        }
+        return new Response("OK", { status: 200 });
+      }
+
+      if (text === '/packages' && isAdmin(userId)) {
+        // Redirect to package management
+        const packagesMessage = `📦 *Package Management*
+
+Quick access to package management:`;
+
+        const packagesKeyboard = {
+          inline_keyboard: [
+            [{ text: "📋 View Packages", callback_data: "view_packages" }],
+            [{ text: "➕ Add Package", callback_data: "add_package" }],
+            [{ text: "✏️ Edit Package", callback_data: "edit_package_list" }],
+            [{ text: "🗑 Delete Package", callback_data: "delete_package_list" }],
+            [{ text: "🔙 Back to Admin", callback_data: "admin_packages" }]
+          ]
+        };
+
+        await sendMessage(chatId, packagesMessage, packagesKeyboard);
+        return new Response("OK", { status: 200 });
+      }
+
+      if (text === '/promos' && isAdmin(userId)) {
+        // Redirect to promo management
+        const promosMessage = `💳 *Promotion Management*
+
+Quick access to promotion code management:`;
+
+        const promosKeyboard = {
+          inline_keyboard: [
+            [{ text: "📋 View Promos", callback_data: "view_promos" }],
+            [{ text: "➕ Add Promo", callback_data: "add_promo" }],
+            [{ text: "✏️ Edit Promo", callback_data: "edit_promo_list" }],
+            [{ text: "🗑 Delete Promo", callback_data: "delete_promo_list" }],
+            [{ text: "🔙 Back to Admin", callback_data: "admin_promos" }]
+          ]
+        };
+
+        await sendMessage(chatId, promosMessage, promosKeyboard);
+        return new Response("OK", { status: 200 });
+      }
+
+      if (text === '/welcome' && isAdmin(userId)) {
+        // Start welcome message editing
+        const welcomeSession = getUserSession(userId);
+        welcomeSession.awaitingInput = 'edit_welcome_message';
+        
+        await sendMessage(chatId, `📝 *Edit Welcome Message*
+
+Please send the new welcome message you'd like to use.
+
+You can use:
+• **Bold text** for emphasis
+• *Italic text* for style
+• \`Code text\` for highlights
+• Emojis for visual appeal
+
+Current welcome message will be replaced with your new message.`);
+        return new Response("OK", { status: 200 });
+      }
+
+      if (text === '/broadcast' && isAdmin(userId)) {
+        const broadcastSession = getUserSession(userId);
+        broadcastSession.awaitingInput = 'broadcast_message';
+        
+        await sendMessage(chatId, `📢 *Send Broadcast Message*
+
+Please send the message you want to broadcast to all users.
+
+You can use:
+• **Bold text** for emphasis
+• *Italic text* for style
+• \`Code text\` for highlights
+• Emojis for visual appeal
+
+⚠️ This will be sent to ALL bot users. Make sure your message is ready!`);
+        return new Response("OK", { status: 200 });
+      }
+
+      if (text === '/help_admin' && isAdmin(userId)) {
+        const helpMessage = `🔧 *Admin Commands Help*
+
+*Quick Commands:*
+/admin - Main admin dashboard
+/users - View recent users list
+/stats - View bot statistics  
+/packages - Quick package management
+/promos - Quick promo management
+/welcome - Edit welcome message
+/broadcast - Send message to all users
+/help_admin - This help message
+
+*Dashboard Features:*
+• 📊 Analytics & user management
+• 📦 Add/edit/delete packages
+• 💳 Create/manage promo codes
+• 💬 Customize welcome messages
+• 🔧 Bot configuration settings
+
+*Payment Management:*
+• Approve/reject payments
+• View payment receipts
+• Manage user subscriptions
+• Track payment analytics
+
+Type any command to get started!`;
+
+        const helpKeyboard = {
+          inline_keyboard: [
+            [{ text: "🔧 Open Admin Dashboard", callback_data: "admin_stats" }]
+          ]
+        };
+
+        await sendMessage(chatId, helpMessage, helpKeyboard);
         return new Response("OK", { status: 200 });
       }
 
@@ -571,6 +795,49 @@ The changes are now live!`);
             return new Response("OK", { status: 200 });
           } catch (error) {
             await sendMessage(chatId, "❌ Error updating welcome message. Please try again.");
+            return new Response("OK", { status: 200 });
+          }
+        }
+
+        // Handle broadcast message
+        if (session.awaitingInput === 'broadcast_message') {
+          try {
+            // Get all bot users
+            const { data: users, error } = await supabaseAdmin
+              .from('bot_users')
+              .select('telegram_id');
+
+            if (error) throw error;
+
+            let successCount = 0;
+            let failCount = 0;
+
+            // Send message to all users
+            for (const user of users || []) {
+              try {
+                await sendMessage(parseInt(user.telegram_id), text);
+                successCount++;
+                // Add small delay to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 100));
+              } catch (error) {
+                failCount++;
+                console.error(`Failed to send broadcast to ${user.telegram_id}:`, error);
+              }
+            }
+
+            session.awaitingInput = null;
+            
+            await sendMessage(chatId, `📢 *Broadcast Completed!*
+
+✅ Successfully sent to: ${successCount} users
+❌ Failed to send to: ${failCount} users
+📊 Total users: ${users?.length || 0}
+
+Your message has been delivered!`);
+            
+            return new Response("OK", { status: 200 });
+          } catch (error) {
+            await sendMessage(chatId, "❌ Error sending broadcast message. Please try again.");
             return new Response("OK", { status: 200 });
           }
         }
