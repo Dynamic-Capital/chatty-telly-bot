@@ -136,34 +136,40 @@ export const AdminDashboard = () => {
 
   const exportData = async (tableName: string) => {
     try {
-      let data: any[] = [];
+      let data: unknown[] = [];
       
       // Type-safe table queries
       switch (tableName) {
-        case 'bot_users':
+        case 'bot_users': {
           const { data: users } = await supabase.from('bot_users').select('*');
           data = users || [];
           break;
-        case 'payments':
+        }
+        case 'payments': {
           const { data: payments } = await supabase.from('payments').select('*');
           data = payments || [];
           break;
-        case 'user_subscriptions':
+        }
+        case 'user_subscriptions': {
           const { data: subscriptions } = await supabase.from('user_subscriptions').select('*');
           data = subscriptions || [];
           break;
-        case 'education_enrollments':
+        }
+        case 'education_enrollments': {
           const { data: enrollments } = await supabase.from('education_enrollments').select('*');
           data = enrollments || [];
           break;
-        case 'promotions':
+        }
+        case 'promotions': {
           const { data: promotions } = await supabase.from('promotions').select('*');
           data = promotions || [];
           break;
-        case 'daily_analytics':
+        }
+        case 'daily_analytics': {
           const { data: analytics } = await supabase.from('daily_analytics').select('*');
           data = analytics || [];
           break;
+        }
         default:
           throw new Error('Invalid table name');
       }

@@ -1,3 +1,4 @@
+/* eslint-disable no-case-declarations */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -5,10 +6,39 @@ const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const BINANCE_API_KEY = Deno.env.get("BINANCE_API_KEY");
 const BINANCE_SECRET_KEY = Deno.env.get("BINANCE_SECRET_KEY");
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const ADMIN_USER_IDS = ["225513686"];
+// Support both standard and NEXT_PUBLIC env names for Supabase configuration
+const SUPABASE_URL =
+  Deno.env.get("SUPABASE_URL") || Deno.env.get("NEXT_PUBLIC_SUPABASE_URL");
+const SUPABASE_ANON_KEY =
+  Deno.env.get("SUPABASE_ANON_KEY") ||
+  Deno.env.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY");
+// Fall back to anon key if a dedicated service role key isn't provided
+const SUPABASE_SERVICE_ROLE_KEY =
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || SUPABASE_ANON_KEY;
+
+interface SubscriptionPlan {
+  id: number;
+  name: string;
+  price: number;
+  duration_months: number;
+  features?: string[];
+}
+
+interface Promotion {
+  id: number;
+  code: string;
+  description?: string;
+  discount_percent?: number;
+}
+
+// Allow configuring admin IDs via environment variable (comma-separated)
+// and merge with any admin flags stored in the bot_users table
+const ADMIN_USER_IDS = new Set(
+  (Deno.env.get("ADMIN_USER_IDS")
+    ?.split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)) ?? ["225513686"]
+);
 
 // User sessions for features
 const userSessions = new Map();
@@ -23,16 +53,38 @@ const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },
 });
 
+// Load additional admin IDs from the database so they can be managed dynamically
+async function refreshAdminIds() {
+  try {
+    const { data } = await supabaseAdmin
+      .from('bot_users')
+      .select('telegram_id')
+      .eq('is_admin', true);
+
+    data?.forEach((row: { telegram_id: string | number }) => {
+      ADMIN_USER_IDS.add(row.telegram_id.toString());
+    });
+  } catch (error) {
+    console.error('Failed to load admin IDs:', error);
+  }
+}
+
+await refreshAdminIds();
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 function isAdmin(userId: string): boolean {
-  return ADMIN_USER_IDS.includes(userId);
+  return ADMIN_USER_IDS.has(userId);
 }
 
-async function sendMessage(chatId: number, text: string, replyMarkup?: any) {
+async function sendMessage(
+  chatId: number,
+  text: string,
+  replyMarkup?: Record<string, unknown>
+) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const payload = {
     chat_id: chatId,
@@ -241,37 +293,56 @@ Please contact support for assistance or try uploading a clearer receipt.`;
 }
 
 // Database functions
-async function fetchOrCreateBotUser(telegramId: string, firstName?: string, lastName?: string, username?: string) {
+async function fetchOrCreateBotUser(
+  telegramId: string,
+  firstName?: string,
+  lastName?: string,
+  username?: string
+) {
   try {
-    let { data: user, error } = await supabaseAdmin
+    const { data: existingUser, error: fetchError } = await supabaseAdmin
       .from("bot_users")
       .select("*")
       .eq("telegram_id", telegramId)
       .single();
 
-    if (error && error.code !== 'PGRST116') {
-      console.error("Error fetching bot user:", error);
+    if (fetchError && fetchError.code !== "PGRST116") {
+      console.error("Error fetching bot user:", fetchError);
     }
 
+    let user = existingUser;
+
     if (!user) {
-      const { data, error } = await supabaseAdmin
+      const { data: newUser, error: insertError } = await supabaseAdmin
         .from("bot_users")
-        .insert([{ 
-          telegram_id: telegramId,
-          first_name: firstName || null,
-          last_name: lastName || null,
-          username: username || null
-        }])
+        .insert([
+          {
+            telegram_id: telegramId,
+            first_name: firstName || null,
+            last_name: lastName || null,
+            username: username || null,
+          },
+        ])
         .select("*")
         .single();
 
-      if (error) {
-        console.error("Error creating bot user:", error);
+      if (insertError) {
+        console.error("Error creating bot user:", insertError);
         return null;
+      }
+
+      user = newUser;
+    }
+
+    return user;
+  } catch (error) {
+    console.error("Database error:", error);
+    return null;
+  }
 }
 
 // FAQ and Promo Code functions
-async function getActivePromotions() {
+async function getActivePromotions(): Promise<Promotion[]> {
   try {
     const { data, error } = await supabase
       .from('promotions')
@@ -286,7 +357,7 @@ async function getActivePromotions() {
     }
 
     console.log('Active promotions found:', data?.length || 0);
-    return data || [];
+    return (data as Promotion[]) || [];
   } catch (error) {
     console.error('Error fetching promotions:', error);
     return [];
@@ -322,24 +393,14 @@ async function getFAQs() {
     }
   ];
 }
-      user = data;
-    }
-
-    return user;
-  } catch (error) {
-    console.error("Database error:", error);
-    return null;
-  }
-}
-
-async function getSubscriptionPlans() {
+async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
   try {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('subscription_plans')
       .select('*')
       .order('price', { ascending: true });
 
-    return data || [];
+    return (data as SubscriptionPlan[]) || [];
   } catch (error) {
     console.error('Error fetching subscription plans:', error);
     return [];
@@ -376,7 +437,7 @@ serve(async (req) => {
   }
 
   if (req.method === "GET") {
-    return new Response("Bot is running!", { status: 200 });
+    return new Response("Bot is live!", { status: 200 });
   }
 
   try {
@@ -418,15 +479,13 @@ serve(async (req) => {
             session.awaitingInput = null;
             await notifyAdminsOfNewReceipt(paymentId, userId, firstName || 'Unknown');
             
-            const successMessage = `✅ *Receipt Uploaded Successfully!*
+            const successMessage = `✅ *Receipt received!*
 
 📋 Payment ID: ${paymentId}
-📎 Receipt: Uploaded and saved
-⏰ Status: Under Review
+📎 File: saved
+⏳ Status: pending review
 
-Our team will review your payment within 24 hours and notify you once approved.
-
-Thank you for your patience!`;
+We'll check it soon and let you know. Thanks for your patience!`;
 
             const receiptKeyboard = {
               inline_keyboard: [
@@ -437,7 +496,7 @@ Thank you for your patience!`;
 
             await sendMessage(chatId, successMessage, receiptKeyboard);
           } else {
-            await sendMessage(chatId, "❌ Failed to upload receipt. Please try again or contact support.");
+            await sendMessage(chatId, "⚠️ Upload didn't work. Please try again or tap 'Get Support'.");
           }
           
           return new Response("OK", { status: 200 });
@@ -445,25 +504,7 @@ Thank you for your patience!`;
       }
 
       if (text === '/start') {
-        const welcomeMessage = `🎯 *Welcome to Dynamic Capital VIP!*
-
-👋 Hello ${firstName}! Ready to join our exclusive trading community?
-
-🌟 *What Our VIP Community Offers:*
-• 🔥 Premium trading signals & alerts
-• 📊 Daily market analysis & insights  
-• 🎓 Professional mentorship programs
-• 💎 Exclusive VIP chat access
-• 📈 Live market outlook sessions
-• 🎯 Personalized trading strategies
-
-🆓 *Free Member Benefits:*
-• Basic market updates
-• Limited community access
-• 3 educational resources per month
-
-💎 *Ready to unlock VIP benefits?*
-Choose an option below:`;
+        const welcomeMessage = `🚀 *Welcome to Dynamic Capital VIP, ${firstName}!*\n\nWe're here to help you level up your trading with:\n\n• 🔔 Quick market updates\n• 📈 Beginner-friendly tips\n• 🎓 Easy learning resources\n\nReady to get started? Pick an option below 👇`;
 
         const keyboard = {
           inline_keyboard: [
@@ -494,14 +535,19 @@ Choose an option below:`;
 
       // Handle admin commands with flexible text matching
       const cleanText = text?.trim()?.toLowerCase();
-      
-      if (cleanText === '/admin' || cleanText === 'admin' || cleanText === '/admin@dynamic_vip_bot') {
+      const command = cleanText?.split(" ")[0];
+
+      if (
+        command === "/admin" ||
+        command === "admin" ||
+        command?.startsWith("/admin@")
+      ) {
         console.log(`Admin command received from user ${userId}, checking admin status...`);
         console.log(`User ID type: ${typeof userId}, Admin IDs: ${JSON.stringify(ADMIN_USER_IDS)}`);
         console.log(`isAdmin result: ${isAdmin(userId.toString())}`);
         
         if (!isAdmin(userId.toString())) {
-          await sendMessage(chatId, "❌ Access denied. Admin privileges required.");
+          await sendMessage(chatId, "🚫 Sorry, this command is for admins only.");
           return new Response("OK", { status: 200 });
         }
 
@@ -1102,7 +1148,7 @@ The promo code is now active and ready to use!`);
             };
 
             if (packages.length > 0) {
-              packages.forEach((pkg: any, index: number) => {
+              packages.forEach((pkg: SubscriptionPlan, index: number) => {
                 packagesMessage += `${index + 1}. **${pkg.name}**\n`;
                 packagesMessage += `   💰 Price: $${pkg.price}/${pkg.duration_months}mo\n`;
                 packagesMessage += `   ✨ Features: ${pkg.features ? pkg.features.join(', ') : 'Premium VIP benefits'}\n\n`;
@@ -1361,7 +1407,7 @@ Welcome back! Choose what you'd like to do:`;
             let promoMessage = "🎁 *Active Promotions*\n\n";
             
             if (promotions.length > 0) {
-              promotions.forEach((promo: any) => {
+              promotions.forEach((promo: Promotion) => {
                 promoMessage += `🏷 **${promo.description || 'Special Offer'}**\n`;
                 promoMessage += `💰 Discount: ${promo.discount_type === 'percentage' ? promo.discount_value + '%' : '$' + promo.discount_value} OFF\n`;
                 promoMessage += `🔑 Code: \`${promo.code}\`\n`;
@@ -1439,25 +1485,7 @@ Send your new welcome message now:`);
             break;
           }
           
-          const currentWelcome = `🎯 *Welcome to Dynamic Capital VIP!*
-
-👋 Hello ${firstName}! Ready to join our exclusive trading community?
-
-🌟 *What Our VIP Community Offers:*
-• 🔥 Premium trading signals & alerts
-• 📊 Daily market analysis & insights  
-• 🎓 Professional mentorship programs
-• 💎 Exclusive VIP chat access
-• 📈 Live market outlook sessions
-• 🎯 Personalized trading strategies
-
-🆓 *Free Member Benefits:*
-• Basic market updates
-• Limited community access
-• 3 educational resources per month
-
-💎 *Ready to unlock VIP benefits?*
-Choose an option below:`;
+          const currentWelcome = `🚀 *Welcome to Dynamic Capital VIP, ${firstName}!*\n\nWe're here to help you level up your trading with:\n\n• 🔔 Quick market updates\n• 📈 Beginner-friendly tips\n• 🎓 Easy learning resources\n\nReady to get started? Pick an option below 👇`;
 
           await sendMessage(chatId, `📋 *Current Welcome Message Preview:*\n\n${currentWelcome}`);
           break;
@@ -1516,7 +1544,7 @@ Send the package name:`);
             let packagesList = "📋 *All Packages*\n\n";
             
             if (packages.length > 0) {
-              packages.forEach((pkg: any, index: number) => {
+              packages.forEach((pkg: SubscriptionPlan, index: number) => {
                 packagesList += `${index + 1}. **${pkg.name}**\n`;
                 packagesList += `   💰 Price: $${pkg.price}\n`;
                 packagesList += `   ⏱ Duration: ${pkg.duration_months} months\n`;
@@ -1596,7 +1624,7 @@ Send the promo code:`);
             let promosList = "📋 *All Promo Codes*\n\n";
             
             if (promos && promos.length > 0) {
-              promos.forEach((promo: any, index: number) => {
+              promos.forEach((promo: Promotion, index: number) => {
                 const status = promo.is_active ? "🟢 Active" : "🔴 Inactive";
                 promosList += `${index + 1}. **${promo.code}**\n`;
                 promosList += `   💰 Discount: ${promo.discount_type === 'percentage' ? promo.discount_value + '%' : '$' + promo.discount_value}\n`;
