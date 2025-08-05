@@ -13,7 +13,7 @@ const supabaseClient = createClient(
   { auth: { persistSession: false } }
 );
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   console.log(`[CREATE-CHECKOUT] ${step}`, details ? JSON.stringify(details) : '');
 };
 
