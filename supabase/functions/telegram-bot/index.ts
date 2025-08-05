@@ -1,3 +1,4 @@
+/* eslint-disable no-case-declarations, @typescript-eslint/no-explicit-any, prefer-const */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -8,7 +9,10 @@ const BINANCE_SECRET_KEY = Deno.env.get("BINANCE_SECRET_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const ADMIN_USER_IDS = ["225513686"];
+// Comma separated Telegram user IDs with admin access
+const ADMIN_USER_IDS = (Deno.env.get("ADMIN_USER_IDS")?.split(",") || ["225513686"])
+  .map((id) => id.trim())
+  .filter((id) => id.length > 0);
 
 // User sessions for features
 const userSessions = new Map();
@@ -32,13 +36,26 @@ function isAdmin(userId: string): boolean {
   return ADMIN_USER_IDS.includes(userId);
 }
 
-async function sendMessage(chatId: number, text: string, replyMarkup?: any) {
+function formatCommand(command: string): string {
+  const escaped = command
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return `<code>${escaped}</code>`;
+}
+
+async function sendMessage(
+  chatId: number,
+  text: string,
+  replyMarkup?: any,
+  parseMode: "Markdown" | "HTML" = "Markdown",
+) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const payload = {
     chat_id: chatId,
-    text: text,
+    text,
     reply_markup: replyMarkup,
-    parse_mode: "Markdown"
+    parse_mode: parseMode
   };
 
   try {
@@ -505,28 +522,26 @@ Choose an option below:`;
           return new Response("OK", { status: 200 });
         }
 
-        const adminMessage = `🔐 *Admin Dashboard*
-
-📊 *Available Commands:*
-• 📈 View Statistics  
-• 👥 Manage Users
-• 💰 Manage Payments
-• 📢 Send Broadcast
-• 💾 Export Data
-• 💬 Manage Welcome Message
-• 📦 Manage Packages  
-• 🎁 Manage Promo Codes
-
-*⚡ Quick Commands:*
-/users - View users list
-/stats - Bot statistics  
-/packages - Manage packages
-/promos - Manage promos
-/welcome - Edit welcome message
-/broadcast - Send broadcast
-/help_admin - Commands help
-
-Choose an admin action:`;
+        const adminMessage =
+          `🔐 <b>Admin Dashboard</b>\n\n` +
+          `📊 <b>Available Commands:</b>\n` +
+          `• 📈 View Statistics\n` +
+          `• 👥 Manage Users\n` +
+          `• 💰 Manage Payments\n` +
+          `• 📢 Send Broadcast\n` +
+          `• 💾 Export Data\n` +
+          `• 💬 Manage Welcome Message\n` +
+          `• 📦 Manage Packages\n` +
+          `• 🎁 Manage Promo Codes\n\n` +
+          `<b>⚡ Quick Commands:</b>\n` +
+          `${formatCommand('/users')} - View users list\n` +
+          `${formatCommand('/stats')} - Bot statistics\n` +
+          `${formatCommand('/packages')} - Manage packages\n` +
+          `${formatCommand('/promos')} - Manage promos\n` +
+          `${formatCommand('/welcome')} - Edit welcome message\n` +
+          `${formatCommand('/broadcast')} - Send broadcast\n` +
+          `${formatCommand('/help_admin')} - Commands help\n\n` +
+          `Choose an admin action:`;
 
         const adminKeyboard = {
           inline_keyboard: [
@@ -552,7 +567,7 @@ Choose an admin action:`;
           ]
         };
 
-        await sendMessage(chatId, adminMessage, adminKeyboard);
+        await sendMessage(chatId, adminMessage, adminKeyboard, "HTML");
         return new Response("OK", { status: 200 });
       }
 
@@ -740,43 +755,38 @@ You can use:
         return new Response("OK", { status: 200 });
       }
 
-      if (text === '/help_admin' && isAdmin(userId.toString())) {
-        const helpMessage = `🔧 *Admin Commands Help*
+        if (text === '/help_admin' && isAdmin(userId.toString())) {
+          const helpMessage =
+            `🔧 <b>Admin Commands Help</b>\n\n` +
+            `<b>Quick Commands:</b>\n` +
+            `${formatCommand('/admin')} - Main admin dashboard\n` +
+            `${formatCommand('/users')} - View recent users list\n` +
+            `${formatCommand('/stats')} - View bot statistics\n` +
+            `${formatCommand('/packages')} - Quick package management\n` +
+            `${formatCommand('/promos')} - Quick promo management\n` +
+            `${formatCommand('/welcome')} - Edit welcome message\n` +
+            `${formatCommand('/broadcast')} - Send message to all users\n` +
+            `${formatCommand('/help_admin')} - This help message\n\n` +
+            `<b>Dashboard Features:</b>\n` +
+            `• 📊 Analytics & user management\n` +
+            `• 📦 Add/edit/delete packages\n` +
+            `• 💳 Create/manage promo codes\n` +
+            `• 💬 Customize welcome messages\n` +
+            `• 🔧 Bot configuration settings\n\n` +
+            `<b>Payment Management:</b>\n` +
+            `• Approve/reject payments\n` +
+            `• View payment receipts\n` +
+            `• Manage user subscriptions\n` +
+            `• Track payment analytics\n\n` +
+            `Type any command to get started!`;
 
-*Quick Commands:*
-/admin - Main admin dashboard
-/users - View recent users list
-/stats - View bot statistics  
-/packages - Quick package management
-/promos - Quick promo management
-/welcome - Edit welcome message
-/broadcast - Send message to all users
-/help_admin - This help message
+          const helpKeyboard = {
+            inline_keyboard: [[{ text: "🔧 Open Admin Dashboard", callback_data: "admin_stats" }]],
+          };
 
-*Dashboard Features:*
-• 📊 Analytics & user management
-• 📦 Add/edit/delete packages
-• 💳 Create/manage promo codes
-• 💬 Customize welcome messages
-• 🔧 Bot configuration settings
-
-*Payment Management:*
-• Approve/reject payments
-• View payment receipts
-• Manage user subscriptions
-• Track payment analytics
-
-Type any command to get started!`;
-
-        const helpKeyboard = {
-          inline_keyboard: [
-            [{ text: "🔧 Open Admin Dashboard", callback_data: "admin_stats" }]
-          ]
-        };
-
-        await sendMessage(chatId, helpMessage, helpKeyboard);
-        return new Response("OK", { status: 200 });
-      }
+          await sendMessage(chatId, helpMessage, helpKeyboard, "HTML");
+          return new Response("OK", { status: 200 });
+        }
 
       // Handle admin text input flows
       if (text && isAdmin(userId.toString())) {
