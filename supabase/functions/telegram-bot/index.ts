@@ -550,7 +550,7 @@ Choose an admin action:`;
       }
 
       // Admin-only quick commands
-      if (text === '/users' && isAdmin(userId)) {
+      if (text === '/users' && isAdmin(userId.toString())) {
         try {
           const { data: users, error } = await supabaseAdmin
             .from('bot_users')
@@ -594,7 +594,7 @@ Choose an admin action:`;
         return new Response("OK", { status: 200 });
       }
 
-      if (text === '/stats' && isAdmin(userId)) {
+      if (text === '/stats' && isAdmin(userId.toString())) {
         try {
           // Get user statistics
           const { data: totalUsers } = await supabaseAdmin
@@ -649,7 +649,7 @@ Choose an admin action:`;
         return new Response("OK", { status: 200 });
       }
 
-      if (text === '/packages' && isAdmin(userId)) {
+      if (text === '/packages' && isAdmin(userId.toString())) {
         // Redirect to package management
         const packagesMessage = `📦 *Package Management*
 
@@ -669,7 +669,7 @@ Quick access to package management:`;
         return new Response("OK", { status: 200 });
       }
 
-      if (text === '/promos' && isAdmin(userId)) {
+      if (text === '/promos' && isAdmin(userId.toString())) {
         // Redirect to promo management
         const promosMessage = `💳 *Promotion Management*
 
@@ -689,7 +689,7 @@ Quick access to promotion code management:`;
         return new Response("OK", { status: 200 });
       }
 
-      if (text === '/welcome' && isAdmin(userId)) {
+      if (text === '/welcome' && isAdmin(userId.toString())) {
         // Start welcome message editing
         const welcomeSession = getUserSession(userId);
         welcomeSession.awaitingInput = 'edit_welcome_message';
@@ -708,7 +708,7 @@ Current welcome message will be replaced with your new message.`);
         return new Response("OK", { status: 200 });
       }
 
-      if (text === '/broadcast' && isAdmin(userId)) {
+      if (text === '/broadcast' && isAdmin(userId.toString())) {
         const broadcastSession = getUserSession(userId);
         broadcastSession.awaitingInput = 'broadcast_message';
         
@@ -726,7 +726,7 @@ You can use:
         return new Response("OK", { status: 200 });
       }
 
-      if (text === '/help_admin' && isAdmin(userId)) {
+      if (text === '/help_admin' && isAdmin(userId.toString())) {
         const helpMessage = `🔧 *Admin Commands Help*
 
 *Quick Commands:*
@@ -765,7 +765,7 @@ Type any command to get started!`;
       }
 
       // Handle admin text input flows
-      if (text && isAdmin(userId)) {
+      if (text && isAdmin(userId.toString())) {
         const session = getUserSession(userId);
         
         // Handle welcome message editing
