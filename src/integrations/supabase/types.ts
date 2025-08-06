@@ -91,8 +91,11 @@ export type Database = {
           created_at: string
           current_plan_id: string | null
           first_name: string | null
+          follow_up_count: number | null
           id: string
+          is_admin: boolean | null
           is_vip: boolean
+          last_follow_up: string | null
           last_name: string | null
           notes: string | null
           subscription_expires_at: string | null
@@ -104,8 +107,11 @@ export type Database = {
           created_at?: string
           current_plan_id?: string | null
           first_name?: string | null
+          follow_up_count?: number | null
           id?: string
+          is_admin?: boolean | null
           is_vip?: boolean
+          last_follow_up?: string | null
           last_name?: string | null
           notes?: string | null
           subscription_expires_at?: string | null
@@ -117,8 +123,11 @@ export type Database = {
           created_at?: string
           current_plan_id?: string | null
           first_name?: string | null
+          follow_up_count?: number | null
           id?: string
+          is_admin?: boolean | null
           is_vip?: boolean
+          last_follow_up?: string | null
           last_name?: string | null
           notes?: string | null
           subscription_expires_at?: string | null
@@ -743,6 +752,48 @@ export type Database = {
           interaction_type?: string
           page_context?: string | null
           session_id?: string | null
+          telegram_user_id?: string
+        }
+        Relationships: []
+      }
+      user_sessions: {
+        Row: {
+          awaiting_input: string | null
+          created_at: string
+          end_reason: string | null
+          ended_at: string | null
+          id: string
+          is_active: boolean
+          last_activity: string
+          package_data: Json | null
+          promo_data: Json | null
+          session_data: Json | null
+          telegram_user_id: string
+        }
+        Insert: {
+          awaiting_input?: string | null
+          created_at?: string
+          end_reason?: string | null
+          ended_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_activity?: string
+          package_data?: Json | null
+          promo_data?: Json | null
+          session_data?: Json | null
+          telegram_user_id: string
+        }
+        Update: {
+          awaiting_input?: string | null
+          created_at?: string
+          end_reason?: string | null
+          ended_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_activity?: string
+          package_data?: Json | null
+          promo_data?: Json | null
+          session_data?: Json | null
           telegram_user_id?: string
         }
         Relationships: []

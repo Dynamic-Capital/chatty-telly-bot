@@ -64,12 +64,78 @@ async function refreshAdminIds() {
     data?.forEach((row: { telegram_id: string | number }) => {
       ADMIN_USER_IDS.add(row.telegram_id.toString());
     });
+    
+    console.log('Loaded admin IDs from database:', data?.length || 0);
   } catch (error) {
     console.error('Failed to load admin IDs:', error);
   }
 }
 
 await refreshAdminIds();
+
+// Session management functions
+async function createUserSession(telegramUserId: string, sessionData: any = {}) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('user_sessions')
+      .insert({
+        telegram_user_id: telegramUserId,
+        session_data: sessionData,
+        is_active: true,
+        last_activity: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating user session:', error);
+      return null;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error in createUserSession:', error);
+    return null;
+  }
+}
+
+async function updateUserActivity(telegramUserId: string, activityData: any = {}) {
+  try {
+    // Update user's last activity
+    await supabaseAdmin
+      .from('bot_users')
+      .upsert({
+        telegram_id: telegramUserId,
+        updated_at: new Date().toISOString(),
+        follow_up_count: 0 // Reset follow-up count on activity
+      }, {
+        onConflict: 'telegram_id'
+      });
+
+    // Update active session
+    await supabaseAdmin
+      .from('user_sessions')
+      .update({
+        last_activity: new Date().toISOString(),
+        session_data: activityData
+      })
+      .eq('telegram_user_id', telegramUserId)
+      .eq('is_active', true);
+
+    // Track interaction
+    await supabaseAdmin
+      .from('user_interactions')
+      .insert({
+        telegram_user_id: telegramUserId,
+        interaction_type: 'message',
+        interaction_data: activityData,
+        created_at: new Date().toISOString()
+      });
+
+  } catch (error) {
+    console.error('Error updating user activity:', error);
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -458,6 +524,13 @@ serve(async (req) => {
 
     // Fetch or create bot user
     const botUser = await fetchOrCreateBotUser(userId, firstName, lastName, username);
+    
+    // Track user activity for session management
+    await updateUserActivity(userId, {
+      message_type: update.message ? 'message' : 'callback_query',
+      text: update.message?.text || update.callback_query?.data,
+      timestamp: new Date().toISOString()
+    });
 
     // Handle regular messages
     if (update.message) {
