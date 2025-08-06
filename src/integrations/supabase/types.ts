@@ -1233,6 +1233,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      is_valid_otp_timeframe: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       update_daily_analytics: {
         Args: Record<PropertyKey, never>
         Returns: undefined
