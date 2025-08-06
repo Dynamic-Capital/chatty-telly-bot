@@ -4907,7 +4907,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
         });
       }
     }
-
+    
     return new Response("OK", { status: 200 });
 
   } catch (error) {
