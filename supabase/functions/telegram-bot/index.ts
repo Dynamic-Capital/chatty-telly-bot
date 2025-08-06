@@ -1375,34 +1375,6 @@ User ${subscription.telegram_user_id} payment for ${subscription.subscription_pl
   }
 }
 
-// Enhanced keyboard generators - removed duplicate function
-
-async function getVipPackagesKeyboard(): Promise<any> {
-  const packages = await getVipPackages();
-  const keyboard = [];
-  
-  for (const pkg of packages) {
-    const discount = pkg.duration_months >= 12 ? ' 🔥' : 
-                    pkg.duration_months >= 6 ? ' ⭐' :
-                    pkg.duration_months >= 3 ? ' 💫' : '';
-    
-    const price = pkg.is_lifetime ? `$${pkg.price} Lifetime` : `$${pkg.price}/${pkg.duration_months}mo`;
-    
-    keyboard.push([{
-      text: `💎 ${pkg.name}${discount} - ${price}`,
-      callback_data: `select_vip_${pkg.id}`
-    }]);
-  }
-  
-  keyboard.push([
-    { text: "🎁 View Promotions", callback_data: "view_promotions" },
-    { text: "❓ Have Questions?", callback_data: "contact_support" }
-  ]);
-  keyboard.push([{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]);
-  
-  return { inline_keyboard: keyboard };
-}
-
 // Enhanced admin management functions
 async function handleAdminDashboard(chatId: number, userId: string): Promise<void> {
   console.log(`🔐 Admin dashboard access attempt by: ${userId}`);
