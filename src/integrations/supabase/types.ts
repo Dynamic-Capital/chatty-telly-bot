@@ -1244,6 +1244,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_remaining_security_notes: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_security_recommendations: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -1259,6 +1263,10 @@ export type Database = {
       is_valid_otp_timeframe: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      make_secure_http_request: {
+        Args: { method: string; url: string; headers?: Json; body?: string }
+        Returns: Json
       }
       update_daily_analytics: {
         Args: Record<PropertyKey, never>
