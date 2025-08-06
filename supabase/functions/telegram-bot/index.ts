@@ -1315,8 +1315,6 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
     
     console.log(`✅ Subscription ready: ${subscription.id}`);
 
-    console.log(`✅ Subscription ready: ${subscription.id}`);
-
     let paymentInstructions = '';
     
     switch (method) {
