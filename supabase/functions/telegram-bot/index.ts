@@ -288,11 +288,13 @@ const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const BOT_START_TIME = new Date();
 
 console.log("🚀 Bot starting with environment check...");
 console.log("BOT_TOKEN exists:", !!BOT_TOKEN);
 console.log("SUPABASE_URL exists:", !!SUPABASE_URL);
 console.log("SUPABASE_SERVICE_ROLE_KEY exists:", !!SUPABASE_SERVICE_ROLE_KEY);
+console.log("🕐 Bot started at:", BOT_START_TIME.toISOString());
 
 if (!BOT_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error("❌ Missing required environment variables");
@@ -558,7 +560,6 @@ async function sendMediaMessage(chatId: number, mediaType: 'photo' | 'video' | '
     return false;
   }
 }
-console.log("🕐 Bot started at:", BOT_START_TIME.toISOString());
 
 // Session Management Functions
 async function startBotSession(telegramUserId: string, userInfo: any = {}): Promise<string> {
