@@ -284,19 +284,19 @@ function getSecurityResponse(reason: string, blockDuration?: number): string {
   }
 }
 
-const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const BOT_START_TIME = new Date();
 
 console.log("🚀 Bot starting with environment check...");
-console.log("BOT_TOKEN exists:", !!BOT_TOKEN);
+console.log("BOT_TOKEN exists:", !!TELEGRAM_BOT_TOKEN);
 console.log("SUPABASE_URL exists:", !!SUPABASE_URL);
 console.log("SUPABASE_SERVICE_ROLE_KEY exists:", !!SUPABASE_SERVICE_ROLE_KEY);
 console.log("🕐 Bot started at:", BOT_START_TIME.toISOString());
 
-if (!BOT_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+if (!TELEGRAM_BOT_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error("❌ Missing required environment variables");
   throw new Error("Missing required environment variables");
 }
@@ -446,7 +446,7 @@ async function downloadTelegramFile(fileId: string): Promise<{ buffer: ArrayBuff
     console.log(`📥 Downloading Telegram file: ${fileId}`);
     
     // Get file info from Telegram
-    const fileInfoResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`);
+    const fileInfoResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`);
     const fileInfo = await fileInfoResponse.json();
     
     if (!fileInfo.ok) {
@@ -455,7 +455,7 @@ async function downloadTelegramFile(fileId: string): Promise<{ buffer: ArrayBuff
     }
     
     const filePath = fileInfo.result.file_path;
-    const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
+    const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${filePath}`;
     
     // Download the actual file
     const fileResponse = await fetch(fileUrl);
