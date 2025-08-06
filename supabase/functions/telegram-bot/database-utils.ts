@@ -99,11 +99,75 @@ export async function getVipPackages(): Promise<any[]> {
       .select('*')
       .order('price', { ascending: true });
 
+    if (error) {
+      console.error('Error fetching VIP packages:', error);
+      return [];
+    }
+
     return data || [];
   } catch (error) {
     console.error('Error fetching VIP packages:', error);
     return [];
   }
+}
+
+// Enhanced VIP packages display with better formatting
+export async function getFormattedVipPackages(): Promise<string> {
+  const packages = await getVipPackages();
+  
+  if (packages.length === 0) {
+    return "💎 *VIP Membership Packages*\n\n❌ No packages available at the moment.";
+  }
+
+  let message = `💎 *VIP Membership Packages*\n\n🚀 *Unlock Premium Trading Success!*\n\n`;
+  
+  packages.forEach((pkg, index) => {
+    const discount = pkg.duration_months >= 12 ? '🔥 BEST VALUE' : 
+                    pkg.duration_months >= 6 ? '⭐ POPULAR' :
+                    pkg.duration_months >= 3 ? '💫 SAVE MORE' : '🎯 STARTER';
+    
+    const monthlyEquivalent = pkg.duration_months > 0 ? 
+      `($${(pkg.price / pkg.duration_months).toFixed(0)}/month)` : '';
+    
+    const savingsInfo = pkg.duration_months >= 12 ? '💰 Save 35%' :
+                       pkg.duration_months >= 6 ? '💰 Save 20%' :
+                       pkg.duration_months >= 3 ? '💰 Save 15%' : '';
+
+    message += `${index + 1}. **${pkg.name}** ${discount}\n`;
+    message += `   💰 **${pkg.currency} ${pkg.price}**`;
+    
+    if (pkg.is_lifetime) {
+      message += ` - *Lifetime Access*\n`;
+    } else {
+      message += `/${pkg.duration_months}mo ${monthlyEquivalent}\n`;
+      if (savingsInfo) message += `   ${savingsInfo}\n`;
+    }
+    
+    message += `   ✨ **Features:**\n`;
+    if (pkg.features && Array.isArray(pkg.features)) {
+      pkg.features.forEach(feature => {
+        message += `      • ${feature}\n`;
+      });
+    }
+    
+    if (pkg.is_lifetime) {
+      message += `      • 🌟 All future programs included\n`;
+      message += `      • 🔐 Exclusive lifetime member content\n`;
+    }
+    
+    message += `\n`;
+  });
+
+  message += `🎁 *Special Benefits:*\n`;
+  message += `• 📈 Real-time trading signals\n`;
+  message += `• 🏆 VIP community access\n`;
+  message += `• 📊 Daily market analysis\n`;
+  message += `• 🎓 Educational resources\n`;
+  message += `• 💬 Direct mentor support\n\n`;
+  
+  message += `✅ *Ready to level up your trading?*\nSelect a package below to get started!`;
+
+  return message;
 }
 
 export async function createVipPackage(packageData: any, adminId: string): Promise<boolean> {

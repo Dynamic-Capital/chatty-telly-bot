@@ -22,6 +22,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Import database utilities and enhanced admin handlers
+import { 
+  getBotContent, setBotContent, getBotSetting, setBotSetting, 
+  logAdminAction, updateUserActivity, formatContent,
+  getVipPackages, getFormattedVipPackages, getEducationPackages, getActivePromotions
+} from "./database-utils.ts";
+
+import {
+  handleTableManagement, handleUserTableManagement, handleSubscriptionPlansManagement,
+  handlePromotionsManagement, handleContentManagement, handleBotSettingsManagement,
+  handleTableStatsOverview
+} from "./admin-handlers.ts";
+
 // Database utility functions
 async function getBotContent(contentKey: string): Promise<string | null> {
   try {
@@ -247,7 +260,7 @@ async function sendMessage(
 async function getWelcomeMessage(firstName: string): Promise<string> {
   const template = await getBotContent('welcome_message');
   if (!template) {
-    return `🚀 *Welcome to Dynamic Capital VIP, ${firstName}!*\n\nWe're here to help you level up your trading!`;
+    return `🚀 *Welcome to Dynamic Capital VIP, ${firstName}!*\n\nWe're here to help you level up your trading with:\n\n• 🔔 Quick market updates\n• 📈 Beginner-friendly tips\n• 🎓 Easy learning resources\n\nReady to get started? Pick an option below 👇`;
   }
   return formatContent(template, { firstName });
 }
@@ -325,12 +338,22 @@ async function getVipPackagesKeyboard(): Promise<any> {
   const keyboard = [];
   
   for (const pkg of packages) {
+    const discount = pkg.duration_months >= 12 ? ' 🔥' : 
+                    pkg.duration_months >= 6 ? ' ⭐' :
+                    pkg.duration_months >= 3 ? ' 💫' : '';
+    
+    const price = pkg.is_lifetime ? `$${pkg.price} Lifetime` : `$${pkg.price}/${pkg.duration_months}mo`;
+    
     keyboard.push([{
-      text: `💎 ${pkg.name} - $${pkg.price}/${pkg.duration_months}mo`,
+      text: `💎 ${pkg.name}${discount} - ${price}`,
       callback_data: `select_vip_${pkg.id}`
     }]);
   }
   
+  keyboard.push([
+    { text: "🎁 View Promotions", callback_data: "view_promotions" },
+    { text: "❓ Have Questions?", callback_data: "contact_support" }
+  ]);
   keyboard.push([{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]);
   
   return { inline_keyboard: keyboard };
@@ -359,41 +382,59 @@ async function handleAdminDashboard(chatId: number, userId: string): Promise<voi
     return;
   }
 
+  // Get quick stats for dashboard
+  const userCount = await supabaseAdmin.from('bot_users').select('count', { count: 'exact' });
+  const vipCount = await supabaseAdmin.from('bot_users').select('count', { count: 'exact' }).eq('is_vip', true);
+  const planCount = await supabaseAdmin.from('subscription_plans').select('count', { count: 'exact' });
+  const promoCount = await supabaseAdmin.from('promotions').select('count', { count: 'exact' }).eq('is_active', true);
+
   const adminMessage = `🔐 *Enhanced Admin Dashboard*
 
-📊 *System Status:* 🟢 Online
+📊 *System Status:* 🟢 Online & Optimized
 👤 *Admin:* ${userId}
+🕐 *Last Updated:* ${new Date().toLocaleString()}
 
-🚀 *Quick Actions:*
-• 👥 User Management & Analytics
-• 📦 VIP & Education Packages  
-• 💰 Promotions & Discounts
-• 💬 Content & Messages
-• ⚙️ Bot Settings & Config
-• 📈 Analytics & Reports
-• 📢 Broadcasting Tools
-• 🔧 System Maintenance`;
+📈 *Quick Stats:*
+• 👥 Total Users: ${userCount.count || 0}
+• 💎 VIP Members: ${vipCount.count || 0}
+• 📦 Active Plans: ${planCount.count || 0}
+• 🎁 Active Promos: ${promoCount.count || 0}
+
+🚀 *Management Tools:*
+• 🗃️ **Database Tables** - Complete table management
+• 👥 **User Management** - Admins, VIP, analytics
+• 📦 **Package Control** - VIP & education packages  
+• 💰 **Promotions Hub** - Discounts & campaigns
+• 💬 **Content Editor** - Messages & UI text
+• ⚙️ **Bot Settings** - Configuration & behavior
+• 📈 **Analytics Center** - Reports & insights
+• 📢 **Broadcasting** - Mass communication
+• 🔧 **System Tools** - Maintenance & utilities`;
 
   const adminKeyboard = {
     inline_keyboard: [
       [
-        { text: "👥 Users", callback_data: "admin_users" },
-        { text: "📦 Packages", callback_data: "admin_packages" }
+        { text: "🗃️ Manage Tables", callback_data: "manage_tables" },
+        { text: "👥 User Management", callback_data: "admin_users" }
       ],
       [
-        { text: "💰 Promos", callback_data: "admin_promos" },
-        { text: "💬 Content", callback_data: "admin_content" }
+        { text: "📦 Packages", callback_data: "admin_packages" },
+        { text: "💰 Promotions", callback_data: "admin_promos" }
       ],
       [
-        { text: "⚙️ Settings", callback_data: "admin_settings" },
-        { text: "📈 Analytics", callback_data: "admin_analytics" }
+        { text: "💬 Content", callback_data: "admin_content" },
+        { text: "⚙️ Settings", callback_data: "admin_settings" }
       ],
       [
-        { text: "📢 Broadcast", callback_data: "admin_broadcast" },
-        { text: "🔧 Tools", callback_data: "admin_tools" }
+        { text: "📈 Analytics", callback_data: "admin_analytics" },
+        { text: "📢 Broadcast", callback_data: "admin_broadcast" }
       ],
       [
+        { text: "🔧 System Tools", callback_data: "admin_tools" },
         { text: "📋 Admin Logs", callback_data: "admin_logs" }
+      ],
+      [
+        { text: "🔄 Refresh Dashboard", callback_data: "admin_dashboard" }
       ]
     ]
   };
