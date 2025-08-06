@@ -11,6 +11,7 @@ import Education from "./pages/Education";
 import NotFound from "./pages/NotFound";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { WelcomeMessage } from "./components/welcome/WelcomeMessage";
+import BotStatus from "./pages/BotStatus";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/education" element={<Education />} />
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/bot-status" element={<BotStatus />} />
               <Route path="/welcome" element={<WelcomeMessage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
