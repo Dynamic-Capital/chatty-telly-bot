@@ -2,6 +2,16 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getFormattedVipPackages } from "./database-utils.ts";
+import { 
+  handleTableManagement, 
+  handleUserTableManagement, 
+  handleSubscriptionPlansManagement, 
+  handleEducationPackagesManagement, 
+  handlePromotionsManagement, 
+  handleContentManagement, 
+  handleBotSettingsManagement, 
+  handleTableStatsOverview 
+} from "./admin-handlers.ts";
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
@@ -2597,6 +2607,7 @@ serve(async (req) => {
             break;
 
           case 'manage_table_subscription_plans':
+            console.log(`🔍 Handling subscription plans management for user ${userId}`);
             await handleSubscriptionPlansManagement(chatId, userId);
             break;
 
