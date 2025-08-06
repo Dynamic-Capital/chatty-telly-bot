@@ -1240,6 +1240,14 @@ export type Database = {
           schema_name: unknown
         }[]
       }
+      generate_uuid: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_security_recommendations: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_user_role: {
         Args: { user_telegram_id: string }
         Returns: string
