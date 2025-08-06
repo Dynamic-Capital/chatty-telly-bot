@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.cleanup-old-sessions]
 verify_jwt = false
+
+[functions.storage-cleanup]
+verify_jwt = false
