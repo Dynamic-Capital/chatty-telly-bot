@@ -1,6 +1,7 @@
 /* eslint-disable no-case-declarations */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getFormattedVipPackages } from "./database-utils.ts";
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
@@ -695,63 +696,6 @@ async function getVipPackages(): Promise<any[]> {
   }
 }
 
-// Enhanced VIP packages display with better formatting
-async function getFormattedVipPackages(): Promise<string> {
-  const packages = await getVipPackages();
-  
-  if (packages.length === 0) {
-    return "❌ No VIP packages available at the moment.";
-  }
-
-  let message = `💎 *VIP Membership Packages*
-
-🚀 *Unlock Premium Trading Success!*
-
-`;
-
-  packages.forEach((pkg, index) => {
-    const badge = pkg.is_lifetime ? '🎯 STARTER' : 
-                  index === 1 ? '💫 SAVE MORE' : 
-                  index === 2 ? '⭐ POPULAR' : 
-                  index === 3 ? '🔥 BEST VALUE' : 
-                  '🎯 STARTER';
-    
-    const savings = pkg.price < 100 ? '' : 
-                   pkg.price < 200 ? '\n   💰 Save 15%' :
-                   pkg.price < 500 ? '\n   💰 Save 20%' :
-                   '\n   💰 Save 35%';
-    
-    message += `${index + 1}. **${pkg.name}** ${badge}
-   💰 USD ${pkg.price}/${pkg.is_lifetime ? 'Lifetime' : pkg.duration_months + 'mo'} ${pkg.is_lifetime ? '' : '($' + (pkg.price / pkg.duration_months).toFixed(0) + '/month)'}${savings}
-   ✨ Features:`;
-    
-    if (pkg.features && Array.isArray(pkg.features)) {
-      pkg.features.forEach(feature => {
-        message += `\n      • ${feature}`;
-      });
-    }
-    
-    if (pkg.is_lifetime) {
-      message += `\n      • 🌟 All future programs included
-      • 🔐 Exclusive lifetime member content`;
-    }
-    
-    message += '\n\n';
-  });
-
-  message += `🎁 **Special Benefits:**
-• 📈 Real-time trading signals
-• 🏆 VIP community access
-• 📊 Daily market analysis
-• 🎓 Educational resources
-• 💬 Direct mentor support
-
-✅ Ready to level up your trading?
-Select a package below to get started!`;
-
-  return message;
-}
-
 async function getVipPackagesKeyboard(): Promise<any> {
   const packages = await getVipPackages();
   const buttons = [];
@@ -1429,63 +1373,6 @@ User ${subscription.telegram_user_id} payment for ${subscription.subscription_pl
     console.error('🚨 Error rejecting payment:', error);
     await sendMessage(chatId, `❌ Error rejecting payment: ${error.message}`);
   }
-}
-async function getFormattedVipPackages(): Promise<string> {
-  const packages = await getVipPackages();
-  
-  if (packages.length === 0) {
-    return "💎 *VIP Membership Packages*\n\n❌ No packages available at the moment.";
-  }
-
-  let message = `💎 *VIP Membership Packages*\n\n🚀 *Unlock Premium Trading Success!*\n\n`;
-  
-  packages.forEach((pkg, index) => {
-    const discount = pkg.duration_months >= 12 ? '🔥 BEST VALUE' : 
-                    pkg.duration_months >= 6 ? '⭐ POPULAR' :
-                    pkg.duration_months >= 3 ? '💫 SAVE MORE' : '🎯 STARTER';
-    
-    const monthlyEquivalent = pkg.duration_months > 0 ? 
-      `($${(pkg.price / pkg.duration_months).toFixed(0)}/month)` : '';
-    
-    const savingsInfo = pkg.duration_months >= 12 ? '💰 Save 35%' :
-                       pkg.duration_months >= 6 ? '💰 Save 20%' :
-                       pkg.duration_months >= 3 ? '💰 Save 15%' : '';
-
-    message += `${index + 1}. **${pkg.name}** ${discount}\n`;
-    message += `   💰 **${pkg.currency} ${pkg.price}**`;
-    
-    if (pkg.is_lifetime) {
-      message += ` - *Lifetime Access*\n`;
-    } else {
-      message += `/${pkg.duration_months}mo ${monthlyEquivalent}\n`;
-      if (savingsInfo) message += `   ${savingsInfo}\n`;
-    }
-    
-    message += `   ✨ **Features:**\n`;
-    if (pkg.features && Array.isArray(pkg.features)) {
-      pkg.features.forEach(feature => {
-        message += `      • ${feature}\n`;
-      });
-    }
-    
-    if (pkg.is_lifetime) {
-      message += `      • 🌟 All future programs included\n`;
-      message += `      • 🔐 Exclusive lifetime member content\n`;
-    }
-    
-    message += `\n`;
-  });
-
-  message += `🎁 *Special Benefits:*\n`;
-  message += `• 📈 Real-time trading signals\n`;
-  message += `• 🏆 VIP community access\n`;
-  message += `• 📊 Daily market analysis\n`;
-  message += `• 🎓 Educational resources\n`;
-  message += `• 💬 Direct mentor support\n\n`;
-  
-  message += `✅ *Ready to level up your trading?*\nSelect a package below to get started!`;
-
-  return message;
 }
 
 // Enhanced keyboard generators
