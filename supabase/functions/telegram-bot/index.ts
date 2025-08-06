@@ -1992,7 +1992,6 @@ Join our VIP community for detailed analysis and insights.
     return false;
   }
 }
-}
 
 async function handlePromoCodeApplication(chatId: number, userId: string, promoCode: string, packageId: string): Promise<{ valid: boolean; discount: number; finalPrice: number; message: string }> {
   try {
