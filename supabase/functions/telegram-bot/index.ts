@@ -859,6 +859,287 @@ async function handleRefreshBot(chatId: number, userId: string): Promise<void> {
   }
 }
 
+// Broadcasting Functions
+async function handleBroadcastMenu(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  const broadcastMessage = `📢 *Broadcast Management*
+
+🚀 *Available Broadcast Options:*
+• 👋 **Send Greeting** - Send hello message to channels/groups
+• 🎯 **Channel Introduction** - Introduce bot to new channels
+• 📝 **Custom Broadcast** - Send custom message to all channels
+• 📊 **Broadcast History** - View previous broadcasts
+• ⚙️ **Broadcast Settings** - Configure broadcast preferences
+
+💡 *Tips:*
+• Test messages in a small group first
+• Use markdown formatting for better appearance
+• Schedule broadcasts for optimal timing`;
+
+  const broadcastKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "👋 Send Greeting", callback_data: "send_greeting" },
+        { text: "🎯 Channel Intro", callback_data: "send_channel_intro" }
+      ],
+      [
+        { text: "📝 Custom Broadcast", callback_data: "custom_broadcast" },
+        { text: "📊 History", callback_data: "broadcast_history" }
+      ],
+      [
+        { text: "⚙️ Settings", callback_data: "broadcast_settings" },
+        { text: "🧪 Test Message", callback_data: "test_broadcast" }
+      ],
+      [
+        { text: "🔙 Back to Admin", callback_data: "admin_dashboard" }
+      ]
+    ]
+  };
+
+  await sendMessage(chatId, broadcastMessage, broadcastKeyboard);
+}
+
+async function handleSendGreeting(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  const greetingMessage = await getBotContent('broadcast_greeting') || `👋 *Hello Everyone!*
+
+🎉 **Welcome to Dynamic Capital VIP!**
+
+I'm your new trading assistant bot, here to help you:
+
+🔔 **Stay Updated:**
+• Real-time market alerts
+• Trading signals and insights
+• Educational content delivery
+
+💰 **Maximize Profits:**
+• VIP package access
+• Exclusive trading strategies
+• Direct mentor support
+
+🚀 **Get Started:**
+• Use /start to access the main menu
+• Explore our VIP packages
+• Join our community discussions
+
+Looking forward to helping you succeed in trading! 📈
+
+*Powered by Dynamic Capital Team* 💎`;
+
+  // Get channels to broadcast to
+  const channels = await getBroadcastChannels();
+  
+  if (channels.length === 0) {
+    await sendMessage(chatId, "⚠️ No broadcast channels configured. Please add channel IDs to broadcast settings first.");
+    return;
+  }
+
+  await sendMessage(chatId, `📢 *Sending Greeting Message*\n\n📡 Broadcasting to ${channels.length} channels...\n\n*Message Preview:*\n${greetingMessage.substring(0, 200)}...`);
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const channelId of channels) {
+    try {
+      await sendMessage(parseInt(channelId), greetingMessage);
+      successCount++;
+      console.log(`✅ Greeting sent to channel: ${channelId}`);
+    } catch (error) {
+      failCount++;
+      console.error(`❌ Failed to send greeting to channel ${channelId}:`, error);
+    }
+    
+    // Small delay between messages to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+
+  const resultMessage = `📢 *Greeting Broadcast Complete!*
+
+✅ **Successfully sent:** ${successCount} channels
+❌ **Failed:** ${failCount} channels
+📊 **Total channels:** ${channels.length}
+
+${failCount > 0 ? '⚠️ Check logs for failed channels and verify permissions.' : '🎉 All messages sent successfully!'}`;
+
+  await sendMessage(chatId, resultMessage);
+  await logAdminAction(userId, 'broadcast_greeting', `Sent greeting to ${successCount}/${channels.length} channels`);
+}
+
+async function handleSendChannelIntro(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  const introMessage = await getBotContent('broadcast_intro') || `🤖 *Bot Introduction*
+
+📢 **Dynamic Capital VIP Bot is now LIVE!**
+
+🎯 **What I can do for you:**
+
+💎 **VIP Services:**
+• Show available membership packages
+• Process subscription requests  
+• Provide member support
+
+🎓 **Education Hub:**
+• Access trading courses
+• View learning materials
+• Track your progress
+
+📊 **Market Intelligence:**
+• Real-time trading signals
+• Market analysis updates
+• Price alerts & notifications
+
+🛟 **24/7 Support:**
+• Answer frequently asked questions
+• Connect you with support team
+• Resolve account issues
+
+**🚀 Get Started Now:**
+Send me /start to explore all features!
+
+*Ready to transform your trading journey?* 💰📈`;
+
+  const channels = await getBroadcastChannels();
+  
+  if (channels.length === 0) {
+    await sendMessage(chatId, "⚠️ No broadcast channels configured. Please add channel IDs to broadcast settings first.");
+    return;
+  }
+
+  await sendMessage(chatId, `🎯 *Sending Introduction Message*\n\n📡 Broadcasting to ${channels.length} channels...\n\n*Message Preview:*\n${introMessage.substring(0, 200)}...`);
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const channelId of channels) {
+    try {
+      await sendMessage(parseInt(channelId), introMessage);
+      successCount++;
+      console.log(`✅ Introduction sent to channel: ${channelId}`);
+    } catch (error) {
+      failCount++;
+      console.error(`❌ Failed to send introduction to channel ${channelId}:`, error);
+    }
+    
+    // Small delay between messages
+    await new Promise(resolve => setTimeout(resolve, 1500));
+  }
+
+  const resultMessage = `🎯 *Introduction Broadcast Complete!*
+
+✅ **Successfully sent:** ${successCount} channels
+❌ **Failed:** ${failCount} channels
+📊 **Total channels:** ${channels.length}
+
+${failCount > 0 ? '⚠️ Some messages failed to send. Check bot permissions in those channels.' : '🎉 All introductions sent successfully!'}`;
+
+  await sendMessage(chatId, resultMessage);
+  await logAdminAction(userId, 'broadcast_intro', `Sent introduction to ${successCount}/${channels.length} channels`);
+}
+
+async function handleCustomBroadcast(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  const userSession = getUserSession(userId);
+  userSession.awaitingInput = 'custom_broadcast_message';
+
+  await sendMessage(chatId, `📝 *Custom Broadcast*
+
+📋 **Instructions:**
+• Send me the message you want to broadcast
+• Use Markdown formatting for better appearance
+• Include emojis and formatting as needed
+• Message will be sent to all configured channels
+
+💡 **Formatting Tips:**
+• Use *bold* for emphasis
+• Use _italic_ for subtle text
+• Use \`code\` for highlights
+• Use [links](url) for references
+
+📤 **Send your message now:**`);
+}
+
+async function handleNewChatMember(message: any): Promise<void> {
+  const chatId = message.chat.id;
+  const chatTitle = message.chat.title || 'Unknown Chat';
+  const newMembers = message.new_chat_members || [];
+
+  console.log(`👥 New member(s) added to ${chatTitle} (${chatId})`);
+
+  // Check if the bot itself was added
+  const botMember = newMembers.find((member: any) => member.username === 'Dynamic_VIP_BOT' || member.is_bot);
+  
+  if (botMember) {
+    console.log(`🤖 Bot was added to new chat: ${chatTitle}`);
+    
+    // Send automatic introduction when bot is added to new channel/group
+    const autoIntroMessage = await getBotContent('auto_intro') || `👋 *Hello ${chatTitle}!*
+
+🤖 **Dynamic Capital VIP Bot** is now active here!
+
+🚀 **I'm here to help with:**
+• 💎 VIP membership packages
+• 🎓 Trading education resources  
+• 📊 Market updates & signals
+• 🛟 24/7 customer support
+
+**🎯 Get started with /start**
+
+*Thank you for adding me to your community!* 🙏`;
+
+    // Wait a moment before sending intro (looks more natural)
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    try {
+      await sendMessage(chatId, autoIntroMessage);
+      console.log(`✅ Auto introduction sent to: ${chatTitle}`);
+      
+      // Log the new channel addition
+      await supabaseAdmin
+        .from('admin_logs')
+        .insert({
+          admin_telegram_id: 'system',
+          action_type: 'bot_added_to_chat',
+          action_description: `Bot added to: ${chatTitle} (${chatId})`,
+          new_values: { chat_id: chatId, chat_title: chatTitle, chat_type: message.chat.type }
+        });
+        
+    } catch (error) {
+      console.error(`❌ Failed to send auto intro to ${chatTitle}:`, error);
+    }
+  }
+}
+
+async function getBroadcastChannels(): Promise<string[]> {
+  try {
+    const channelsSetting = await getBotSetting('broadcast_channels');
+    if (!channelsSetting) {
+      return [];
+    }
+    
+    // Parse channels from setting (comma-separated list)
+    return channelsSetting.split(',').map(ch => ch.trim()).filter(ch => ch.length > 0);
+  } catch (error) {
+    console.error('🚨 Error getting broadcast channels:', error);
+    return [];
+  }
+}
+
 // Main serve function
 serve(async (req) => {
   console.log(`📥 Request received: ${req.method} ${req.url}`);
@@ -896,8 +1177,8 @@ serve(async (req) => {
 
     console.log(`👤 Processing update for user: ${userId} (${firstName})`);
 
-    // Track user activity for session management
-    await updateUserActivity(userId, {
+    // Track user activity for session management (using updateBotSession instead)
+    await updateBotSession(userId, {
       message_type: update.message ? 'message' : 'callback_query',
       text: update.message?.text || update.callback_query?.data,
       timestamp: new Date().toISOString()
@@ -964,6 +1245,18 @@ serve(async (req) => {
       // Handle /refresh command for admins
       if (text === '/refresh' && isAdmin(userId)) {
         await handleRefreshBot(chatId, userId);
+        return new Response("OK", { status: 200 });
+      }
+
+      // Handle /broadcast command for admins
+      if (text === '/broadcast' && isAdmin(userId)) {
+        await handleBroadcastMenu(chatId, userId);
+        return new Response("OK", { status: 200 });
+      }
+
+      // Handle new chat member events (when bot is added to channels/groups)
+      if (update.message.new_chat_members) {
+        await handleNewChatMember(update.message);
         return new Response("OK", { status: 200 });
       }
 
@@ -1081,6 +1374,22 @@ serve(async (req) => {
 
               await sendMessage(chatId, diagnostic);
             }
+            break;
+
+          case 'admin_broadcast':
+            await handleBroadcastMenu(chatId, userId);
+            break;
+
+          case 'send_greeting':
+            await handleSendGreeting(chatId, userId);
+            break;
+
+          case 'send_channel_intro':
+            await handleSendChannelIntro(chatId, userId);
+            break;
+
+          case 'custom_broadcast':
+            await handleCustomBroadcast(chatId, userId);
             break;
 
           default:
