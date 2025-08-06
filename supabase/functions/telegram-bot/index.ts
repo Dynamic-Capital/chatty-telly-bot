@@ -1599,6 +1599,7 @@ async function handleViewPendingPayments(chatId: number, adminUserId: string): P
     console.error('🚨 Error viewing pending payments:', error);
     await sendMessage(chatId, `❌ Error loading pending payments: ${error.message}`);
   }
+}
 
 // Payment Approval/Rejection Handlers
 async function handleApprovePayment(chatId: number, userId: string, paymentId: string): Promise<void> {
