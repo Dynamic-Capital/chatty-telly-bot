@@ -13,6 +13,277 @@ import {
   handleTableStatsOverview 
 } from "./admin-handlers.ts";
 
+// Rate limiting and anti-spam protection
+interface RateLimitEntry {
+  count: number;
+  lastReset: number;
+  blocked?: boolean;
+  blockUntil?: number;
+  lastMessage?: string;
+  identicalCount?: number;
+}
+
+interface SecurityStats {
+  totalRequests: number;
+  blockedRequests: number;
+  suspiciousUsers: Set<string>;
+  lastCleanup: number;
+}
+
+// In-memory rate limiting store
+const rateLimitStore = new Map<string, RateLimitEntry>();
+const securityStats: SecurityStats = {
+  totalRequests: 0,
+  blockedRequests: 0,
+  suspiciousUsers: new Set(),
+  lastCleanup: Date.now()
+};
+
+// Security configuration
+const SECURITY_CONFIG = {
+  // Rate limits per minute
+  MAX_REQUESTS_PER_MINUTE: 20,
+  MAX_REQUESTS_PER_HOUR: 150,
+  
+  // Spam protection
+  MAX_IDENTICAL_MESSAGES: 3,
+  MAX_COMMANDS_PER_MINUTE: 8,
+  FLOOD_PROTECTION_WINDOW: 60000, // 1 minute
+  
+  // Blocking thresholds
+  SUSPICIOUS_THRESHOLD: 30, // requests per minute
+  AUTO_BLOCK_DURATION: 300000, // 5 minutes
+  TEMP_BLOCK_DURATION: 60000, // 1 minute for minor violations
+  
+  // Message limits
+  MAX_MESSAGE_LENGTH: 4000,
+  MIN_MESSAGE_INTERVAL: 500, // 0.5 second between messages
+  
+  // Admin exemption
+  ADMIN_RATE_LIMIT_MULTIPLIER: 5,
+  
+  // Cleanup interval
+  CLEANUP_INTERVAL: 1800000 // 30 minutes
+};
+
+// Security functions
+function getRateLimitKey(userId: string, type: 'minute' | 'hour' | 'command' | 'message' | 'identical'): string {
+  const now = new Date();
+  if (type === 'minute') {
+    return `${userId}:min:${Math.floor(now.getTime() / 60000)}`;
+  } else if (type === 'hour') {
+    return `${userId}:hr:${Math.floor(now.getTime() / 3600000)}`;
+  } else if (type === 'command') {
+    return `${userId}:cmd:${Math.floor(now.getTime() / 60000)}`;
+  } else if (type === 'identical') {
+    return `${userId}:ident`;
+  } else {
+    return `${userId}:msg:${Math.floor(now.getTime() / SECURITY_CONFIG.MIN_MESSAGE_INTERVAL)}`;
+  }
+}
+
+function isRateLimited(userId: string, isAdmin: boolean = false, messageText?: string): { limited: boolean; reason?: string; blockDuration?: number } {
+  const now = Date.now();
+  const multiplier = isAdmin ? SECURITY_CONFIG.ADMIN_RATE_LIMIT_MULTIPLIER : 1;
+  
+  // Check if user is temporarily blocked
+  const blockKey = `block:${userId}`;
+  const blockEntry = rateLimitStore.get(blockKey);
+  if (blockEntry?.blocked && blockEntry.blockUntil && now < blockEntry.blockUntil) {
+    const remainingTime = Math.ceil((blockEntry.blockUntil - now) / 1000);
+    logSecurityEvent(userId, 'blocked_request_attempt', { remainingTime });
+    return { limited: true, reason: 'temporarily_blocked', blockDuration: remainingTime };
+  }
+  
+  // Check for identical message spam
+  if (messageText && messageText.length > 10) {
+    const identicalKey = getRateLimitKey(userId, 'identical');
+    const identicalEntry = rateLimitStore.get(identicalKey) || { count: 0, lastReset: now, identicalCount: 0 };
+    
+    if (identicalEntry.lastMessage === messageText) {
+      identicalEntry.identicalCount = (identicalEntry.identicalCount || 0) + 1;
+      if (identicalEntry.identicalCount >= SECURITY_CONFIG.MAX_IDENTICAL_MESSAGES) {
+        logSecurityEvent(userId, 'identical_spam_detected', { message: messageText.substring(0, 100), count: identicalEntry.identicalCount });
+        
+        // Temporary block for spam
+        const tempBlockEntry: RateLimitEntry = {
+          count: 0,
+          lastReset: now,
+          blocked: true,
+          blockUntil: now + SECURITY_CONFIG.TEMP_BLOCK_DURATION
+        };
+        rateLimitStore.set(blockKey, tempBlockEntry);
+        return { limited: true, reason: 'identical_spam', blockDuration: SECURITY_CONFIG.TEMP_BLOCK_DURATION / 1000 };
+      }
+    } else {
+      identicalEntry.identicalCount = 0;
+    }
+    
+    identicalEntry.lastMessage = messageText;
+    rateLimitStore.set(identicalKey, identicalEntry);
+  }
+  
+  // Check minute rate limit
+  const minuteKey = getRateLimitKey(userId, 'minute');
+  const minuteEntry = rateLimitStore.get(minuteKey) || { count: 0, lastReset: now };
+  
+  if (now - minuteEntry.lastReset > 60000) {
+    minuteEntry.count = 0;
+    minuteEntry.lastReset = now;
+  }
+  
+  if (minuteEntry.count >= SECURITY_CONFIG.MAX_REQUESTS_PER_MINUTE * multiplier) {
+    logSecurityEvent(userId, 'rate_limit_minute_exceeded', { count: minuteEntry.count, limit: SECURITY_CONFIG.MAX_REQUESTS_PER_MINUTE * multiplier });
+    
+    // Auto-block if suspicious activity
+    if (minuteEntry.count >= SECURITY_CONFIG.SUSPICIOUS_THRESHOLD && !isAdmin) {
+      const blockEntry: RateLimitEntry = {
+        count: 0,
+        lastReset: now,
+        blocked: true,
+        blockUntil: now + SECURITY_CONFIG.AUTO_BLOCK_DURATION
+      };
+      rateLimitStore.set(blockKey, blockEntry);
+      securityStats.suspiciousUsers.add(userId);
+      logSecurityEvent(userId, 'auto_blocked_suspicious', { 
+        requests: minuteEntry.count, 
+        blockDuration: SECURITY_CONFIG.AUTO_BLOCK_DURATION / 1000 
+      });
+      return { limited: true, reason: 'auto_blocked', blockDuration: SECURITY_CONFIG.AUTO_BLOCK_DURATION / 1000 };
+    }
+    
+    return { limited: true, reason: 'rate_limit_minute' };
+  }
+  
+  // Check hourly rate limit
+  const hourKey = getRateLimitKey(userId, 'hour');
+  const hourEntry = rateLimitStore.get(hourKey) || { count: 0, lastReset: now };
+  
+  if (now - hourEntry.lastReset > 3600000) {
+    hourEntry.count = 0;
+    hourEntry.lastReset = now;
+  }
+  
+  if (hourEntry.count >= SECURITY_CONFIG.MAX_REQUESTS_PER_HOUR * multiplier) {
+    logSecurityEvent(userId, 'rate_limit_hour_exceeded', { count: hourEntry.count, limit: SECURITY_CONFIG.MAX_REQUESTS_PER_HOUR * multiplier });
+    return { limited: true, reason: 'rate_limit_hour' };
+  }
+  
+  // Update counters
+  minuteEntry.count++;
+  hourEntry.count++;
+  rateLimitStore.set(minuteKey, minuteEntry);
+  rateLimitStore.set(hourKey, hourEntry);
+  
+  return { limited: false };
+}
+
+function isCommandSpam(userId: string, command: string): boolean {
+  const now = Date.now();
+  const commandKey = getRateLimitKey(userId, 'command');
+  const entry = rateLimitStore.get(commandKey) || { count: 0, lastReset: now };
+  
+  if (now - entry.lastReset > 60000) {
+    entry.count = 0;
+    entry.lastReset = now;
+  }
+  
+  if (entry.count >= SECURITY_CONFIG.MAX_COMMANDS_PER_MINUTE) {
+    logSecurityEvent(userId, 'command_spam_detected', { command, count: entry.count });
+    return true;
+  }
+  
+  entry.count++;
+  rateLimitStore.set(commandKey, entry);
+  return false;
+}
+
+function validateMessage(text: string, userId: string): { valid: boolean; reason?: string } {
+  // Check message length
+  if (text.length > SECURITY_CONFIG.MAX_MESSAGE_LENGTH) {
+    logSecurityEvent(userId, 'message_too_long', { length: text.length, maxLength: SECURITY_CONFIG.MAX_MESSAGE_LENGTH });
+    return { valid: false, reason: 'message_too_long' };
+  }
+  
+  // Check for suspicious patterns
+  const suspiciousPatterns = [
+    { pattern: /(.)\1{20,}/, name: 'repeated_chars' },
+    { pattern: /[^\w\s\u00C0-\u024F\u1E00-\u1EFF]{30,}/, name: 'too_many_special_chars' },
+    { pattern: /(http[s]?:\/\/[^\s]+){3,}/, name: 'multiple_urls' },
+    { pattern: /(.{1,10})\1{5,}/, name: 'repeated_patterns' },
+  ];
+  
+  for (const { pattern, name } of suspiciousPatterns) {
+    if (pattern.test(text)) {
+      logSecurityEvent(userId, 'suspicious_pattern_detected', { pattern: name, message: text.substring(0, 100) });
+      return { valid: false, reason: 'suspicious_content' };
+    }
+  }
+  
+  return { valid: true };
+}
+
+function cleanupRateLimit(): void {
+  const now = Date.now();
+  
+  // Only cleanup if enough time has passed
+  if (now - securityStats.lastCleanup < SECURITY_CONFIG.CLEANUP_INTERVAL) {
+    return;
+  }
+  
+  const expiredKeys: string[] = [];
+  
+  for (const [key, entry] of rateLimitStore.entries()) {
+    // Remove entries older than 2 hours or expired blocks
+    if (now - entry.lastReset > 7200000 || (entry.blocked && entry.blockUntil && now > entry.blockUntil)) {
+      expiredKeys.push(key);
+    }
+  }
+  
+  expiredKeys.forEach(key => rateLimitStore.delete(key));
+  
+  securityStats.lastCleanup = now;
+  
+  if (expiredKeys.length > 0) {
+    console.log(`🧹 Cleaned up ${expiredKeys.length} expired rate limit entries`);
+    console.log(`📊 Security stats - Total: ${securityStats.totalRequests}, Blocked: ${securityStats.blockedRequests}, Suspicious users: ${securityStats.suspiciousUsers.size}`);
+  }
+}
+
+function logSecurityEvent(userId: string, event: string, details?: any): void {
+  const timestamp = new Date().toISOString();
+  console.log(`🔒 SECURITY [${timestamp}] User: ${userId}, Event: ${event}`, details ? JSON.stringify(details) : '');
+  
+  // Update security stats
+  securityStats.totalRequests++;
+  if (event.includes('blocked') || event.includes('limited') || event.includes('spam')) {
+    securityStats.blockedRequests++;
+  }
+}
+
+function getSecurityResponse(reason: string, blockDuration?: number): string {
+  switch (reason) {
+    case 'temporarily_blocked':
+      return `🛡️ You are temporarily blocked. Please wait ${blockDuration} seconds before trying again.`;
+    case 'rate_limit_minute':
+      return '⏱️ You are sending messages too quickly. Please slow down and try again in a minute.';
+    case 'rate_limit_hour':
+      return '⏰ You have reached your hourly message limit. Please try again later.';
+    case 'identical_spam':
+      return `🚫 Please don't repeat the same message. You're blocked for ${blockDuration} seconds.`;
+    case 'auto_blocked':
+      return `🚨 Suspicious activity detected. You're blocked for ${blockDuration} seconds. Contact admin if this is a mistake.`;
+    case 'command_spam':
+      return '⚡ You are using commands too frequently. Please wait a moment.';
+    case 'message_too_long':
+      return '📏 Your message is too long. Please break it into smaller messages.';
+    case 'suspicious_content':
+      return '🚨 Your message contains suspicious content and was blocked.';
+    default:
+      return '🛡️ Request blocked by security system. Please try again later.';
+  }
+}
+
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -2763,11 +3034,46 @@ serve(async (req) => {
 
     console.log(`👤 Processing update for user: ${userId} (${firstName})`);
 
-    // Track user activity for session management (using updateBotSession instead)
+    // Run security checks FIRST
+    const isUserAdmin = isAdmin(userId);
+    
+    // Periodic cleanup of rate limit store
+    cleanupRateLimit();
+    
+    // Check rate limits and security
+    const messageText = update.message?.text || update.callback_query?.data || '';
+    const rateLimitResult = isRateLimited(userId, isUserAdmin, messageText);
+    
+    if (rateLimitResult.limited) {
+      const response = getSecurityResponse(rateLimitResult.reason!, rateLimitResult.blockDuration);
+      if (chatId) {
+        await sendMessage(chatId, response);
+      }
+      logSecurityEvent(userId, 'request_blocked', { 
+        reason: rateLimitResult.reason, 
+        messageText: messageText.substring(0, 100) 
+      });
+      return new Response("OK", { status: 200 });
+    }
+
+    // Validate message content
+    if (messageText && messageText.length > 0) {
+      const validationResult = validateMessage(messageText, userId);
+      if (!validationResult.valid) {
+        const response = getSecurityResponse(validationResult.reason!);
+        if (chatId) {
+          await sendMessage(chatId, response);
+        }
+        return new Response("OK", { status: 200 });
+      }
+    }
+
+    // Track user activity for session management (after security checks pass)
     await updateBotSession(userId, {
       message_type: update.message ? 'message' : 'callback_query',
-      text: update.message?.text || update.callback_query?.data,
-      timestamp: new Date().toISOString()
+      text: messageText,
+      timestamp: new Date().toISOString(),
+      security_passed: true
     });
 
     // Handle regular messages
@@ -2788,6 +3094,16 @@ serve(async (req) => {
         console.log("🔧 Bot in maintenance mode for non-admin user");
         await sendMessage(chatId, "🔧 *Bot is under maintenance*\n\n⏰ We'll be back soon! Thank you for your patience.\n\n🛟 For urgent support, contact @DynamicCapital_Support");
         return new Response("OK", { status: 200 });
+      }
+
+      // Check for command spam before processing commands
+      if (text && text.startsWith('/')) {
+        const command = text.split(' ')[0];
+        if (isCommandSpam(userId, command) && !isUserAdmin) {
+          const response = getSecurityResponse('command_spam');
+          await sendMessage(chatId, response);
+          return new Response("OK", { status: 200 });
+        }
       }
 
       // Handle /start command with dynamic welcome message
