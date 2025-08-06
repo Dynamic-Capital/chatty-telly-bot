@@ -5,10 +5,24 @@ const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const BINANCE_API_KEY = Deno.env.get("BINANCE_API_KEY");
 const BINANCE_SECRET_KEY = Deno.env.get("BINANCE_SECRET_KEY");
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const ADMIN_USER_IDS = ["225513686"];
+// Support both standard and NEXT_PUBLIC env names for Supabase configuration
+const SUPABASE_URL =
+  Deno.env.get("SUPABASE_URL") || Deno.env.get("NEXT_PUBLIC_SUPABASE_URL");
+const SUPABASE_ANON_KEY =
+  Deno.env.get("SUPABASE_ANON_KEY") ||
+  Deno.env.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY");
+// Fall back to anon key if a dedicated service role key isn't provided
+const SUPABASE_SERVICE_ROLE_KEY =
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || SUPABASE_ANON_KEY;
+
+// Allow configuring admin IDs via environment variable (comma-separated)
+// and merge with any admin flags stored in the bot_users table
+const ADMIN_USER_IDS = new Set(
+  (Deno.env.get("ADMIN_USER_IDS")
+    ?.split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)) ?? ["225513686"]
+);
 
 // User sessions for features
 const userSessions = new Map();
@@ -23,13 +37,67 @@ const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },
 });
 
+// Load additional admin IDs from the database so they can be managed dynamically
+async function refreshAdminIds() {
+  try {
+    const { data } = await supabaseAdmin
+      .from('bot_users')
+      .select('telegram_id')
+      .eq('is_admin', true);
+
+    data?.forEach((row: { telegram_id: string | number }) => {
+      ADMIN_USER_IDS.add(row.telegram_id.toString());
+    });
+  } catch (error) {
+    console.error('Failed to load admin IDs:', error);
+  }
+}
+// Basic connectivity checks so deployment issues surface in logs
+async function checkSupabaseConnection() {
+  try {
+    const { error } = await supabase
+      .from('bot_users')
+      .select('id')
+      .limit(1);
+    if (error) throw error;
+    console.log('Supabase connection successful');
+  } catch (err) {
+    console.error('Supabase connection failed:', err);
+  }
+}
+
+async function verifyTelegramBot() {
+  if (!BOT_TOKEN) {
+    console.error('TELEGRAM_BOT_TOKEN is not set');
+    return;
+  }
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getMe`);
+    const data = await res.json();
+    if (data.ok) {
+      console.log(`Telegram bot connected as @${data.result.username}`);
+    } else {
+      console.error('Telegram bot connection failed:', data);
+    }
+  } catch (err) {
+    console.error('Telegram bot check failed:', err);
+  }
+}
+
+// Run startup checks in parallel for faster cold starts
+await Promise.all([
+  refreshAdminIds(),
+  checkSupabaseConnection(),
+  verifyTelegramBot(),
+]);
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 function isAdmin(userId: string): boolean {
-  return ADMIN_USER_IDS.includes(userId);
+  return ADMIN_USER_IDS.has(userId);
 }
 
 async function sendMessage(chatId: number, text: string, replyMarkup?: any) {
@@ -62,6 +130,27 @@ function getUserSession(userId: string) {
     });
   }
   return userSessions.get(userId);
+}
+
+// Retrieve customizable welcome message from database
+async function getWelcomeMessage(firstName?: string) {
+  try {
+    const { data } = await supabase
+      .from('auto_reply_templates')
+      .select('message_template')
+      .eq('name', 'welcome_message')
+      .eq('is_active', true)
+      .single();
+
+    if (data?.message_template) {
+      return data.message_template.replace('{firstName}', firstName || '');
+    }
+  } catch (error) {
+    console.error('Error fetching welcome message:', error);
+  }
+
+  // Fallback message if no custom template exists
+  return `🚀 *Welcome to Dynamic Capital VIP, ${firstName || ''}!*\n\nWe're here to help you level up your trading with:\n\n• 🔔 Quick market updates\n• 📈 Beginner-friendly tips\n• 🎓 Easy learning resources\n\nReady to get started? Pick an option below 👇`;
 }
 
 // Receipt upload and admin notification functions
@@ -245,7 +334,7 @@ async function fetchOrCreateBotUser(telegramId: string, firstName?: string, last
   try {
     let { data: user, error } = await supabaseAdmin
       .from("bot_users")
-      .select("*")
+      .select("id, telegram_id, first_name, last_name, username, is_admin, is_vip, current_plan_id, subscription_expires_at")
       .eq("telegram_id", telegramId)
       .single();
 
@@ -262,7 +351,7 @@ async function fetchOrCreateBotUser(telegramId: string, firstName?: string, last
           last_name: lastName || null,
           username: username || null
         }])
-        .select("*")
+        .select("id, telegram_id, first_name, last_name, username, is_admin, is_vip, current_plan_id, subscription_expires_at")
         .single();
 
       if (error) {
@@ -275,7 +364,7 @@ async function getActivePromotions() {
   try {
     const { data, error } = await supabase
       .from('promotions')
-      .select('*')
+      .select('id, code, description, discount_type, discount_value, valid_until')
       .eq('is_active', true)
       .gte('valid_until', new Date().toISOString())
       .order('created_at', { ascending: false });
@@ -336,7 +425,7 @@ async function getSubscriptionPlans() {
   try {
     const { data, error } = await supabase
       .from('subscription_plans')
-      .select('*')
+      .select('id, name, price, duration_months, description')
       .order('price', { ascending: true });
 
     return data || [];
@@ -376,7 +465,7 @@ serve(async (req) => {
   }
 
   if (req.method === "GET") {
-    return new Response("Bot is running!", { status: 200 });
+    return new Response("🤖 Bot is live!", { status: 200 });
   }
 
   try {
@@ -418,15 +507,13 @@ serve(async (req) => {
             session.awaitingInput = null;
             await notifyAdminsOfNewReceipt(paymentId, userId, firstName || 'Unknown');
             
-            const successMessage = `✅ *Receipt Uploaded Successfully!*
+            const successMessage = `✅ *Receipt received!*
 
 📋 Payment ID: ${paymentId}
-📎 Receipt: Uploaded and saved
-⏰ Status: Under Review
+📎 File: saved
+⏳ Status: pending review
 
-Our team will review your payment within 24 hours and notify you once approved.
-
-Thank you for your patience!`;
+We'll check it soon and let you know. Thanks for your patience!`;
 
             const receiptKeyboard = {
               inline_keyboard: [
@@ -437,33 +524,18 @@ Thank you for your patience!`;
 
             await sendMessage(chatId, successMessage, receiptKeyboard);
           } else {
-            await sendMessage(chatId, "❌ Failed to upload receipt. Please try again or contact support.");
+            await sendMessage(chatId, "⚠️ Upload didn't work. Please try again or tap 'Get Support'.");
           }
           
           return new Response("OK", { status: 200 });
         }
       }
 
-      if (text === '/start') {
-        const welcomeMessage = `🎯 *Welcome to Dynamic Capital VIP!*
+      const cleanText = text?.trim()?.toLowerCase();
+      const command = cleanText?.split(" ")[0];
 
-👋 Hello ${firstName}! Ready to join our exclusive trading community?
-
-🌟 *What Our VIP Community Offers:*
-• 🔥 Premium trading signals & alerts
-• 📊 Daily market analysis & insights  
-• 🎓 Professional mentorship programs
-• 💎 Exclusive VIP chat access
-• 📈 Live market outlook sessions
-• 🎯 Personalized trading strategies
-
-🆓 *Free Member Benefits:*
-• Basic market updates
-• Limited community access
-• 3 educational resources per month
-
-💎 *Ready to unlock VIP benefits?*
-Choose an option below:`;
+      if (command === '/start') {
+        const welcomeMessage = await getWelcomeMessage(firstName);
 
         const keyboard = {
           inline_keyboard: [
@@ -492,16 +564,29 @@ Choose an option below:`;
         return new Response("OK", { status: 200 });
       }
 
+      if (command === '/help' || command === 'help') {
+        const helpMessage = `🤖 *How to use this bot*\n\n` +
+          `• /start - Show the main menu\n` +
+          `• /help - Display this help message\n` +
+          `• Use the menu buttons for quick navigation`; 
+
+        await sendMessage(chatId, helpMessage);
+        return new Response("OK", { status: 200 });
+      }
+
       // Handle admin commands with flexible text matching
-      const cleanText = text?.trim()?.toLowerCase();
-      
-      if (cleanText === '/admin' || cleanText === 'admin' || cleanText === '/admin@dynamic_vip_bot') {
+
+      if (
+        command === "/admin" ||
+        command === "admin" ||
+        command?.startsWith("/admin@")
+      ) {
         console.log(`Admin command received from user ${userId}, checking admin status...`);
         console.log(`User ID type: ${typeof userId}, Admin IDs: ${JSON.stringify(ADMIN_USER_IDS)}`);
         console.log(`isAdmin result: ${isAdmin(userId.toString())}`);
         
         if (!isAdmin(userId.toString())) {
-          await sendMessage(chatId, "❌ Access denied. Admin privileges required.");
+          await sendMessage(chatId, "🚫 Sorry, this command is for admins only.");
           return new Response("OK", { status: 200 });
         }
 
@@ -568,7 +653,7 @@ Choose an admin action:`;
         try {
           const { data: users, error } = await supabaseAdmin
             .from('bot_users')
-            .select('*')
+            .select('telegram_id, first_name, last_name, username, is_admin, is_vip, created_at')
             .order('created_at', { ascending: false })
             .limit(20);
 
@@ -932,7 +1017,7 @@ Is this correct? Reply with 'yes' to create or 'no' to cancel:`;
               const { data, error } = await supabaseAdmin
                 .from('subscription_plans')
                 .insert([session.packageData])
-                .select('*')
+                .select('id, name, price')
                 .single();
               
               if (error) throw error;
@@ -1058,7 +1143,7 @@ Is this correct? Reply with 'yes' to create or 'no' to cancel:`;
               const { data, error } = await supabaseAdmin
                 .from('promotions')
                 .insert([promoData])
-                .select('*')
+                .select('id, code, discount_type, discount_value, valid_until')
                 .single();
               
               if (error) throw error;
@@ -1128,7 +1213,7 @@ The promo code is now active and ready to use!`);
           try {
             const { data: packageData, error } = await supabase
               .from('subscription_plans')
-              .select('*')
+              .select('id, name, price, description')
               .eq('id', packageId)
               .single();
 
@@ -1167,7 +1252,7 @@ Choose your payment method:`;
           try {
             const { data: packageData } = await supabase
               .from('subscription_plans')
-              .select('*')
+              .select('id, name, price')
               .eq('id', bankPackageId)
               .single();
 
@@ -1187,7 +1272,7 @@ Choose your payment method:`;
                 status: 'pending',
                 currency: 'USD'
               }])
-              .select('*')
+              .select('id')
               .single();
 
             if (error) {
@@ -1439,25 +1524,7 @@ Send your new welcome message now:`);
             break;
           }
           
-          const currentWelcome = `🎯 *Welcome to Dynamic Capital VIP!*
-
-👋 Hello ${firstName}! Ready to join our exclusive trading community?
-
-🌟 *What Our VIP Community Offers:*
-• 🔥 Premium trading signals & alerts
-• 📊 Daily market analysis & insights  
-• 🎓 Professional mentorship programs
-• 💎 Exclusive VIP chat access
-• 📈 Live market outlook sessions
-• 🎯 Personalized trading strategies
-
-🆓 *Free Member Benefits:*
-• Basic market updates
-• Limited community access
-• 3 educational resources per month
-
-💎 *Ready to unlock VIP benefits?*
-Choose an option below:`;
+          const currentWelcome = `🚀 *Welcome to Dynamic Capital VIP, ${firstName}!*\n\nWe're here to help you level up your trading with:\n\n• 🔔 Quick market updates\n• 📈 Beginner-friendly tips\n• 🎓 Easy learning resources\n\nReady to get started? Pick an option below 👇`;
 
           await sendMessage(chatId, `📋 *Current Welcome Message Preview:*\n\n${currentWelcome}`);
           break;
@@ -1590,7 +1657,7 @@ Send the promo code:`);
           try {
             const { data: promos } = await supabaseAdmin
               .from('promotions')
-              .select('*')
+              .select('id, code, discount_type, discount_value, valid_until, is_active')
               .order('created_at', { ascending: false });
             
             let promosList = "📋 *All Promo Codes*\n\n";
