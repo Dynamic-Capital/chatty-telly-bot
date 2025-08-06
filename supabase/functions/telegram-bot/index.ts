@@ -1920,15 +1920,26 @@ ${studentInfo}
 💡 **Special:** VIP members get 25% off all education packages!`;
     }
 
+    // Create keyboard with package selection buttons
     const keyboard = {
-      inline_keyboard: [
-        [
-          { text: "💎 Upgrade to VIP (25% OFF)", callback_data: "view_vip_packages" },
-          { text: "🎁 View Promotions", callback_data: "view_promotions" }
-        ],
-        [{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]
-      ]
+      inline_keyboard: [] as any[]
     };
+
+    // Add selection buttons for each package
+    if (packages && packages.length > 0) {
+      packages.forEach((pkg) => {
+        keyboard.inline_keyboard.push([
+          { text: `📚 Select ${pkg.name} - $${pkg.price}`, callback_data: `select_education_${pkg.id}` }
+        ]);
+      });
+    }
+
+    // Add navigation buttons
+    keyboard.inline_keyboard.push([
+      { text: "💎 Upgrade to VIP (25% OFF)", callback_data: "view_vip_packages" },
+      { text: "🎁 View Promotions", callback_data: "view_promotions" }
+    ]);
+    keyboard.inline_keyboard.push([{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]);
 
     await sendMessage(chatId, message, keyboard);
     
@@ -1937,6 +1948,60 @@ ${studentInfo}
     await sendMessage(chatId, "❌ An error occurred. Please try again.");
   }
 }
+
+// Education Package Selection Handler
+async function handleEducationPackageSelection(chatId: number, userId: string, packageId: string, firstName: string): Promise<void> {
+  try {
+    console.log(`🎓 User ${userId} selected education package: ${packageId}`);
+    
+    // Get package details
+    const { data: pkg, error } = await supabaseAdmin
+      .from('education_packages')
+      .select('*')
+      .eq('id', packageId)
+      .single();
+
+    if (error || !pkg) {
+      await sendMessage(chatId, "❌ Education package not found. Please try again.");
+      return;
+    }
+
+    const message = `🎓 **${pkg.name}** Selected!
+
+💰 **Price:** $${pkg.price} ${pkg.currency}
+📅 **Duration:** ${pkg.is_lifetime ? 'Lifetime Access' : pkg.duration_weeks + ' weeks'}
+📊 **Level:** ${pkg.difficulty_level || 'All Levels'}
+👥 **Enrolled:** ${pkg.current_students || 0}${pkg.max_students ? `/${pkg.max_students}` : ''} students
+
+📚 **Description:**
+${pkg.description || 'Complete course package with expert instruction'}
+
+🎯 **Choose your payment method:**`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "💳 Binance Pay", callback_data: `payment_method_${packageId}_binance` },
+          { text: "₿ Crypto", callback_data: `payment_method_${packageId}_crypto` }
+        ],
+        [
+          { text: "🏦 Bank Transfer", callback_data: `payment_method_${packageId}_bank` }
+        ],
+        [
+          { text: "🔙 Back to Courses", callback_data: "view_education" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+    
+    // Log the selection
+    await logAdminAction(userId, 'education_selection', `User selected education package: ${pkg.name}`, 'education_packages', packageId);
+    
+  } catch (error) {
+    console.error('🚨 Error in education package selection:', error);
+    await sendMessage(chatId, "❌ An error occurred. Please try again.");
+  }
 
 // View User Profile Handler
 async function handleViewUserProfile(chatId: number, adminUserId: string, targetUserId: string): Promise<void> {
@@ -4429,6 +4494,9 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
             } else if (callbackData.startsWith('reject_user_payments_')) {
               const targetUserId = callbackData.replace('reject_user_payments_', '');
               await sendMessage(chatId, `❌ All pending payments for user ${targetUserId} have been rejected.`);
+            } else if (callbackData.startsWith('select_education_')) {
+              const packageId = callbackData.replace('select_education_', '');
+              await handleEducationPackageSelection(chatId, userId, packageId, firstName);
             } else if (callbackData.startsWith('make_vip_')) {
               const targetUserId = callbackData.replace('make_vip_', '');
               await handleMakeUserVip(chatId, userId, targetUserId);

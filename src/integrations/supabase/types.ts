@@ -303,6 +303,11 @@ export type Database = {
           failed_deliveries: number | null
           id: string
           media_file_id: string | null
+          media_file_path: string | null
+          media_file_size: number | null
+          media_mime_type: string | null
+          media_type: string | null
+          media_url: string | null
           scheduled_at: string | null
           sent_at: string | null
           successful_deliveries: number | null
@@ -318,6 +323,11 @@ export type Database = {
           failed_deliveries?: number | null
           id?: string
           media_file_id?: string | null
+          media_file_path?: string | null
+          media_file_size?: number | null
+          media_mime_type?: string | null
+          media_type?: string | null
+          media_url?: string | null
           scheduled_at?: string | null
           sent_at?: string | null
           successful_deliveries?: number | null
@@ -333,6 +343,11 @@ export type Database = {
           failed_deliveries?: number | null
           id?: string
           media_file_id?: string | null
+          media_file_path?: string | null
+          media_file_size?: number | null
+          media_mime_type?: string | null
+          media_type?: string | null
+          media_url?: string | null
           scheduled_at?: string | null
           sent_at?: string | null
           successful_deliveries?: number | null
@@ -1233,12 +1248,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      batch_insert_user_interactions: {
+        Args: { interactions: Json }
+        Returns: undefined
+      }
       check_extensions_in_public: {
         Args: Record<PropertyKey, never>
         Returns: {
           extension_name: unknown
           schema_name: unknown
         }[]
+      }
+      cleanup_old_media_files: {
+        Args: { cleanup_days?: number }
+        Returns: Json
       }
       generate_uuid: {
         Args: Record<PropertyKey, never>
@@ -1259,6 +1282,10 @@ export type Database = {
         }[]
       }
       get_bot_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      get_dashboard_stats_fast: {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
