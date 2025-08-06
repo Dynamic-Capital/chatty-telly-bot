@@ -1290,63 +1290,30 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
 
     console.log(`📦 Package found: ${pkg.name} - Final price: $${finalPrice}`);
 
-    // Check if user already has a pending subscription
-    const { data: existingSub } = await supabaseAdmin
+    // Use upsert to handle existing subscriptions gracefully
+    const { data: subscription, error: subError } = await supabaseAdmin
       .from('user_subscriptions')
-      .select('*')
-      .eq('telegram_user_id', userId)
-      .eq('payment_status', 'pending')
+      .upsert({
+        telegram_user_id: userId,
+        plan_id: packageId,
+        payment_method: method,
+        payment_status: 'pending',
+        is_active: false,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'telegram_user_id',
+        ignoreDuplicates: false
+      })
+      .select()
       .single();
-      
-    let subscription;
-    
-    if (existingSub) {
-      // Update existing pending subscription
-      const { data: updatedSub, error: updateError } = await supabaseAdmin
-        .from('user_subscriptions')
-        .update({
-          plan_id: packageId,
-          payment_method: method,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existingSub.id)
-        .select()
-        .single();
-        
-      if (updateError) {
-        console.error('❌ Error updating subscription:', updateError);
-        await sendMessage(chatId, "❌ Error updating subscription. Please try again.");
-        return;
-      }
-      subscription = updatedSub;
-      console.log(`✅ Updated existing subscription: ${subscription.id}`);
-    } else {
-      // Create new subscription record
-      const { data: newSub, error: subError } = await supabaseAdmin
-        .from('user_subscriptions')
-        .insert({
-          telegram_user_id: userId,
-          plan_id: packageId,
-          payment_method: method,
-          payment_status: 'pending',
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
 
-      if (subError) {
-        console.error('❌ Error creating subscription:', subError);
-        if (subError.code === '23505') {
-          // Duplicate key error - user already has a subscription for this package
-          await sendMessage(chatId, "❌ You already have a pending subscription for this package. Please contact support to modify or complete your existing subscription.");
-        } else {
-          await sendMessage(chatId, "❌ Error creating subscription. Please try again.");
-        }
-        return;
-      }
-      subscription = newSub;
-      console.log(`✅ Created new subscription: ${subscription.id}`);
+    if (subError) {
+      console.error('❌ Error creating/updating subscription:', subError);
+      await sendMessage(chatId, "❌ Error processing subscription. Please try again.");
+      return;
     }
+    
+    console.log(`✅ Subscription ready: ${subscription.id}`);
 
     console.log(`✅ Subscription ready: ${subscription.id}`);
 
