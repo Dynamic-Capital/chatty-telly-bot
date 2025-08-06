@@ -481,7 +481,6 @@ async function getUserCompleteData(telegramUserId: string): Promise<any> {
     return null;
   }
 }
-}
 
 async function setBotContent(contentKey: string, contentValue: string, adminId: string): Promise<boolean> {
   try {
