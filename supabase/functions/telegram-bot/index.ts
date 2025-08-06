@@ -1373,6 +1373,214 @@ If this works, you can proceed with broadcasting to channels.
   await logAdminAction(userId, 'test_broadcast', 'Executed broadcast test');
 }
 
+// Admin Settings Handler
+async function handleAdminSettings(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    // Get current settings
+    const [autoDeleteEnabled, deleteDelay, autoIntroEnabled, broadcastDelay, maintenanceMode] = await Promise.all([
+      getBotSetting('auto_delete_enabled'),
+      getBotSetting('auto_delete_delay_seconds'),
+      getBotSetting('auto_intro_enabled'),
+      getBotSetting('broadcast_delay_ms'),
+      getBotSetting('maintenance_mode')
+    ]);
+
+    const settingsMessage = `⚙️ *Bot Settings Configuration*
+
+🗑️ **Auto-Delete Settings:**
+• Enabled: ${autoDeleteEnabled === 'true' ? '✅ Yes' : '❌ No'}
+• Delay: ${deleteDelay || '30'} seconds
+
+🤖 **Auto-Introduction:**
+• Enabled: ${autoIntroEnabled === 'true' ? '✅ Yes' : '❌ No'}
+
+📢 **Broadcasting:**
+• Message Delay: ${broadcastDelay || '1500'}ms between messages
+
+🔧 **System:**
+• Maintenance Mode: ${maintenanceMode === 'true' ? '🔴 Enabled' : '🟢 Disabled'}
+
+💡 **Quick Actions:**`;
+
+    const settingsKeyboard = {
+      inline_keyboard: [
+        [
+          { text: autoDeleteEnabled === 'true' ? '🗑️ Disable Auto-Delete' : '🗑️ Enable Auto-Delete', callback_data: 'toggle_auto_delete' },
+          { text: `⏱️ Set Delay (${deleteDelay || '30'}s)`, callback_data: 'set_delete_delay' }
+        ],
+        [
+          { text: autoIntroEnabled === 'true' ? '🤖 Disable Auto-Intro' : '🤖 Enable Auto-Intro', callback_data: 'toggle_auto_intro' },
+          { text: `📢 Broadcast Delay`, callback_data: 'set_broadcast_delay' }
+        ],
+        [
+          { text: maintenanceMode === 'true' ? '🟢 Exit Maintenance' : '🔴 Maintenance Mode', callback_data: 'toggle_maintenance' },
+          { text: '📊 View All Settings', callback_data: 'view_all_settings' }
+        ],
+        [
+          { text: '🔧 Advanced Settings', callback_data: 'advanced_settings' },
+          { text: '💾 Export Config', callback_data: 'export_settings' }
+        ],
+        [
+          { text: '🔄 Refresh Settings', callback_data: 'admin_settings' },
+          { text: '🔙 Back to Admin', callback_data: 'admin_dashboard' }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, settingsMessage, settingsKeyboard);
+    await logAdminAction(userId, 'settings_access', 'Accessed bot settings panel');
+
+  } catch (error) {
+    console.error('🚨 Error in admin settings:', error);
+    await sendMessage(chatId, `❌ Error loading settings: ${error.message}`);
+  }
+}
+
+// Settings Toggle Handlers
+async function handleToggleAutoDelete(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    const currentValue = await getBotSetting('auto_delete_enabled');
+    const newValue = currentValue === 'true' ? 'false' : 'true';
+    
+    await setBotSetting('auto_delete_enabled', newValue, userId);
+    
+    const statusMessage = `🗑️ **Auto-Delete ${newValue === 'true' ? 'Enabled' : 'Disabled'}**
+
+${newValue === 'true' ? 
+  '✅ Bot messages in groups will automatically delete after the specified delay.' : 
+  '❌ Bot messages in groups will remain permanent.'}
+
+Settings updated successfully!`;
+
+    await sendMessage(chatId, statusMessage);
+    
+    // Refresh settings panel
+    setTimeout(() => handleAdminSettings(chatId, userId), 2000);
+    
+  } catch (error) {
+    await sendMessage(chatId, `❌ Error toggling auto-delete: ${error.message}`);
+  }
+}
+
+async function handleToggleAutoIntro(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    const currentValue = await getBotSetting('auto_intro_enabled');
+    const newValue = currentValue === 'true' ? 'false' : 'true';
+    
+    await setBotSetting('auto_intro_enabled', newValue, userId);
+    
+    const statusMessage = `🤖 **Auto-Introduction ${newValue === 'true' ? 'Enabled' : 'Disabled'}**
+
+${newValue === 'true' ? 
+  '✅ Bot will automatically introduce itself when added to new channels/groups.' : 
+  '❌ Bot will not send automatic introductions.'}
+
+Settings updated successfully!`;
+
+    await sendMessage(chatId, statusMessage);
+    
+    // Refresh settings panel
+    setTimeout(() => handleAdminSettings(chatId, userId), 2000);
+    
+  } catch (error) {
+    await sendMessage(chatId, `❌ Error toggling auto-intro: ${error.message}`);
+  }
+}
+
+async function handleToggleMaintenance(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    const currentValue = await getBotSetting('maintenance_mode');
+    const newValue = currentValue === 'true' ? 'false' : 'true';
+    
+    await setBotSetting('maintenance_mode', newValue, userId);
+    
+    const statusMessage = `🔧 **Maintenance Mode ${newValue === 'true' ? 'Enabled' : 'Disabled'}**
+
+${newValue === 'true' ? 
+  '🔴 Bot is now in maintenance mode. Only admins can use the bot.' : 
+  '🟢 Bot is now available to all users.'}
+
+Settings updated successfully!`;
+
+    await sendMessage(chatId, statusMessage);
+    
+    // Refresh settings panel
+    setTimeout(() => handleAdminSettings(chatId, userId), 2000);
+    
+  } catch (error) {
+    await sendMessage(chatId, `❌ Error toggling maintenance: ${error.message}`);
+  }
+}
+
+async function handleViewAllSettings(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    const { data: settings, error } = await supabaseAdmin
+      .from('bot_settings')
+      .select('setting_key, setting_value, setting_type, description')
+      .eq('is_active', true)
+      .order('setting_key');
+
+    if (error) {
+      throw error;
+    }
+
+    let settingsText = `📋 *All Bot Settings*\n\n`;
+    
+    settings?.forEach(setting => {
+      const value = setting.setting_value;
+      const displayValue = setting.setting_type === 'boolean' ? 
+        (value === 'true' ? '✅ Enabled' : '❌ Disabled') : value;
+      
+      settingsText += `🔹 **${setting.setting_key}**\n`;
+      settingsText += `   Value: \`${displayValue}\`\n`;
+      settingsText += `   ${setting.description}\n\n`;
+    });
+
+    const allSettingsKeyboard = {
+      inline_keyboard: [
+        [
+          { text: '📝 Edit Setting', callback_data: 'edit_setting' },
+          { text: '➕ Add Setting', callback_data: 'add_setting' }
+        ],
+        [
+          { text: '🔄 Refresh', callback_data: 'view_all_settings' },
+          { text: '🔙 Back to Settings', callback_data: 'admin_settings' }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, settingsText, allSettingsKeyboard);
+    
+  } catch (error) {
+    await sendMessage(chatId, `❌ Error loading all settings: ${error.message}`);
+  }
+}
+
 async function getBroadcastChannels(): Promise<string[]> {
   try {
     const channelsSetting = await getBotSetting('broadcast_channels');
@@ -1657,6 +1865,26 @@ serve(async (req) => {
 
           case 'test_broadcast':
             await handleTestBroadcast(chatId, userId);
+            break;
+
+          case 'admin_settings':
+            await handleAdminSettings(chatId, userId);
+            break;
+
+          case 'toggle_auto_delete':
+            await handleToggleAutoDelete(chatId, userId);
+            break;
+
+          case 'toggle_auto_intro':
+            await handleToggleAutoIntro(chatId, userId);
+            break;
+
+          case 'toggle_maintenance':
+            await handleToggleMaintenance(chatId, userId);
+            break;
+
+          case 'view_all_settings':
+            await handleViewAllSettings(chatId, userId);
             break;
 
           default:
