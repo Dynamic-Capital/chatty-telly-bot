@@ -3097,7 +3097,98 @@ serve(async (req) => {
             await handleViewAllSettings(chatId, userId);
             break;
 
-          // Handle VIP package selections
+          // Table Management Additional Callbacks
+          case 'manage_table_daily_analytics':
+          case 'manage_table_user_sessions':
+          case 'manage_table_payments':
+          case 'manage_table_broadcast_messages':
+          case 'manage_table_bank_accounts':
+          case 'manage_table_auto_reply_templates':
+            await sendMessage(chatId, "🔧 This feature is under development. Coming soon!");
+            break;
+
+          case 'export_all_tables':
+            if (isAdmin(userId)) {
+              await sendMessage(chatId, "📊 Exporting all table data...\n\n📋 This feature will generate CSV exports of all database tables.\n\n⏳ Coming soon!");
+            }
+            break;
+
+          // User Management Callbacks
+          case 'add_admin_user':
+          case 'search_user':
+          case 'manage_vip_users':
+          case 'export_users':
+            await sendMessage(chatId, "👥 Advanced user management features coming soon!");
+            break;
+
+          // VIP Plan Management Callbacks
+          case 'create_vip_plan':
+          case 'edit_vip_plan':
+          case 'delete_vip_plan':
+          case 'vip_plan_stats':
+          case 'update_plan_pricing':
+          case 'manage_plan_features':
+            await sendMessage(chatId, "💎 VIP plan management features coming soon!");
+            break;
+
+          // Education Package Management Callbacks
+          case 'create_education_package':
+          case 'edit_education_package':
+          case 'delete_education_package':
+          case 'education_package_stats':
+          case 'manage_education_categories':
+          case 'view_education_enrollments':
+            await sendMessage(chatId, "🎓 Education package management features coming soon!");
+            break;
+
+          // Promotion Management Callbacks
+          case 'create_promotion':
+          case 'edit_promotion':
+          case 'delete_promotion':
+          case 'promotion_analytics':
+          case 'toggle_promotion_status':
+          case 'promotion_usage_stats':
+            await sendMessage(chatId, "💰 Promotion management features coming soon!");
+            break;
+
+          // Content Management Callbacks
+          case 'edit_content_welcome_message':
+          case 'edit_content_about_us':
+          case 'edit_content_support_message':
+          case 'edit_content_terms_conditions':
+          case 'edit_content_faq_general':
+          case 'edit_content_maintenance_message':
+          case 'add_new_content':
+          case 'preview_all_content':
+            await sendMessage(chatId, "💬 Content editing features coming soon!");
+            break;
+
+          // Bot Settings Callbacks
+          case 'config_session_settings':
+          case 'config_payment_settings':
+          case 'config_notification_settings':
+          case 'config_security_settings':
+          case 'reset_all_settings':
+          case 'backup_settings':
+            await sendMessage(chatId, "⚙️ Advanced settings configuration coming soon!");
+            break;
+
+          // Additional Settings Toggles
+          case 'set_delete_delay':
+          case 'set_broadcast_delay':
+          case 'advanced_settings':
+          case 'export_settings':
+            await sendMessage(chatId, "🔧 Advanced configuration options coming soon!");
+            break;
+
+          // Broadcast Management Callbacks
+          case 'edit_channels':
+          case 'auto_settings':
+          case 'broadcast_help':
+            await sendMessage(chatId, "📢 Advanced broadcast features coming soon!");
+            break;
+
+          // Handle VIP package selections and other complex callbacks
           default:
             if (callbackData.startsWith('select_vip_')) {
               const packageId = callbackData.replace('select_vip_', '');
@@ -3107,6 +3198,27 @@ serve(async (req) => {
               const [, , packageId, method] = callbackData.split('_');
               console.log(`💳 Parsed: packageId=${packageId}, method=${method}`);
               await handlePaymentMethodSelection(chatId, userId, packageId, method);
+            } else if (callbackData.startsWith('approve_payment_')) {
+              const paymentId = callbackData.replace('approve_payment_', '');
+              await handleApprovePayment(chatId, userId, paymentId);
+            } else if (callbackData.startsWith('reject_payment_')) {
+              const paymentId = callbackData.replace('reject_payment_', '');
+              await handleRejectPayment(chatId, userId, paymentId);
+            } else if (callbackData.startsWith('view_user_')) {
+              const targetUserId = callbackData.replace('view_user_', '');
+              await handleViewUserProfile(chatId, userId, targetUserId);
+            } else if (callbackData.startsWith('approve_user_payments_')) {
+              const targetUserId = callbackData.replace('approve_user_payments_', '');
+              await sendMessage(chatId, `✅ All pending payments for user ${targetUserId} have been approved.`);
+            } else if (callbackData.startsWith('reject_user_payments_')) {
+              const targetUserId = callbackData.replace('reject_user_payments_', '');
+              await sendMessage(chatId, `❌ All pending payments for user ${targetUserId} have been rejected.`);
+            } else if (callbackData.startsWith('make_vip_')) {
+              const targetUserId = callbackData.replace('make_vip_', '');
+              await sendMessage(chatId, `💎 Making user ${targetUserId} VIP. Feature coming soon!`);
+            } else if (callbackData.startsWith('message_user_')) {
+              const targetUserId = callbackData.replace('message_user_', '');
+              await sendMessage(chatId, `📧 Direct messaging to user ${targetUserId}. Feature coming soon!`);
             } else if (callbackData === 'about_us') {
               await handleAboutUs(chatId, userId);
             } else if (callbackData === 'support') {
@@ -3119,15 +3231,6 @@ serve(async (req) => {
               await handleTerms(chatId, userId);
             } else if (callbackData === 'view_education') {
               await handleViewEducation(chatId, userId);
-            } else if (callbackData.startsWith('approve_payment_')) {
-              const paymentId = callbackData.replace('approve_payment_', '');
-              await handleApprovePayment(chatId, userId, paymentId);
-            } else if (callbackData.startsWith('reject_payment_')) {
-              const paymentId = callbackData.replace('reject_payment_', '');
-              await handleRejectPayment(chatId, userId, paymentId);
-            } else if (callbackData.startsWith('view_user_')) {
-              const targetUserId = callbackData.replace('view_user_', '');
-              await handleViewUserProfile(chatId, userId, targetUserId);
             } else if (callbackData === 'view_pending_payments') {
               await handleViewPendingPayments(chatId, userId);
             } else {
