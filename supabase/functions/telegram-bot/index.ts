@@ -4,102 +4,132 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-const BINANCE_API_KEY = Deno.env.get("BINANCE_API_KEY");
-const BINANCE_SECRET_KEY = Deno.env.get("BINANCE_SECRET_KEY");
-// Support both standard and NEXT_PUBLIC env names for Supabase configuration
-const SUPABASE_URL =
-  Deno.env.get("SUPABASE_URL") || Deno.env.get("NEXT_PUBLIC_SUPABASE_URL");
-const SUPABASE_ANON_KEY =
-  Deno.env.get("SUPABASE_ANON_KEY") ||
-  Deno.env.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY");
-// Fall back to anon key if a dedicated service role key isn't provided
-const SUPABASE_SERVICE_ROLE_KEY =
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || SUPABASE_ANON_KEY;
-
-interface SubscriptionPlan {
-  id: number;
-  name: string;
-  price: number;
-  duration_months: number;
-  features?: string[];
-}
-
-interface Promotion {
-  id: number;
-  code: string;
-  description?: string;
-  discount_percent?: number;
-}
-
-// Allow configuring admin IDs via environment variable (comma-separated)
-// and merge with any admin flags stored in the bot_users table
-const ADMIN_USER_IDS = new Set(
-  (Deno.env.get("ADMIN_USER_IDS")
-    ?.split(",")
-    .map((id) => id.trim())
-    .filter(Boolean)) ?? ["225513686"]
-);
-
-// User sessions for features
-const userSessions = new Map();
-const pendingBroadcasts = new Map();
-
-// Supabase clients
-const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
-  auth: { persistSession: false },
-});
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },
 });
 
-// Load additional admin IDs from the database so they can be managed dynamically
-async function refreshAdminIds() {
-  try {
-    const { data } = await supabaseAdmin
-      .from('bot_users')
-      .select('telegram_id')
-      .eq('is_admin', true);
+// Admin user IDs
+const ADMIN_USER_IDS = new Set(["225513686"]);
 
-    data?.forEach((row: { telegram_id: string | number }) => {
-      ADMIN_USER_IDS.add(row.telegram_id.toString());
-    });
-    
-    console.log('Loaded admin IDs from database:', data?.length || 0);
-  } catch (error) {
-    console.error('Failed to load admin IDs:', error);
-  }
-}
+// User sessions for features
+const userSessions = new Map();
 
-await refreshAdminIds();
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
-// Session management functions
-async function createUserSession(telegramUserId: string, sessionData: any = {}) {
+// Database utility functions
+async function getBotContent(contentKey: string): Promise<string | null> {
   try {
     const { data, error } = await supabaseAdmin
-      .from('user_sessions')
-      .insert({
-        telegram_user_id: telegramUserId,
-        session_data: sessionData,
-        is_active: true,
-        last_activity: new Date().toISOString()
-      })
-      .select()
+      .from('bot_content')
+      .select('content_value')
+      .eq('content_key', contentKey)
+      .eq('is_active', true)
       .single();
 
     if (error) {
-      console.error('Error creating user session:', error);
+      console.error(`Error fetching content for ${contentKey}:`, error);
       return null;
     }
-    
-    return data;
+
+    return data?.content_value || null;
   } catch (error) {
-    console.error('Error in createUserSession:', error);
+    console.error(`Exception in getBotContent for ${contentKey}:`, error);
     return null;
   }
 }
 
-async function updateUserActivity(telegramUserId: string, activityData: any = {}) {
+async function setBotContent(contentKey: string, contentValue: string, adminId: string): Promise<boolean> {
+  try {
+    const { error } = await supabaseAdmin
+      .from('bot_content')
+      .upsert({
+        content_key: contentKey,
+        content_value: contentValue,
+        last_modified_by: adminId,
+        updated_at: new Date().toISOString()
+      });
+
+    if (!error) {
+      await logAdminAction(adminId, 'content_update', `Updated content: ${contentKey}`, 'bot_content');
+    }
+
+    return !error;
+  } catch (error) {
+    console.error('Exception in setBotContent:', error);
+    return false;
+  }
+}
+
+async function getBotSetting(settingKey: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('bot_settings')
+      .select('setting_value')
+      .eq('setting_key', settingKey)
+      .eq('is_active', true)
+      .single();
+
+    return data?.setting_value || null;
+  } catch (error) {
+    console.error(`Error fetching setting ${settingKey}:`, error);
+    return null;
+  }
+}
+
+async function setBotSetting(settingKey: string, settingValue: string, adminId: string): Promise<boolean> {
+  try {
+    const { error } = await supabaseAdmin
+      .from('bot_settings')
+      .upsert({
+        setting_key: settingKey,
+        setting_value: settingValue,
+        updated_at: new Date().toISOString()
+      });
+
+    if (!error) {
+      await logAdminAction(adminId, 'setting_update', `Updated setting: ${settingKey}`, 'bot_settings');
+    }
+
+    return !error;
+  } catch (error) {
+    console.error('Exception in setBotSetting:', error);
+    return false;
+  }
+}
+
+async function logAdminAction(
+  adminId: string,
+  actionType: string,
+  description: string,
+  affectedTable?: string,
+  affectedRecordId?: string,
+  oldValues?: any,
+  newValues?: any
+): Promise<void> {
+  try {
+    await supabaseAdmin
+      .from('admin_logs')
+      .insert({
+        admin_telegram_id: adminId,
+        action_type: actionType,
+        action_description: description,
+        affected_table: affectedTable,
+        affected_record_id: affectedRecordId,
+        old_values: oldValues,
+        new_values: newValues
+      });
+  } catch (error) {
+    console.error('Error logging admin action:', error);
+  }
+}
+
+async function updateUserActivity(telegramUserId: string, activityData: any = {}): Promise<void> {
   try {
     // Update user's last activity
     await supabaseAdmin
@@ -137,7 +167,722 @@ async function updateUserActivity(telegramUserId: string, activityData: any = {}
   }
 }
 
-const corsHeaders = {
+function formatContent(content: string, variables: Record<string, string>): string {
+  let formattedContent = content;
+  
+  Object.entries(variables).forEach(([key, value]) => {
+    const placeholder = `{${key}}`;
+    formattedContent = formattedContent.replace(new RegExp(placeholder, 'g'), value || '');
+  });
+  
+  return formattedContent;
+}
+
+// Load additional admin IDs from the database
+async function refreshAdminIds() {
+  try {
+    const { data } = await supabaseAdmin
+      .from('bot_users')
+      .select('telegram_id')
+      .eq('is_admin', true);
+
+    data?.forEach((row: { telegram_id: string | number }) => {
+      ADMIN_USER_IDS.add(row.telegram_id.toString());
+    });
+    
+    console.log('✅ Loaded admin IDs from database:', data?.length || 0);
+  } catch (error) {
+    console.error('❌ Failed to load admin IDs:', error);
+  }
+}
+
+await refreshAdminIds();
+
+function isAdmin(userId: string): boolean {
+  return ADMIN_USER_IDS.has(userId);
+}
+
+function getUserSession(userId: string | number) {
+  const userIdStr = userId.toString();
+  if (!userSessions.has(userIdStr)) {
+    userSessions.set(userIdStr, { awaitingInput: null });
+  }
+  return userSessions.get(userIdStr);
+}
+
+async function sendMessage(
+  chatId: number,
+  text: string,
+  replyMarkup?: Record<string, unknown>
+) {
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  const payload = {
+    chat_id: chatId,
+    text: text,
+    reply_markup: replyMarkup,
+    parse_mode: "Markdown"
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("❌ Telegram API error:", errorData);
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("❌ Error sending message:", error);
+    return null;
+  }
+}
+
+// Enhanced content management functions
+async function getWelcomeMessage(firstName: string): Promise<string> {
+  const template = await getBotContent('welcome_message');
+  if (!template) {
+    return `🚀 *Welcome to Dynamic Capital VIP, ${firstName}!*\n\nWe're here to help you level up your trading!`;
+  }
+  return formatContent(template, { firstName });
+}
+
+async function getVipPackages(): Promise<any[]> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('*')
+      .order('price', { ascending: true });
+
+    return data || [];
+  } catch (error) {
+    console.error('❌ Error fetching VIP packages:', error);
+    return [];
+  }
+}
+
+async function getEducationPackages(): Promise<any[]> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('education_packages')
+      .select('*')
+      .eq('is_active', true)
+      .order('price', { ascending: true });
+
+    return data || [];
+  } catch (error) {
+    console.error('❌ Error fetching education packages:', error);
+    return [];
+  }
+}
+
+async function getActivePromotions(): Promise<any[]> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('promotions')
+      .select('*')
+      .eq('is_active', true)
+      .gte('valid_until', new Date().toISOString())
+      .order('created_at', { ascending: false });
+
+    return data || [];
+  } catch (error) {
+    console.error('❌ Error fetching promotions:', error);
+    return [];
+  }
+}
+
+// Enhanced keyboard generators
+async function getMainMenuKeyboard(): Promise<any> {
+  return {
+    inline_keyboard: [
+      [
+        { text: "💎 VIP Packages", callback_data: "view_vip_packages" },
+        { text: "🎓 Education", callback_data: "view_education" }
+      ],
+      [
+        { text: "🏢 About Us", callback_data: "about_us" },
+        { text: "🛟 Support", callback_data: "support" }
+      ],
+      [
+        { text: "💰 Promotions", callback_data: "view_promotions" },
+        { text: "❓ FAQ", callback_data: "faq" }
+      ],
+      [
+        { text: "📋 Terms", callback_data: "terms" }
+      ]
+    ]
+  };
+}
+
+async function getVipPackagesKeyboard(): Promise<any> {
+  const packages = await getVipPackages();
+  const keyboard = [];
+  
+  for (const pkg of packages) {
+    keyboard.push([{
+      text: `💎 ${pkg.name} - $${pkg.price}/${pkg.duration_months}mo`,
+      callback_data: `select_vip_${pkg.id}`
+    }]);
+  }
+  
+  keyboard.push([{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]);
+  
+  return { inline_keyboard: keyboard };
+}
+
+async function getEducationPackagesKeyboard(): Promise<any> {
+  const packages = await getEducationPackages();
+  const keyboard = [];
+  
+  for (const pkg of packages) {
+    keyboard.push([{
+      text: `🎓 ${pkg.name} - $${pkg.price}`,
+      callback_data: `select_edu_${pkg.id}`
+    }]);
+  }
+  
+  keyboard.push([{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]);
+  
+  return { inline_keyboard: keyboard };
+}
+
+// Enhanced admin management functions
+async function handleAdminDashboard(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied. Admin privileges required.");
+    return;
+  }
+
+  const adminMessage = `🔐 *Enhanced Admin Dashboard*
+
+📊 *System Status:* 🟢 Online
+👤 *Admin:* ${userId}
+
+🚀 *Quick Actions:*
+• 👥 User Management & Analytics
+• 📦 VIP & Education Packages  
+• 💰 Promotions & Discounts
+• 💬 Content & Messages
+• ⚙️ Bot Settings & Config
+• 📈 Analytics & Reports
+• 📢 Broadcasting Tools
+• 🔧 System Maintenance`;
+
+  const adminKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "👥 Users", callback_data: "admin_users" },
+        { text: "📦 Packages", callback_data: "admin_packages" }
+      ],
+      [
+        { text: "💰 Promos", callback_data: "admin_promos" },
+        { text: "💬 Content", callback_data: "admin_content" }
+      ],
+      [
+        { text: "⚙️ Settings", callback_data: "admin_settings" },
+        { text: "📈 Analytics", callback_data: "admin_analytics" }
+      ],
+      [
+        { text: "📢 Broadcast", callback_data: "admin_broadcast" },
+        { text: "🔧 Tools", callback_data: "admin_tools" }
+      ],
+      [
+        { text: "📋 Admin Logs", callback_data: "admin_logs" }
+      ]
+    ]
+  };
+
+  await sendMessage(chatId, adminMessage, adminKeyboard);
+}
+
+// Content management handlers
+async function handleContentManagement(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  const contentMessage = `💬 *Content Management System*
+
+📝 *Editable Content:*
+All messages are now database-driven and can be customized!
+
+🚀 **Welcome Message** - First impression for new users
+🏢 **About Us** - Company information  
+🛟 **Support Info** - Help & contact details
+📋 **Terms & Conditions** - Legal information
+❓ **FAQ Content** - Common questions
+
+✨ *Features:*
+• Real-time updates
+• Variable support (e.g., {firstName})
+• Emoji & Markdown formatting
+• Admin action logging
+
+Select content to edit:`;
+
+  const contentKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "🚀 Welcome Message", callback_data: "edit_content_welcome_message" },
+        { text: "🏢 About Us", callback_data: "edit_content_about_us" }
+      ],
+      [
+        { text: "🛟 Support Info", callback_data: "edit_content_support_message" },
+        { text: "📋 Terms", callback_data: "edit_content_terms_conditions" }
+      ],
+      [
+        { text: "❓ FAQ", callback_data: "edit_content_faq_general" }
+      ],
+      [
+        { text: "👀 Preview All", callback_data: "preview_content" },
+        { text: "🔙 Back", callback_data: "admin_dashboard" }
+      ]
+    ]
+  };
+
+  await sendMessage(chatId, contentMessage, contentKeyboard);
+}
+
+// Package management handlers
+async function handlePackageManagement(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  const vipCount = (await getVipPackages()).length;
+  const eduCount = (await getEducationPackages()).length;
+
+  const packageMessage = `📦 *Package Management System*
+
+📊 *Current Status:*
+• 💎 VIP Packages: ${vipCount} active
+• 🎓 Education Packages: ${eduCount} active
+
+💎 *VIP Package Features:*
+• Create subscription plans
+• Set pricing & duration  
+• Manage features list
+• Enable/disable packages
+
+🎓 *Education Package Features:*
+• Create courses & workshops
+• Set instructor details
+• Manage enrollments
+• Configure learning outcomes
+
+⚡ *Quick Actions:*`;
+
+  const packageKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "💎 Manage VIP", callback_data: "manage_vip_packages" },
+        { text: "🎓 Manage Education", callback_data: "manage_edu_packages" }
+      ],
+      [
+        { text: "➕ Create VIP", callback_data: "create_vip_package" },
+        { text: "➕ Create Course", callback_data: "create_edu_package" }
+      ],
+      [
+        { text: "📊 Package Stats", callback_data: "package_stats" },
+        { text: "🔄 Sync Packages", callback_data: "sync_packages" }
+      ],
+      [
+        { text: "🔙 Back to Admin", callback_data: "admin_dashboard" }
+      ]
+    ]
+  };
+
+  await sendMessage(chatId, packageMessage, packageKeyboard);
+}
+
+// Settings management handlers
+async function handleSettingsManagement(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  const sessionTimeout = await getBotSetting('session_timeout_minutes') || '30';
+  const followUpDelay = await getBotSetting('follow_up_delay_minutes') || '10';
+  const maxFollowUps = await getBotSetting('max_follow_ups') || '3';
+  const maintenanceMode = await getBotSetting('maintenance_mode') || 'false';
+  const autoWelcome = await getBotSetting('auto_welcome') || 'true';
+
+  const settingsMessage = `⚙️ *Bot Settings & Configuration*
+
+🔧 *Current Settings:*
+• 🕐 Session Timeout: ${sessionTimeout} minutes
+• 📬 Follow-up Delay: ${followUpDelay} minutes  
+• 🔢 Max Follow-ups: ${maxFollowUps}
+• 🔧 Maintenance Mode: ${maintenanceMode === 'true' ? '🔴 ON' : '🟢 OFF'}
+• 🚀 Auto Welcome: ${autoWelcome === 'true' ? '🟢 ON' : '🔴 OFF'}
+
+🎛️ *Available Settings:*
+Configure bot behavior, timeouts, and user experience.`;
+
+  const settingsKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "🕐 Session Settings", callback_data: "set_session_settings" },
+        { text: "📬 Follow-up Config", callback_data: "set_followup_settings" }
+      ],
+      [
+        { text: `${maintenanceMode === 'true' ? '🟢 Exit' : '🔴 Enter'} Maintenance`, callback_data: "toggle_maintenance" },
+        { text: "🔔 Notifications", callback_data: "set_notifications" }
+      ],
+      [
+        { text: "💾 Backup Settings", callback_data: "backup_settings" },
+        { text: "🔄 Reset to Default", callback_data: "reset_settings" }
+      ],
+      [
+        { text: "🔙 Back to Admin", callback_data: "admin_dashboard" }
+      ]
+    ]
+  };
+
+  await sendMessage(chatId, settingsMessage, settingsKeyboard);
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  if (req.method === "GET") {
+    return new Response("🚀 Enhanced Dynamic Capital Bot is live!", { status: 200 });
+  }
+
+  try {
+    const body = await req.text();
+    const update = JSON.parse(body);
+
+    console.log("📨 Update received:", JSON.stringify(update));
+
+    // Extract user info
+    const from = update.message?.from || update.callback_query?.from;
+    if (!from) return new Response("OK", { status: 200 });
+
+    const chatId = update.message?.chat?.id || update.callback_query?.message?.chat?.id;
+    const userId = from.id.toString();
+    const firstName = from.first_name || 'Friend';
+    const lastName = from.last_name;
+    const username = from.username;
+
+    // Track user activity for session management
+    await updateUserActivity(userId, {
+      message_type: update.message ? 'message' : 'callback_query',
+      text: update.message?.text || update.callback_query?.data,
+      timestamp: new Date().toISOString()
+    });
+
+    // Handle regular messages
+    if (update.message) {
+      const text = update.message.text;
+      const session = getUserSession(userId);
+
+      // Check for maintenance mode
+      const maintenanceMode = await getBotSetting('maintenance_mode');
+      if (maintenanceMode === 'true' && !isAdmin(userId)) {
+        await sendMessage(chatId, "🔧 *Bot is under maintenance*\n\n⏰ We'll be back soon! Thank you for your patience.\n\n🛟 For urgent support, contact @DynamicCapital_Support");
+        return new Response("OK", { status: 200 });
+      }
+
+      // Handle /start command with dynamic welcome message
+      if (text === '/start') {
+        const welcomeMessage = await getWelcomeMessage(firstName);
+        const keyboard = await getMainMenuKeyboard();
+
+        await sendMessage(chatId, welcomeMessage, keyboard);
+        
+        // Track new user start
+        await logAdminAction(userId, 'user_start', `User ${firstName} (${userId}) started bot`, 'user_interactions');
+        return new Response("OK", { status: 200 });
+      }
+
+      // Enhanced admin commands
+      if (text === '/admin' && isAdmin(userId)) {
+        await handleAdminDashboard(chatId, userId);
+        return new Response("OK", { status: 200 });
+      }
+
+      // Quick admin commands
+      if (text === '/users' && isAdmin(userId)) {
+        const userCount = await supabaseAdmin.from('bot_users').select('*', { count: 'exact' });
+        await sendMessage(chatId, `👥 *User Statistics*\n\nTotal Users: ${userCount.count || 0}\n\nUse /admin for full management.`);
+        return new Response("OK", { status: 200 });
+      }
+
+      if (text === '/stats' && isAdmin(userId)) {
+        const [users, vipPackages, eduPackages, promos] = await Promise.all([
+          supabaseAdmin.from('bot_users').select('*', { count: 'exact' }),
+          supabaseAdmin.from('subscription_plans').select('*', { count: 'exact' }),
+          supabaseAdmin.from('education_packages').select('*', { count: 'exact' }),
+          supabaseAdmin.from('promotions').select('*', { count: 'exact' })
+        ]);
+
+        const statsMessage = `📊 *Bot Statistics*\n\n👥 Users: ${users.count || 0}\n💎 VIP Packages: ${vipPackages.count || 0}\n🎓 Education: ${eduPackages.count || 0}\n💰 Promos: ${promos.count || 0}`;
+        await sendMessage(chatId, statsMessage);
+        return new Response("OK", { status: 200 });
+      }
+
+      // Handle awaiting input for content editing
+      if (session.awaitingInput?.startsWith('edit_content_')) {
+        const contentKey = session.awaitingInput.replace('edit_content_', '');
+        const success = await setBotContent(contentKey, text, userId);
+        
+        if (success) {
+          await sendMessage(chatId, `✅ *Content Updated Successfully!*\n\n📝 The **${contentKey.replace(/_/g, ' ').toUpperCase()}** has been updated and will be used immediately.\n\n🎯 Changes take effect right away for all users.`);
+        } else {
+          await sendMessage(chatId, "❌ Failed to update content. Please try again.");
+        }
+        
+        session.awaitingInput = null;
+        return new Response("OK", { status: 200 });
+      }
+
+      // Handle package creation inputs
+      if (session.awaitingInput?.startsWith('create_vip_')) {
+        // Handle VIP package creation steps
+        const step = session.awaitingInput.replace('create_vip_', '');
+        const session_data = session.packageData || {};
+        
+        switch (step) {
+          case 'name':
+            session_data.name = text;
+            session.awaitingInput = 'create_vip_price';
+            session.packageData = session_data;
+            await sendMessage(chatId, "💰 *Step 2: Package Price*\n\nEnter the price in USD (numbers only):\nExample: 99, 199, 299");
+            break;
+          case 'price':
+            const price = parseFloat(text);
+            if (isNaN(price) || price <= 0) {
+              await sendMessage(chatId, "❌ Invalid price. Please enter a valid number.");
+              return new Response("OK", { status: 200 });
+            }
+            session_data.price = price;
+            session.awaitingInput = 'create_vip_duration';
+            session.packageData = session_data;
+            await sendMessage(chatId, "📅 *Step 3: Duration*\n\nEnter duration in months:\nExample: 1, 3, 6, 12");
+            break;
+          case 'duration':
+            const duration = parseInt(text);
+            if (isNaN(duration) || duration <= 0) {
+              await sendMessage(chatId, "❌ Invalid duration. Please enter a valid number of months.");
+              return new Response("OK", { status: 200 });
+            }
+            session_data.duration_months = duration;
+            session_data.currency = 'USD';
+            session_data.features = [];
+            
+            // Create the package
+            const success = await supabaseAdmin.from('subscription_plans').insert(session_data);
+            if (success.error) {
+              await sendMessage(chatId, `❌ Error creating package: ${success.error.message}`);
+            } else {
+              await sendMessage(chatId, `✅ *VIP Package Created!*\n\n📦 **${session_data.name}**\n💰 Price: $${session_data.price}\n📅 Duration: ${session_data.duration_months} months\n\n🎯 Package is now available to users!`);
+              await logAdminAction(userId, 'package_create', `Created VIP package: ${session_data.name}`, 'subscription_plans');
+            }
+            
+            session.awaitingInput = null;
+            session.packageData = null;
+            break;
+        }
+        return new Response("OK", { status: 200 });
+      }
+    }
+
+    // Handle callback queries (button presses)
+    if (update.callback_query) {
+      const data = update.callback_query.data;
+      
+      // Answer callback query to remove loading state
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callback_query_id: update.callback_query.id })
+      });
+
+      switch (data) {
+        case 'back_main':
+          const welcomeMessage = await getWelcomeMessage(firstName);
+          const keyboard = await getMainMenuKeyboard();
+          await sendMessage(chatId, welcomeMessage, keyboard);
+          break;
+
+        case 'view_vip_packages':
+          const vipPackages = await getVipPackages();
+          let vipMessage = "💎 *VIP Trading Packages*\n\n🚀 Elevate your trading journey with our exclusive VIP plans:\n\n";
+          
+          vipPackages.forEach(pkg => {
+            vipMessage += `**${pkg.name}**\n`;
+            vipMessage += `💰 Price: $${pkg.price}/${pkg.duration_months} months\n`;
+            if (pkg.features && pkg.features.length > 0) {
+              vipMessage += `✨ Features: ${pkg.features.join(', ')}\n`;
+            }
+            vipMessage += `\n`;
+          });
+
+          if (vipPackages.length === 0) {
+            vipMessage += "🔧 No packages available at the moment. Please check back later!";
+          }
+
+          const vipKeyboard = await getVipPackagesKeyboard();
+          await sendMessage(chatId, vipMessage, vipKeyboard);
+          break;
+
+        case 'view_education':
+          const eduPackages = await getEducationPackages();
+          let eduMessage = "🎓 *Education & Training Programs*\n\n📚 Invest in your trading education with our comprehensive courses:\n\n";
+          
+          eduPackages.forEach(pkg => {
+            eduMessage += `**${pkg.name}**\n`;
+            eduMessage += `💰 Price: $${pkg.price}\n`;
+            eduMessage += `⏱️ Duration: ${pkg.duration_weeks} weeks\n`;
+            if (pkg.instructor_name) {
+              eduMessage += `👨‍🏫 Instructor: ${pkg.instructor_name}\n`;
+            }
+            if (pkg.difficulty_level) {
+              eduMessage += `📊 Level: ${pkg.difficulty_level}\n`;
+            }
+            eduMessage += `\n`;
+          });
+
+          if (eduPackages.length === 0) {
+            eduMessage += "🔧 No education packages available at the moment. Please check back later!";
+          }
+
+          const eduKeyboard = await getEducationPackagesKeyboard();
+          await sendMessage(chatId, eduMessage, eduKeyboard);
+          break;
+
+        case 'view_promotions':
+          const promos = await getActivePromotions();
+          let promoMessage = "💰 *Active Promotions & Discounts*\n\n🎉 Don't miss these limited-time offers:\n\n";
+          
+          promos.forEach(promo => {
+            promoMessage += `🎫 **${promo.code}**\n`;
+            if (promo.description) {
+              promoMessage += `📝 ${promo.description}\n`;
+            }
+            if (promo.discount_type === 'percentage') {
+              promoMessage += `💸 Discount: ${promo.discount_value}%\n`;
+            } else {
+              promoMessage += `💸 Discount: $${promo.discount_value}\n`;
+            }
+            promoMessage += `⏰ Valid until: ${new Date(promo.valid_until).toLocaleDateString()}\n\n`;
+          });
+
+          if (promos.length === 0) {
+            promoMessage += "🔍 No active promotions at the moment.\n\n🔔 Follow us for updates on new deals!";
+          }
+
+          await sendMessage(chatId, promoMessage, { inline_keyboard: [[{ text: "🔙 Back to Main", callback_data: "back_main" }]] });
+          break;
+
+        case 'about_us':
+          const aboutMessage = await getBotContent('about_us') || '🏢 *About Dynamic Capital*\n\nWe are a leading trading education platform.';
+          await sendMessage(chatId, aboutMessage, { inline_keyboard: [[{ text: "🔙 Back to Main", callback_data: "back_main" }]] });
+          break;
+
+        case 'support':
+          const supportMessage = await getBotContent('support_message') || '🛟 *Need Help?*\n\nContact our support team for assistance.';
+          await sendMessage(chatId, supportMessage, { inline_keyboard: [[{ text: "🔙 Back to Main", callback_data: "back_main" }]] });
+          break;
+
+        case 'terms':
+          const termsMessage = await getBotContent('terms_conditions') || '📋 *Terms & Conditions*\n\nPlease read our terms of service.';
+          await sendMessage(chatId, termsMessage, { inline_keyboard: [[{ text: "🔙 Back to Main", callback_data: "back_main" }]] });
+          break;
+
+        case 'faq':
+          const faqMessage = await getBotContent('faq_general') || '❓ *FAQ*\n\nFrequently asked questions will be listed here.';
+          await sendMessage(chatId, faqMessage, { inline_keyboard: [[{ text: "🔙 Back to Main", callback_data: "back_main" }]] });
+          break;
+
+        // Admin dashboard handlers
+        case 'admin_dashboard':
+          await handleAdminDashboard(chatId, userId);
+          break;
+
+        case 'admin_content':
+          await handleContentManagement(chatId, userId);
+          break;
+
+        case 'admin_packages':
+          await handlePackageManagement(chatId, userId);
+          break;
+
+        case 'admin_settings':
+          await handleSettingsManagement(chatId, userId);
+          break;
+
+        // Content editing handlers
+        case data?.startsWith('edit_content_') ? data : null:
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Access denied.");
+            break;
+          }
+          
+          const contentKey = data.replace('edit_content_', '');
+          const currentContent = await getBotContent(contentKey);
+          
+          const session = getUserSession(userId);
+          session.awaitingInput = data;
+          
+          await sendMessage(chatId, `📝 *Edit ${contentKey.replace(/_/g, ' ').toUpperCase()}*\n\n**Current content:**\n${currentContent || 'No content set'}\n\n**Instructions:**\n• Use {firstName} for user's name\n• Markdown formatting supported\n• Emojis encouraged\n\n**Send your new content:**`);
+          break;
+
+        // Package management handlers
+        case 'create_vip_package':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Access denied.");
+            break;
+          }
+          
+          const session = getUserSession(userId);
+          session.awaitingInput = 'create_vip_name';
+          session.packageData = {};
+          
+          await sendMessage(chatId, `📦 *Create New VIP Package*\n\n**Step 1: Package Name**\n\nEnter a catchy name for your VIP package:\nExample: "Silver Trader", "Gold Pro", "Diamond Elite"`);
+          break;
+
+        case 'toggle_maintenance':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Access denied.");
+            break;
+          }
+          
+          const currentMode = await getBotSetting('maintenance_mode') || 'false';
+          const newMode = currentMode === 'true' ? 'false' : 'true';
+          
+          await setBotSetting('maintenance_mode', newMode, userId);
+          
+          const modeText = newMode === 'true' ? 'ENABLED' : 'DISABLED';
+          const modeEmoji = newMode === 'true' ? '🔴' : '🟢';
+          
+          await sendMessage(chatId, `${modeEmoji} *Maintenance Mode ${modeText}*\n\n${newMode === 'true' ? '⚠️ Bot is now in maintenance mode. Only admins can use the bot.' : '✅ Bot is now available to all users.'}`);
+          break;
+
+        default:
+          await sendMessage(chatId, "🚀 Welcome to Dynamic Capital! Use the menu buttons to navigate.");
+          break;
+      }
+    }
+
+    return new Response("OK", { status: 200 });
+  } catch (error) {
+    console.error("❌ Error:", error);
+    return new Response("Error", { status: 500 });
+  }
+});
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
