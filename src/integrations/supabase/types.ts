@@ -430,6 +430,42 @@ export type Database = {
           },
         ]
       }
+      contact_links: {
+        Row: {
+          created_at: string
+          display_name: string
+          display_order: number | null
+          icon_emoji: string | null
+          id: string
+          is_active: boolean
+          platform: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          display_order?: number | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          platform: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          display_order?: number | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          platform?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       conversion_tracking: {
         Row: {
           conversion_data: Json | null
