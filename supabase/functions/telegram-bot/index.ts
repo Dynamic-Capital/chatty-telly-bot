@@ -4091,6 +4091,263 @@ async function handlePaymentReport(chatId: number, userId: string, timeRange: st
   }
 }
 
+async function handlePackageReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    await sendMessage(chatId, "📦 Generating package performance report...");
+
+    const timeFilter = getTimeFilter(timeRange);
+
+    // Get subscription plans data
+    const { data: plans, error: plansError } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('*')
+      .order('price', { ascending: true });
+
+    if (plansError) throw plansError;
+
+    // Get subscription data with payments
+    const { data: subscriptions, error: subsError } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select(`
+        *,
+        subscription_plans(name, price, currency)
+      `)
+      .gte('created_at', timeFilter)
+      .order('created_at', { ascending: false });
+
+    if (subsError) throw subsError;
+
+    // Get education packages data
+    const { data: eduPackages, error: eduError } = await supabaseAdmin
+      .from('education_packages')
+      .select('*')
+      .order('price', { ascending: true });
+
+    if (eduError) throw eduError;
+
+    // Get education enrollments
+    const { data: enrollments, error: enrollError } = await supabaseAdmin
+      .from('education_enrollments')
+      .select(`
+        *,
+        education_packages(name, price, currency)
+      `)
+      .gte('created_at', timeFilter);
+
+    if (enrollError) throw enrollError;
+
+    // Generate report
+    const vipStats = plans?.map(plan => {
+      const planSubs = subscriptions?.filter(s => s.plan_id === plan.id) || [];
+      const activeCount = planSubs.filter(s => s.is_active).length;
+      const totalRevenue = planSubs.filter(s => s.payment_status === 'approved').length * plan.price;
+      
+      return {
+        name: plan.name,
+        price: plan.price,
+        activeSubscriptions: activeCount,
+        totalSignups: planSubs.length,
+        revenue: totalRevenue,
+        conversionRate: planSubs.length > 0 ? Math.round((activeCount / planSubs.length) * 100) : 0
+      };
+    }) || [];
+
+    const eduStats = eduPackages?.map(pkg => {
+      const pkgEnrollments = enrollments?.filter(e => e.package_id === pkg.id) || [];
+      const completedCount = pkgEnrollments.filter(e => e.enrollment_status === 'completed').length;
+      const revenue = pkgEnrollments.filter(e => e.payment_status === 'approved').length * pkg.price;
+      
+      return {
+        name: pkg.name,
+        price: pkg.price,
+        enrollments: pkgEnrollments.length,
+        completed: completedCount,
+        revenue: revenue,
+        completionRate: pkgEnrollments.length > 0 ? Math.round((completedCount / pkgEnrollments.length) * 100) : 0
+      };
+    }) || [];
+
+    let message = `📦 **Package Performance Report** (${timeRange})
+
+🎯 **VIP Subscription Packages:**`;
+
+    vipStats.forEach(stat => {
+      message += `
+• **${stat.name}** - $${stat.price}
+  📊 Active: ${stat.activeSubscriptions} | Total: ${stat.totalSignups}
+  💰 Revenue: $${stat.revenue}
+  📈 Conversion: ${stat.conversionRate}%`;
+    });
+
+    message += `
+
+🎓 **Education Packages:**`;
+
+    eduStats.forEach(stat => {
+      message += `
+• **${stat.name}** - $${stat.price}
+  📚 Enrollments: ${stat.enrollments} | Completed: ${stat.completed}
+  💰 Revenue: $${stat.revenue}
+  ✅ Completion Rate: ${stat.completionRate}%`;
+    });
+
+    const totalVipRevenue = vipStats.reduce((sum, stat) => sum + stat.revenue, 0);
+    const totalEduRevenue = eduStats.reduce((sum, stat) => sum + stat.revenue, 0);
+    const totalRevenue = totalVipRevenue + totalEduRevenue;
+
+    message += `
+
+📊 **Summary:**
+💰 Total VIP Revenue: $${totalVipRevenue}
+🎓 Total Education Revenue: $${totalEduRevenue}
+🏆 **Grand Total: $${totalRevenue}**
+
+📈 **Top Performers:**
+🥇 Best VIP Plan: ${vipStats.length > 0 ? vipStats.sort((a, b) => b.revenue - a.revenue)[0]?.name || 'N/A' : 'No data'}
+🎯 Best Education: ${eduStats.length > 0 ? eduStats.sort((a, b) => b.revenue - a.revenue)[0]?.name || 'N/A' : 'No data'}
+
+Generated: ${new Date().toLocaleString()}`;
+
+    await sendMessage(chatId, message);
+    await logAdminAction(userId, 'report_generated', `Package performance report for ${timeRange}`, 'reports');
+
+  } catch (error) {
+    console.error('❌ Error generating package report:', error);
+    await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+  }
+}
+
+async function handlePromotionReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    await sendMessage(chatId, "🎁 Generating promotion analytics report...");
+
+    const timeFilter = getTimeFilter(timeRange);
+
+    // Get promotions data
+    const { data: promotions, error: promoError } = await supabaseAdmin
+      .from('promotions')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (promoError) throw promoError;
+
+    // Get promotion usage data
+    const { data: usage, error: usageError } = await supabaseAdmin
+      .from('promotion_usage')
+      .select(`
+        *,
+        promotions(code, discount_value, discount_type)
+      `)
+      .gte('used_at', timeFilter);
+
+    if (usageError) throw usageError;
+
+    // Get promo analytics data
+    const { data: analytics, error: analyticsError } = await supabaseAdmin
+      .from('promo_analytics')
+      .select('*')
+      .gte('created_at', timeFilter);
+
+    if (analyticsError) throw analyticsError;
+
+    const promoStats = promotions?.map(promo => {
+      const promoUsage = usage?.filter(u => u.promotion_id === promo.id) || [];
+      const promoAnalytics = analytics?.filter(a => a.promo_code === promo.code) || [];
+      
+      const totalSavings = promoAnalytics.reduce((sum, a) => sum + (a.discount_amount || 0), 0);
+      const averageSavings = promoUsage.length > 0 ? totalSavings / promoUsage.length : 0;
+      
+      return {
+        code: promo.code,
+        type: promo.discount_type,
+        value: promo.discount_value,
+        maxUses: promo.max_uses || 'Unlimited',
+        currentUses: promo.current_uses || 0,
+        totalUsage: promoUsage.length,
+        totalSavings: totalSavings,
+        averageSavings: averageSavings,
+        isActive: promo.is_active,
+        validUntil: promo.valid_until
+      };
+    }) || [];
+
+    let message = `🎁 **Promotion Analytics Report** (${timeRange})
+
+📊 **Active Promotions:**`;
+
+    const activePromos = promoStats.filter(p => p.isActive);
+    const expiredPromos = promoStats.filter(p => !p.isActive);
+
+    activePromos.forEach(promo => {
+      const usagePercent = promo.maxUses !== 'Unlimited' ? 
+        Math.round((promo.currentUses / promo.maxUses) * 100) : 0;
+      
+      message += `
+🟢 **${promo.code}**
+  💰 ${promo.type}: ${promo.value}${promo.type === 'percentage' ? '%' : ' USD'}
+  📊 Used: ${promo.currentUses}/${promo.maxUses} ${promo.maxUses !== 'Unlimited' ? `(${usagePercent}%)` : ''}
+  💵 Total Savings: $${promo.totalSavings.toFixed(2)}
+  📅 Valid Until: ${new Date(promo.validUntil).toLocaleDateString()}`;
+    });
+
+    if (expiredPromos.length > 0) {
+      message += `
+
+⏰ **Expired/Inactive Promotions:**`;
+      
+      expiredPromos.slice(0, 5).forEach(promo => {
+        message += `
+🔴 **${promo.code}** - Used: ${promo.currentUses} times, Savings: $${promo.totalSavings.toFixed(2)}`;
+      });
+    }
+
+    const totalPromotions = promoStats.length;
+    const totalUsage = promoStats.reduce((sum, p) => sum + p.totalUsage, 0);
+    const totalSavings = promoStats.reduce((sum, p) => sum + p.totalSavings, 0);
+    const averageUsagePerPromo = totalPromotions > 0 ? totalUsage / totalPromotions : 0;
+
+    message += `
+
+📈 **Overall Statistics:**
+🎯 Total Promotions: ${totalPromotions}
+🔄 Total Usage: ${totalUsage} times
+💰 Total Customer Savings: $${totalSavings.toFixed(2)}
+📊 Average Usage per Promo: ${averageUsagePerPromo.toFixed(1)} times
+🟢 Active Promotions: ${activePromos.length}
+
+🏆 **Top Performing Codes:**`;
+
+    const topPromos = promoStats
+      .sort((a, b) => b.totalUsage - a.totalUsage)
+      .slice(0, 3);
+
+    topPromos.forEach((promo, index) => {
+      message += `
+${index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'} ${promo.code}: ${promo.totalUsage} uses, $${promo.totalSavings.toFixed(2)} savings`;
+    });
+
+    message += `
+
+Generated: ${new Date().toLocaleString()}`;
+
+    await sendMessage(chatId, message);
+    await logAdminAction(userId, 'report_generated', `Promotion analytics report for ${timeRange}`, 'reports');
+
+  } catch (error) {
+    console.error('❌ Error generating promotion report:', error);
+    await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+  }
+
 async function handleBotUsageReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
   if (!isAdmin(userId)) {
     await sendMessage(chatId, "❌ Access denied.");
@@ -4169,6 +4426,510 @@ async function handleBotUsageReport(chatId: number, userId: string, timeRange: s
     await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
   }
 }
+
+// Additional table management handlers
+async function handlePaymentsTableManagement(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    const { data: payments, error } = await supabaseAdmin
+      .from('payments')
+      .select(`
+        *,
+        bot_users(first_name, last_name, telegram_id),
+        subscription_plans(name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) throw error;
+
+    const totalStats = await supabaseAdmin
+      .from('payments')
+      .select('id, amount, status', { count: 'exact' });
+
+    const revenueQuery = await supabaseAdmin
+      .from('payments')
+      .select('amount')
+      .eq('status', 'completed');
+
+    const totalRevenue = revenueQuery.data?.reduce((sum, p) => sum + p.amount, 0) || 0;
+
+    let message = `💳 **Payments Table Management**
+
+📊 **Statistics:**
+• Total Payments: ${totalStats.count || 0}
+• Total Revenue: $${totalRevenue.toFixed(2)}
+• Recent Payments (Last 20):
+
+`;
+
+    payments?.forEach((payment, index) => {
+      const user = payment.bot_users;
+      const plan = payment.subscription_plans;
+      const statusEmoji = payment.status === 'completed' ? '✅' : 
+                         payment.status === 'pending' ? '⏳' : '❌';
+      
+      message += `${index + 1}. ${statusEmoji} $${payment.amount} ${payment.currency}
+   👤 ${user?.first_name || 'Unknown'} (${user?.telegram_id || 'N/A'})
+   📦 ${plan?.name || 'Unknown Plan'}
+   📅 ${new Date(payment.created_at).toLocaleDateString()}
+
+`;
+    });
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "💰 Revenue Report", callback_data: "report_payments" },
+          { text: "🔙 Back to Tables", callback_data: "manage_tables" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+
+  } catch (error) {
+    console.error('❌ Error in payments table management:', error);
+    await sendMessage(chatId, `❌ Error loading payments data: ${error.message}`);
+  }
+}
+
+async function handleBroadcastTableManagement(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    const { data: broadcasts, error } = await supabaseAdmin
+      .from('broadcast_messages')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(15);
+
+    if (error) throw error;
+
+    const totalBroadcasts = await supabaseAdmin
+      .from('broadcast_messages')
+      .select('id', { count: 'exact' });
+
+    let message = `📢 **Broadcast Messages Management**
+
+📊 **Statistics:**
+• Total Broadcasts: ${totalBroadcasts.count || 0}
+• Recent Messages (Last 15):
+
+`;
+
+    broadcasts?.forEach((broadcast, index) => {
+      const statusEmoji = broadcast.delivery_status === 'completed' ? '✅' : 
+                         broadcast.delivery_status === 'sending' ? '📤' : 
+                         broadcast.delivery_status === 'draft' ? '📝' : '❌';
+      
+      message += `${index + 1}. ${statusEmoji} ${broadcast.title || 'Untitled'}
+   📝 ${broadcast.content?.substring(0, 50) || 'No content'}...
+   📊 ${broadcast.successful_deliveries || 0}/${broadcast.total_recipients || 0} delivered
+   📅 ${new Date(broadcast.created_at).toLocaleDateString()}
+
+`;
+    });
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "📤 New Broadcast", callback_data: "admin_broadcast" },
+          { text: "🔙 Back to Tables", callback_data: "manage_tables" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+
+  } catch (error) {
+    console.error('❌ Error in broadcast table management:', error);
+    await sendMessage(chatId, `❌ Error loading broadcast data: ${error.message}`);
+  }
+}
+
+async function handleBankAccountsTableManagement(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    const { data: bankAccounts, error } = await supabaseAdmin
+      .from('bank_accounts')
+      .select('*')
+      .order('display_order', { ascending: true });
+
+    if (error) throw error;
+
+    let message = `🏦 **Bank Accounts Management**
+
+📊 **Payment Bank Accounts:**
+
+`;
+
+    bankAccounts?.forEach((account, index) => {
+      const statusEmoji = account.is_active ? '🟢' : '🔴';
+      
+      message += `${index + 1}. ${statusEmoji} ${account.bank_name}
+   👤 ${account.account_name}
+   💳 ${account.account_number}
+   💱 ${account.currency}
+
+`;
+    });
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "🔙 Back to Tables", callback_data: "manage_tables" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+
+  } catch (error) {
+    console.error('❌ Error in bank accounts table management:', error);
+    await sendMessage(chatId, `❌ Error loading bank accounts data: ${error.message}`);
+  }
+}
+
+async function handleAutoReplyTableManagement(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    const { data: templates, error } = await supabaseAdmin
+      .from('auto_reply_templates')
+      .select('*')
+      .order('display_order', { ascending: true });
+
+    if (error) throw error;
+
+    let message = `🤖 **Auto Reply Templates Management**
+
+📊 **Templates:**
+
+`;
+
+    templates?.forEach((template, index) => {
+      const statusEmoji = template.is_active ? '🟢' : '🔴';
+      
+      message += `${index + 1}. ${statusEmoji} ${template.name}
+   🔗 Trigger: ${template.trigger_type}
+   📝 ${template.message_template.substring(0, 50)}...
+
+`;
+    });
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "🔙 Back to Tables", callback_data: "manage_tables" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+
+  } catch (error) {
+    console.error('❌ Error in auto reply table management:', error);
+    await sendMessage(chatId, `❌ Error loading auto reply data: ${error.message}`);
+  }
+}
+
+async function handleEducationPackageStats(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    const { data: packages, error: pkgError } = await supabaseAdmin
+      .from('education_packages')
+      .select('*');
+
+    const { data: enrollments, error: enrollError } = await supabaseAdmin
+      .from('education_enrollments')
+      .select('*');
+
+    if (pkgError || enrollError) throw pkgError || enrollError;
+
+    let message = `🎓 **Education Package Statistics**
+
+📊 **Package Performance:**
+
+`;
+
+    packages?.forEach(pkg => {
+      const pkgEnrollments = enrollments?.filter(e => e.package_id === pkg.id) || [];
+      const completed = pkgEnrollments.filter(e => e.enrollment_status === 'completed').length;
+      const revenue = pkgEnrollments.filter(e => e.payment_status === 'approved').length * pkg.price;
+      
+      message += `📚 **${pkg.name}**
+   💰 Price: $${pkg.price}
+   👥 Enrollments: ${pkgEnrollments.length}
+   ✅ Completed: ${completed}
+   💵 Revenue: $${revenue}
+
+`;
+    });
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "🔙 Back to Education", callback_data: "manage_table_education_packages" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+
+  } catch (error) {
+    console.error('❌ Error in education package stats:', error);
+    await sendMessage(chatId, `❌ Error loading education stats: ${error.message}`);
+  }
+}
+
+async function handleEducationCategoriesManagement(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    const { data: categories, error } = await supabaseAdmin
+      .from('education_categories')
+      .select('*')
+      .order('display_order', { ascending: true });
+
+    if (error) throw error;
+
+    let message = `📚 **Education Categories Management**
+
+📊 **Categories:**
+
+`;
+
+    categories?.forEach((category, index) => {
+      const statusEmoji = category.is_active ? '🟢' : '🔴';
+      
+      message += `${index + 1}. ${statusEmoji} ${category.icon} ${category.name}
+   📝 ${category.description || 'No description'}
+
+`;
+    });
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "🔙 Back to Education", callback_data: "manage_table_education_packages" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+
+  } catch (error) {
+    console.error('❌ Error in education categories management:', error);
+    await sendMessage(chatId, `❌ Error loading categories data: ${error.message}`);
+  }
+}
+
+async function handleEducationEnrollmentsView(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+}
+
+async function handleCreatePromotion(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  await sendMessage(chatId, `🎁 **Create New Promotion**
+
+To create a new promotion, please provide the following details:
+
+**Example Format:**
+Code: SAVE20
+Discount Type: percentage
+Discount Value: 20
+Max Uses: 100
+Valid Until: 2025-02-28
+
+Please contact the developer to add new promotions with the above details, as this requires database access for security.
+
+📋 **Current Active Promotions:**`);
+
+  // Show current promotions
+  try {
+    const { data: promotions, error } = await supabaseAdmin
+      .from('promotions')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    let promoList = '';
+    promotions?.forEach(promo => {
+      promoList += `\n🎫 ${promo.code} - ${promo.discount_value}${promo.discount_type === 'percentage' ? '%' : ' USD'} (${promo.current_uses || 0}/${promo.max_uses || '∞'} uses)`;
+    });
+
+    if (promoList) {
+      await sendMessage(chatId, promoList);
+    } else {
+      await sendMessage(chatId, "No active promotions found.");
+    }
+
+  } catch (error) {
+    console.error('❌ Error loading promotions:', error);
+  }
+}
+
+async function handleEditContent(chatId: number, userId: string, contentKey: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    const { data: content, error } = await supabaseAdmin
+      .from('bot_content')
+      .select('*')
+      .eq('content_key', contentKey)
+      .eq('is_active', true)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+
+    const currentContent = content?.content_value || 'No content found';
+    
+    await sendMessage(chatId, `💬 **Edit Content: ${contentKey.replace(/_/g, ' ').toUpperCase()}**
+
+**Current Content:**
+${currentContent.substring(0, 500)}${currentContent.length > 500 ? '...' : ''}
+
+**Instructions:**
+To edit this content, please contact the developer with the new content text. Content editing requires database access for security and proper formatting.
+
+**Content Key:** ${contentKey}
+**Last Updated:** ${content?.updated_at ? new Date(content.updated_at).toLocaleString() : 'Never'}
+**Created By:** ${content?.created_by || 'System'}`);
+
+  } catch (error) {
+    console.error('❌ Error loading content:', error);
+    await sendMessage(chatId, `❌ Error loading content: ${error.message}`);
+  }
+}
+
+async function handlePreviewAllContent(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    const { data: contents, error } = await supabaseAdmin
+      .from('bot_content')
+      .select('*')
+      .eq('is_active', true)
+      .order('content_key', { ascending: true });
+
+    if (error) throw error;
+
+    let message = `💬 **All Bot Content Preview**
+
+📋 **Available Content Keys:**
+
+`;
+
+    contents?.forEach(content => {
+      const preview = content.content_value.substring(0, 100);
+      message += `🔑 **${content.content_key}**
+   📝 ${preview}${content.content_value.length > 100 ? '...' : ''}
+   🕐 Updated: ${new Date(content.updated_at).toLocaleDateString()}
+
+`;
+    });
+
+    if (!contents || contents.length === 0) {
+      message += "No content found.";
+    }
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "🔙 Back to Content", callback_data: "admin_content" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+
+  } catch (error) {
+    console.error('❌ Error loading all content:', error);
+    await sendMessage(chatId, `❌ Error loading content: ${error.message}`);
+  }
+
+  try {
+    const { data: enrollments, error } = await supabaseAdmin
+      .from('education_enrollments')
+      .select(`
+        *,
+        education_packages(name, price)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) throw error;
+
+    let message = `🎓 **Education Enrollments** (Last 20)
+
+📊 **Recent Enrollments:**
+
+`;
+
+    enrollments?.forEach((enrollment, index) => {
+      const package_info = enrollment.education_packages;
+      const statusEmoji = enrollment.enrollment_status === 'completed' ? '✅' : 
+                         enrollment.enrollment_status === 'pending' ? '⏳' : '📚';
+      const paymentEmoji = enrollment.payment_status === 'approved' ? '💰' : '⏳';
+      
+      message += `${index + 1}. ${statusEmoji} ${enrollment.student_first_name || 'Unknown'}
+   📚 ${package_info?.name || 'Unknown Package'}
+   💰 $${package_info?.price || 0} ${paymentEmoji}
+   📧 ${enrollment.student_email || 'N/A'}
+
+`;
+    });
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "🔙 Back to Education", callback_data: "manage_table_education_packages" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+
+  } catch (error) {
+    console.error('❌ Error in education enrollments view:', error);
+    await sendMessage(chatId, `❌ Error loading enrollments data: ${error.message}`);
+  }
 
 async function handleQuickAnalytics(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
@@ -4743,11 +5504,11 @@ serve(async (req) => {
             break;
 
           case 'report_packages':
-            await sendMessage(chatId, "📦 Package performance report coming soon!");
+            await handlePackageReport(chatId, userId);
             break;
 
           case 'report_promotions':
-            await sendMessage(chatId, "🎁 Promotion analytics report coming soon!");
+            await handlePromotionReport(chatId, userId);
             break;
 
           case 'report_bot_usage':
@@ -4966,10 +5727,19 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
           case 'manage_table_daily_analytics':
           case 'manage_table_user_sessions':
           case 'manage_table_payments':
+            await handlePaymentsTableManagement(chatId, userId);
+            break;
+
           case 'manage_table_broadcast_messages':
+            await handleBroadcastTableManagement(chatId, userId);
+            break;
+
           case 'manage_table_bank_accounts':
+            await handleBankAccountsTableManagement(chatId, userId);
+            break;
+
           case 'manage_table_auto_reply_templates':
-            await sendMessage(chatId, "🔧 This feature is under development. Coming soon!");
+            await handleAutoReplyTableManagement(chatId, userId);
             break;
 
           case 'export_all_tables':
@@ -5016,20 +5786,40 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
           case 'create_education_package':
           case 'edit_education_package':
           case 'delete_education_package':
+            await sendMessage(chatId, "🗑️ Education package deletion requires careful consideration due to enrolled students. Please contact the developer for manual deletion.");
+            break;
+
           case 'education_package_stats':
+            await handleEducationPackageStats(chatId, userId);
+            break;
+
           case 'manage_education_categories':
+            await handleEducationCategoriesManagement(chatId, userId);
+            break;
+
           case 'view_education_enrollments':
-            await sendMessage(chatId, "🎓 Education package management features coming soon!");
+            await handleEducationEnrollmentsView(chatId, userId);
             break;
 
           // Promotion Management Callbacks
           case 'create_promotion':
-          case 'edit_promotion':
+            await handleCreatePromotion(chatId, userId);
+            break;
+
           case 'delete_promotion':
+            await sendMessage(chatId, "🗑️ Promotion deletion requires careful consideration. Please use admin dashboard to disable promotions instead.");
+            break;
+
           case 'promotion_analytics':
+            await handlePromotionReport(chatId, userId);
+            break;
+
           case 'toggle_promotion_status':
+            await sendMessage(chatId, "🔄 Use the promotions management menu to toggle promotion status.");
+            break;
+
           case 'promotion_usage_stats':
-            await sendMessage(chatId, "💰 Promotion management features coming soon!");
+            await handlePromotionReport(chatId, userId);
             break;
 
           // Content Management Callbacks
