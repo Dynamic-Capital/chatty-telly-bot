@@ -387,16 +387,19 @@ async function sendMessage(
     const result = await response.json();
     console.log(`✅ Message sent successfully to ${chatId}`);
 
-    // Auto-delete messages in groups after 30 seconds
+    // Auto-delete messages in groups after specified time
     if (result.ok && result.result) {
       const messageId = result.result.message_id;
       const chatType = await getChatType(chatId);
       
-      // Check if it's a group or supergroup
-      if (chatType === 'group' || chatType === 'supergroup') {
-        console.log(`⏰ Scheduling auto-deletion for message ${messageId} in chat ${chatId}`);
+      // Check if auto-deletion is enabled and it's a group/supergroup
+      const autoDeleteEnabled = await getBotSetting('auto_delete_enabled');
+      const deleteDelay = parseInt(await getBotSetting('auto_delete_delay_seconds') || '30');
+      
+      if (autoDeleteEnabled === 'true' && (chatType === 'group' || chatType === 'supergroup')) {
+        console.log(`⏰ Scheduling auto-deletion for message ${messageId} in chat ${chatId} after ${deleteDelay} seconds`);
         
-        // Schedule deletion after 30 seconds
+        // Schedule deletion after specified delay
         setTimeout(async () => {
           try {
             console.log(`🗑️ Auto-deleting message ${messageId} from chat ${chatId}`);
@@ -404,7 +407,7 @@ async function sendMessage(
           } catch (error) {
             console.error(`❌ Failed to auto-delete message ${messageId}:`, error);
           }
-        }, 30000); // 30 seconds
+        }, deleteDelay * 1000); // Convert seconds to milliseconds
       }
     }
 
