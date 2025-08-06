@@ -889,13 +889,7 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
       console.log(`✅ Created new subscription: ${subscription.id}`);
     }
 
-    if (subError) {
-      console.error('❌ Error creating subscription:', subError);
-      await sendMessage(chatId, "❌ Error creating subscription. Please try again.");
-      return;
-    }
-
-    console.log(`✅ Subscription created: ${subscription.id}`);
+    console.log(`✅ Subscription ready: ${subscription.id}`);
 
     let paymentInstructions = '';
     
