@@ -5048,4 +5048,6 @@ Welcome to the VIP community! 🌟`);
   }
 }
 
+});
+
 console.log("🚀 Bot is ready and listening for updates!");
