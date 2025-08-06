@@ -4131,20 +4131,36 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
 
           // User Management Callbacks
           case 'add_admin_user':
+            await handleAddAdminUser(chatId, userId);
+            break;
           case 'search_user':
+            await handleSearchUser(chatId, userId);
+            break;
           case 'manage_vip_users':
+            await handleManageVipUsers(chatId, userId);
+            break;
           case 'export_users':
-            await sendMessage(chatId, "👥 Advanced user management features coming soon!");
+            await handleExportUsers(chatId, userId);
             break;
 
           // VIP Plan Management Callbacks
           case 'create_vip_plan':
+            await handleCreateVipPlan(chatId, userId);
+            break;
           case 'edit_vip_plan':
+            await handleEditVipPlan(chatId, userId);
+            break;
           case 'delete_vip_plan':
+            await handleDeleteVipPlan(chatId, userId);
+            break;
           case 'vip_plan_stats':
+            await handleVipPlanStats(chatId, userId);
+            break;
           case 'update_plan_pricing':
+            await handleUpdatePlanPricing(chatId, userId);
+            break;
           case 'manage_plan_features':
-            await sendMessage(chatId, "💎 VIP plan management features coming soon!");
+            await handleManagePlanFeatures(chatId, userId);
             break;
 
           // Education Package Management Callbacks
@@ -4231,7 +4247,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
               await sendMessage(chatId, `❌ All pending payments for user ${targetUserId} have been rejected.`);
             } else if (callbackData.startsWith('make_vip_')) {
               const targetUserId = callbackData.replace('make_vip_', '');
-              await sendMessage(chatId, `💎 Making user ${targetUserId} VIP. Feature coming soon!`);
+              await handleMakeUserVip(chatId, userId, targetUserId);
             } else if (callbackData.startsWith('message_user_')) {
               const targetUserId = callbackData.replace('message_user_', '');
               await sendMessage(chatId, `📧 Direct messaging to user ${targetUserId}. Feature coming soon!`);
@@ -4292,5 +4308,492 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
     return new Response("Error", { status: 500, headers: corsHeaders });
   }
 });
+
+// Additional admin handlers
+async function handleCreateVipPlan(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+  
+  await sendMessage(chatId, `💎 **Create New VIP Plan**
+
+📝 To create a new VIP plan, send me the plan details in this format:
+
+\`\`\`
+/createplan
+Name: Premium Trader Pro
+Price: 299
+Duration: 12
+Currency: USD
+Features: Real-time signals, VIP chat access, 1-on-1 mentoring, Trading bot access
+\`\`\`
+
+🔧 **Required Fields:**
+• Name: Plan display name
+• Price: Amount in numbers only
+• Duration: Months (0 for lifetime)
+• Currency: USD, EUR, etc.
+• Features: Comma-separated list
+
+💡 **Example Commands:**
+• \`/createplan\` - Start creation wizard
+• \`/listplans\` - View existing plans`);
+
+  // Set user session for plan creation
+  const session = getUserSession(userId);
+  session.awaitingInput = 'create_vip_plan';
+}
+
+async function handleEditVipPlan(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+  
+  try {
+    const packages = await getVipPackages();
+    
+    if (packages.length === 0) {
+      await sendMessage(chatId, "❌ No VIP plans found. Create one first with /createplan");
+      return;
+    }
+    
+    let message = `✏️ **Edit VIP Plans**\n\nSelect a plan to edit:\n\n`;
+    
+    const keyboard = {
+      inline_keyboard: packages.map(pkg => [{
+        text: `${pkg.name} - $${pkg.price}/${pkg.duration_months}mo`,
+        callback_data: `edit_plan_${pkg.id}`
+      }])
+    };
+    
+    keyboard.inline_keyboard.push([
+      { text: "🔙 Back to Admin", callback_data: "admin_packages" }
+    ]);
+    
+    await sendMessage(chatId, message, keyboard);
+    
+  } catch (error) {
+    await sendMessage(chatId, `❌ Error loading plans: ${error.message}`);
+  }
+}
+
+async function handleDeleteVipPlan(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+  
+  try {
+    const packages = await getVipPackages();
+    
+    if (packages.length === 0) {
+      await sendMessage(chatId, "❌ No VIP plans found to delete.");
+      return;
+    }
+    
+    let message = `🗑️ **Delete VIP Plans**\n\n⚠️ **WARNING:** This action cannot be undone!\n\nSelect a plan to delete:\n\n`;
+    
+    const keyboard = {
+      inline_keyboard: packages.map(pkg => [{
+        text: `❌ Delete: ${pkg.name} - $${pkg.price}`,
+        callback_data: `confirm_delete_plan_${pkg.id}`
+      }])
+    };
+    
+    keyboard.inline_keyboard.push([
+      { text: "🔙 Back to Admin", callback_data: "admin_packages" }
+    ]);
+    
+    await sendMessage(chatId, message, keyboard);
+    
+  } catch (error) {
+    await sendMessage(chatId, `❌ Error loading plans: ${error.message}`);
+  }
+}
+
+async function handleVipPlanStats(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+  
+  try {
+    const packages = await getVipPackages();
+    
+    // Get subscription stats for each package
+    const stats = await Promise.all(packages.map(async (pkg) => {
+      const { data: subs } = await supabaseAdmin
+        .from('user_subscriptions')
+        .select('payment_status')
+        .eq('plan_id', pkg.id);
+      
+      const active = subs?.filter(s => s.payment_status === 'completed').length || 0;
+      const pending = subs?.filter(s => s.payment_status === 'pending').length || 0;
+      const total = subs?.length || 0;
+      
+      return { pkg, active, pending, total };
+    }));
+    
+    let message = `📊 **VIP Plan Statistics**\n\n`;
+    
+    stats.forEach(({ pkg, active, pending, total }) => {
+      const revenue = active * pkg.price;
+      message += `💎 **${pkg.name}**\n`;
+      message += `   • Active: ${active} subscribers\n`;
+      message += `   • Pending: ${pending} payments\n`;
+      message += `   • Total Sales: ${total}\n`;
+      message += `   • Revenue: $${revenue}\n\n`;
+    });
+    
+    const totalRevenue = stats.reduce((sum, s) => sum + (s.active * s.pkg.price), 0);
+    const totalActive = stats.reduce((sum, s) => sum + s.active, 0);
+    const totalPending = stats.reduce((sum, s) => sum + s.pending, 0);
+    
+    message += `📈 **Overall Stats:**\n`;
+    message += `• Total Active VIPs: ${totalActive}\n`;
+    message += `• Pending Payments: ${totalPending}\n`;
+    message += `• Total Revenue: $${totalRevenue}\n`;
+    message += `• Most Popular: ${stats.sort((a, b) => b.active - a.active)[0]?.pkg.name || 'N/A'}`;
+    
+    await sendMessage(chatId, message);
+    
+  } catch (error) {
+    await sendMessage(chatId, `❌ Error generating stats: ${error.message}`);
+  }
+}
+
+async function handleUpdatePlanPricing(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+  
+  await sendMessage(chatId, `💰 **Update Plan Pricing**
+
+To update pricing for any plan, use:
+
+\`/updateprice PLAN_NAME NEW_PRICE\`
+
+📝 **Examples:**
+• \`/updateprice "Premium Pro" 399\`
+• \`/updateprice "Basic VIP" 99\`
+• \`/updateprice "Lifetime" 1999\`
+
+💡 **Quick Actions:**
+• Use plan selection below for guided updates
+• Pricing changes apply to new subscriptions only
+• Current subscribers keep their original price`);
+
+  const packages = await getVipPackages();
+  if (packages.length > 0) {
+    const keyboard = {
+      inline_keyboard: packages.map(pkg => [{
+        text: `💰 Update: ${pkg.name} ($${pkg.price})`,
+        callback_data: `update_price_${pkg.id}`
+      }])
+    };
+    
+    keyboard.inline_keyboard.push([
+      { text: "🔙 Back to Admin", callback_data: "admin_packages" }
+    ]);
+    
+    await sendMessage(chatId, "💎 **Select plan to update pricing:**", keyboard);
+  }
+}
+
+async function handleManagePlanFeatures(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+  
+  await sendMessage(chatId, `✨ **Manage Plan Features**
+
+To update features for any plan, use:
+
+\`/updatefeatures PLAN_NAME\`
+Then send the new features list (one per line)
+
+📝 **Example:**
+\`/updatefeatures "Premium Pro"\`
+\`\`\`
+Real-time trading signals
+VIP Telegram group access  
+1-on-1 monthly mentoring
+Custom trading strategies
+Priority customer support
+Advanced market analysis
+Trading bot license
+\`\`\`
+
+💡 **Current Feature Templates:**
+• Basic: Signals, Group access
+• Premium: Signals, Group, Mentoring
+• Pro: Everything + Bot + Priority support`);
+
+  const packages = await getVipPackages();
+  if (packages.length > 0) {
+    const keyboard = {
+      inline_keyboard: packages.map(pkg => [{
+        text: `✨ Update: ${pkg.name}`,
+        callback_data: `update_features_${pkg.id}`
+      }])
+    };
+    
+    keyboard.inline_keyboard.push([
+      { text: "🔙 Back to Admin", callback_data: "admin_packages" }
+    ]);
+    
+    await sendMessage(chatId, "💎 **Select plan to update features:**", keyboard);
+  }
+}
+
+async function handleAddAdminUser(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+  
+  await sendMessage(chatId, `🔑 **Add New Admin User**
+
+To make someone an admin, use:
+
+\`/makeadmin USER_ID\`
+
+📝 **How to get User ID:**
+1. Ask the user to send \`/myid\` to this bot
+2. Or forward a message from the user to this chat
+3. Or check user interactions in admin panel
+
+⚠️ **Important:**
+• Admin users get full bot control
+• They can manage all settings and users
+• Only add trusted individuals
+• Current admins: ${ADMIN_USER_IDS.size} users
+
+💡 **Example:**
+\`/makeadmin 123456789\`
+
+🔍 **Quick Search:**
+Use the search function below to find users by username or name.`);
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "🔍 Search Users", callback_data: "search_user" },
+        { text: "👥 View All Users", callback_data: "admin_users" }
+      ],
+      [
+        { text: "🔙 Back to Admin", callback_data: "admin_dashboard" }
+      ]
+    ]
+  };
+  
+  await sendMessage(chatId, "🔧 **Admin Management Tools:**", keyboard);
+}
+
+async function handleSearchUser(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+  
+  await sendMessage(chatId, `🔍 **Search Users**
+
+Send me any of the following to search:
+• Telegram User ID: \`123456789\`
+• Username: \`@username\` or \`username\`
+• First/Last Name: \`John\` or \`John Doe\`
+
+💡 **Search Examples:**
+• \`225513686\` (User ID)
+• \`@johndoe\` (Username)
+• \`John Smith\` (Full name)
+
+The search will show:
+• User details and status
+• VIP membership info
+• Recent activity
+• Payment history
+• Admin actions`);
+
+  const session = getUserSession(userId);
+  session.awaitingInput = 'search_user_query';
+}
+
+async function handleManageVipUsers(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+  
+  try {
+    const { data: vipUsers, error } = await supabaseAdmin
+      .from('bot_users')
+      .select('telegram_id, first_name, last_name, username, subscription_expires_at, current_plan_id')
+      .eq('is_vip', true)
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    
+    if (!vipUsers || vipUsers.length === 0) {
+      await sendMessage(chatId, "💎 No VIP users found.");
+      return;
+    }
+    
+    let message = `💎 **VIP Users Management** (${vipUsers.length} total)\n\n`;
+    
+    vipUsers.forEach((user, index) => {
+      const name = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'No name';
+      const username = user.username ? `@${user.username}` : 'No username';
+      const expires = user.subscription_expires_at ? 
+        new Date(user.subscription_expires_at).toLocaleDateString() : 'No expiry';
+      
+      message += `${index + 1}. **${name}** (${username})\n`;
+      message += `   • ID: \`${user.telegram_id}\`\n`;
+      message += `   • Expires: ${expires}\n\n`;
+    });
+    
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "➕ Add VIP", callback_data: "add_vip_user" },
+          { text: "➖ Remove VIP", callback_data: "remove_vip_user" }
+        ],
+        [
+          { text: "⏰ Extend All", callback_data: "extend_all_vip" },
+          { text: "📊 VIP Statistics", callback_data: "vip_plan_stats" }
+        ],
+        [
+          { text: "📤 Export VIP List", callback_data: "export_vip_users" },
+          { text: "🔙 Back", callback_data: "admin_users" }
+        ]
+      ]
+    };
+    
+    await sendMessage(chatId, message, keyboard);
+    
+  } catch (error) {
+    await sendMessage(chatId, `❌ Error loading VIP users: ${error.message}`);
+  }
+}
+
+async function handleExportUsers(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+  
+  try {
+    await sendMessage(chatId, "📊 Generating user export...");
+    
+    const { data: users, error } = await supabaseAdmin
+      .from('bot_users')
+      .select('*')
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    
+    // Generate CSV format
+    let csv = "User ID,First Name,Last Name,Username,Is VIP,Is Admin,Created At,Expires At\n";
+    
+    users?.forEach(user => {
+      csv += `${user.telegram_id},"${user.first_name || ''}","${user.last_name || ''}","${user.username || ''}",${user.is_vip},${user.is_admin},${user.created_at},${user.subscription_expires_at || ''}\n`;
+    });
+    
+    // Generate summary
+    const total = users?.length || 0;
+    const vip = users?.filter(u => u.is_vip).length || 0;
+    const admin = users?.filter(u => u.is_admin).length || 0;
+    const today = users?.filter(u => {
+      const created = new Date(u.created_at);
+      const now = new Date();
+      return created.toDateString() === now.toDateString();
+    }).length || 0;
+    
+    const summary = `📊 **User Export Summary**
+
+📈 **Total Users:** ${total}
+💎 **VIP Users:** ${vip}
+🔑 **Admin Users:** ${admin}
+📅 **New Today:** ${today}
+📱 **Export Generated:** ${new Date().toLocaleString()}
+
+📄 **CSV Data Ready:**
+Copy the CSV data below and paste into Excel/Google Sheets`;
+    
+    await sendMessage(chatId, summary);
+    await sendMessage(chatId, `\`\`\`csv\n${csv}\`\`\``);
+    
+    await logAdminAction(userId, 'users_exported', `Exported ${total} users to CSV`, 'bot_users');
+    
+  } catch (error) {
+    await sendMessage(chatId, `❌ Error exporting users: ${error.message}`);
+  }
+}
+
+async function handleMakeUserVip(chatId: number, userId: string, targetUserId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+  
+  try {
+    // Update user to VIP status
+    const { error } = await supabaseAdmin
+      .from('bot_users')
+      .update({
+        is_vip: true,
+        subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
+      })
+      .eq('telegram_id', targetUserId);
+      
+    if (error) throw error;
+    
+    // Get user details
+    const { data: user } = await supabaseAdmin
+      .from('bot_users')
+      .select('first_name, last_name, username')
+      .eq('telegram_id', targetUserId)
+      .single();
+    
+    const userName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username || targetUserId : targetUserId;
+    
+    await sendMessage(chatId, `✅ **User Made VIP!**
+
+👤 **User:** ${userName}
+🆔 **ID:** \`${targetUserId}\`
+💎 **Status:** VIP Activated
+⏰ **Expires:** ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+
+🎉 The user now has access to all VIP features!`);
+
+    // Notify the user
+    try {
+      await sendMessage(parseInt(targetUserId), `🎉 **Congratulations!**
+
+You have been granted VIP access by an administrator!
+
+💎 **VIP Benefits Activated:**
+• Access to premium trading signals
+• VIP community chat access
+• Priority customer support
+• Advanced trading resources
+
+⏰ **Valid until:** ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+
+Welcome to the VIP community! 🌟`);
+    } catch (notifyError) {
+      console.log(`Could not notify user ${targetUserId}:`, notifyError);
+    }
+    
+    await logAdminAction(userId, 'user_made_vip', `Made user ${targetUserId} VIP`, 'bot_users', targetUserId);
+    
+  } catch (error) {
+    await sendMessage(chatId, `❌ Error making user VIP: ${error.message}`);
+  }
+}
 
 console.log("🚀 Bot is ready and listening for updates!");
