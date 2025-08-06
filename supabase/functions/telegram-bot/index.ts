@@ -3053,6 +3053,34 @@ serve(async (req) => {
             await handleAdminSettings(chatId, userId);
             break;
 
+          case 'admin_packages':
+            await handleSubscriptionPlansManagement(chatId, userId);
+            break;
+
+          case 'admin_promos':
+            await handlePromotionsManagement(chatId, userId);
+            break;
+
+          case 'admin_content':
+            await handleContentManagement(chatId, userId);
+            break;
+
+          case 'admin_analytics':
+            await handleTableStatsOverview(chatId, userId);
+            break;
+
+          case 'admin_broadcast':
+            await handleBroadcastMenu(chatId, userId);
+            break;
+
+          case 'admin_tools':
+            await handleBotControl(chatId, userId);
+            break;
+
+          case 'admin_users':
+            await handleUserTableManagement(chatId, userId);
+            break;
+
           case 'toggle_auto_delete':
             await handleToggleAutoDelete(chatId, userId);
             break;
