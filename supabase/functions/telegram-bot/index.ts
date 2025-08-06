@@ -2581,6 +2581,39 @@ serve(async (req) => {
             await handleRefreshBot(chatId, userId);
             break;
 
+          // Table Management Callbacks
+          case 'manage_tables':
+            await handleTableManagement(chatId, userId);
+            break;
+
+          case 'manage_table_bot_users':
+            await handleUserTableManagement(chatId, userId);
+            break;
+
+          case 'manage_table_subscription_plans':
+            await handleSubscriptionPlansManagement(chatId, userId);
+            break;
+
+          case 'manage_table_education_packages':
+            await handleEducationPackagesManagement(chatId, userId);
+            break;
+
+          case 'manage_table_promotions':
+            await handlePromotionsManagement(chatId, userId);
+            break;
+
+          case 'manage_table_bot_content':
+            await handleContentManagement(chatId, userId);
+            break;
+
+          case 'manage_table_bot_settings':
+            await handleBotSettingsManagement(chatId, userId);
+            break;
+
+          case 'table_stats_overview':
+            await handleTableStatsOverview(chatId, userId);
+            break;
+
           case 'view_sessions':
             await handleViewSessions(chatId, userId);
             break;

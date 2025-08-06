@@ -212,6 +212,54 @@ export async function handleSubscriptionPlansManagement(chatId: number, userId: 
   }
 }
 
+export async function handleEducationPackagesManagement(chatId: number, userId: string): Promise<void> {
+  try {
+    const { data: packages, error } = await supabaseAdmin
+      .from('education_packages')
+      .select('*, category:education_categories(name)')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    let packageMessage = `🎓 *Education Packages Management*\n\n`;
+    packageMessage += `📚 *Current Packages (${packages?.length || 0}):*\n\n`;
+
+    packages?.forEach((pkg, index) => {
+      const status = pkg.is_active ? '✅' : '❌';
+      const featured = pkg.is_featured ? '⭐' : '';
+      packageMessage += `${index + 1}. ${status}${featured} **${pkg.name}**\n`;
+      packageMessage += `   💰 ${pkg.currency} ${pkg.price} (${pkg.duration_weeks} weeks)\n`;
+      packageMessage += `   👥 Students: ${pkg.current_students}/${pkg.max_students || '∞'}\n`;
+      packageMessage += `   📅 Created: ${new Date(pkg.created_at).toLocaleDateString()}\n\n`;
+    });
+
+    const packageKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "➕ Create Package", callback_data: "create_education_package" },
+          { text: "✏️ Edit Package", callback_data: "edit_education_package" }
+        ],
+        [
+          { text: "🗑️ Delete Package", callback_data: "delete_education_package" },
+          { text: "📊 Package Stats", callback_data: "education_package_stats" }
+        ],
+        [
+          { text: "🎯 Manage Categories", callback_data: "manage_education_categories" },
+          { text: "👥 View Enrollments", callback_data: "view_education_enrollments" }
+        ],
+        [
+          { text: "🔄 Refresh", callback_data: "manage_table_education_packages" },
+          { text: "🔙 Back", callback_data: "manage_tables" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, packageMessage, packageKeyboard);
+  } catch (error) {
+    console.error('Error in education packages management:', error);
+    await sendMessage(chatId, "❌ Error fetching education packages. Please try again.");
+  }
+}
+
 export async function handlePromotionsManagement(chatId: number, userId: string): Promise<void> {
   try {
     const { data: promos, error } = await supabaseAdmin
