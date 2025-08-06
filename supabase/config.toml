@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.debug-bot]
 verify_jwt = false
 
+[functions.test-webhook]
+verify_jwt = false
+
 [functions.create-checkout]
 verify_jwt = false
 

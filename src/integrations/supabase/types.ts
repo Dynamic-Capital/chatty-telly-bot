@@ -161,6 +161,48 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_sessions: {
+        Row: {
+          activity_count: number | null
+          created_at: string
+          duration_minutes: number | null
+          id: string
+          ip_address: string | null
+          session_data: Json | null
+          session_end: string | null
+          session_start: string
+          telegram_user_id: string
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          activity_count?: number | null
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          ip_address?: string | null
+          session_data?: Json | null
+          session_end?: string | null
+          session_start?: string
+          telegram_user_id: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          activity_count?: number | null
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          ip_address?: string | null
+          session_data?: Json | null
+          session_end?: string | null
+          session_start?: string
+          telegram_user_id?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       bot_settings: {
         Row: {
           created_at: string

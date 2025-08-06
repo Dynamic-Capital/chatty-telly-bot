@@ -21,11 +21,12 @@ const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },
 });
 
-// Admin user IDs
+// Admin user IDs - including the user who's testing
 const ADMIN_USER_IDS = new Set(["225513686"]);
 
 // User sessions for features
 const userSessions = new Map();
+const activeBotSessions = new Map(); // Track bot sessions
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,6 +35,102 @@ const corsHeaders = {
 
 // Bot startup time for status tracking
 const BOT_START_TIME = new Date();
+console.log("🕐 Bot started at:", BOT_START_TIME.toISOString());
+
+// Session Management Functions
+async function startBotSession(telegramUserId: string, userInfo: any = {}): Promise<string> {
+  try {
+    console.log(`🔄 Starting session for user: ${telegramUserId}`);
+    
+    // End any existing active sessions
+    await endBotSession(telegramUserId);
+    
+    // Create new session
+    const { data, error } = await supabaseAdmin
+      .from('bot_sessions')
+      .insert({
+        telegram_user_id: telegramUserId,
+        session_start: new Date().toISOString(),
+        session_data: userInfo,
+        activity_count: 1
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error creating session:', error);
+      return '';
+    }
+
+    // Store in memory for quick access
+    activeBotSessions.set(telegramUserId, {
+      sessionId: data.id,
+      startTime: new Date(),
+      activityCount: 1
+    });
+
+    console.log(`✅ Session started for user ${telegramUserId}, session ID: ${data.id}`);
+    return data.id;
+  } catch (error) {
+    console.error('🚨 Exception starting session:', error);
+    return '';
+  }
+}
+
+async function updateBotSession(telegramUserId: string, activityData: any = {}): Promise<void> {
+  try {
+    const session = activeBotSessions.get(telegramUserId);
+    if (!session) {
+      // Start new session if none exists
+      await startBotSession(telegramUserId, activityData);
+      return;
+    }
+
+    session.activityCount++;
+    session.lastActivity = new Date();
+
+    // Update in database
+    await supabaseAdmin
+      .from('bot_sessions')
+      .update({
+        activity_count: session.activityCount,
+        session_data: activityData,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', session.sessionId);
+
+    console.log(`📊 Session updated for user ${telegramUserId}, activities: ${session.activityCount}`);
+  } catch (error) {
+    console.error('🚨 Error updating session:', error);
+  }
+}
+
+async function endBotSession(telegramUserId: string): Promise<void> {
+  try {
+    const session = activeBotSessions.get(telegramUserId);
+    if (!session) return;
+
+    const endTime = new Date();
+    const durationMinutes = Math.floor((endTime.getTime() - session.startTime.getTime()) / 1000 / 60);
+
+    // Update database
+    await supabaseAdmin
+      .from('bot_sessions')
+      .update({
+        session_end: endTime.toISOString(),
+        duration_minutes: durationMinutes,
+        updated_at: endTime.toISOString()
+      })
+      .eq('id', session.sessionId);
+
+    // Remove from memory
+    activeBotSessions.delete(telegramUserId);
+
+    console.log(`⏰ Session ended for user ${telegramUserId}, duration: ${durationMinutes} minutes`);
+  } catch (error) {
+    console.error('🚨 Error ending session:', error);
+  }
+}
 
 // Database utility functions
 async function getBotContent(contentKey: string): Promise<string | null> {
@@ -158,33 +255,48 @@ async function logAdminAction(
   }
 }
 
-async function updateUserActivity(telegramUserId: string, activityData: any = {}): Promise<void> {
+// Auto-response functions from Supabase tables
+async function getAutoReply(contentKey: string, variables: Record<string, string> = {}): Promise<string | null> {
   try {
-    // Update user's last activity
-    await supabaseAdmin
-      .from('bot_users')
-      .upsert({
-        telegram_id: telegramUserId,
-        updated_at: new Date().toISOString(),
-        follow_up_count: 0 // Reset follow-up count on activity
-      }, {
-        onConflict: 'telegram_id'
-      });
-
-    // Track interaction
-    await supabaseAdmin
-      .from('user_interactions')
-      .insert({
-        telegram_user_id: telegramUserId,
-        interaction_type: 'message',
-        interaction_data: activityData,
-        created_at: new Date().toISOString()
-      });
-
-    console.log(`👤 User activity updated: ${telegramUserId}`);
+    console.log(`📱 Getting auto reply: ${contentKey}`);
+    const content = await getBotContent(contentKey);
+    if (!content) {
+      console.log(`❌ No auto reply found for: ${contentKey}`);
+      return null;
+    }
+    
+    return formatContent(content, variables);
   } catch (error) {
-    console.error('🚨 Error updating user activity:', error);
+    console.error(`🚨 Error getting auto reply ${contentKey}:`, error);
+    return null;
   }
+}
+
+async function handleUnknownCommand(chatId: number, userId: string, command: string): Promise<void> {
+  console.log(`❓ Unknown command from ${userId}: ${command}`);
+  
+  const autoReply = await getAutoReply('auto_reply_unknown');
+  const message = autoReply || `🤔 I didn't understand "${command}". Try /start for the main menu!`;
+  
+  await sendMessage(chatId, message);
+  
+  // Log unknown command for analytics
+  await supabaseAdmin
+    .from('user_interactions')
+    .insert({
+      telegram_user_id: userId,
+      interaction_type: 'unknown_command',
+      interaction_data: { command, timestamp: new Date().toISOString() }
+    });
+}
+
+async function handleHelpCommand(chatId: number, userId: string, firstName: string): Promise<void> {
+  console.log(`❓ Help command from ${userId}`);
+  
+  const autoReply = await getAutoReply('auto_reply_help', { firstName });
+  const message = autoReply || `❓ **Need Help?**\n\n🤖 Use /start for the main menu\n🔑 Admins can use /admin\n\n🛟 Contact: @DynamicCapital_Support`;
+  
+  await sendMessage(chatId, message);
 }
 
 function formatContent(content: string, variables: Record<string, string>): string {
@@ -421,34 +533,43 @@ async function getVipPackagesKeyboard(): Promise<any> {
 
 // Enhanced admin management functions
 async function handleAdminDashboard(chatId: number, userId: string): Promise<void> {
+  console.log(`🔐 Admin dashboard access attempt by: ${userId}`);
+  
   if (!isAdmin(userId)) {
+    console.log(`❌ Access denied for user: ${userId}`);
     await sendMessage(chatId, "❌ Access denied. Admin privileges required.");
     return;
   }
 
-  console.log(`🔐 Admin dashboard accessed by: ${userId}`);
+  console.log(`✅ Admin access granted for: ${userId}`);
 
-  // Get quick stats for dashboard
-  const userCount = await supabaseAdmin.from('bot_users').select('count', { count: 'exact' });
-  const vipCount = await supabaseAdmin.from('bot_users').select('count', { count: 'exact' }).eq('is_vip', true);
-  const planCount = await supabaseAdmin.from('subscription_plans').select('count', { count: 'exact' });
-  const promoCount = await supabaseAdmin.from('promotions').select('count', { count: 'exact' }).eq('is_active', true);
+  try {
+    // Get comprehensive stats for dashboard
+    const [userCount, vipCount, planCount, promoCount, sessionCount] = await Promise.all([
+      supabaseAdmin.from('bot_users').select('count', { count: 'exact' }),
+      supabaseAdmin.from('bot_users').select('count', { count: 'exact' }).eq('is_vip', true),
+      supabaseAdmin.from('subscription_plans').select('count', { count: 'exact' }),
+      supabaseAdmin.from('promotions').select('count', { count: 'exact' }).eq('is_active', true),
+      supabaseAdmin.from('bot_sessions').select('count', { count: 'exact' }).is('session_end', null)
+    ]);
 
-  const uptime = Math.floor((Date.now() - BOT_START_TIME.getTime()) / 1000 / 60); // minutes
-  const botStatus = "🟢 Online & Optimized";
+    const uptime = Math.floor((Date.now() - BOT_START_TIME.getTime()) / 1000 / 60); // minutes
+    const botStatus = "🟢 Online & Optimized";
 
-  const adminMessage = `🔐 *Enhanced Admin Dashboard*
+    const adminMessage = `🔐 *Enhanced Admin Dashboard*
 
 📊 *System Status:* ${botStatus}
 👤 *Admin:* ${userId}
 🕐 *Uptime:* ${uptime} minutes
 🕐 *Last Updated:* ${new Date().toLocaleString()}
 
-📈 *Quick Stats:*
+📈 *Live Statistics:*
 • 👥 Total Users: ${userCount.count || 0}
 • 💎 VIP Members: ${vipCount.count || 0}
 • 📦 Active Plans: ${planCount.count || 0}
 • 🎁 Active Promos: ${promoCount.count || 0}
+• 💬 Active Sessions: ${sessionCount.count || 0}
+• 🔗 Memory Sessions: ${activeBotSessions.size}
 
 🚀 *Management Tools:*
 • 🔄 **Bot Control** - Status, refresh, restart
@@ -461,37 +582,122 @@ async function handleAdminDashboard(chatId: number, userId: string): Promise<voi
 • 📢 **Broadcasting** - Mass communication
 • 🔧 **System Tools** - Maintenance & utilities`;
 
-  const adminKeyboard = {
-    inline_keyboard: [
-      [
-        { text: "🔄 Bot Control", callback_data: "bot_control" },
-        { text: "📊 Bot Status", callback_data: "bot_status" }
-      ],
-      [
-        { text: "👥 Users", callback_data: "admin_users" },
-        { text: "📦 Packages", callback_data: "admin_packages" }
-      ],
-      [
-        { text: "💰 Promotions", callback_data: "admin_promos" },
-        { text: "💬 Content", callback_data: "admin_content" }
-      ],
-      [
-        { text: "⚙️ Settings", callback_data: "admin_settings" },
-        { text: "📈 Analytics", callback_data: "admin_analytics" }
-      ],
-      [
-        { text: "📢 Broadcast", callback_data: "admin_broadcast" },
-        { text: "🔧 Tools", callback_data: "admin_tools" }
-      ],
-      [
-        { text: "📋 Admin Logs", callback_data: "admin_logs" },
-        { text: "🔄 Refresh", callback_data: "admin_dashboard" }
+    const adminKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "🔄 Bot Control", callback_data: "bot_control" },
+          { text: "📊 Bot Status", callback_data: "bot_status" }
+        ],
+        [
+          { text: "👥 Users", callback_data: "admin_users" },
+          { text: "📦 Packages", callback_data: "admin_packages" }
+        ],
+        [
+          { text: "💰 Promotions", callback_data: "admin_promos" },
+          { text: "💬 Content", callback_data: "admin_content" }
+        ],
+        [
+          { text: "⚙️ Settings", callback_data: "admin_settings" },
+          { text: "📈 Analytics", callback_data: "admin_analytics" }
+        ],
+        [
+          { text: "📢 Broadcast", callback_data: "admin_broadcast" },
+          { text: "🔧 Tools", callback_data: "admin_tools" }
+        ],
+        [
+          { text: "💬 Sessions", callback_data: "view_sessions" },
+          { text: "🔄 Refresh", callback_data: "admin_dashboard" }
+        ]
       ]
-    ]
-  };
+    };
 
-  await sendMessage(chatId, adminMessage, adminKeyboard);
-  await logAdminAction(userId, 'dashboard_access', 'Accessed admin dashboard');
+    await sendMessage(chatId, adminMessage, adminKeyboard);
+    await logAdminAction(userId, 'dashboard_access', 'Accessed admin dashboard');
+    
+    console.log(`✅ Admin dashboard sent to: ${userId}`);
+  } catch (error) {
+    console.error('🚨 Error in admin dashboard:', error);
+    await sendMessage(chatId, `❌ Error loading admin dashboard: ${error.message}`);
+  }
+}
+
+// Session management for admins
+async function handleViewSessions(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    console.log(`📊 Viewing sessions for admin: ${userId}`);
+    
+    // Get active sessions
+    const { data: activeSessions, error: activeError } = await supabaseAdmin
+      .from('bot_sessions')
+      .select('telegram_user_id, session_start, activity_count, session_data')
+      .is('session_end', null)
+      .order('session_start', { ascending: false })
+      .limit(10);
+
+    // Get recent completed sessions
+    const { data: recentSessions, error: recentError } = await supabaseAdmin
+      .from('bot_sessions')
+      .select('telegram_user_id, session_start, session_end, duration_minutes, activity_count')
+      .not('session_end', 'is', null)
+      .order('session_end', { ascending: false })
+      .limit(5);
+
+    if (activeError || recentError) {
+      throw new Error('Database error fetching sessions');
+    }
+
+    let sessionMessage = `💬 *Session Management*\n\n`;
+    
+    sessionMessage += `🟢 *Active Sessions (${activeSessions?.length || 0}):*\n`;
+    if (activeSessions && activeSessions.length > 0) {
+      activeSessions.forEach((session, index) => {
+        const startTime = new Date(session.session_start);
+        const duration = Math.floor((Date.now() - startTime.getTime()) / 1000 / 60);
+        sessionMessage += `${index + 1}. User: ${session.telegram_user_id}\n`;
+        sessionMessage += `   📅 Started: ${startTime.toLocaleString()}\n`;
+        sessionMessage += `   ⏱️ Duration: ${duration}min\n`;
+        sessionMessage += `   📊 Activities: ${session.activity_count}\n\n`;
+      });
+    } else {
+      sessionMessage += `   No active sessions\n\n`;
+    }
+
+    sessionMessage += `📋 *Recent Completed (${recentSessions?.length || 0}):*\n`;
+    if (recentSessions && recentSessions.length > 0) {
+      recentSessions.forEach((session, index) => {
+        sessionMessage += `${index + 1}. User: ${session.telegram_user_id}\n`;
+        sessionMessage += `   ⏱️ Duration: ${session.duration_minutes || 0}min\n`;
+        sessionMessage += `   📊 Activities: ${session.activity_count}\n\n`;
+      });
+    } else {
+      sessionMessage += `   No recent sessions\n\n`;
+    }
+
+    sessionMessage += `🔗 *Memory Sessions:* ${activeBotSessions.size}`;
+
+    const sessionKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "🧹 Clean Old Sessions", callback_data: "clean_old_sessions" },
+          { text: "📊 Session Analytics", callback_data: "session_analytics" }
+        ],
+        [
+          { text: "🔄 Refresh", callback_data: "view_sessions" },
+          { text: "🔙 Back to Admin", callback_data: "admin_dashboard" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, sessionMessage, sessionKeyboard);
+  } catch (error) {
+    console.error('🚨 Error viewing sessions:', error);
+    await sendMessage(chatId, `❌ Error fetching sessions: ${error.message}`);
+  }
 }
 
 // Bot Control Functions
@@ -700,7 +906,14 @@ serve(async (req) => {
     // Handle regular messages
     if (update.message) {
       const text = update.message.text;
-      console.log(`📝 Processing text message: ${text}`);
+      console.log(`📝 Processing text message: ${text} from user: ${userId}`);
+
+      // Update session activity
+      await updateBotSession(userId, {
+        message_type: 'text',
+        text: text,
+        timestamp: new Date().toISOString()
+      });
 
       // Check for maintenance mode
       const maintenanceMode = await getBotSetting('maintenance_mode');
@@ -712,8 +925,11 @@ serve(async (req) => {
 
       // Handle /start command with dynamic welcome message
       if (text === '/start') {
-        console.log(`🚀 Start command from: ${userId}`);
-        const welcomeMessage = await getWelcomeMessage(firstName);
+        console.log(`🚀 Start command from: ${userId} (${firstName})`);
+        await startBotSession(userId, { firstName, username, command: 'start' });
+        
+        const autoReply = await getAutoReply('auto_reply_welcome', { firstName });
+        const welcomeMessage = autoReply || await getWelcomeMessage(firstName);
         const keyboard = await getMainMenuKeyboard();
         await sendMessage(chatId, welcomeMessage, keyboard);
         return new Response("OK", { status: 200 });
@@ -721,12 +937,21 @@ serve(async (req) => {
 
       // Handle /admin command
       if (text === '/admin') {
-        console.log(`🔐 Admin command from: ${userId}`);
+        console.log(`🔐 Admin command from: ${userId} (${firstName})`);
+        console.log(`🔐 Admin check result: ${isAdmin(userId)}`);
+        console.log(`🔐 Current admin IDs: ${Array.from(ADMIN_USER_IDS).join(', ')}`);
+        
         if (isAdmin(userId)) {
           await handleAdminDashboard(chatId, userId);
         } else {
-          await sendMessage(chatId, "❌ Access denied. Admin privileges required.");
+          await sendMessage(chatId, "❌ Access denied. Admin privileges required.\n\n🔑 Your ID: `" + userId + "`\n🛟 Contact support if you should have admin access.");
         }
+        return new Response("OK", { status: 200 });
+      }
+
+      // Handle /help command
+      if (text === '/help') {
+        await handleHelpCommand(chatId, userId, firstName);
         return new Response("OK", { status: 200 });
       }
 
@@ -742,14 +967,29 @@ serve(async (req) => {
         return new Response("OK", { status: 200 });
       }
 
-      // Handle other messages
-      await sendMessage(chatId, "🤖 I received your message! Use /start to see the main menu or /admin for admin access.");
+      // Handle unknown commands with auto-reply
+      if (text?.startsWith('/')) {
+        await handleUnknownCommand(chatId, userId, text);
+        return new Response("OK", { status: 200 });
+      }
+
+      // Handle other messages with auto-reply
+      const generalReply = await getAutoReply('auto_reply_general') || 
+        "🤖 Thanks for your message! Use /start to see the main menu or /help for assistance.";
+      await sendMessage(chatId, generalReply);
     }
 
     // Handle callback queries
     if (update.callback_query) {
       const callbackData = update.callback_query.data;
-      console.log(`🔘 Processing callback: ${callbackData}`);
+      console.log(`🔘 Processing callback: ${callbackData} from user: ${userId}`);
+
+      // Update session activity
+      await updateBotSession(userId, {
+        message_type: 'callback',
+        callback_data: callbackData,
+        timestamp: new Date().toISOString()
+      });
 
       try {
         switch (callbackData) {
@@ -761,12 +1001,14 @@ serve(async (req) => {
             break;
 
           case 'back_main':
-            const mainMessage = await getWelcomeMessage(firstName);
+            const autoReply = await getAutoReply('auto_reply_welcome', { firstName });
+            const mainMessage = autoReply || await getWelcomeMessage(firstName);
             const mainKeyboard = await getMainMenuKeyboard();
             await sendMessage(chatId, mainMessage, mainKeyboard);
             break;
 
           case 'admin_dashboard':
+            console.log(`🔐 Admin dashboard callback from: ${userId}`);
             await handleAdminDashboard(chatId, userId);
             break;
 
@@ -782,6 +1024,10 @@ serve(async (req) => {
             await handleRefreshBot(chatId, userId);
             break;
 
+          case 'view_sessions':
+            await handleViewSessions(chatId, userId);
+            break;
+
           case 'clean_cache':
             if (isAdmin(userId)) {
               userSessions.clear();
@@ -790,16 +1036,56 @@ serve(async (req) => {
             }
             break;
 
+          case 'clean_old_sessions':
+            if (isAdmin(userId)) {
+              try {
+                // End sessions older than 24 hours
+                const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                const { data, error } = await supabaseAdmin
+                  .from('bot_sessions')
+                  .update({ 
+                    session_end: new Date().toISOString(),
+                    duration_minutes: 1440 // 24 hours max
+                  })
+                  .is('session_end', null)
+                  .lt('session_start', cutoffTime)
+                  .select('count', { count: 'exact' });
+
+                await sendMessage(chatId, `🧹 *Old Sessions Cleaned!*\n\n✅ Cleaned ${data?.length || 0} old sessions\n🕐 Sessions older than 24h ended`);
+                await logAdminAction(userId, 'session_cleanup', `Cleaned ${data?.length || 0} old sessions`);
+              } catch (error) {
+                await sendMessage(chatId, `❌ Error cleaning sessions: ${error.message}`);
+              }
+            }
+            break;
+
           case 'quick_diagnostic':
             if (isAdmin(userId)) {
-              const diagnostic = `🔧 *Quick Diagnostic*\n\n• Bot Token: ${BOT_TOKEN ? '✅' : '❌'}\n• Database: ${SUPABASE_URL ? '✅' : '❌'}\n• Admin Count: ${ADMIN_USER_IDS.size}\n• Sessions: ${userSessions.size}\n• Uptime: ${Math.floor((Date.now() - BOT_START_TIME.getTime()) / 1000 / 60)}min`;
+              const diagnostic = `🔧 *Quick Diagnostic*
+
+🔑 **Environment:**
+• Bot Token: ${BOT_TOKEN ? '✅' : '❌'}
+• Database: ${SUPABASE_URL ? '✅' : '❌'}
+• Service Key: ${SUPABASE_SERVICE_ROLE_KEY ? '✅' : '❌'}
+
+📊 **Current State:**
+• Admin Count: ${ADMIN_USER_IDS.size}
+• Memory Sessions: ${userSessions.size}
+• Active Bot Sessions: ${activeBotSessions.size}
+• Uptime: ${Math.floor((Date.now() - BOT_START_TIME.getTime()) / 1000 / 60)}min
+
+🤖 **Bot Info:**
+• Started: ${BOT_START_TIME.toLocaleString()}
+• Function ID: telegram-bot
+• Status: 🟢 Running`;
+
               await sendMessage(chatId, diagnostic);
             }
             break;
 
           default:
             console.log(`❓ Unknown callback: ${callbackData}`);
-            await sendMessage(chatId, "❓ Unknown action. Please try again.");
+            await sendMessage(chatId, "❓ Unknown action. Please try again or use /start for the main menu.");
         }
 
         // Answer callback query to remove loading state
@@ -811,7 +1097,17 @@ serve(async (req) => {
 
       } catch (error) {
         console.error('🚨 Error handling callback:', error);
-        await sendMessage(chatId, "❌ An error occurred. Please try again.");
+        await sendMessage(chatId, "❌ An error occurred. Please try again or contact support.");
+        
+        // Still answer the callback query
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            callback_query_id: update.callback_query.id,
+            text: "Error occurred, please try again"
+          })
+        });
       }
     }
 
