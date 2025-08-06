@@ -1230,78 +1230,7 @@ export type Database = {
       }
     }
     Views: {
-      active_vip_users: {
-        Row: {
-          created_at: string | null
-          first_name: string | null
-          last_name: string | null
-          subscription_expires_at: string | null
-          telegram_id: string | null
-          username: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          first_name?: string | null
-          last_name?: string | null
-          subscription_expires_at?: string | null
-          telegram_id?: string | null
-          username?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          first_name?: string | null
-          last_name?: string | null
-          subscription_expires_at?: string | null
-          telegram_id?: string | null
-          username?: string | null
-        }
-        Relationships: []
-      }
-      dashboard_stats: {
-        Row: {
-          admin_users: number | null
-          completed_payments: number | null
-          daily_interactions: number | null
-          daily_sessions: number | null
-          last_updated: string | null
-          pending_payments: number | null
-          total_revenue: number | null
-          total_users: number | null
-          vip_users: number | null
-        }
-        Relationships: []
-      }
-      payment_summary: {
-        Row: {
-          completed_payments: number | null
-          last_payment_date: string | null
-          pending_payments: number | null
-          total_payments: number | null
-          total_revenue: number | null
-          user_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "bot_users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      recent_user_activity: {
-        Row: {
-          first_name: string | null
-          interaction_count: number | null
-          is_admin: boolean | null
-          is_vip: boolean | null
-          last_activity: string | null
-          last_name: string | null
-          telegram_user_id: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       check_extensions_in_public: {
@@ -1315,6 +1244,24 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_bot_content_batch: {
+        Args: { content_keys: string[] }
+        Returns: {
+          content_key: string
+          content_value: string
+        }[]
+      }
+      get_bot_settings_batch: {
+        Args: { setting_keys: string[] }
+        Returns: {
+          setting_key: string
+          setting_value: string
+        }[]
+      }
+      get_bot_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       get_masked_payment_info: {
         Args: { payment_id: string }
         Returns: Json
@@ -1326,6 +1273,10 @@ export type Database = {
       get_security_recommendations: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_user_complete_data: {
+        Args: { telegram_user_id_param: string }
+        Returns: Json
       }
       get_user_role: {
         Args: { user_telegram_id: string }
@@ -1346,10 +1297,6 @@ export type Database = {
       make_secure_http_request: {
         Args: { method: string; url: string; headers?: Json; body?: string }
         Returns: Json
-      }
-      refresh_dashboard_stats: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
       }
       update_daily_analytics: {
         Args: Record<PropertyKey, never>

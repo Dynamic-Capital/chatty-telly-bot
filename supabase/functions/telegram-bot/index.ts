@@ -414,28 +414,73 @@ async function endBotSession(telegramUserId: string): Promise<void> {
   }
 }
 
-// Database utility functions
-async function getBotContent(contentKey: string): Promise<string | null> {
+// Optimized database utility functions with batching
+async function getBotContentBatch(contentKeys: string[]): Promise<Map<string, string>> {
   try {
-    console.log(`📄 Fetching content: ${contentKey}`);
+    console.log(`📄 Fetching batch content: ${contentKeys.join(', ')}`);
     const { data, error } = await supabaseAdmin
-      .from('bot_content')
-      .select('content_value')
-      .eq('content_key', contentKey)
-      .eq('is_active', true)
-      .single();
+      .rpc('get_bot_content_batch', { content_keys: contentKeys });
 
     if (error) {
-      console.error(`❌ Error fetching content for ${contentKey}:`, error);
+      console.error(`❌ Error fetching batch content:`, error);
+      return new Map();
+    }
+
+    const contentMap = new Map<string, string>();
+    data?.forEach((item: any) => {
+      contentMap.set(item.content_key, item.content_value);
+    });
+
+    console.log(`✅ Batch content fetched: ${contentMap.size} items`);
+    return contentMap;
+  } catch (error) {
+    console.error(`🚨 Exception in getBotContentBatch:`, error);
+    return new Map();
+  }
+}
+
+async function getBotSettingsBatch(settingKeys: string[]): Promise<Map<string, string>> {
+  try {
+    console.log(`⚙️ Fetching batch settings: ${settingKeys.join(', ')}`);
+    const { data, error } = await supabaseAdmin
+      .rpc('get_bot_settings_batch', { setting_keys: settingKeys });
+
+    if (error) {
+      console.error(`❌ Error fetching batch settings:`, error);
+      return new Map();
+    }
+
+    const settingsMap = new Map<string, string>();
+    data?.forEach((item: any) => {
+      settingsMap.set(item.setting_key, item.setting_value);
+    });
+
+    console.log(`✅ Batch settings fetched: ${settingsMap.size} items`);
+    return settingsMap;
+  } catch (error) {
+    console.error(`🚨 Exception in getBotSettingsBatch:`, error);
+    return new Map();
+  }
+}
+
+async function getUserCompleteData(telegramUserId: string): Promise<any> {
+  try {
+    console.log(`👤 Fetching complete user data for: ${telegramUserId}`);
+    const { data, error } = await supabaseAdmin
+      .rpc('get_user_complete_data', { telegram_user_id_param: telegramUserId });
+
+    if (error) {
+      console.error(`❌ Error fetching user complete data:`, error);
       return null;
     }
 
-    console.log(`✅ Content fetched for ${contentKey}`);
-    return data?.content_value || null;
+    console.log(`✅ Complete user data fetched for: ${telegramUserId}`);
+    return data;
   } catch (error) {
-    console.error(`🚨 Exception in getBotContent for ${contentKey}:`, error);
+    console.error(`🚨 Exception in getUserCompleteData:`, error);
     return null;
   }
+}
 }
 
 async function setBotContent(contentKey: string, contentValue: string, adminId: string): Promise<boolean> {
@@ -451,8 +496,10 @@ async function setBotContent(contentKey: string, contentValue: string, adminId: 
       });
 
     if (!error) {
+      // Invalidate cache for this content key
+      invalidateContentCache(contentKey);
       await logAdminAction(adminId, 'content_update', `Updated content: ${contentKey}`, 'bot_content');
-      console.log(`✅ Content updated: ${contentKey}`);
+      console.log(`✅ Content updated and cache invalidated: ${contentKey}`);
     } else {
       console.error(`❌ Error setting content: ${contentKey}`, error);
     }
@@ -497,8 +544,10 @@ async function setBotSetting(settingKey: string, settingValue: string, adminId: 
       });
 
     if (!error) {
+      // Invalidate cache for this setting key
+      invalidateSettingsCache(settingKey);
       await logAdminAction(adminId, 'setting_update', `Updated setting: ${settingKey}`, 'bot_settings');
-      console.log(`✅ Setting updated: ${settingKey}`);
+      console.log(`✅ Setting updated and cache invalidated: ${settingKey}`);
     } else {
       console.error(`❌ Error setting: ${settingKey}`, error);
     }
@@ -562,7 +611,104 @@ async function handleUnknownCommand(chatId: number, userId: string, command: str
   
   await sendMessage(chatId, message);
   
-  // Log unknown command for analytics
+// Cache for frequently accessed data to reduce DB calls
+const contentCache = new Map<string, { value: string; expires: number }>();
+const settingsCache = new Map<string, { value: string; expires: number }>();
+const CACHE_TTL = 300000; // 5 minutes cache
+
+// Optimized content retrieval with caching
+async function getBotContent(contentKey: string): Promise<string | null> {
+  const cached = contentCache.get(contentKey);
+  const now = Date.now();
+  
+  if (cached && cached.expires > now) {
+    console.log(`📄 Cache hit for content: ${contentKey}`);
+    return cached.value;
+  }
+
+  try {
+    console.log(`📄 Fetching content from DB: ${contentKey}`);
+    const { data, error } = await supabaseAdmin
+      .from('bot_content')
+      .select('content_value')
+      .eq('content_key', contentKey)
+      .eq('is_active', true)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error(`❌ Error fetching content for ${contentKey}:`, error);
+      return null;
+    }
+
+    const value = data?.content_value || null;
+    if (value) {
+      contentCache.set(contentKey, { value, expires: now + CACHE_TTL });
+    }
+
+    console.log(`✅ Content fetched and cached for ${contentKey}`);
+    return value;
+  } catch (error) {
+    console.error(`🚨 Exception in getBotContent for ${contentKey}:`, error);
+    return null;
+  }
+}
+
+// Optimized settings retrieval with caching
+async function getBotSetting(settingKey: string): Promise<string | null> {
+  const cached = settingsCache.get(settingKey);
+  const now = Date.now();
+  
+  if (cached && cached.expires > now) {
+    console.log(`⚙️ Cache hit for setting: ${settingKey}`);
+    return cached.value;
+  }
+
+  try {
+    console.log(`⚙️ Fetching setting from DB: ${settingKey}`);
+    const { data, error } = await supabaseAdmin
+      .from('bot_settings')
+      .select('setting_value')
+      .eq('setting_key', settingKey)
+      .eq('is_active', true)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error(`❌ Error fetching setting ${settingKey}:`, error);
+      return null;
+    }
+
+    const value = data?.setting_value || null;
+    if (value) {
+      settingsCache.set(settingKey, { value, expires: now + CACHE_TTL });
+    }
+
+    return value;
+  } catch (error) {
+    console.error(`🚨 Exception fetching setting ${settingKey}:`, error);
+    return null;
+  }
+}
+
+// Cache invalidation functions
+function invalidateContentCache(contentKey?: string): void {
+  if (contentKey) {
+    contentCache.delete(contentKey);
+    console.log(`🗑️ Cache invalidated for content: ${contentKey}`);
+  } else {
+    contentCache.clear();
+    console.log(`🗑️ All content cache cleared`);
+  }
+}
+
+function invalidateSettingsCache(settingKey?: string): void {
+  if (settingKey) {
+    settingsCache.delete(settingKey);
+    console.log(`🗑️ Cache invalidated for setting: ${settingKey}`);
+  } else {
+    settingsCache.clear();
+    console.log(`🗑️ All settings cache cleared`);
+  }
+}
   await supabaseAdmin
     .from('user_interactions')
     .insert({
@@ -3311,64 +3457,45 @@ async function handleQuickAnalytics(chatId: number, userId: string): Promise<voi
   }
 
   try {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const thisWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    console.log("📊 Generating optimized quick analytics...");
+    
+    // Use the optimized function to get all stats in one query
+    const { data: stats, error } = await supabaseAdmin
+      .rpc('get_bot_stats');
 
-    // Quick stats queries
-    const [todayUsers, weekUsers, totalRevenue, activeUsers, pendingPayments] = await Promise.all([
-      supabaseAdmin
-        .from('bot_users')
-        .select('count', { count: 'exact' })
-        .gte('created_at', today.toISOString()),
-      
-      supabaseAdmin
-        .from('bot_users')
-        .select('count', { count: 'exact' })
-        .gte('created_at', thisWeek.toISOString()),
-      
-      supabaseAdmin
-        .from('payments')
-        .select('amount')
-        .eq('status', 'completed'),
-      
-      supabaseAdmin
-        .from('user_interactions')
-        .select('telegram_user_id', { count: 'exact' })
-        .gte('created_at', today.toISOString())
-        .not('telegram_user_id', 'is', null),
-      
-      supabaseAdmin
-        .from('payments')
-        .select('count', { count: 'exact' })
-        .eq('status', 'pending')
-    ]);
-
-    const revenue = totalRevenue.data?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+    if (error) {
+      throw error;
+    }
 
     const quickStats = `⚡ **Quick Analytics Dashboard**
 
-📅 **Today (${today.toLocaleDateString()}):**
-• 👥 New Users: ${todayUsers.count || 0}
-• 📱 Active Users: ${activeUsers.count || 0}
-• 💰 Pending Payments: ${pendingPayments.count || 0}
+📅 **Live Statistics:**
+• 👥 Total Users: ${stats.total_users || 0}
+• 💎 VIP Users: ${stats.vip_users || 0}
+• 🔑 Admin Users: ${stats.admin_users || 0}
 
-📈 **This Week:**
-• 🆕 New Users: ${weekUsers.count || 0}
-• 💵 Total Revenue: $${(revenue / 100).toFixed(2)}
-• 🔒 Blocked Requests: ${securityStats.blockedRequests}
+💰 **Payment Overview:**
+• ⏳ Pending Payments: ${stats.pending_payments || 0}
+• ✅ Completed Payments: ${stats.completed_payments || 0}
+• 💵 Total Revenue: $${((stats.total_revenue || 0) / 100).toFixed(2)}
 
-🤖 **Bot Status:**
-• 🟢 Status: Online
+📱 **Today's Activity:**
+• 🔄 Interactions: ${stats.daily_interactions || 0}
+• 📊 Sessions: ${stats.daily_sessions || 0}
+• 🛡️ Blocked Requests: ${securityStats.blockedRequests}
+
+🤖 **System Status:**
+• 🟢 Status: Online & Optimized
 • ⏱️ Uptime: ${Math.floor((Date.now() - BOT_START_TIME.getTime()) / 1000 / 60)} minutes
 • 💾 Active Sessions: ${activeBotSessions.size}
-• 📊 Rate Limit Store: ${rateLimitStore.size} entries
+• 🔒 Rate Limit Store: ${rateLimitStore.size} entries
 
 🛡️ **Security Overview:**
 • 🚫 Suspicious Users: ${securityStats.suspiciousUsers.size}
-• 📈 Security Success Rate: ${securityStats.totalRequests > 0 ? ((securityStats.blockedRequests / securityStats.totalRequests) * 100).toFixed(1) : 0}%
+• 📈 Protection Rate: ${securityStats.totalRequests > 0 ? ((securityStats.blockedRequests / securityStats.totalRequests) * 100).toFixed(1) : 0}%
 
-*Last updated: ${new Date().toLocaleTimeString()}*`;
+⚡ **Performance:** Query optimized - Single DB call
+*Last updated: ${new Date(stats.last_updated).toLocaleTimeString()}*`;
 
     const quickAnalyticsKeyboard = {
       inline_keyboard: [
@@ -3384,6 +3511,7 @@ async function handleQuickAnalytics(chatId: number, userId: string): Promise<voi
     };
 
     await sendMessage(chatId, quickStats, quickAnalyticsKeyboard);
+    console.log("✅ Quick analytics generated with optimized single query");
 
   } catch (error) {
     console.error('❌ Error generating quick analytics:', error);
