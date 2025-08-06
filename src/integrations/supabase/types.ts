@@ -1233,6 +1233,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_extensions_in_public: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          extension_name: unknown
+          schema_name: unknown
+        }[]
+      }
+      get_user_role: {
+        Args: { user_telegram_id: string }
+        Returns: string
+      }
+      is_user_admin: {
+        Args: { user_telegram_id: string }
+        Returns: boolean
+      }
       is_valid_otp_timeframe: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -1240,6 +1255,10 @@ export type Database = {
       update_daily_analytics: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      validate_telegram_user_id: {
+        Args: { telegram_id: string }
+        Returns: boolean
       }
     }
     Enums: {
