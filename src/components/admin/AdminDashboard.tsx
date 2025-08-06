@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { BotSettings } from '@/components/admin/BotSettings';
+import { BotDebugger } from '@/components/admin/BotDebugger';
 import { 
   Users, 
   CreditCard, 
@@ -291,14 +292,19 @@ export const AdminDashboard = () => {
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="users" className="space-y-4">
+      <Tabs defaultValue="bot-debug" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="bot-debug">🔧 Bot Debug</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="settings">Bot Settings</TabsTrigger>
           <TabsTrigger value="broadcast">Broadcast</TabsTrigger>
           <TabsTrigger value="export">Export Data</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="bot-debug" className="space-y-4">
+          <BotDebugger />
+        </TabsContent>
 
         <TabsContent value="users" className="space-y-4">
           <Card>
