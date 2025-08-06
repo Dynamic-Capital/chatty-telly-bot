@@ -617,16 +617,17 @@ const CACHE_TTL = 300000; // 5 minutes cache
 
 // Optimized content retrieval with caching
 async function getBotContent(contentKey: string): Promise<string | null> {
+  console.log(`📄 [getBotContent] Starting fetch for key: ${contentKey}`);
   const cached = contentCache.get(contentKey);
   const now = Date.now();
   
   if (cached && cached.expires > now) {
-    console.log(`📄 Cache hit for content: ${contentKey}`);
+    console.log(`📄 [getBotContent] Cache hit for content: ${contentKey}`);
     return cached.value;
   }
 
   try {
-    console.log(`📄 Fetching content from DB: ${contentKey}`);
+    console.log(`📄 [getBotContent] Fetching from DB: ${contentKey}`);
     const { data, error } = await supabaseAdmin
       .from('bot_content')
       .select('content_value')
@@ -634,20 +635,24 @@ async function getBotContent(contentKey: string): Promise<string | null> {
       .eq('is_active', true)
       .single();
 
+    console.log(`📄 [getBotContent] DB query completed for: ${contentKey}, error: ${error ? 'yes' : 'no'}`);
+
     if (error && error.code !== 'PGRST116') {
-      console.error(`❌ Error fetching content for ${contentKey}:`, error);
+      console.error(`❌ [getBotContent] Error fetching content for ${contentKey}:`, error);
       return null;
     }
 
     const value = data?.content_value || null;
+    console.log(`📄 [getBotContent] Content found for ${contentKey}: ${value ? 'yes' : 'no'}`);
     if (value) {
       contentCache.set(contentKey, { value, expires: now + CACHE_TTL });
+      console.log(`📄 [getBotContent] Content cached for ${contentKey}`);
     }
 
-    console.log(`✅ Content fetched and cached for ${contentKey}`);
+    console.log(`✅ [getBotContent] Content fetched and cached for ${contentKey}`);
     return value;
   } catch (error) {
-    console.error(`🚨 Exception in getBotContent for ${contentKey}:`, error);
+    console.error(`🚨 [getBotContent] Exception in getBotContent for ${contentKey}:`, error);
     return null;
   }
 }
@@ -1110,11 +1115,21 @@ async function addUserToVipChannel(telegramUserId: string): Promise<void> {
   }
 }
 async function getWelcomeMessage(firstName: string): Promise<string> {
-  const template = await getBotContent('welcome_message');
-  if (!template) {
-    return `🚀 *Welcome to Dynamic Capital VIP, ${firstName}!*\n\nWe're here to help you level up your trading with:\n\n• 🔔 Quick market updates\n• 📈 Beginner-friendly tips\n• 🎓 Easy learning resources\n\nReady to get started? Pick an option below 👇`;
+  console.log(`📄 [getWelcomeMessage] Starting for user: ${firstName}`);
+  try {
+    const template = await getBotContent('welcome_message');
+    console.log(`📄 [getWelcomeMessage] Template fetched: ${template ? 'found' : 'not found'}`);
+    if (!template) {
+      const defaultMessage = `🚀 *Welcome to Dynamic Capital VIP, ${firstName}!*\n\nWe're here to help you level up your trading with:\n\n• 🔔 Quick market updates\n• 📈 Beginner-friendly tips\n• 🎓 Easy learning resources\n\nReady to get started? Pick an option below 👇`;
+      console.log(`📄 [getWelcomeMessage] Using default message for: ${firstName}`);
+      return defaultMessage;
+    }
+    console.log(`📄 [getWelcomeMessage] Formatting content for: ${firstName}`);
+    return formatContent(template, { firstName });
+  } catch (error) {
+    console.error(`❌ [getWelcomeMessage] Error for ${firstName}:`, error);
+    return `🚀 *Welcome to Dynamic Capital VIP, ${firstName}!*\n\n⚠️ Please try again in a moment.`;
   }
-  return formatContent(template, { firstName });
 }
 
 async function getVipPackages(): Promise<any[]> {
@@ -3789,13 +3804,49 @@ serve(async (req) => {
       // Handle /start command with dynamic welcome message
       if (text === '/start') {
         console.log(`🚀 Start command from: ${userId} (${firstName})`);
-        await startBotSession(userId, { firstName, username, command: 'start' });
         
-        const autoReply = await getAutoReply('auto_reply_welcome', { firstName });
-        const welcomeMessage = autoReply || await getWelcomeMessage(firstName);
-        const keyboard = await getMainMenuKeyboard();
-        await sendMessage(chatId, welcomeMessage, keyboard);
-        return new Response("OK", { status: 200 });
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Start command timeout')), 10000) // 10 second timeout
+        );
+        
+        const startCommandPromise = (async () => {
+          try {
+            console.log(`🔄 Starting bot session for user: ${userId}`);
+            await startBotSession(userId, { firstName, username, command: 'start' });
+            console.log(`✅ Bot session started successfully for user: ${userId}`);
+            
+            console.log(`📄 Fetching auto reply for user: ${userId}`);
+            const autoReply = await getAutoReply('auto_reply_welcome', { firstName });
+            console.log(`📄 Auto reply result: ${autoReply ? 'found' : 'not found'}`);
+            
+            console.log(`📄 Getting welcome message for user: ${userId}`);
+            const welcomeMessage = autoReply || await getWelcomeMessage(firstName);
+            console.log(`📄 Welcome message length: ${welcomeMessage?.length || 0}`);
+            
+            console.log(`⌨️ Getting main menu keyboard for user: ${userId}`);
+            const keyboard = await getMainMenuKeyboard();
+            console.log(`⌨️ Keyboard generated: ${keyboard ? 'yes' : 'no'}`);
+            
+            console.log(`📤 Sending welcome message to user: ${userId}`);
+            await sendMessage(chatId, welcomeMessage, keyboard);
+            console.log(`✅ Welcome message sent successfully to user: ${userId}`);
+            
+            return new Response("OK", { status: 200 });
+          } catch (error) {
+            console.error(`❌ Error in /start command for user ${userId}:`, error);
+            await sendMessage(chatId, "❌ Sorry, something went wrong. Please try again in a moment.");
+            return new Response("Error", { status: 500 });
+          }
+        })();
+        
+        try {
+          return await Promise.race([startCommandPromise, timeoutPromise]);
+        } catch (error) {
+          console.error(`⏱️ Start command timeout or error for user ${userId}:`, error);
+          await sendMessage(chatId, "⏱️ The request is taking longer than expected. Please try /start again.");
+          return new Response("Timeout", { status: 408 });
+        }
       }
 
       // Handle /admin command
