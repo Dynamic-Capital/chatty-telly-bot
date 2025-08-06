@@ -5954,6 +5954,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
     return new Response("OK", { status: 200 });
     
   } catch (error) {
+  } catch (error) {
     console.error("🚨 Main error:", error);
     return new Response("Error", { status: 500, headers: corsHeaders });
   }
