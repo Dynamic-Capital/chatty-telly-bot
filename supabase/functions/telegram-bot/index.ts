@@ -989,47 +989,93 @@ async function getCryptoPayInstructions(pkg: any, subscriptionId: string): Promi
 }
 
 async function getBankTransferInstructions(pkg: any, subscriptionId: string): Promise<string> {
-  // Get bank accounts
-  const { data: banks } = await supabaseAdmin
-    .from('bank_accounts')
-    .select('*')
-    .eq('is_active', true)
-    .order('display_order');
+  try {
+    console.log('🏦 Fetching bank accounts for transfer instructions...');
+    
+    // Get active bank accounts
+    const { data: banks, error } = await supabaseAdmin
+      .from('bank_accounts')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order');
 
-  let bankDetails = '';
-  if (banks && banks.length > 0) {
-    bankDetails = banks.map(bank => 
-      `🏦 **${bank.bank_name}**
-📧 Name: ${bank.account_name}
-🔢 Account: \`${bank.account_number}\`
-💱 Currency: ${bank.currency}`
-    ).join('\n\n');
-  } else {
-    bankDetails = '🏦 Bank details will be provided shortly';
-  }
+    if (error) {
+      console.error('❌ Error fetching bank accounts:', error);
+    }
 
-  return `🏦 **Bank Transfer Instructions**
+    let bankDetails = '';
+    if (banks && banks.length > 0) {
+      console.log(`✅ Found ${banks.length} active bank account(s)`);
+      bankDetails = banks.map((bank, index) => 
+        `${index + 1}️⃣ **${bank.bank_name}**
+📧 **Account Name:** ${bank.account_name}
+🔢 **Account Number:** \`${bank.account_number}\`
+💱 **Currency:** ${bank.currency}`
+      ).join('\n\n');
+    } else {
+      console.log('⚠️ No active bank accounts found');
+      bankDetails = `🏦 **Bank Account Details:**
+📧 Account Name: Dynamic Capital Ltd
+🔢 Account Number: \`Will be provided shortly\`
+💱 Currency: USD
+
+⚠️ Contact @DynamicCapital_Support for complete bank details`;
+    }
+
+    // Update subscription with bank details for reference
+    const bankDetailsText = banks && banks.length > 0 
+      ? banks.map(b => `${b.bank_name}: ${b.account_number}`).join(', ')
+      : 'Bank details provided separately';
+      
+    await supabaseAdmin
+      .from('user_subscriptions')
+      .update({
+        bank_details: bankDetailsText,
+        payment_instructions: 'Bank transfer with receipt upload required'
+      })
+      .eq('id', subscriptionId);
+
+    return `🏦 **Bank Transfer Instructions**
 
 📦 **Package:** ${pkg.name}
 💰 **Amount:** $${pkg.price} USD
 
 ${bankDetails}
 
-📝 **Reference:** \`SUB_${subscriptionId.substring(0, 8)}\`
+📝 **Reference ID:** \`SUB_${subscriptionId.substring(0, 8)}\`
 
-📱 **Instructions:**
-1️⃣ Transfer exact amount to above account
-2️⃣ Include reference in transfer description
-3️⃣ Take photo of bank receipt/confirmation
-4️⃣ Send receipt photo here
+📱 **Step-by-Step Instructions:**
+1️⃣ Log into your banking app/website
+2️⃣ Create new transfer with exact amount: **$${pkg.price}**
+3️⃣ Use account details above
+4️⃣ **MUST include reference ID in transfer description**
+5️⃣ Complete the transfer
+6️⃣ Take clear photo of transfer confirmation
+7️⃣ Send the receipt photo to this chat
 
-⚠️ **Important:**
-• Include reference ID in transfer
-• Send clear photo of receipt
-• Payment verified within 24 hours
-• Keep original receipt for records
+⚠️ **Critical Requirements:**
+• Transfer exact amount: $${pkg.price}
+• Include reference: SUB_${subscriptionId.substring(0, 8)}
+• Send clear receipt photo showing:
+  - Transfer amount
+  - Destination account
+  - Reference ID
+  - Date & time
 
-❓ Need help? Contact @DynamicCapital_Support`;
+⏰ **Processing Time:** 2-24 hours after receipt verification
+❓ **Support:** @DynamicCapital_Support`;
+
+  } catch (error) {
+    console.error('🚨 Error generating bank transfer instructions:', error);
+    return `🏦 **Bank Transfer Instructions**
+
+📦 **Package:** ${pkg.name}
+💰 **Amount:** $${pkg.price} USD
+
+⚠️ Error loading bank details. Please contact @DynamicCapital_Support for transfer instructions.
+
+📝 **Reference:** \`SUB_${subscriptionId.substring(0, 8)}\``;
+  }
 }
 
 // Admin Notification Function
