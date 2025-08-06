@@ -467,7 +467,205 @@ async function getChatType(chatId: number): Promise<string> {
   }
 }
 
-// Enhanced content management functions
+// Receipt Upload Handler
+async function handleReceiptUpload(message: any, userId: string, firstName: string): Promise<void> {
+  try {
+    console.log(`📄 Receipt upload from user: ${userId}`);
+    
+    const chatId = message.chat.id;
+    let fileId = '';
+    let fileType = '';
+    
+    // Determine file type and get file ID
+    if (message.photo) {
+      fileId = message.photo[message.photo.length - 1].file_id; // Get highest resolution
+      fileType = 'photo';
+    } else if (message.document) {
+      fileId = message.document.file_id;
+      fileType = 'document';
+    }
+    
+    if (!fileId) {
+      await sendMessage(chatId, "❌ Unable to process the uploaded file. Please try again.");
+      return;
+    }
+    
+    // Get user's pending subscription
+    const { data: subscription, error } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select('*, subscription_plans(*)')
+      .eq('telegram_user_id', userId)
+      .eq('payment_status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (error || !subscription) {
+      await sendMessage(chatId, `❌ No pending payment found. 
+
+🎯 **To submit a receipt:**
+1️⃣ First select a VIP package
+2️⃣ Choose payment method
+3️⃣ Complete payment
+4️⃣ Then upload receipt
+
+💡 Use /start to begin the process.`);
+      return;
+    }
+    
+    // Save receipt information
+    const { data: media, error: mediaError } = await supabaseAdmin
+      .from('media_files')
+      .insert({
+        telegram_file_id: fileId,
+        file_type: fileType,
+        filename: message.document?.file_name || `receipt_${fileId}.jpg`,
+        caption: message.caption || `Receipt for ${subscription.subscription_plans?.name}`,
+        uploaded_by: userId
+      })
+      .select()
+      .single();
+    
+    if (mediaError) {
+      console.error('❌ Error saving receipt:', mediaError);
+      await sendMessage(chatId, "❌ Error saving receipt. Please try again.");
+      return;
+    }
+    
+    // Update subscription with receipt info
+    await supabaseAdmin
+      .from('user_subscriptions')
+      .update({
+        receipt_telegram_file_id: fileId,
+        receipt_file_path: `telegram_file_${fileId}`,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', subscription.id);
+    
+    // Notify user
+    await sendMessage(chatId, `✅ **Receipt Received!**
+
+📄 Your payment receipt has been submitted successfully.
+
+📦 **Package:** ${subscription.subscription_plans?.name}
+💰 **Amount:** $${subscription.subscription_plans?.price}
+🆔 **Reference:** SUB_${subscription.id.substring(0, 8)}
+
+⏰ **What's next:**
+• Our team will verify your payment
+• You'll receive confirmation within 1-2 hours
+• VIP access will be activated automatically
+
+Thank you for choosing Dynamic Capital VIP! 🌟`);
+    
+    // Notify all admins with approval buttons
+    await notifyAdminsReceiptSubmitted(userId, firstName, subscription, fileId, fileType);
+    
+    // Log the activity
+    await logAdminAction(userId, 'receipt_upload', `Receipt uploaded for subscription ${subscription.id}`, 'user_subscriptions', subscription.id);
+    
+  } catch (error) {
+    console.error('🚨 Error handling receipt upload:', error);
+    await sendMessage(message.chat.id, "❌ An error occurred processing your receipt. Please try again or contact support.");
+  }
+}
+
+// Admin Receipt Notification Function
+async function notifyAdminsReceiptSubmitted(userId: string, firstName: string, subscription: any, fileId: string, fileType: string): Promise<void> {
+  try {
+    const message = `🧾 **New Receipt Submitted!**
+
+👤 **User:** ${firstName} (\`${userId}\`)
+📦 **Package:** ${subscription.subscription_plans?.name}
+💰 **Amount:** $${subscription.subscription_plans?.price}
+💳 **Method:** ${subscription.payment_method?.toUpperCase()}
+🆔 **Subscription:** ${subscription.id.substring(0, 8)}
+
+📄 **Receipt:** ${fileType === 'photo' ? '📸 Photo' : '📎 Document'}
+⏰ **Submitted:** ${new Date().toLocaleString()}
+
+🎯 **Action Required:**
+Review the receipt and approve or reject the payment.`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "✅ Approve Payment", callback_data: `approve_payment_${subscription.id}` },
+          { text: "❌ Reject Payment", callback_data: `reject_payment_${subscription.id}` }
+        ],
+        [
+          { text: "👤 View User Profile", callback_data: `view_user_${userId}` },
+          { text: "📋 View All Pending", callback_data: "view_pending_payments" }
+        ]
+      ]
+    };
+
+    // Send to all admins
+    for (const adminId of ADMIN_USER_IDS) {
+      try {
+        // First send the receipt file
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: adminId,
+            photo: fileId,
+            caption: `Receipt from ${firstName} (${userId})\nPackage: ${subscription.subscription_plans?.name}`
+          })
+        });
+        
+        // Then send the notification message with buttons
+        await sendMessage(parseInt(adminId), message, keyboard);
+        console.log(`✅ Notified admin ${adminId} about receipt submission`);
+      } catch (error) {
+        console.error(`❌ Failed to notify admin ${adminId}:`, error);
+      }
+    }
+    
+    // Log the notification
+    await logAdminAction('system', 'receipt_notification', `Receipt submitted for ${subscription.subscription_plans?.name}`, 'user_subscriptions', subscription.id);
+    
+  } catch (error) {
+    console.error('🚨 Error notifying admins about receipt:', error);
+  }
+}
+
+// Function to add user to VIP channels (implement based on your channel setup)
+async function addUserToVipChannel(telegramUserId: string): Promise<void> {
+  try {
+    // This would need to be implemented based on your specific VIP channels
+    // Example implementation:
+    
+    const vipChannels = [
+      '-1001234567890', // Replace with actual VIP channel IDs
+      '-1001234567891'  // Add more channels as needed
+    ];
+    
+    for (const channelId of vipChannels) {
+      try {
+        // Add user to channel (requires bot to be admin in the channel)
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/approveChatJoinRequest`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: channelId,
+            user_id: parseInt(telegramUserId)
+          })
+        });
+        
+        console.log(`✅ Added user ${telegramUserId} to channel ${channelId}`);
+      } catch (error) {
+        console.error(`❌ Failed to add user to channel ${channelId}:`, error);
+      }
+    }
+    
+    // Log channel addition
+    await logAdminAction('system', 'channel_addition', `Added user ${telegramUserId} to VIP channels`);
+    
+  } catch (error) {
+    console.error('🚨 Error adding user to VIP channels:', error);
+  }
+}
 async function getWelcomeMessage(firstName: string): Promise<string> {
   const template = await getBotContent('welcome_message');
   if (!template) {
@@ -498,6 +696,740 @@ async function getVipPackages(): Promise<any[]> {
 }
 
 // Enhanced VIP packages display with better formatting
+async function getFormattedVipPackages(): Promise<string> {
+  const packages = await getVipPackages();
+  
+  if (packages.length === 0) {
+    return "❌ No VIP packages available at the moment.";
+  }
+
+  let message = `💎 *VIP Membership Packages*
+
+🚀 *Unlock Premium Trading Success!*
+
+`;
+
+  packages.forEach((pkg, index) => {
+    const badge = pkg.is_lifetime ? '🎯 STARTER' : 
+                  index === 1 ? '💫 SAVE MORE' : 
+                  index === 2 ? '⭐ POPULAR' : 
+                  index === 3 ? '🔥 BEST VALUE' : 
+                  '🎯 STARTER';
+    
+    const savings = pkg.price < 100 ? '' : 
+                   pkg.price < 200 ? '\n   💰 Save 15%' :
+                   pkg.price < 500 ? '\n   💰 Save 20%' :
+                   '\n   💰 Save 35%';
+    
+    message += `${index + 1}. **${pkg.name}** ${badge}
+   💰 USD ${pkg.price}/${pkg.is_lifetime ? 'Lifetime' : pkg.duration_months + 'mo'} ${pkg.is_lifetime ? '' : '($' + (pkg.price / pkg.duration_months).toFixed(0) + '/month)'}${savings}
+   ✨ Features:`;
+    
+    if (pkg.features && Array.isArray(pkg.features)) {
+      pkg.features.forEach(feature => {
+        message += `\n      • ${feature}`;
+      });
+    }
+    
+    if (pkg.is_lifetime) {
+      message += `\n      • 🌟 All future programs included
+      • 🔐 Exclusive lifetime member content`;
+    }
+    
+    message += '\n\n';
+  });
+
+  message += `🎁 **Special Benefits:**
+• 📈 Real-time trading signals
+• 🏆 VIP community access
+• 📊 Daily market analysis
+• 🎓 Educational resources
+• 💬 Direct mentor support
+
+✅ Ready to level up your trading?
+Select a package below to get started!`;
+
+  return message;
+}
+
+async function getVipPackagesKeyboard(): Promise<any> {
+  const packages = await getVipPackages();
+  const buttons = [];
+
+  packages.forEach(pkg => {
+    const priceText = pkg.is_lifetime ? '$' + pkg.price + ' Lifetime' : '$' + pkg.price + '/' + pkg.duration_months + 'mo';
+    buttons.push([{
+      text: `💎 ${pkg.name} - ${priceText}`,
+      callback_data: `select_vip_${pkg.id}`
+    }]);
+  });
+
+  buttons.push([
+    { text: "🎁 View Promotions", callback_data: "view_promotions" },
+    { text: "❓ Have Questions?", callback_data: "contact_support" }
+  ]);
+  
+  buttons.push([{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]);
+
+  return { inline_keyboard: buttons };
+}
+
+async function getMainMenuKeyboard(): Promise<any> {
+  return {
+    inline_keyboard: [
+      [
+        { text: "💎 VIP Packages", callback_data: "view_vip_packages" },
+        { text: "🎓 Education", callback_data: "view_education" }
+      ],
+      [
+        { text: "🏢 About Us", callback_data: "about_us" },
+        { text: "🛟 Support", callback_data: "support" }
+      ],
+      [
+        { text: "💰 Promotions", callback_data: "view_promotions" },
+        { text: "❓ FAQ", callback_data: "faq" }
+      ],
+      [
+        { text: "📋 Terms", callback_data: "terms" }
+      ]
+    ]
+  };
+}
+
+// VIP Package Selection Handler
+async function handleVipPackageSelection(chatId: number, userId: string, packageId: string, firstName: string): Promise<void> {
+  try {
+    console.log(`💎 User ${userId} selected VIP package: ${packageId}`);
+    
+    // Get package details
+    const { data: pkg, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('*')
+      .eq('id', packageId)
+      .single();
+
+    if (error || !pkg) {
+      await sendMessage(chatId, "❌ Package not found. Please try again.");
+      return;
+    }
+
+    const message = `💎 **${pkg.name}** Selected!
+
+💰 **Price:** $${pkg.price} USD
+⏱️ **Duration:** ${pkg.is_lifetime ? 'Lifetime Access' : pkg.duration_months + ' months'}
+
+✨ **Features:**
+${pkg.features?.map(f => `• ${f}`).join('\n') || '• Premium features included'}
+
+🎯 **Choose your payment method:**`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "💳 Binance Pay", callback_data: `payment_method_${packageId}_binance` },
+          { text: "₿ Crypto", callback_data: `payment_method_${packageId}_crypto` }
+        ],
+        [
+          { text: "🏦 Bank Transfer", callback_data: `payment_method_${packageId}_bank` }
+        ],
+        [
+          { text: "🔙 Back to Packages", callback_data: "view_vip_packages" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+    
+    // Log the selection
+    await logAdminAction(userId, 'package_selection', `User selected package: ${pkg.name}`, 'subscription_plans', packageId);
+    
+  } catch (error) {
+    console.error('🚨 Error in package selection:', error);
+    await sendMessage(chatId, "❌ An error occurred. Please try again.");
+  }
+}
+
+// Payment Method Selection Handler
+async function handlePaymentMethodSelection(chatId: number, userId: string, packageId: string, method: string): Promise<void> {
+  try {
+    console.log(`💳 User ${userId} selected payment method: ${method} for package: ${packageId}`);
+    
+    // Get package details
+    const { data: pkg, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('*')
+      .eq('id', packageId)
+      .single();
+
+    if (error || !pkg) {
+      await sendMessage(chatId, "❌ Package not found. Please try again.");
+      return;
+    }
+
+    // Create user subscription record
+    const { data: subscription, error: subError } = await supabaseAdmin
+      .from('user_subscriptions')
+      .insert({
+        telegram_user_id: userId,
+        plan_id: packageId,
+        payment_method: method,
+        payment_status: 'pending',
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (subError) {
+      console.error('❌ Error creating subscription:', subError);
+      await sendMessage(chatId, "❌ Error creating subscription. Please try again.");
+      return;
+    }
+
+    let paymentInstructions = '';
+    
+    switch (method) {
+      case 'binance':
+        paymentInstructions = await getBinancePayInstructions(pkg, subscription.id);
+        break;
+      case 'crypto':
+        paymentInstructions = await getCryptoPayInstructions(pkg, subscription.id);
+        break;
+      case 'bank':
+        paymentInstructions = await getBankTransferInstructions(pkg, subscription.id);
+        break;
+    }
+
+    await sendMessage(chatId, paymentInstructions);
+    
+    // Notify admins of new payment
+    await notifyAdminsNewPayment(userId, pkg.name, method, pkg.price, subscription.id);
+    
+  } catch (error) {
+    console.error('🚨 Error in payment method selection:', error);
+    await sendMessage(chatId, "❌ An error occurred. Please try again.");
+  }
+}
+
+// Payment Instructions Functions
+async function getBinancePayInstructions(pkg: any, subscriptionId: string): Promise<string> {
+  return `💳 **Binance Pay Instructions**
+
+📦 **Package:** ${pkg.name}
+💰 **Amount:** $${pkg.price} USD
+
+🔗 **Payment Method:** Binance Pay
+📱 **Instructions:**
+1️⃣ Open Binance app
+2️⃣ Go to Pay → Send
+3️⃣ Enter amount: $${pkg.price}
+4️⃣ Send to: \`binancepay@dynamicvip.com\`
+5️⃣ Take screenshot of confirmation
+6️⃣ Send screenshot here
+
+📝 **Reference:** \`SUB_${subscriptionId.substring(0, 8)}\`
+
+⚠️ **Important:**
+• Include reference in payment notes
+• Send payment confirmation screenshot
+• Payment will be verified within 1-2 hours
+• Keep transaction ID for support
+
+❓ Need help? Contact @DynamicCapital_Support`;
+}
+
+async function getCryptoPayInstructions(pkg: any, subscriptionId: string): Promise<string> {
+  return `₿ **Cryptocurrency Payment Instructions**
+
+📦 **Package:** ${pkg.name}
+💰 **Amount:** $${pkg.price} USD
+
+🪙 **Accepted Cryptocurrencies:**
+• **Bitcoin (BTC):** \`bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh\`
+• **Ethereum (ETH):** \`0x742d35Cc6642C4532F35B35D00a8e0c8dC2dA4cB\`
+• **USDT (TRC20):** \`TLPjmhVJ8xJDrA36BNhSj1kFnV2kdEKdWs\`
+• **USDT (ERC20):** \`0x742d35Cc6642C4532F35B35D00a8e0c8dC2dA4cB\`
+
+📝 **Reference:** \`SUB_${subscriptionId.substring(0, 8)}\`
+
+📱 **Instructions:**
+1️⃣ Calculate equivalent crypto amount
+2️⃣ Send to appropriate wallet address
+3️⃣ Include reference in transaction memo
+4️⃣ Take screenshot of transaction
+5️⃣ Send screenshot + transaction hash here
+
+⚠️ **Important:**
+• Double-check wallet addresses
+• Include reference ID
+• Send from personal wallet only
+• Payment confirmed within 6 confirmations
+
+❓ Need help? Contact @DynamicCapital_Support`;
+}
+
+async function getBankTransferInstructions(pkg: any, subscriptionId: string): Promise<string> {
+  // Get bank accounts
+  const { data: banks } = await supabaseAdmin
+    .from('bank_accounts')
+    .select('*')
+    .eq('is_active', true)
+    .order('display_order');
+
+  let bankDetails = '';
+  if (banks && banks.length > 0) {
+    bankDetails = banks.map(bank => 
+      `🏦 **${bank.bank_name}**
+📧 Name: ${bank.account_name}
+🔢 Account: \`${bank.account_number}\`
+💱 Currency: ${bank.currency}`
+    ).join('\n\n');
+  } else {
+    bankDetails = '🏦 Bank details will be provided shortly';
+  }
+
+  return `🏦 **Bank Transfer Instructions**
+
+📦 **Package:** ${pkg.name}
+💰 **Amount:** $${pkg.price} USD
+
+${bankDetails}
+
+📝 **Reference:** \`SUB_${subscriptionId.substring(0, 8)}\`
+
+📱 **Instructions:**
+1️⃣ Transfer exact amount to above account
+2️⃣ Include reference in transfer description
+3️⃣ Take photo of bank receipt/confirmation
+4️⃣ Send receipt photo here
+
+⚠️ **Important:**
+• Include reference ID in transfer
+• Send clear photo of receipt
+• Payment verified within 24 hours
+• Keep original receipt for records
+
+❓ Need help? Contact @DynamicCapital_Support`;
+}
+
+// Admin Notification Function
+async function notifyAdminsNewPayment(userId: string, packageName: string, method: string, amount: number, subscriptionId: string): Promise<void> {
+  try {
+    const message = `🔔 **New Payment Alert!**
+
+👤 **User:** ${userId}
+📦 **Package:** ${packageName}
+💳 **Method:** ${method.toUpperCase()}
+💰 **Amount:** $${amount}
+🆔 **Subscription ID:** ${subscriptionId.substring(0, 8)}
+
+⏰ **Time:** ${new Date().toLocaleString()}
+
+💡 **Next Steps:**
+• Wait for user to upload receipt
+• Verify payment details
+• Approve or reject payment
+• User will be added to VIP channel automatically`;
+
+    // Send to all admins
+    for (const adminId of ADMIN_USER_IDS) {
+      try {
+        await sendMessage(parseInt(adminId), message);
+        console.log(`✅ Notified admin ${adminId} about new payment`);
+      } catch (error) {
+        console.error(`❌ Failed to notify admin ${adminId}:`, error);
+      }
+    }
+    
+    // Log the notification
+    await logAdminAction('system', 'payment_notification', `New payment: ${packageName} - $${amount}`, 'user_subscriptions', subscriptionId);
+    
+  } catch (error) {
+    console.error('🚨 Error notifying admins:', error);
+  }
+}
+
+// Other callback handlers
+async function handleAboutUs(chatId: number, userId: string): Promise<void> {
+  const content = await getBotContent('about_us') || `🏢 **About Dynamic Capital**
+
+We are a leading trading education and signal provider focused on helping traders achieve consistent profitability.
+
+🎯 **Our Mission:**
+To democratize access to professional trading education and real-time market insights.
+
+🏆 **Why Choose Us:**
+• 5+ years of market experience
+• Proven track record
+• 24/7 support team
+• Active community of 10,000+ traders
+• Regular educational webinars
+
+📈 **Our Services:**
+• Real-time trading signals
+• Market analysis and insights
+• One-on-one mentorship
+• Educational courses
+• Risk management strategies
+
+🌟 Join thousands of successful traders who trust Dynamic Capital for their trading journey!`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]
+    ]
+  };
+
+  await sendMessage(chatId, content, keyboard);
+}
+
+async function handleSupport(chatId: number, userId: string): Promise<void> {
+  const content = await getBotContent('support') || `🛟 **Customer Support**
+
+Our dedicated support team is here to help you 24/7!
+
+📞 **Contact Methods:**
+• Telegram: @DynamicCapital_Support
+• Email: support@dynamicvip.com
+• Live Chat: Available in VIP groups
+
+⏰ **Response Times:**
+• VIP Members: Within 1 hour
+• General Support: Within 24 hours
+
+❓ **Common Questions:**
+• Payment issues
+• Account access
+• Signal explanations
+• Technical analysis help
+• Platform guidance
+
+💡 **Tips for Faster Support:**
+• Include your user ID: \`${userId}\`
+• Describe your issue clearly
+• Attach screenshots if relevant
+
+🎯 **VIP Support:** Upgrade to VIP for priority support and direct access to our senior analysts!`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "💬 Contact Support", url: "https://t.me/DynamicCapital_Support" },
+        { text: "📧 Email Us", url: "mailto:support@dynamicvip.com" }
+      ],
+      [{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]
+    ]
+  };
+
+  await sendMessage(chatId, content, keyboard);
+}
+
+async function handleViewPromotions(chatId: number, userId: string): Promise<void> {
+  try {
+    const { data: promos, error } = await supabaseAdmin
+      .from('promotions')
+      .select('*')
+      .eq('is_active', true)
+      .gte('valid_until', new Date().toISOString())
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error fetching promotions:', error);
+      await sendMessage(chatId, "❌ Error loading promotions. Please try again.");
+      return;
+    }
+
+    let message = `💰 **Active Promotions**
+
+🎉 Limited time offers just for you!\n\n`;
+
+    if (!promos || promos.length === 0) {
+      message += `📭 No active promotions at the moment.
+
+🔔 **Stay tuned!** 
+Follow our announcements for upcoming deals and discounts.
+
+💡 **Tip:** VIP members get exclusive early access to all promotions!`;
+    } else {
+      promos.forEach((promo, index) => {
+        const validUntil = new Date(promo.valid_until).toLocaleDateString();
+        const discountText = promo.discount_type === 'percentage' 
+          ? `${promo.discount_value}% OFF` 
+          : `$${promo.discount_value} OFF`;
+        
+        message += `${index + 1}. **${promo.code}** - ${discountText}
+📝 ${promo.description}
+⏰ Valid until: ${validUntil}
+🎯 Uses left: ${(promo.max_uses || 999) - (promo.current_uses || 0)}
+
+`;
+      });
+      
+      message += `💡 **How to use:**
+Enter promo code during checkout to apply discount automatically!`;
+    }
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "💎 View VIP Packages", callback_data: "view_vip_packages" }],
+        [{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+    
+  } catch (error) {
+    console.error('🚨 Error in promotions handler:', error);
+    await sendMessage(chatId, "❌ An error occurred. Please try again.");
+  }
+}
+
+async function handleFAQ(chatId: number, userId: string): Promise<void> {
+  const content = await getBotContent('faq') || `❓ **Frequently Asked Questions**
+
+🔷 **Q: How do I join VIP?**
+A: Select a VIP package, complete payment, and you'll be added automatically after verification.
+
+🔷 **Q: What payment methods do you accept?**
+A: We accept Binance Pay, cryptocurrency (BTC, ETH, USDT), and bank transfers.
+
+🔷 **Q: How quickly are signals sent?**
+A: VIP signals are sent in real-time as market opportunities arise, typically 5-10 per day.
+
+🔷 **Q: Do you offer refunds?**
+A: We offer a 7-day satisfaction guarantee for new VIP members.
+
+🔷 **Q: What's included in VIP membership?**
+A: Real-time signals, market analysis, educational content, priority support, and access to VIP community.
+
+🔷 **Q: Can I cancel my subscription?**
+A: Yes, you can cancel anytime. Access continues until your current period ends.
+
+🔷 **Q: Do you provide trading education?**
+A: Yes! We offer comprehensive courses for beginners to advanced traders.
+
+💡 **Still have questions?** Contact our support team!`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "🛟 Contact Support", callback_data: "support" }],
+      [{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]
+    ]
+  };
+
+  await sendMessage(chatId, content, keyboard);
+}
+
+async function handleTerms(chatId: number, userId: string): Promise<void> {
+  const content = await getBotContent('terms') || `📋 **Terms of Service**
+
+**Last updated:** January 2025
+
+🔷 **Service Agreement**
+By using Dynamic Capital VIP services, you agree to these terms and our privacy policy.
+
+🔷 **Trading Disclaimer**
+• Trading involves significant risk of loss
+• Past performance doesn't guarantee future results
+• Never trade with money you can't afford to lose
+• Signals are educational, not financial advice
+
+🔷 **Subscription Terms**
+• Payments are processed securely
+• Cancellations take effect at period end
+• Refunds available within 7 days (terms apply)
+• Violations may result in account termination
+
+🔷 **Prohibited Activities**
+• Sharing VIP content publicly
+• Reverse engineering our systems
+• Harassment of other members
+• Fraudulent payment attempts
+
+🔷 **Limitation of Liability**
+Dynamic Capital is not liable for trading losses incurred using our services.
+
+📧 **Contact:** legal@dynamicvip.com`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]
+    ]
+  };
+
+  await sendMessage(chatId, content, keyboard);
+}
+
+async function handleViewEducation(chatId: number, userId: string): Promise<void> {
+  try {
+    const { data: packages, error } = await supabaseAdmin
+      .from('education_packages')
+      .select('*')
+      .eq('is_active', true)
+      .order('price');
+
+    if (error) {
+      console.error('❌ Error fetching education packages:', error);
+      await sendMessage(chatId, "❌ Error loading education packages.");
+      return;
+    }
+
+    let message = `🎓 **Educational Packages**
+
+📚 Level up your trading skills with our comprehensive courses!\n\n`;
+
+    if (!packages || packages.length === 0) {
+      message += `📭 No education packages available at the moment.
+
+🔔 **Coming Soon!**
+We're preparing amazing educational content for you.
+
+💡 **In the meantime:** Join VIP for access to daily market analysis and real-time learning opportunities!`;
+    } else {
+      packages.forEach((pkg, index) => {
+        message += `${index + 1}. **${pkg.name}**
+💰 Price: $${pkg.price}
+⏱️ Duration: ${pkg.duration_weeks} weeks
+📈 Level: ${pkg.difficulty_level || 'All Levels'}
+
+📝 ${pkg.description}
+
+`;
+      });
+      
+      message += `💡 **Why Choose Our Education:**
+• Expert instructors with proven track records
+• Interactive lessons and live sessions
+• Certificate upon completion
+• Lifetime access to materials
+• Direct support from instructors`;
+    }
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "💎 Upgrade to VIP", callback_data: "view_vip_packages" }],
+        [{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+    
+  } catch (error) {
+    console.error('🚨 Error in education handler:', error);
+    await sendMessage(chatId, "❌ An error occurred. Please try again.");
+  }
+}
+
+// Payment Approval/Rejection Handlers
+async function handleApprovePayment(chatId: number, userId: string, paymentId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    // Update subscription status
+    const { data: subscription, error } = await supabaseAdmin
+      .from('user_subscriptions')
+      .update({
+        payment_status: 'approved',
+        is_active: true,
+        subscription_start_date: new Date().toISOString(),
+        subscription_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
+      })
+      .eq('id', paymentId)
+      .select('*, subscription_plans(*)')
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    // Add user to VIP channel/group (implement channel addition logic here)
+    // await addUserToVipChannel(subscription.telegram_user_id);
+
+    // Notify user of approval
+    const userMessage = `✅ **Payment Approved!**
+
+🎉 Congratulations! Your VIP membership is now active.
+
+📦 **Package:** ${subscription.subscription_plans?.name}
+⏰ **Valid until:** ${new Date(subscription.subscription_end_date).toLocaleDateString()}
+
+🚀 **What's next:**
+• You'll be added to VIP channels
+• Start receiving premium signals
+• Access exclusive content
+• Priority support activated
+
+Welcome to the VIP family! 🌟`;
+
+    await sendMessage(parseInt(subscription.telegram_user_id), userMessage);
+
+    // Notify admin of completion
+    await sendMessage(chatId, `✅ **Payment Approved Successfully**
+
+User ${subscription.telegram_user_id} has been activated for ${subscription.subscription_plans?.name}.`);
+
+    await logAdminAction(userId, 'payment_approval', `Approved payment for subscription ${paymentId}`, 'user_subscriptions', paymentId);
+
+  } catch (error) {
+    console.error('🚨 Error approving payment:', error);
+    await sendMessage(chatId, `❌ Error approving payment: ${error.message}`);
+  }
+}
+
+async function handleRejectPayment(chatId: number, userId: string, paymentId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    // Update subscription status
+    const { data: subscription, error } = await supabaseAdmin
+      .from('user_subscriptions')
+      .update({
+        payment_status: 'rejected'
+      })
+      .eq('id', paymentId)
+      .select('*, subscription_plans(*)')
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    // Notify user of rejection
+    const userMessage = `❌ **Payment Issue**
+
+Unfortunately, we couldn't verify your payment for ${subscription.subscription_plans?.name}.
+
+🔄 **Next steps:**
+• Double-check payment details
+• Ensure you included the reference ID
+• Contact support with transaction details
+
+🛟 **Need help?** Contact @DynamicCapital_Support with:
+• Your transaction confirmation
+• Reference ID: SUB_${paymentId.substring(0, 8)}
+• Payment method used
+
+We're here to help resolve this quickly! 💪`;
+
+    await sendMessage(parseInt(subscription.telegram_user_id), userMessage);
+
+    // Notify admin of completion
+    await sendMessage(chatId, `❌ **Payment Rejected**
+
+User ${subscription.telegram_user_id} payment for ${subscription.subscription_plans?.name} has been rejected.`);
+
+    await logAdminAction(userId, 'payment_rejection', `Rejected payment for subscription ${paymentId}`, 'user_subscriptions', paymentId);
+
+  } catch (error) {
+    console.error('🚨 Error rejecting payment:', error);
+    await sendMessage(chatId, `❌ Error rejecting payment: ${error.message}`);
+  }
+}
 async function getFormattedVipPackages(): Promise<string> {
   const packages = await getVipPackages();
   
@@ -1723,6 +2655,12 @@ serve(async (req) => {
         return new Response("OK", { status: 200 });
       }
 
+      // Handle photo/document uploads (receipts)
+      if (update.message.photo || update.message.document) {
+        await handleReceiptUpload(update.message, userId, firstName);
+        return new Response("OK", { status: 200 });
+      }
+
       // Handle unknown commands with auto-reply
       if (text?.startsWith('/')) {
         await handleUnknownCommand(chatId, userId, text);
@@ -1887,9 +2825,36 @@ serve(async (req) => {
             await handleViewAllSettings(chatId, userId);
             break;
 
+          // Handle VIP package selections
           default:
-            console.log(`❓ Unknown callback: ${callbackData}`);
-            await sendMessage(chatId, "❓ Unknown action. Please try again or use /start for the main menu.");
+            if (callbackData.startsWith('select_vip_')) {
+              const packageId = callbackData.replace('select_vip_', '');
+              await handleVipPackageSelection(chatId, userId, packageId, firstName);
+            } else if (callbackData.startsWith('payment_method_')) {
+              const [, , packageId, method] = callbackData.split('_');
+              await handlePaymentMethodSelection(chatId, userId, packageId, method);
+            } else if (callbackData === 'about_us') {
+              await handleAboutUs(chatId, userId);
+            } else if (callbackData === 'support') {
+              await handleSupport(chatId, userId);
+            } else if (callbackData === 'view_promotions') {
+              await handleViewPromotions(chatId, userId);
+            } else if (callbackData === 'faq') {
+              await handleFAQ(chatId, userId);
+            } else if (callbackData === 'terms') {
+              await handleTerms(chatId, userId);
+            } else if (callbackData === 'view_education') {
+              await handleViewEducation(chatId, userId);
+            } else if (callbackData.startsWith('approve_payment_')) {
+              const paymentId = callbackData.replace('approve_payment_', '');
+              await handleApprovePayment(chatId, userId, paymentId);
+            } else if (callbackData.startsWith('reject_payment_')) {
+              const paymentId = callbackData.replace('reject_payment_', '');
+              await handleRejectPayment(chatId, userId, paymentId);
+            } else {
+              console.log(`❓ Unknown callback: ${callbackData}`);
+              await sendMessage(chatId, "❓ Unknown action. Please try again or use /start for the main menu.");
+            }
         }
 
         // Answer callback query to remove loading state
