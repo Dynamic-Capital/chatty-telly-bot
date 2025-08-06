@@ -24,11 +24,11 @@ const App = () => (
           <div className="min-h-screen bg-background">
             <Header />
             <Routes>
-              <Route path="/" element={<WelcomeMessage />} />
+              <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
-              <Route path="/dashboard" element={<Index />} />
               <Route path="/education" element={<Education />} />
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/welcome" element={<WelcomeMessage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>

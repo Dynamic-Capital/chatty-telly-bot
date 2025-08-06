@@ -44,16 +44,6 @@ const Header: React.FC = () => {
               </Link>
             </Button>
             
-            <Button
-              asChild
-              variant={isActive('/dashboard') ? 'default' : 'ghost'}
-              size="sm"
-            >
-              <Link to="/dashboard" className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                Dashboard
-              </Link>
-            </Button>
             
             <Button
               asChild
@@ -91,12 +81,6 @@ const Header: React.FC = () => {
                   <Link to="/" className="flex items-center gap-2">
                     <Home className="h-4 w-4" />
                     Home
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/dashboard" className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4" />
-                    Dashboard
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>

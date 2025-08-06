@@ -268,76 +268,15 @@ const BotDashboard = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold">Bot Configuration</h2>
-          <p className="text-muted-foreground">Set up your Telegram bot settings</p>
+          <p className="text-muted-foreground">Configure your bot settings and behavior</p>
         </div>
         <Button variant="outline" onClick={() => setCurrentView('welcome')}>
           Back to Dashboard
         </Button>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="p-6 bg-gradient-card border-0 shadow-lg">
-          <div className="flex items-center gap-2 mb-6">
-            <Settings className="w-5 h-5 text-telegram" />
-            <h3 className="text-xl font-semibold">Bot Token</h3>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="token">Bot Token</Label>
-              <Input
-                id="token"
-                type="password"
-                placeholder="Enter your bot token..."
-                value={botToken}
-                onChange={(e) => setBotToken(e.target.value)}
-                className="mt-1"
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                Get your token from @BotFather on Telegram
-              </p>
-            </div>
-            
-            <Button 
-              onClick={handleConnect}
-              variant="telegram"
-              className="w-full"
-              disabled={isConnected}
-            >
-              {isConnected ? "Connected" : "Connect Bot"}
-            </Button>
-          </div>
-        </Card>
-
-        <Card className="p-6 bg-gradient-card border-0 shadow-lg">
-          <div className="flex items-center gap-2 mb-6">
-            <SendIcon className="w-5 h-5 text-telegram" />
-            <h3 className="text-xl font-semibold">Send Message</h3>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="message">Message</Label>
-              <textarea
-                id="message"
-                placeholder="Type your message here..."
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                className="w-full min-h-[120px] px-3 py-2 border border-input rounded-md bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              />
-            </div>
-            
-            <Button 
-              onClick={handleSendMessage}
-              variant="telegram"
-              className="w-full"
-              disabled={!isConnected}
-            >
-              <SendIcon className="w-4 h-4" />
-              Send to All Subscribers
-            </Button>
-          </div>
-        </Card>
+      <div className="text-center p-8">
+        <p className="text-muted-foreground">Bot settings configuration will be available here.</p>
+        <p className="text-sm text-muted-foreground mt-2">Please use the Admin dashboard for full settings management.</p>
       </div>
     </div>
   );
