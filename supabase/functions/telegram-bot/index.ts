@@ -386,10 +386,81 @@ async function sendMessage(
 
     const result = await response.json();
     console.log(`✅ Message sent successfully to ${chatId}`);
+
+    // Auto-delete messages in groups after 30 seconds
+    if (result.ok && result.result) {
+      const messageId = result.result.message_id;
+      const chatType = await getChatType(chatId);
+      
+      // Check if it's a group or supergroup
+      if (chatType === 'group' || chatType === 'supergroup') {
+        console.log(`⏰ Scheduling auto-deletion for message ${messageId} in chat ${chatId}`);
+        
+        // Schedule deletion after 30 seconds
+        setTimeout(async () => {
+          try {
+            console.log(`🗑️ Auto-deleting message ${messageId} from chat ${chatId}`);
+            await deleteMessage(chatId, messageId);
+          } catch (error) {
+            console.error(`❌ Failed to auto-delete message ${messageId}:`, error);
+          }
+        }, 30000); // 30 seconds
+      }
+    }
+
     return result;
   } catch (error) {
     console.error("🚨 Error sending message:", error);
     return null;
+  }
+}
+
+// Function to delete a specific message
+async function deleteMessage(chatId: number, messageId: number): Promise<boolean> {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error('❌ Failed to delete message:', result);
+      return false;
+    }
+
+    console.log(`✅ Message ${messageId} deleted from chat ${chatId}`);
+    return true;
+  } catch (error) {
+    console.error('🚨 Error deleting message:', error);
+    return false;
+  }
+}
+
+// Function to get chat type (private, group, supergroup, channel)
+async function getChatType(chatId: number): Promise<string> {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId })
+    });
+
+    const result = await response.json();
+
+    if (result.ok && result.result) {
+      return result.result.type;
+    }
+
+    return 'unknown';
+  } catch (error) {
+    console.error('🚨 Error getting chat type:', error);
+    return 'unknown';
   }
 }
 
