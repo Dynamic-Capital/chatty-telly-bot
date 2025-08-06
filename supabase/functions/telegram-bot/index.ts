@@ -806,9 +806,12 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
       .single();
 
     if (error || !pkg) {
+      console.error('❌ Package fetch error:', error);
       await sendMessage(chatId, "❌ Package not found. Please try again.");
       return;
     }
+
+    console.log(`📦 Package found: ${pkg.name} - $${pkg.price}`);
 
     // Create user subscription record
     const { data: subscription, error: subError } = await supabaseAdmin
@@ -829,28 +832,39 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
       return;
     }
 
+    console.log(`✅ Subscription created: ${subscription.id}`);
+
     let paymentInstructions = '';
     
     switch (method) {
       case 'binance':
+        console.log('🟡 Processing Binance Pay instructions');
         paymentInstructions = await getBinancePayInstructions(pkg, subscription.id);
         break;
       case 'crypto':
+        console.log('₿ Processing Crypto instructions');
         paymentInstructions = await getCryptoPayInstructions(pkg, subscription.id);
         break;
       case 'bank':
+        console.log('🏦 Processing Bank Transfer instructions');
         paymentInstructions = await getBankTransferInstructions(pkg, subscription.id);
         break;
+      default:
+        console.error(`❌ Unknown payment method: ${method}`);
+        await sendMessage(chatId, `❌ Unknown payment method: ${method}. Please try again.`);
+        return;
     }
 
+    console.log(`📝 Payment instructions generated for method: ${method}`);
     await sendMessage(chatId, paymentInstructions);
     
     // Notify admins of new payment
     await notifyAdminsNewPayment(userId, pkg.name, method, pkg.price, subscription.id);
+    console.log(`🔔 Admins notified about new payment: ${subscription.id}`);
     
   } catch (error) {
     console.error('🚨 Error in payment method selection:', error);
-    await sendMessage(chatId, "❌ An error occurred. Please try again.");
+    await sendMessage(chatId, `❌ An error occurred: ${error.message}. Please try again.`);
   }
 }
 
@@ -2669,7 +2683,9 @@ serve(async (req) => {
               const packageId = callbackData.replace('select_vip_', '');
               await handleVipPackageSelection(chatId, userId, packageId, firstName);
             } else if (callbackData.startsWith('payment_method_')) {
+              console.log(`💳 Payment method callback received: ${callbackData}`);
               const [, , packageId, method] = callbackData.split('_');
+              console.log(`💳 Parsed: packageId=${packageId}, method=${method}`);
               await handlePaymentMethodSelection(chatId, userId, packageId, method);
             } else if (callbackData === 'about_us') {
               await handleAboutUs(chatId, userId);
