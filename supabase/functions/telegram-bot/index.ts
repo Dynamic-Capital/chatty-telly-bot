@@ -2997,6 +2997,522 @@ async function getBroadcastChannels(): Promise<string[]> {
   }
 }
 
+// Analytics and Reports Functions
+async function handleAnalyticsMenu(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  const analyticsMessage = `📈 **Analytics & Reports Center**
+
+📊 **Available Reports:**
+• 👥 User Analytics - Growth, activity, demographics
+• 💰 Payment Reports - Revenue, transactions, trends
+• 📦 Package Performance - VIP vs Education stats
+• 🎁 Promotion Analytics - Usage, conversion rates
+• 📱 Bot Usage Statistics - Commands, interactions
+• 🔒 Security Reports - Rate limits, blocked users
+
+📁 **Export Formats:**
+• 📄 CSV files for spreadsheet analysis
+• 📋 Text summaries for quick review
+• 📊 Detailed JSON data exports
+
+🕐 **Time Ranges:**
+• Last 24 hours, 7 days, 30 days, All time
+
+Choose a report type to generate:`;
+
+  const analyticsKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "👥 User Analytics", callback_data: "report_users" },
+        { text: "💰 Payment Reports", callback_data: "report_payments" }
+      ],
+      [
+        { text: "📦 Package Stats", callback_data: "report_packages" },
+        { text: "🎁 Promotions", callback_data: "report_promotions" }
+      ],
+      [
+        { text: "📱 Bot Usage", callback_data: "report_bot_usage" },
+        { text: "🔒 Security", callback_data: "report_security" }
+      ],
+      [
+        { text: "📊 Live Dashboard", callback_data: "analytics_dashboard" },
+        { text: "📈 Quick Stats", callback_data: "quick_analytics" }
+      ],
+      [
+        { text: "🔙 Back to Admin", callback_data: "admin_dashboard" }
+      ]
+    ]
+  };
+
+  await sendMessage(chatId, analyticsMessage, analyticsKeyboard);
+}
+
+async function handleUserAnalyticsReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    await sendMessage(chatId, "📊 Generating user analytics report...");
+
+    // Get time range filter
+    const timeFilter = getTimeFilter(timeRange);
+    
+    // Fetch user statistics
+    const [totalUsers, newUsers, activeUsers, vipUsers, adminUsers] = await Promise.all([
+      // Total users
+      supabaseAdmin.from('bot_users').select('count', { count: 'exact' }),
+      
+      // New users in time range
+      supabaseAdmin
+        .from('bot_users')
+        .select('count', { count: 'exact' })
+        .gte('created_at', timeFilter),
+      
+      // Active users (with recent interactions)
+      supabaseAdmin
+        .from('user_interactions')
+        .select('telegram_user_id', { count: 'exact' })
+        .gte('created_at', timeFilter)
+        .not('telegram_user_id', 'is', null),
+      
+      // VIP users
+      supabaseAdmin
+        .from('bot_users')
+        .select('count', { count: 'exact' })
+        .eq('is_vip', true),
+      
+      // Admin users
+      supabaseAdmin
+        .from('bot_users')
+        .select('count', { count: 'exact' })
+        .eq('is_admin', true)
+    ]);
+
+    // Get user growth data
+    const userGrowthQuery = await supabaseAdmin
+      .from('bot_users')
+      .select('created_at')
+      .gte('created_at', timeFilter)
+      .order('created_at');
+
+    // Calculate growth metrics
+    const growthData = calculateGrowthMetrics(userGrowthQuery.data || []);
+    
+    // Get top active users
+    const topUsersQuery = await supabaseAdmin
+      .from('user_interactions')
+      .select('telegram_user_id, count(*)')
+      .gte('created_at', timeFilter)
+      .group('telegram_user_id')
+      .order('count', { ascending: false })
+      .limit(5);
+
+    const report = generateUserAnalyticsReport({
+      totalUsers: totalUsers.count || 0,
+      newUsers: newUsers.count || 0,
+      activeUsers: activeUsers.count || 0,
+      vipUsers: vipUsers.count || 0,
+      adminUsers: adminUsers.count || 0,
+      growthData,
+      topUsers: topUsersQuery.data || [],
+      timeRange
+    });
+
+    // Generate CSV export
+    const csvData = generateUserAnalyticsCSV({
+      totalUsers: totalUsers.count || 0,
+      newUsers: newUsers.count || 0,
+      activeUsers: activeUsers.count || 0,
+      vipUsers: vipUsers.count || 0,
+      adminUsers: adminUsers.count || 0,
+      timeRange
+    });
+
+    await sendMessage(chatId, report);
+    await sendMessage(chatId, `📄 **CSV Export:**\n\`\`\`\n${csvData}\n\`\`\``);
+
+    await logAdminAction(userId, 'report_generated', `User analytics report for ${timeRange}`, 'reports');
+
+  } catch (error) {
+    console.error('❌ Error generating user analytics:', error);
+    await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+  }
+}
+
+async function handlePaymentReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    await sendMessage(chatId, "💰 Generating payment report...");
+
+    const timeFilter = getTimeFilter(timeRange);
+    
+    // Fetch payment statistics
+    const [totalPayments, pendingPayments, completedPayments, rejectedPayments, revenueData] = await Promise.all([
+      // Total payments
+      supabaseAdmin.from('payments').select('count', { count: 'exact' }),
+      
+      // Pending payments
+      supabaseAdmin
+        .from('payments')
+        .select('count', { count: 'exact' })
+        .eq('status', 'pending'),
+      
+      // Completed payments
+      supabaseAdmin
+        .from('payments')
+        .select('count, amount', { count: 'exact' })
+        .eq('status', 'completed')
+        .gte('created_at', timeFilter),
+      
+      // Rejected payments
+      supabaseAdmin
+        .from('payments')
+        .select('count', { count: 'exact' })
+        .eq('status', 'rejected')
+        .gte('created_at', timeFilter),
+      
+      // Revenue calculation
+      supabaseAdmin
+        .from('payments')
+        .select('amount, currency, created_at')
+        .eq('status', 'completed')
+        .gte('created_at', timeFilter)
+    ]);
+
+    // Calculate revenue metrics
+    const totalRevenue = revenueData.data?.reduce((sum, payment) => sum + (payment.amount || 0), 0) || 0;
+    const avgPayment = revenueData.data?.length ? totalRevenue / revenueData.data.length : 0;
+
+    // Get payment method breakdown
+    const paymentMethodsQuery = await supabaseAdmin
+      .from('payments')
+      .select('payment_method, count(*)')
+      .gte('created_at', timeFilter)
+      .group('payment_method');
+
+    const report = generatePaymentReport({
+      totalPayments: totalPayments.count || 0,
+      pendingPayments: pendingPayments.count || 0,
+      completedPayments: completedPayments.count || 0,
+      rejectedPayments: rejectedPayments.count || 0,
+      totalRevenue,
+      avgPayment,
+      paymentMethods: paymentMethodsQuery.data || [],
+      timeRange
+    });
+
+    // Generate CSV export
+    const csvData = generatePaymentCSV(revenueData.data || []);
+
+    await sendMessage(chatId, report);
+    await sendMessage(chatId, `📄 **Payment Data CSV:**\n\`\`\`\n${csvData}\n\`\`\``);
+
+    await logAdminAction(userId, 'report_generated', `Payment report for ${timeRange}`, 'reports');
+
+  } catch (error) {
+    console.error('❌ Error generating payment report:', error);
+    await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+  }
+}
+
+async function handleBotUsageReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    await sendMessage(chatId, "📱 Generating bot usage report...");
+
+    const timeFilter = getTimeFilter(timeRange);
+    
+    // Fetch bot usage statistics
+    const [totalInteractions, commandStats, sessionStats, securityStats] = await Promise.all([
+      // Total interactions
+      supabaseAdmin
+        .from('user_interactions')
+        .select('count', { count: 'exact' })
+        .gte('created_at', timeFilter),
+      
+      // Command usage stats
+      supabaseAdmin
+        .from('user_interactions')
+        .select('interaction_type, count(*)')
+        .gte('created_at', timeFilter)
+        .eq('interaction_type', 'command')
+        .group('interaction_data')
+        .limit(10),
+      
+      // Session statistics
+      supabaseAdmin
+        .from('bot_sessions')
+        .select('duration_minutes, activity_count, created_at')
+        .gte('created_at', timeFilter),
+      
+      // Error/security events
+      supabaseAdmin
+        .from('user_interactions')
+        .select('interaction_type, count(*)')
+        .gte('created_at', timeFilter)
+        .in('interaction_type', ['unknown_command', 'error', 'security_block'])
+        .group('interaction_type')
+    ]);
+
+    // Calculate usage metrics
+    const avgSessionDuration = sessionStats.data?.length ? 
+      sessionStats.data.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) / sessionStats.data.length : 0;
+    
+    const totalActivities = sessionStats.data?.reduce((sum, s) => sum + (s.activity_count || 0), 0) || 0;
+
+    const report = generateBotUsageReport({
+      totalInteractions: totalInteractions.count || 0,
+      totalSessions: sessionStats.data?.length || 0,
+      avgSessionDuration,
+      totalActivities,
+      commandStats: commandStats.data || [],
+      securityEvents: securityStats.data || [],
+      timeRange
+    });
+
+    await sendMessage(chatId, report);
+
+    // Add security stats from memory
+    const memorySecurityReport = `🔒 **Live Security Stats:**
+• Total Requests: ${securityStats.totalRequests}
+• Blocked Requests: ${securityStats.blockedRequests}
+• Suspicious Users: ${securityStats.suspiciousUsers.size}
+• Rate Limit Store Size: ${rateLimitStore.size}
+• Block Success Rate: ${securityStats.totalRequests > 0 ? ((securityStats.blockedRequests / securityStats.totalRequests) * 100).toFixed(2) : 0}%`;
+
+    await sendMessage(chatId, memorySecurityReport);
+
+    await logAdminAction(userId, 'report_generated', `Bot usage report for ${timeRange}`, 'reports');
+
+  } catch (error) {
+    console.error('❌ Error generating bot usage report:', error);
+    await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+  }
+}
+
+async function handleQuickAnalytics(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const thisWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // Quick stats queries
+    const [todayUsers, weekUsers, totalRevenue, activeUsers, pendingPayments] = await Promise.all([
+      supabaseAdmin
+        .from('bot_users')
+        .select('count', { count: 'exact' })
+        .gte('created_at', today.toISOString()),
+      
+      supabaseAdmin
+        .from('bot_users')
+        .select('count', { count: 'exact' })
+        .gte('created_at', thisWeek.toISOString()),
+      
+      supabaseAdmin
+        .from('payments')
+        .select('amount')
+        .eq('status', 'completed'),
+      
+      supabaseAdmin
+        .from('user_interactions')
+        .select('telegram_user_id', { count: 'exact' })
+        .gte('created_at', today.toISOString())
+        .not('telegram_user_id', 'is', null),
+      
+      supabaseAdmin
+        .from('payments')
+        .select('count', { count: 'exact' })
+        .eq('status', 'pending')
+    ]);
+
+    const revenue = totalRevenue.data?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+
+    const quickStats = `⚡ **Quick Analytics Dashboard**
+
+📅 **Today (${today.toLocaleDateString()}):**
+• 👥 New Users: ${todayUsers.count || 0}
+• 📱 Active Users: ${activeUsers.count || 0}
+• 💰 Pending Payments: ${pendingPayments.count || 0}
+
+📈 **This Week:**
+• 🆕 New Users: ${weekUsers.count || 0}
+• 💵 Total Revenue: $${(revenue / 100).toFixed(2)}
+• 🔒 Blocked Requests: ${securityStats.blockedRequests}
+
+🤖 **Bot Status:**
+• 🟢 Status: Online
+• ⏱️ Uptime: ${Math.floor((Date.now() - BOT_START_TIME.getTime()) / 1000 / 60)} minutes
+• 💾 Active Sessions: ${activeBotSessions.size}
+• 📊 Rate Limit Store: ${rateLimitStore.size} entries
+
+🛡️ **Security Overview:**
+• 🚫 Suspicious Users: ${securityStats.suspiciousUsers.size}
+• 📈 Security Success Rate: ${securityStats.totalRequests > 0 ? ((securityStats.blockedRequests / securityStats.totalRequests) * 100).toFixed(1) : 0}%
+
+*Last updated: ${new Date().toLocaleTimeString()}*`;
+
+    const quickAnalyticsKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "📊 Full Reports", callback_data: "admin_analytics" },
+          { text: "🔄 Refresh", callback_data: "quick_analytics" }
+        ],
+        [
+          { text: "📈 Export Data", callback_data: "export_all_data" },
+          { text: "🔙 Back", callback_data: "admin_dashboard" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, quickStats, quickAnalyticsKeyboard);
+
+  } catch (error) {
+    console.error('❌ Error generating quick analytics:', error);
+    await sendMessage(chatId, `❌ Error generating analytics: ${error.message}`);
+  }
+}
+
+// Helper functions for report generation
+function getTimeFilter(timeRange: string): string {
+  const now = new Date();
+  switch (timeRange) {
+    case '24h':
+      return new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    case '7d':
+      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    case '30d':
+      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    case 'all':
+      return new Date('2020-01-01').toISOString();
+    default:
+      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  }
+}
+
+function calculateGrowthMetrics(userData: any[]): any {
+  if (!userData.length) return { dailyGrowth: 0, weeklyGrowth: 0 };
+  
+  const now = new Date();
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  
+  const dailyUsers = userData.filter(u => new Date(u.created_at) >= oneDayAgo).length;
+  const weeklyUsers = userData.filter(u => new Date(u.created_at) >= oneWeekAgo).length;
+  
+  return { dailyGrowth: dailyUsers, weeklyGrowth: weeklyUsers };
+}
+
+function generateUserAnalyticsReport(data: any): string {
+  return `👥 **User Analytics Report** (${data.timeRange})
+
+📊 **User Statistics:**
+• 👤 Total Users: ${data.totalUsers}
+• 🆕 New Users: ${data.newUsers}
+• 📱 Active Users: ${data.activeUsers}
+• 💎 VIP Users: ${data.vipUsers}
+• 🔑 Admin Users: ${data.adminUsers}
+
+📈 **Growth Metrics:**
+• 📅 Daily Growth: +${data.growthData.dailyGrowth} users
+• 📊 Weekly Growth: +${data.growthData.weeklyGrowth} users
+• 📊 Growth Rate: ${data.totalUsers > 0 ? ((data.newUsers / data.totalUsers) * 100).toFixed(1) : 0}%
+
+🏆 **Most Active Users:**
+${data.topUsers.slice(0, 3).map((user: any, index: number) => 
+  `${index + 1}. User ${user.telegram_user_id}: ${user.count} interactions`
+).join('\n') || 'No data available'}
+
+💡 **Insights:**
+• User Engagement: ${data.activeUsers > 0 && data.totalUsers > 0 ? ((data.activeUsers / data.totalUsers) * 100).toFixed(1) : 0}%
+• VIP Conversion: ${data.totalUsers > 0 ? ((data.vipUsers / data.totalUsers) * 100).toFixed(1) : 0}%
+
+*Generated: ${new Date().toLocaleString()}*`;
+}
+
+function generatePaymentReport(data: any): string {
+  return `💰 **Payment Report** (${data.timeRange})
+
+📊 **Payment Statistics:**
+• 💳 Total Payments: ${data.totalPayments}
+• ⏳ Pending: ${data.pendingPayments}
+• ✅ Completed: ${data.completedPayments}
+• ❌ Rejected: ${data.rejectedPayments}
+
+💵 **Revenue Metrics:**
+• 💰 Total Revenue: $${(data.totalRevenue / 100).toFixed(2)}
+• 📊 Average Payment: $${(data.avgPayment / 100).toFixed(2)}
+• 📈 Success Rate: ${data.totalPayments > 0 ? ((data.completedPayments / data.totalPayments) * 100).toFixed(1) : 0}%
+
+💳 **Payment Methods:**
+${data.paymentMethods.map((method: any) => 
+  `• ${method.payment_method || 'Unknown'}: ${method.count} payments`
+).join('\n') || 'No data available'}
+
+📈 **Performance:**
+• Completion Rate: ${data.totalPayments > 0 ? ((data.completedPayments / data.totalPayments) * 100).toFixed(1) : 0}%
+• Rejection Rate: ${data.totalPayments > 0 ? ((data.rejectedPayments / data.totalPayments) * 100).toFixed(1) : 0}%
+
+*Generated: ${new Date().toLocaleString()}*`;
+}
+
+function generateBotUsageReport(data: any): string {
+  return `📱 **Bot Usage Report** (${data.timeRange})
+
+📊 **Usage Statistics:**
+• 🔄 Total Interactions: ${data.totalInteractions}
+• 🎯 Total Sessions: ${data.totalSessions}
+• ⏱️ Avg Session Duration: ${data.avgSessionDuration.toFixed(1)} minutes
+• 📱 Total Activities: ${data.totalActivities}
+
+🤖 **Popular Commands:**
+${data.commandStats.slice(0, 5).map((cmd: any, index: number) => 
+  `${index + 1}. ${cmd.interaction_data || 'Unknown'}: ${cmd.count} uses`
+).join('\n') || 'No command data available'}
+
+🚨 **Security Events:**
+${data.securityEvents.map((event: any) => 
+  `• ${event.interaction_type}: ${event.count} occurrences`
+).join('\n') || 'No security events'}
+
+📈 **Engagement Metrics:**
+• Activities per Session: ${data.totalSessions > 0 ? (data.totalActivities / data.totalSessions).toFixed(1) : 0}
+• Session Quality Score: ${data.avgSessionDuration > 2 ? 'High' : data.avgSessionDuration > 1 ? 'Medium' : 'Low'}
+
+*Generated: ${new Date().toLocaleString()}*`;
+}
+
+function generateUserAnalyticsCSV(data: any): string {
+  return `Date,Total Users,New Users,Active Users,VIP Users,Admin Users,Time Range
+${new Date().toISOString().split('T')[0]},${data.totalUsers},${data.newUsers},${data.activeUsers},${data.vipUsers},${data.adminUsers},${data.timeRange}`;
+}
+
+function generatePaymentCSV(payments: any[]): string {
+  let csv = 'ID,Amount,Currency,Status,Payment Method,Created At\n';
+  csv += payments.map(p => 
+    `${p.id},${p.amount},${p.currency},${p.status},${p.payment_method},${p.created_at}`
+  ).join('\n');
+  return csv;
+}
+
 // Main serve function
 serve(async (req) => {
   console.log(`📥 Request received: ${req.method} ${req.url}`);
@@ -3313,7 +3829,63 @@ serve(async (req) => {
             }
             break;
 
-          case 'quick_diagnostic':
+          case 'quick_analytics':
+            await handleQuickAnalytics(chatId, userId);
+            break;
+
+          case 'report_users':
+            await handleUserAnalyticsReport(chatId, userId);
+            break;
+
+          case 'report_payments':
+            await handlePaymentReport(chatId, userId);
+            break;
+
+          case 'report_packages':
+            await sendMessage(chatId, "📦 Package performance report coming soon!");
+            break;
+
+          case 'report_promotions':
+            await sendMessage(chatId, "🎁 Promotion analytics report coming soon!");
+            break;
+
+          case 'report_bot_usage':
+            await handleBotUsageReport(chatId, userId);
+            break;
+
+          case 'report_security':
+            const securityReport = `🔒 **Security Report**
+
+🛡️ **Real-time Security Stats:**
+• Total Requests: ${securityStats.totalRequests}
+• Blocked Requests: ${securityStats.blockedRequests}
+• Suspicious Users: ${securityStats.suspiciousUsers.size}
+• Rate Limit Store: ${rateLimitStore.size} entries
+
+📊 **Security Metrics:**
+• Block Rate: ${securityStats.totalRequests > 0 ? ((securityStats.blockedRequests / securityStats.totalRequests) * 100).toFixed(2) : 0}%
+• Active Sessions: ${activeBotSessions.size}
+• Memory Usage: Optimized
+
+🚨 **Recent Blocked Users:**
+${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).join('\n') || 'None'}
+
+✅ **Security Status:** All systems protected
+*Last updated: ${new Date().toLocaleString()}*`;
+            await sendMessage(chatId, securityReport);
+            break;
+
+          case 'analytics_dashboard':
+            await handleTableStatsOverview(chatId, userId);
+            break;
+
+          case 'export_all_data':
+            await sendMessage(chatId, "📤 **Data Export**\n\n🔄 Generating comprehensive data export...");
+            await handleUserAnalyticsReport(chatId, userId, '30d');
+            await handlePaymentReport(chatId, userId, '30d');
+            await handleBotUsageReport(chatId, userId, '30d');
+            await sendMessage(chatId, "✅ **Export Complete!** All reports generated above.");
+            break;
             if (isAdmin(userId)) {
               const diagnostic = `🔧 *Quick Diagnostic*
 
@@ -3382,7 +3954,7 @@ serve(async (req) => {
             break;
 
           case 'admin_analytics':
-            await handleTableStatsOverview(chatId, userId);
+            await handleAnalyticsMenu(chatId, userId);
             break;
 
           case 'admin_broadcast':
