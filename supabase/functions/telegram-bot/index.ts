@@ -1189,6 +1189,10 @@ async function getMainMenuKeyboard(): Promise<any> {
         { text: "🎓 Education", callback_data: "view_education" }
       ],
       [
+        { text: "💰 Promotions", callback_data: "view_promotions" },
+        { text: "❓ Help & FAQ", callback_data: "help_faq" }
+      ],
+      [
         { text: "🏢 About Us", callback_data: "about_us" },
         { text: "🛟 Support", callback_data: "support" }
       ],
@@ -1772,11 +1776,15 @@ Dynamic Capital is not liable for trading losses incurred using our services.
 
 async function handleViewEducation(chatId: number, userId: string): Promise<void> {
   try {
+    console.log("🎓 Fetching education packages from database...");
     const { data: packages, error } = await supabaseAdmin
       .from('education_packages')
-      .select('*')
+      .select(`
+        *,
+        category:education_categories(name)
+      `)
       .eq('is_active', true)
-      .order('price');
+      .order('price', { ascending: true });
 
     if (error) {
       console.error('❌ Error fetching education packages:', error);
@@ -3949,6 +3957,16 @@ serve(async (req) => {
             const vipMessage = await getFormattedVipPackages();
             const vipKeyboard = await getVipPackagesKeyboard();
             await sendMessage(chatId, vipMessage, vipKeyboard);
+            break;
+
+          case 'view_education':
+            console.log("🎓 Displaying education packages");
+            await handleViewEducation(chatId, userId);
+            break;
+
+          case 'view_promotions':
+            console.log("💰 Displaying promotions");
+            await handleViewPromotions(chatId, userId);
             break;
 
           case 'back_main':
