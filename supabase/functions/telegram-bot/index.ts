@@ -1197,10 +1197,7 @@ async function getMainMenuKeyboard(): Promise<any> {
         { text: "🛟 Support", callback_data: "support" }
       ],
       [
-        { text: "💰 Promotions", callback_data: "view_promotions" },
-        { text: "❓ FAQ", callback_data: "faq" }
-      ],
-      [
+        { text: "📊 Trading Results", callback_data: "trading_results" },
         { text: "📋 Terms", callback_data: "terms" }
       ]
     ]
@@ -1232,16 +1229,13 @@ async function handleVipPackageSelection(chatId: number, userId: string, package
 ✨ **Features:**
 ${pkg.features?.map(f => `• ${f}`).join('\n') || '• Premium features included'}
 
-🎯 **Choose your payment method:**`;
+🎯 **Next steps:**`;
 
     const keyboard = {
       inline_keyboard: [
         [
-          { text: "💳 Binance Pay", callback_data: `payment_method_${packageId}_binance` },
-          { text: "₿ Crypto", callback_data: `payment_method_${packageId}_crypto` }
-        ],
-        [
-          { text: "🏦 Bank Transfer", callback_data: `payment_method_${packageId}_bank` }
+          { text: "🎫 Apply Promo Code", callback_data: `apply_promo_${packageId}` },
+          { text: "💳 Continue to Payment", callback_data: `show_payment_${packageId}` }
         ],
         [
           { text: "🔙 Back to Packages", callback_data: "view_vip_packages" }
@@ -1265,6 +1259,12 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
   try {
     console.log(`💳 User ${userId} selected payment method: ${method} for package: ${packageId}`);
     
+    // Check if user has applied promo code
+    const userSession = userSessions.get(userId);
+    let finalPrice = 0;
+    let discount = 0;
+    let promoCode = '';
+
     // Get package details
     const { data: pkg, error } = await supabaseAdmin
       .from('subscription_plans')
@@ -1278,7 +1278,17 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
       return;
     }
 
-    console.log(`📦 Package found: ${pkg.name} - $${pkg.price}`);
+    if (userSession && userSession.type === 'promo_applied' && userSession.packageId === packageId) {
+      finalPrice = userSession.finalPrice;
+      discount = userSession.discount;
+      promoCode = userSession.promoCode;
+      console.log(`🎫 Using promo: ${promoCode}, final price: $${finalPrice}`);
+    } else {
+      finalPrice = pkg.price;
+      console.log(`💰 No promo applied, using original price: $${finalPrice}`);
+    }
+
+    console.log(`📦 Package found: ${pkg.name} - Final price: $${finalPrice}`);
 
     // Check if user already has a pending subscription
     const { data: existingSub } = await supabaseAdmin
@@ -1326,7 +1336,12 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
 
       if (subError) {
         console.error('❌ Error creating subscription:', subError);
-        await sendMessage(chatId, "❌ Error creating subscription. Please try again.");
+        if (subError.code === '23505') {
+          // Duplicate key error - user already has a subscription for this package
+          await sendMessage(chatId, "❌ You already have a pending subscription for this package. Please contact support to modify or complete your existing subscription.");
+        } else {
+          await sendMessage(chatId, "❌ Error creating subscription. Please try again.");
+        }
         return;
       }
       subscription = newSub;
@@ -1340,14 +1355,18 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
     switch (method) {
       case 'binance':
         console.log('🟡 Processing Binance Pay instructions');
-        paymentInstructions = await getBinancePayInstructions(pkg, subscription.id);
+        // Use final price (after promo) for payment instructions
+        const binancePkg = { ...pkg, price: finalPrice };
+        paymentInstructions = await getBinancePayInstructions(binancePkg, subscription.id);
         break;
       case 'crypto':
         console.log('₿ Processing Crypto instructions');
-        paymentInstructions = await getCryptoPayInstructions(pkg, subscription.id);
+        const cryptoPkg = { ...pkg, price: finalPrice };
+        paymentInstructions = await getCryptoPayInstructions(cryptoPkg, subscription.id);
         break;
       case 'bank':
         console.log('🏦 Processing Bank Transfer instructions');
+        const bankPkg = { ...pkg, price: finalPrice };
         paymentInstructions = await getBankTransferInstructions(pkg, subscription.id);
         break;
       default:
@@ -1774,6 +1793,362 @@ Follow our announcements for upcoming deals and discounts.
   } catch (error) {
     console.error('🚨 Error in promotions handler:', error);
     await sendMessage(chatId, "❌ An error occurred. Please try again.");
+  }
+}
+
+async function handleTradingResults(chatId: number, userId: string): Promise<void> {
+  try {
+    console.log(`📊 User ${userId} requesting trading results`);
+    
+    const content = await getBotContent('trading_results_channel') || '';
+    const channelUsername = content || '@DynamicCapital_Results';
+    
+    const message = `📊 **Trading Results & Performance**
+
+🎯 **Real-Time Performance Updates**
+View our latest trading results, success rates, and detailed performance analytics.
+
+📈 **What You'll Find:**
+• Daily trading signals results
+• Win/Loss ratios and statistics  
+• Monthly performance summaries
+• Risk management insights
+• Market analysis breakdowns
+
+🔗 **Join Our Results Channel:**
+${channelUsername}
+
+💡 **Why Join?**
+✅ Transparent performance tracking
+✅ Learn from winning strategies
+✅ See real proof of our methods
+✅ Community discussions on results
+
+🎯 **VIP Members Get:**
+• Detailed trade breakdowns
+• Entry/exit explanations
+• Risk management strategies
+• Private performance discussions
+
+Ready to see our track record? 📊`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "📊 Join Results Channel", url: `https://t.me/${channelUsername.replace('@', '')}` }
+        ],
+        [
+          { text: "💎 Upgrade to VIP", callback_data: "view_vip_packages" },
+          { text: "💰 View Promotions", callback_data: "view_promotions" }
+        ],
+        [
+          { text: "🔙 Back to Main Menu", callback_data: "back_main" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+    
+  } catch (error) {
+    console.error('🚨 Error in trading results handler:', error);
+    await sendMessage(chatId, "❌ An error occurred. Please try again.");
+  }
+}
+
+async function handlePromoCodeApplication(chatId: number, userId: string, promoCode: string, packageId: string): Promise<{ valid: boolean; discount: number; finalPrice: number; message: string }> {
+  try {
+    console.log(`🎫 Applying promo code ${promoCode} for user ${userId} on package ${packageId}`);
+    
+    // Get the package details
+    const { data: pkg, error: pkgError } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('*')
+      .eq('id', packageId)
+      .single();
+
+    if (pkgError || !pkg) {
+      return {
+        valid: false,
+        discount: 0,
+        finalPrice: 0,
+        message: "❌ Package not found."
+      };
+    }
+
+    // Check if promo code exists and is valid
+    const { data: promo, error: promoError } = await supabaseAdmin
+      .from('promotions')
+      .select('*')
+      .eq('code', promoCode.toUpperCase())
+      .eq('is_active', true)
+      .gte('valid_until', new Date().toISOString())
+      .single();
+
+    if (promoError || !promo) {
+      return {
+        valid: false,
+        discount: 0,
+        finalPrice: pkg.price,
+        message: "❌ Invalid or expired promo code."
+      };
+    }
+
+    // Check usage limits
+    if (promo.max_uses && promo.current_uses >= promo.max_uses) {
+      return {
+        valid: false,
+        discount: 0,
+        finalPrice: pkg.price,
+        message: "❌ Promo code usage limit reached."
+      };
+    }
+
+    // Check if user already used this promo
+    const { data: existingUsage } = await supabaseAdmin
+      .from('promotion_usage')
+      .select('*')
+      .eq('promotion_id', promo.id)
+      .eq('telegram_user_id', userId)
+      .single();
+
+    if (existingUsage) {
+      return {
+        valid: false,
+        discount: 0,
+        finalPrice: pkg.price,
+        message: "❌ You have already used this promo code."
+      };
+    }
+
+    // Calculate discount
+    let discount = 0;
+    if (promo.discount_type === 'percentage') {
+      discount = (pkg.price * promo.discount_value) / 100;
+    } else {
+      discount = Math.min(promo.discount_value, pkg.price);
+    }
+
+    const finalPrice = Math.max(0, pkg.price - discount);
+
+    return {
+      valid: true,
+      discount: discount,
+      finalPrice: finalPrice,
+      message: `✅ Promo code applied! You save $${discount.toFixed(2)}`
+    };
+
+  } catch (error) {
+    console.error('❌ Error applying promo code:', error);
+    return {
+      valid: false,
+      discount: 0,
+      finalPrice: 0,
+      message: "❌ Error applying promo code. Please try again."
+    };
+  }
+}
+
+async function handlePromoCodePrompt(chatId: number, userId: string, packageId: string): Promise<void> {
+  try {
+    console.log(`🎫 User ${userId} wants to apply promo code for package: ${packageId}`);
+    
+    // Get package details
+    const { data: pkg, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('*')
+      .eq('id', packageId)
+      .single();
+
+    if (error || !pkg) {
+      await sendMessage(chatId, "❌ Package not found. Please try again.");
+      return;
+    }
+
+    // Store user session for promo code input
+    userSessions.set(userId, {
+      type: 'waiting_promo_code',
+      packageId: packageId,
+      originalPrice: pkg.price,
+      timestamp: Date.now()
+    });
+
+    const message = `🎫 **Apply Promo Code**
+
+📦 **Package:** ${pkg.name}
+💰 **Original Price:** $${pkg.price} USD
+
+🔤 **Please send your promo code:**
+Simply type the promo code in your next message.
+
+⏰ **You have 5 minutes to enter the code.**
+
+Example: SAVE20, WELCOME50, etc.`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "❌ Cancel", callback_data: `select_vip_${packageId}` }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+    
+  } catch (error) {
+    console.error('🚨 Error in promo code prompt:', error);
+    await sendMessage(chatId, "❌ An error occurred. Please try again.");
+  }
+}
+
+async function handleShowPaymentMethods(chatId: number, userId: string, packageId: string): Promise<void> {
+  try {
+    console.log(`💳 Showing payment methods for user ${userId}, package: ${packageId}`);
+    
+    // Get package details
+    const { data: pkg, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('*')
+      .eq('id', packageId)
+      .single();
+
+    if (error || !pkg) {
+      await sendMessage(chatId, "❌ Package not found. Please try again.");
+      return;
+    }
+
+    const message = `💳 **Payment Methods**
+
+📦 **Package:** ${pkg.name}
+💰 **Price:** $${pkg.price} USD
+
+🎯 **Choose your payment method:**`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "💳 Binance Pay", callback_data: `payment_method_${packageId}_binance` },
+          { text: "₿ Crypto", callback_data: `payment_method_${packageId}_crypto` }
+        ],
+        [
+          { text: "🏦 Bank Transfer", callback_data: `payment_method_${packageId}_bank` }
+        ],
+        [
+          { text: "🎫 Apply Promo Code", callback_data: `apply_promo_${packageId}` }
+        ],
+        [
+          { text: "🔙 Back to Package", callback_data: `select_vip_${packageId}` }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+    
+  } catch (error) {
+    console.error('🚨 Error showing payment methods:', error);
+    await sendMessage(chatId, "❌ An error occurred. Please try again.");
+  }
+}
+
+async function handlePromoCodeInput(chatId: number, userId: string, promoCode: string, userSession: any): Promise<void> {
+  try {
+    console.log(`🎫 Processing promo code input: ${promoCode} for user ${userId}`);
+    
+    // Clear user session
+    userSessions.delete(userId);
+    
+    // Check if session is expired (5 minutes)
+    if (Date.now() - userSession.timestamp > 5 * 60 * 1000) {
+      await sendMessage(chatId, "⏰ Promo code entry expired. Please start again.");
+      return;
+    }
+
+    // Apply promo code
+    const result = await handlePromoCodeApplication(chatId, userId, promoCode, userSession.packageId);
+    
+    if (result.valid) {
+      // Record promo usage
+      const { data: promo } = await supabaseAdmin
+        .from('promotions')
+        .select('id')
+        .eq('code', promoCode)
+        .single();
+
+      if (promo) {
+        await supabaseAdmin
+          .from('promotion_usage')
+          .insert({
+            promotion_id: promo.id,
+            telegram_user_id: userId
+          });
+
+        // Update promo current_uses
+        await supabaseAdmin
+          .from('promotions')
+          .update({
+            current_uses: supabaseAdmin.raw('current_uses + 1')
+          })
+          .eq('id', promo.id);
+      }
+
+      // Show updated pricing and payment options
+      const { data: pkg } = await supabaseAdmin
+        .from('subscription_plans')
+        .select('*')
+        .eq('id', userSession.packageId)
+        .single();
+
+      const message = `✅ **Promo Code Applied!**
+
+🎫 **Code:** ${promoCode}
+📦 **Package:** ${pkg?.name}
+💰 **Original Price:** $${userSession.originalPrice}
+🎉 **Discount:** -$${result.discount.toFixed(2)}
+💸 **Final Price:** $${result.finalPrice.toFixed(2)}
+
+🎯 **Choose your payment method:**`;
+
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: "💳 Binance Pay", callback_data: `payment_method_${userSession.packageId}_binance` },
+            { text: "₿ Crypto", callback_data: `payment_method_${userSession.packageId}_crypto` }
+          ],
+          [
+            { text: "🏦 Bank Transfer", callback_data: `payment_method_${userSession.packageId}_bank` }
+          ],
+          [
+            { text: "🔙 Back to Package", callback_data: `select_vip_${userSession.packageId}` }
+          ]
+        ]
+      };
+
+      await sendMessage(chatId, message, keyboard);
+      
+      // Store the applied promo for the payment flow
+      userSessions.set(userId, {
+        type: 'promo_applied',
+        packageId: userSession.packageId,
+        promoCode: promoCode,
+        originalPrice: userSession.originalPrice,
+        discount: result.discount,
+        finalPrice: result.finalPrice,
+        timestamp: Date.now()
+      });
+
+    } else {
+      await sendMessage(chatId, result.message + "\n\n🔄 Try another code or continue without discount:", {
+        inline_keyboard: [
+          [
+            { text: "🎫 Try Another Code", callback_data: `apply_promo_${userSession.packageId}` },
+            { text: "💳 Continue to Payment", callback_data: `show_payment_${userSession.packageId}` }
+          ]
+        ]
+      });
+    }
+    
+  } catch (error) {
+    console.error('🚨 Error processing promo code input:', error);
+    await sendMessage(chatId, "❌ Error processing promo code. Please try again.");
   }
 }
 
@@ -4064,6 +4439,13 @@ serve(async (req) => {
         return new Response("OK", { status: 200 });
       }
 
+      // Check if user is waiting for promo code input
+      const userSession = userSessions.get(userId);
+      if (userSession && userSession.type === 'waiting_promo_code') {
+        await handlePromoCodeInput(chatId, userId, text.trim().toUpperCase(), userSession);
+        return new Response("OK", { status: 200 });
+      }
+
       // Only respond to regular messages in specific conditions
       const chatType = update.message.chat.type;
       const isPrivateChat = chatType === 'private';
@@ -4485,6 +4867,12 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
             } else if (callbackData.startsWith('reject_payment_')) {
               const paymentId = callbackData.replace('reject_payment_', '');
               await handleRejectPayment(chatId, userId, paymentId);
+            } else if (callbackData.startsWith('apply_promo_')) {
+              const packageId = callbackData.replace('apply_promo_', '');
+              await handlePromoCodePrompt(chatId, userId, packageId);
+            } else if (callbackData.startsWith('show_payment_')) {
+              const packageId = callbackData.replace('show_payment_', '');
+              await handleShowPaymentMethods(chatId, userId, packageId);
             } else if (callbackData.startsWith('view_user_')) {
               const targetUserId = callbackData.replace('view_user_', '');
               await handleViewUserProfile(chatId, userId, targetUserId);
@@ -4509,6 +4897,8 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
               await handleSupport(chatId, userId);
             } else if (callbackData === 'view_promotions') {
               await handleViewPromotions(chatId, userId);
+            } else if (callbackData === 'trading_results') {
+              await handleTradingResults(chatId, userId);
             } else if (callbackData === 'faq') {
               await handleFAQ(chatId, userId);
             } else if (callbackData === 'terms') {
