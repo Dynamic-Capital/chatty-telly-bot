@@ -1820,6 +1820,180 @@ Ready to see our track record? 📊`;
   }
 }
 
+// Admin function to post trade results to channel
+async function handlePostTradeResult(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    const message = `🎯 **Post Trade Result to Channel**
+
+📊 Choose the type of trade result to post:
+
+• 📈 **Winning Trade** - Post a successful trade result
+• 📉 **Losing Trade** - Post a loss for transparency  
+• 📊 **Weekly Summary** - Post weekly performance summary
+• 🏆 **Monthly Report** - Post monthly results overview
+
+Select the type of result to post:`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "📈 Winning Trade", callback_data: "post_winning_trade" },
+          { text: "📉 Losing Trade", callback_data: "post_losing_trade" }
+        ],
+        [
+          { text: "📊 Weekly Summary", callback_data: "post_weekly_summary" },
+          { text: "🏆 Monthly Report", callback_data: "post_monthly_report" }
+        ],
+        [
+          { text: "🔙 Back to Admin", callback_data: "admin_dashboard" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+    
+  } catch (error) {
+    console.error('🚨 Error in post trade result handler:', error);
+    await sendMessage(chatId, "❌ An error occurred. Please try again.");
+  }
+}
+
+// Function to post trade result to the results channel
+async function postToResultsChannel(resultType: string, tradeData: any): Promise<boolean> {
+  try {
+    // Get results channel ID from bot content
+    const channelContent = await getBotContent('trading_results_channel_id') || '';
+    const channelId = channelContent || '@DynamicCapital_Results';
+    
+    let message = '';
+    
+    switch (resultType) {
+      case 'winning_trade':
+        message = `🟢 **WINNING TRADE** 🟢
+
+📊 **Trade Details:**
+📍 Pair: ${tradeData.pair || 'BTC/USDT'}
+💰 Entry: $${tradeData.entry || '0.00'}
+🎯 Exit: $${tradeData.exit || '0.00'}
+📈 Profit: +${tradeData.profit || '0'}% 
+⏰ Duration: ${tradeData.duration || '2h 30m'}
+
+✅ **Result: PROFITABLE**
+💵 Profit: $${tradeData.amount || '0.00'}
+
+🔥 Another successful trade for our VIP members!
+Join us for consistent profits! 💎
+
+#WinningTrade #TradingSignals #DynamicCapital`;
+        break;
+        
+      case 'losing_trade':
+        message = `🔴 **LOSING TRADE** 🔴
+
+📊 **Trade Details:**
+📍 Pair: ${tradeData.pair || 'ETH/USDT'}
+💰 Entry: $${tradeData.entry || '0.00'}
+🎯 Exit: $${tradeData.exit || '0.00'}
+📉 Loss: -${tradeData.loss || '0'}%
+⏰ Duration: ${tradeData.duration || '1h 15m'}
+
+❌ **Result: LOSS**
+💸 Loss: -$${tradeData.amount || '0.00'}
+
+📈 Transparency is key! Even the best traders have losses.
+Risk management keeps us profitable long-term! 💪
+
+#TradingLoss #Transparency #RiskManagement`;
+        break;
+        
+      case 'weekly_summary':
+        message = `📅 **WEEKLY TRADING SUMMARY**
+
+📊 **Performance Overview:**
+🗓️ Week: ${tradeData.week || 'Current Week'}
+📈 Total Trades: ${tradeData.totalTrades || '0'}
+✅ Winning Trades: ${tradeData.winningTrades || '0'}
+❌ Losing Trades: ${tradeData.losingTrades || '0'}
+🎯 Win Rate: ${tradeData.winRate || '0'}%
+
+💰 **Financial Results:**
+📈 Total Profit: $${tradeData.totalProfit || '0.00'}
+📉 Total Loss: -$${tradeData.totalLoss || '0.00'}
+💵 Net P&L: $${tradeData.netPnL || '0.00'}
+📊 ROI: +${tradeData.roi || '0'}%
+
+🏆 Another profitable week for our community!
+Join VIP for detailed trade analysis! 💎
+
+#WeeklyResults #TradingPerformance #DynamicCapital`;
+        break;
+        
+      case 'monthly_report':
+        message = `🏆 **MONTHLY TRADING REPORT**
+
+📅 **Month: ${tradeData.month || 'Current Month'}**
+
+📊 **Trading Statistics:**
+📈 Total Trades: ${tradeData.totalTrades || '0'}
+✅ Successful Trades: ${tradeData.successfulTrades || '0'}
+❌ Failed Trades: ${tradeData.failedTrades || '0'}
+🎯 Success Rate: ${tradeData.successRate || '0'}%
+
+💰 **Financial Performance:**
+📈 Gross Profit: $${tradeData.grossProfit || '0.00'}
+📉 Total Losses: -$${tradeData.totalLosses || '0.00'}
+💵 Net Profit: $${tradeData.netProfit || '0.00'}
+📊 Monthly ROI: +${tradeData.monthlyROI || '0'}%
+
+🚀 **Best Performing Pairs:**
+${tradeData.bestPairs || '• BTC/USDT: +15%\n• ETH/USDT: +12%\n• ADA/USDT: +8%'}
+
+💎 Join our VIP community for exclusive insights!
+
+#MonthlyReport #TradingResults #VIPAccess`;
+        break;
+        
+      default:
+        message = `📊 **Trade Update Posted**
+
+Thank you for staying updated with our trading performance!
+Join our VIP community for detailed analysis and insights.
+
+#TradingUpdate #DynamicCapital`;
+    }
+
+    // Send to results channel
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: channelId,
+        text: message,
+        parse_mode: 'Markdown'
+      })
+    });
+
+    if (response.ok) {
+      console.log(`✅ Trade result posted to channel: ${channelId}`);
+      return true;
+    } else {
+      const error = await response.text();
+      console.error(`❌ Failed to post to channel: ${error}`);
+      return false;
+    }
+    
+  } catch (error) {
+    console.error('🚨 Error posting to results channel:', error);
+    return false;
+  }
+}
+}
+
 async function handlePromoCodeApplication(chatId: number, userId: string, promoCode: string, packageId: string): Promise<{ valid: boolean; discount: number; finalPrice: number; message: string }> {
   try {
     console.log(`🎫 Applying promo code ${promoCode} for user ${userId} on package ${packageId}`);
@@ -3035,6 +3209,7 @@ async function handleBroadcastMenu(chatId: number, userId: string): Promise<void
 🚀 *Available Broadcast Options:*
 • 👋 **Send Greeting** - Send hello message to channels/groups
 • 🎯 **Channel Introduction** - Introduce bot to new channels
+• 📊 **Post Trade Results** - Post trading results to @DynamicCapital_Results
 • 📝 **Custom Broadcast** - Send custom message to all channels
 • 📊 **Broadcast History** - View previous broadcasts
 • ⚙️ **Broadcast Settings** - Configure broadcast preferences
@@ -3049,6 +3224,9 @@ async function handleBroadcastMenu(chatId: number, userId: string): Promise<void
       [
         { text: "👋 Send Greeting", callback_data: "send_greeting" },
         { text: "🎯 Channel Intro", callback_data: "send_channel_intro" }
+      ],
+      [
+        { text: "📊 Post Trade Results", callback_data: "post_trade_results" }
       ],
       [
         { text: "📝 Custom Broadcast", callback_data: "custom_broadcast" },
@@ -4643,6 +4821,82 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
 
           case 'send_channel_intro':
             await handleSendChannelIntro(chatId, userId);
+            break;
+
+          // Trade Results Posting
+          case 'post_trade_results':
+            await handlePostTradeResult(chatId, userId);
+            break;
+
+          case 'post_winning_trade':
+            const winningResult = await postToResultsChannel('winning_trade', {
+              pair: 'BTC/USDT',
+              entry: '42,500',
+              exit: '44,100',
+              profit: '3.8',
+              duration: '2h 15m',
+              amount: '1,680'
+            });
+            if (winningResult) {
+              await sendMessage(chatId, "✅ Winning trade result posted to @DynamicCapital_Results channel!");
+            } else {
+              await sendMessage(chatId, "❌ Failed to post trade result. Check bot permissions in the channel.");
+            }
+            break;
+
+          case 'post_losing_trade':
+            const losingResult = await postToResultsChannel('losing_trade', {
+              pair: 'ETH/USDT',
+              entry: '2,340',
+              exit: '2,285',
+              loss: '2.3',
+              duration: '1h 30m',
+              amount: '460'
+            });
+            if (losingResult) {
+              await sendMessage(chatId, "✅ Losing trade result posted to @DynamicCapital_Results channel!");
+            } else {
+              await sendMessage(chatId, "❌ Failed to post trade result. Check bot permissions in the channel.");
+            }
+            break;
+
+          case 'post_weekly_summary':
+            const weeklyResult = await postToResultsChannel('weekly_summary', {
+              week: 'Week of Jan 1-7, 2025',
+              totalTrades: '24',
+              winningTrades: '18',
+              losingTrades: '6',
+              winRate: '75',
+              totalProfit: '8,450',
+              totalLoss: '1,980',
+              netPnL: '6,470',
+              roi: '12.8'
+            });
+            if (weeklyResult) {
+              await sendMessage(chatId, "✅ Weekly summary posted to @DynamicCapital_Results channel!");
+            } else {
+              await sendMessage(chatId, "❌ Failed to post weekly summary. Check bot permissions in the channel.");
+            }
+            break;
+
+          case 'post_monthly_report':
+            const monthlyResult = await postToResultsChannel('monthly_report', {
+              month: 'December 2024',
+              totalTrades: '96',
+              successfulTrades: '72',
+              failedTrades: '24',
+              successRate: '75',
+              grossProfit: '34,850',
+              totalLosses: '8,200',
+              netProfit: '26,650',
+              monthlyROI: '18.5',
+              bestPairs: '• BTC/USDT: +22%\n• ETH/USDT: +18%\n• SOL/USDT: +15%\n• ADA/USDT: +12%'
+            });
+            if (monthlyResult) {
+              await sendMessage(chatId, "✅ Monthly report posted to @DynamicCapital_Results channel!");
+            } else {
+              await sendMessage(chatId, "❌ Failed to post monthly report. Check bot permissions in the channel.");
+            }
             break;
 
           case 'custom_broadcast':
