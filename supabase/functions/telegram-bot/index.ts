@@ -1371,59 +1371,138 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
 
 // Payment Instructions Functions
 async function getBinancePayInstructions(pkg: any, subscriptionId: string): Promise<string> {
-  return `💳 **Binance Pay Instructions**
+  try {
+    console.log('💳 Processing Binance Pay checkout...');
+    
+    // Create Binance Pay checkout via edge function
+    const response = await supabaseAdmin.functions.invoke('binance-pay-checkout', {
+      body: {
+        planId: pkg.id,
+        telegramUserId: subscriptionId // Use subscription ID for now
+      }
+    });
+
+    if (response.error) {
+      console.error('❌ Binance Pay checkout error:', response.error);
+      throw new Error('Binance Pay checkout failed');
+    }
+
+    const { checkoutUrl } = response.data;
+    
+    if (checkoutUrl) {
+      return `💳 **Binance Pay Instructions**
 
 📦 **Package:** ${pkg.name}
 💰 **Amount:** $${pkg.price} USD
 
-🔗 **Payment Method:** Binance Pay
-📱 **Instructions:**
+🔗 **Quick Payment Link:**
+${checkoutUrl}
+
+📱 **Alternative Instructions:**
+1️⃣ Click the link above for instant checkout
+2️⃣ OR scan QR code in Binance app
+3️⃣ Complete payment in Binance Pay
+4️⃣ Payment will be verified automatically
+
+📝 **Reference:** \`SUB_${subscriptionId.substring(0, 8)}\`
+
+⚠️ **Important:**
+• Payment processes instantly via Binance Pay
+• You'll receive confirmation within minutes
+• Keep transaction ID for support
+
+❓ Need help? Contact @DynamicCapital_Support`;
+    } else {
+      throw new Error('No checkout URL received');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error creating Binance Pay checkout:', error);
+    return `💳 **Binance Pay Instructions**
+
+📦 **Package:** ${pkg.name}
+💰 **Amount:** $${pkg.price} USD
+
+⚠️ Automated checkout temporarily unavailable.
+
+📱 **Manual Instructions:**
 1️⃣ Open Binance app
 2️⃣ Go to Pay → Send
 3️⃣ Enter amount: $${pkg.price}
 4️⃣ Send to: \`binancepay@dynamicvip.com\`
 5️⃣ Take screenshot of confirmation
-6️⃣ Send screenshot here
+6️⃣ Send screenshot to this chat
 
 📝 **Reference:** \`SUB_${subscriptionId.substring(0, 8)}\`
 
-⚠️ **Important:**
-• Include reference in payment notes
-• Send payment confirmation screenshot
-• Payment will be verified within 1-2 hours
-• Keep transaction ID for support
-
 ❓ Need help? Contact @DynamicCapital_Support`;
+  }
 }
 
 async function getCryptoPayInstructions(pkg: any, subscriptionId: string): Promise<string> {
-  return `₿ **Cryptocurrency Payment Instructions**
+  try {
+    console.log('₿ Fetching crypto wallet addresses...');
+    
+    // Try to get crypto addresses from bot_content table
+    const { data: cryptoSettings, error } = await supabaseAdmin
+      .from('bot_content')
+      .select('content_key, content_value')
+      .in('content_key', ['crypto_btc_address', 'crypto_eth_address', 'crypto_usdt_trc20', 'crypto_usdt_erc20'])
+      .eq('is_active', true);
+
+    let walletAddresses = '';
+    if (cryptoSettings && cryptoSettings.length > 0) {
+      const addressMap = new Map(cryptoSettings.map(item => [item.content_key, item.content_value]));
+      
+      walletAddresses = `🪙 **Wallet Addresses:**
+${addressMap.get('crypto_btc_address') ? `• **Bitcoin (BTC):** \`${addressMap.get('crypto_btc_address')}\`` : ''}
+${addressMap.get('crypto_eth_address') ? `• **Ethereum (ETH):** \`${addressMap.get('crypto_eth_address')}\`` : ''}
+${addressMap.get('crypto_usdt_trc20') ? `• **USDT (TRC20):** \`${addressMap.get('crypto_usdt_trc20')}\`` : ''}
+${addressMap.get('crypto_usdt_erc20') ? `• **USDT (ERC20):** \`${addressMap.get('crypto_usdt_erc20')}\`` : ''}`.replace(/\n\n/g, '\n');
+    } else {
+      walletAddresses = `🪙 **Accepted Cryptocurrencies:**
+• **Bitcoin (BTC):** \`bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh\`
+• **Ethereum (ETH):** \`0x742d35Cc6642C4532F35B35D00a8e0c8dC2dA4cB\`
+• **USDT (TRC20):** \`TLPjmhVJ8xJDrA36BNhSj1kFnV2kdEKdWs\`
+• **USDT (ERC20):** \`0x742d35Cc6642C4532F35B35D00a8e0c8dC2dA4cB\``;
+    }
+
+    return `₿ **Cryptocurrency Payment Instructions**
 
 📦 **Package:** ${pkg.name}
 💰 **Amount:** $${pkg.price} USD
 
-🪙 **Accepted Cryptocurrencies:**
-• **Bitcoin (BTC):** \`bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh\`
-• **Ethereum (ETH):** \`0x742d35Cc6642C4532F35B35D00a8e0c8dC2dA4cB\`
-• **USDT (TRC20):** \`TLPjmhVJ8xJDrA36BNhSj1kFnV2kdEKdWs\`
-• **USDT (ERC20):** \`0x742d35Cc6642C4532F35B35D00a8e0c8dC2dA4cB\`
+${walletAddresses}
 
 📝 **Reference:** \`SUB_${subscriptionId.substring(0, 8)}\`
 
 📱 **Instructions:**
 1️⃣ Calculate equivalent crypto amount
-2️⃣ Send to appropriate wallet address
-3️⃣ Include reference in transaction memo
-4️⃣ Take screenshot of transaction
-5️⃣ Send screenshot + transaction hash here
+2️⃣ Send to appropriate wallet address above
+3️⃣ Include reference in transaction memo (if supported)
+4️⃣ Take screenshot of transaction confirmation
+5️⃣ Send screenshot + transaction hash to this chat
 
 ⚠️ **Important:**
-• Double-check wallet addresses
-• Include reference ID
-• Send from personal wallet only
-• Payment confirmed within 6 confirmations
+• Double-check wallet addresses before sending
+• Include reference ID: SUB_${subscriptionId.substring(0, 8)}
+• Send from personal wallet only (not exchange)
+• Payment confirmed within 6 blockchain confirmations
+• Keep transaction hash for support
 
 ❓ Need help? Contact @DynamicCapital_Support`;
+    
+  } catch (error) {
+    console.error('❌ Error fetching crypto addresses:', error);
+    return `₿ **Cryptocurrency Payment Instructions**
+
+📦 **Package:** ${pkg.name}
+💰 **Amount:** $${pkg.price} USD
+
+⚠️ Error loading crypto addresses. Please contact @DynamicCapital_Support for wallet details.
+
+📝 **Reference:** \`SUB_${subscriptionId.substring(0, 8)}\``;
+  }
 }
 
 async function getBankTransferInstructions(pkg: any, subscriptionId: string): Promise<string> {
