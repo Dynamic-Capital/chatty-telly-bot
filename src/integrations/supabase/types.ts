@@ -351,6 +351,70 @@ export type Database = {
           },
         ]
       }
+      channel_memberships: {
+        Row: {
+          added_at: string | null
+          added_by: string | null
+          channel_id: string
+          channel_name: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          package_id: string | null
+          telegram_user_id: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          added_at?: string | null
+          added_by?: string | null
+          channel_id: string
+          channel_name?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          package_id?: string | null
+          telegram_user_id: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          added_at?: string | null
+          added_by?: string | null
+          channel_id?: string
+          channel_name?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          package_id?: string | null
+          telegram_user_id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_memberships_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_memberships_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_memberships_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversion_tracking: {
         Row: {
           conversion_data: Json | null
@@ -733,6 +797,54 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          display_name: string | null
+          email: string | null
+          first_name: string | null
+          id: string
+          is_active: boolean | null
+          last_name: string | null
+          phone: string | null
+          role: string | null
+          telegram_id: string | null
+          updated_at: string | null
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          first_name?: string | null
+          id: string
+          is_active?: boolean | null
+          last_name?: string | null
+          phone?: string | null
+          role?: string | null
+          telegram_id?: string | null
+          updated_at?: string | null
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_name?: string | null
+          phone?: string | null
+          role?: string | null
+          telegram_id?: string | null
+          updated_at?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
       promo_analytics: {
         Row: {
           created_at: string
@@ -905,6 +1017,73 @@ export type Database = {
           telegram_user_id?: string
         }
         Relationships: []
+      }
+      user_package_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          notes: string | null
+          package_id: string | null
+          telegram_added: boolean | null
+          telegram_channels: string[] | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          package_id?: string | null
+          telegram_added?: boolean | null
+          telegram_channels?: string[] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          package_id?: string | null
+          telegram_added?: boolean | null
+          telegram_channels?: string[] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_package_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_package_assignments_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_package_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_sessions: {
         Row: {
