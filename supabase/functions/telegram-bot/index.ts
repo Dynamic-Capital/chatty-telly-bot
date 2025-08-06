@@ -322,13 +322,16 @@ const CACHE_TYPES = {
   USER_DATA: 'user_data',
   ADMIN_LIST: 'admin_list',
   VIP_PACKAGES: 'vip_packages',
-  SETTINGS_BATCH: 'settings_batch'
+  SETTINGS_BATCH: 'settings_batch',
+  BOT_CONTENT: 'bot_content'
 };
 
 // Batch operation queue for better performance
 const batchQueue = new Map<string, any[]>();
 const BATCH_SIZE = 50;
-const BATCH_DELAY = 100; // milliseconds
+const BATCH_DELAY = 50; // Reduced for faster processing
+const interactionBatch: any[] = [];
+let batchTimeout: any = null;
 
 // Media upload utilities
 interface MediaUpload {
@@ -377,8 +380,34 @@ function getCacheTTL(type: string): number {
   }
 }
 
-// Batch processing for user interactions
+// Optimized batch processing for user interactions
+function batchUserInteraction(interaction: any): void {
+  interactionBatch.push(interaction);
+  
+  if (batchTimeout) clearTimeout(batchTimeout);
+  
+  batchTimeout = setTimeout(async () => {
+    if (interactionBatch.length > 0) {
+      try {
+        const { error } = await supabaseAdmin.rpc('batch_insert_user_interactions', {
+          interactions: interactionBatch.splice(0)
+        });
+        if (error) console.error('🚨 Batch interaction error:', error);
+        else console.log(`📊 Batch processed: ${interactionBatch.length} interactions`);
+      } catch (error) {
+        console.error('🚨 Batch interaction exception:', error);
+      }
+    }
+  }, 500); // Process every 500ms for better performance
+}
+
+// Legacy batch processing for backward compatibility
 function addToBatch(batchType: string, item: any): void {
+  if (batchType === 'user_interactions') {
+    batchUserInteraction(item);
+    return;
+  }
+  
   if (!batchQueue.has(batchType)) {
     batchQueue.set(batchType, []);
   }
@@ -408,13 +437,6 @@ async function processBatch(batchType: string): Promise<void> {
     console.error(`❌ Batch processing error for ${batchType}:`, error);
   }
 }
-
-// Periodic batch processing
-setInterval(() => {
-  for (const batchType of batchQueue.keys()) {
-    processBatch(batchType);
-  }
-}, BATCH_DELAY);
 
 // Media handling functions
 async function downloadTelegramFile(fileId: string): Promise<{ buffer: ArrayBuffer; mimeType: string } | null> {
@@ -1006,15 +1028,40 @@ function getUserSession(userId: string | number) {
 async function sendMessage(
   chatId: number,
   text: string,
-  replyMarkup?: Record<string, unknown>
+  replyMarkup?: Record<string, unknown>,
+  mediaUrl?: string,
+  mediaType?: 'photo' | 'video'
 ) {
-  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-  const payload = {
+  let url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  let payload: any = {
     chat_id: chatId,
     text: text,
     reply_markup: replyMarkup,
     parse_mode: "Markdown"
   };
+
+  // Handle media messages
+  if (mediaUrl && mediaType) {
+    if (mediaType === 'photo') {
+      url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
+      payload = {
+        chat_id: chatId,
+        photo: mediaUrl,
+        caption: text,
+        reply_markup: replyMarkup,
+        parse_mode: "Markdown"
+      };
+    } else if (mediaType === 'video') {
+      url = `https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`;
+      payload = {
+        chat_id: chatId,
+        video: mediaUrl,
+        caption: text,
+        reply_markup: replyMarkup,
+        parse_mode: "Markdown"
+      };
+    }
+  }
 
   try {
     console.log(`📤 Sending message to ${chatId}: ${text.substring(0, 100)}...`);
