@@ -549,15 +549,22 @@ async function handleReceiptUpload(message: any, userId: string, firstName: stri
       return;
     }
     
-    // Update subscription with receipt info
-    await supabaseAdmin
+    // Update subscription with receipt info and payment instructions
+    const { error: updateError } = await supabaseAdmin
       .from('user_subscriptions')
       .update({
         receipt_telegram_file_id: fileId,
         receipt_file_path: `telegram_file_${fileId}`,
+        payment_instructions: `Receipt uploaded for ${subscription.subscription_plans?.name}`,
         updated_at: new Date().toISOString()
       })
       .eq('id', subscription.id);
+      
+    if (updateError) {
+      console.error('❌ Error updating subscription with receipt:', updateError);
+      await sendMessage(chatId, "❌ Error saving receipt. Please try again.");
+      return;
+    }
     
     // Notify user
     await sendMessage(chatId, `✅ **Receipt Received!**
@@ -829,18 +836,58 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
 
     console.log(`📦 Package found: ${pkg.name} - $${pkg.price}`);
 
-    // Create user subscription record
-    const { data: subscription, error: subError } = await supabaseAdmin
+    // Check if user already has a pending subscription
+    const { data: existingSub } = await supabaseAdmin
       .from('user_subscriptions')
-      .insert({
-        telegram_user_id: userId,
-        plan_id: packageId,
-        payment_method: method,
-        payment_status: 'pending',
-        created_at: new Date().toISOString()
-      })
-      .select()
+      .select('*')
+      .eq('telegram_user_id', userId)
+      .eq('payment_status', 'pending')
       .single();
+      
+    let subscription;
+    
+    if (existingSub) {
+      // Update existing pending subscription
+      const { data: updatedSub, error: updateError } = await supabaseAdmin
+        .from('user_subscriptions')
+        .update({
+          plan_id: packageId,
+          payment_method: method,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingSub.id)
+        .select()
+        .single();
+        
+      if (updateError) {
+        console.error('❌ Error updating subscription:', updateError);
+        await sendMessage(chatId, "❌ Error updating subscription. Please try again.");
+        return;
+      }
+      subscription = updatedSub;
+      console.log(`✅ Updated existing subscription: ${subscription.id}`);
+    } else {
+      // Create new subscription record
+      const { data: newSub, error: subError } = await supabaseAdmin
+        .from('user_subscriptions')
+        .insert({
+          telegram_user_id: userId,
+          plan_id: packageId,
+          payment_method: method,
+          payment_status: 'pending',
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (subError) {
+        console.error('❌ Error creating subscription:', subError);
+        await sendMessage(chatId, "❌ Error creating subscription. Please try again.");
+        return;
+      }
+      subscription = newSub;
+      console.log(`✅ Created new subscription: ${subscription.id}`);
+    }
 
     if (subError) {
       console.error('❌ Error creating subscription:', subError);
@@ -1301,6 +1348,22 @@ async function handleApprovePayment(chatId: number, userId: string, paymentId: s
   }
 
   try {
+    // Get subscription details first
+    const { data: currentSub, error: fetchError } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select('*, subscription_plans(*)')
+      .eq('id', paymentId)
+      .single();
+      
+    if (fetchError || !currentSub) {
+      throw new Error('Subscription not found');
+    }
+    
+    // Calculate proper end date based on plan duration
+    const endDate = currentSub.subscription_plans?.is_lifetime 
+      ? null 
+      : new Date(Date.now() + (currentSub.subscription_plans?.duration_months || 1) * 30 * 24 * 60 * 60 * 1000).toISOString();
+    
     // Update subscription status
     const { data: subscription, error } = await supabaseAdmin
       .from('user_subscriptions')
@@ -1308,7 +1371,7 @@ async function handleApprovePayment(chatId: number, userId: string, paymentId: s
         payment_status: 'approved',
         is_active: true,
         subscription_start_date: new Date().toISOString(),
-        subscription_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
+        subscription_end_date: endDate
       })
       .eq('id', paymentId)
       .select('*, subscription_plans(*)')
@@ -1318,8 +1381,14 @@ async function handleApprovePayment(chatId: number, userId: string, paymentId: s
       throw error;
     }
 
-    // Add user to VIP channel/group (implement channel addition logic here)
-    // await addUserToVipChannel(subscription.telegram_user_id);
+    // Add user to VIP channel/group
+    try {
+      await addUserToVipChannel(subscription.telegram_user_id);
+      console.log(`✅ User ${subscription.telegram_user_id} added to VIP channels`);
+    } catch (channelError) {
+      console.error('⚠️ Could not add user to VIP channels:', channelError);
+      // Continue with approval even if channel addition fails
+    }
 
     // Notify user of approval
     const userMessage = `✅ **Payment Approved!**

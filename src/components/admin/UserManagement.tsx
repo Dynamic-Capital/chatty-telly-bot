@@ -54,6 +54,7 @@ export function UserManagement() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [packages, setPackages] = useState<SubscriptionPlan[]>([]);
   const [assignments, setAssignments] = useState<PackageAssignment[]>([]);
+  const [pendingPayments, setPendingPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
@@ -85,9 +86,14 @@ export function UserManagement() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [usersResponse, packagesResponse] = await Promise.all([
+      const [usersResponse, packagesResponse, paymentsResponse] = await Promise.all([
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-        supabase.from('subscription_plans').select('*').order('name')
+        supabase.from('subscription_plans').select('*').order('name'),
+        supabase.from('user_subscriptions')
+          .select('*, subscription_plans(*)')
+          .eq('payment_status', 'pending')
+          .not('receipt_telegram_file_id', 'is', null)
+          .order('created_at', { ascending: false })
       ]);
 
       if (usersResponse.error) throw usersResponse.error;
@@ -95,6 +101,7 @@ export function UserManagement() {
 
       setUsers(usersResponse.data || []);
       setPackages(packagesResponse.data || []);
+      setPendingPayments(paymentsResponse.data || []);
       
       // Load assignments separately to handle the complex join
       const assignmentsResponse = await supabase
@@ -247,6 +254,36 @@ export function UserManagement() {
       toast({
         title: "Error",
         description: "Failed to revoke package access",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePaymentApproval = async (subscriptionId: string, approve: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('user_subscriptions')
+        .update({
+          payment_status: approve ? 'approved' : 'rejected',
+          is_active: approve,
+          subscription_start_date: approve ? new Date().toISOString() : null,
+          subscription_end_date: approve ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null
+        })
+        .eq('id', subscriptionId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Payment ${approve ? 'approved' : 'rejected'} successfully`,
+      });
+
+      loadData();
+    } catch (error) {
+      console.error('Error updating payment status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update payment status",
         variant: "destructive",
       });
     }
@@ -450,6 +487,10 @@ export function UserManagement() {
                 <Package className="h-4 w-4" />
                 Package Assignments ({assignments.length})
               </TabsTrigger>
+              <TabsTrigger value="payments" className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Pending Payments ({pendingPayments.length})
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="users">
@@ -584,6 +625,76 @@ export function UserManagement() {
                                 Revoke
                               </Button>
                             )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+
+            <TabsContent value="payments">
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User ID</TableHead>
+                      <TableHead>Package</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Method</TableHead>
+                      <TableHead>Submitted</TableHead>
+                      <TableHead>Receipt</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pendingPayments.map((payment) => (
+                      <TableRow key={payment.id}>
+                        <TableCell className="font-mono text-xs">
+                          {payment.telegram_user_id}
+                        </TableCell>
+                        <TableCell>
+                          {payment.subscription_plans?.name || 'Unknown'}
+                        </TableCell>
+                        <TableCell>
+                          ${payment.subscription_plans?.price || 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {payment.payment_method?.toUpperCase() || 'N/A'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(payment.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          {payment.receipt_telegram_file_id ? (
+                            <Badge variant="default">✅ Uploaded</Badge>
+                          ) : (
+                            <Badge variant="destructive">❌ Missing</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handlePaymentApproval(payment.id, true)}
+                            >
+                              ✅ Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handlePaymentApproval(payment.id, false)}
+                            >
+                              ❌ Reject
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
