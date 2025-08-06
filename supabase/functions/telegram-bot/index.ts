@@ -2519,10 +2519,21 @@ serve(async (req) => {
         return new Response("OK", { status: 200 });
       }
 
-      // Handle other messages with auto-reply
-      const generalReply = await getAutoReply('auto_reply_general') || 
-        "🤖 Thanks for your message! Use /start to see the main menu or /help for assistance.";
-      await sendMessage(chatId, generalReply);
+      // Only respond to regular messages in specific conditions
+      const chatType = update.message.chat.type;
+      const isPrivateChat = chatType === 'private';
+      const isBotMentioned = text?.includes('@') && text?.toLowerCase().includes('dynamic'); // Adjust based on your bot username
+      
+      // Only auto-reply if:
+      // 1. It's a private chat (direct message)
+      // 2. Bot is mentioned in group/channel
+      if (isPrivateChat || isBotMentioned) {
+        const generalReply = await getAutoReply('auto_reply_general') || 
+          "🤖 Thanks for your message! Use /start to see the main menu or /help for assistance.";
+        await sendMessage(chatId, generalReply);
+      } else {
+        console.log(`🔇 Ignoring message in ${chatType} - bot not mentioned`);
+      }
     }
 
     // Handle callback queries
