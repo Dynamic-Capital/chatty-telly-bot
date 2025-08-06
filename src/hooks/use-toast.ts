@@ -179,7 +179,8 @@ function useToast() {
         listeners.splice(index, 1)
       }
     }
-  }, [state])
+    // Run effect only once on mount to avoid duplicate listeners
+  }, [])
 
   return {
     ...state,
