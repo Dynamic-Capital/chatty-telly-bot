@@ -1244,6 +1244,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_masked_payment_info: {
+        Args: { payment_id: string }
+        Returns: Json
+      }
       get_remaining_security_notes: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -1255,6 +1259,10 @@ export type Database = {
       get_user_role: {
         Args: { user_telegram_id: string }
         Returns: string
+      }
+      is_service_role: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       is_user_admin: {
         Args: { user_telegram_id: string }
