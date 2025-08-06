@@ -530,12 +530,13 @@ async function handleReceiptUpload(message: any, userId: string, firstName: stri
       return;
     }
     
-    // Save receipt information
+    // Save receipt information to media_files table
     const { data: media, error: mediaError } = await supabaseAdmin
       .from('media_files')
       .insert({
         telegram_file_id: fileId,
         file_type: fileType,
+        file_path: `telegram/${fileId}`, // Add file_path field
         filename: message.document?.file_name || `receipt_${fileId}.jpg`,
         caption: message.caption || `Receipt for ${subscription.subscription_plans?.name}`,
         uploaded_by: userId
@@ -544,9 +545,11 @@ async function handleReceiptUpload(message: any, userId: string, firstName: stri
       .single();
     
     if (mediaError) {
-      console.error('❌ Error saving receipt:', mediaError);
-      await sendMessage(chatId, "❌ Error saving receipt. Please try again.");
-      return;
+      console.error('❌ Error saving receipt to media_files:', mediaError);
+      console.error('❌ Media error details:', JSON.stringify(mediaError, null, 2));
+      
+      // Try to continue without saving to media_files table
+      console.log('⚠️ Continuing without media_files entry...');
     }
     
     // Update subscription with receipt info and payment instructions
