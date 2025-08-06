@@ -105,6 +105,10 @@ export const BotSettings = () => {
     }
   };
 
+  const setDelayPreset = (seconds: number) => {
+    updateSetting('auto_delete_delay_seconds', seconds.toString());
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -161,6 +165,39 @@ export const BotSettings = () => {
                       {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     </Button>
                   </div>
+                  
+                  {/* Quick preset buttons for auto_delete_delay_seconds */}
+                  {setting.setting_key === 'auto_delete_delay_seconds' && (
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">Quick presets:</Label>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDelayPreset(5)}
+                          disabled={saving}
+                        >
+                          5 sec
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDelayPreset(10)}
+                          disabled={saving}
+                        >
+                          10 sec
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDelayPreset(30)}
+                          disabled={saving}
+                        >
+                          30 sec
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
