@@ -1125,6 +1125,180 @@ async function handleNewChatMember(message: any): Promise<void> {
   }
 }
 
+// Function to handle custom broadcast sending
+async function handleCustomBroadcastSend(chatId: number, userId: string, message: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  // Clear awaiting input
+  const userSession = getUserSession(userId);
+  userSession.awaitingInput = null;
+
+  if (!message || message.trim().length === 0) {
+    await sendMessage(chatId, "❌ Empty message. Please try again with /broadcast");
+    return;
+  }
+
+  const channels = await getBroadcastChannels();
+  
+  if (channels.length === 0) {
+    await sendMessage(chatId, "⚠️ No broadcast channels configured. Please add channel IDs to broadcast settings first.");
+    return;
+  }
+
+  // Show preview and confirm
+  const previewMessage = `📝 *Custom Broadcast Preview*
+
+📡 **Broadcasting to:** ${channels.length} channels
+📝 **Message:**
+
+${message}
+
+🔄 **Broadcasting now...**`;
+
+  await sendMessage(chatId, previewMessage);
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const channelId of channels) {
+    try {
+      await sendMessage(parseInt(channelId), message);
+      successCount++;
+      console.log(`✅ Custom broadcast sent to channel: ${channelId}`);
+    } catch (error) {
+      failCount++;
+      console.error(`❌ Failed to send broadcast to channel ${channelId}:`, error);
+    }
+    
+    // Delay between messages
+    const delay = parseInt(await getBotSetting('broadcast_delay_ms') || '1500');
+    await new Promise(resolve => setTimeout(resolve, delay));
+  }
+
+  const resultMessage = `📝 *Custom Broadcast Complete!*
+
+✅ **Successfully sent:** ${successCount} channels
+❌ **Failed:** ${failCount} channels
+📊 **Total channels:** ${channels.length}
+
+${failCount > 0 ? '⚠️ Some messages failed. Check bot permissions in those channels.' : '🎉 All messages sent successfully!'}`;
+
+  await sendMessage(chatId, resultMessage);
+  await logAdminAction(userId, 'custom_broadcast', `Sent custom message to ${successCount}/${channels.length} channels`);
+}
+
+// Additional broadcast helper functions
+async function handleBroadcastHistory(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  const historyMessage = `📊 *Broadcast History*
+
+📈 **Recent Activity:**
+• Last greeting broadcast: Not tracked yet
+• Last introduction: Not tracked yet  
+• Custom broadcasts: 0 sent
+
+📋 **Statistics:**
+• Total broadcasts this month: 0
+• Success rate: N/A
+• Most active channel: N/A
+
+🔧 **To enable detailed tracking:**
+Run the analytics setup command to start tracking broadcast metrics.
+
+📝 **Note:** History tracking will be available in future updates.`;
+
+  const historyKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "🔄 Refresh", callback_data: "broadcast_history" },
+        { text: "📊 Full Analytics", callback_data: "admin_analytics" }
+      ],
+      [
+        { text: "🔙 Back to Broadcast", callback_data: "admin_broadcast" }
+      ]
+    ]
+  };
+
+  await sendMessage(chatId, historyMessage, historyKeyboard);
+}
+
+async function handleBroadcastSettings(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  const currentChannels = await getBroadcastChannels();
+  const autoIntro = await getBotSetting('auto_intro_enabled') || 'true';
+  const delay = await getBotSetting('broadcast_delay_ms') || '1500';
+
+  const settingsMessage = `⚙️ *Broadcast Settings*
+
+📡 **Configured Channels:** ${currentChannels.length}
+${currentChannels.length > 0 ? '• ' + currentChannels.join('\n• ') : '• No channels configured'}
+
+🤖 **Auto Introduction:** ${autoIntro === 'true' ? '✅ Enabled' : '❌ Disabled'}
+⏱️ **Message Delay:** ${delay}ms
+
+📝 **To modify settings:**
+Use the admin settings panel or contact support.
+
+💡 **Tips:**
+• Get channel IDs using @userinfobot
+• Test with small groups first
+• Ensure bot has admin rights in channels`;
+
+  const settingsKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "📝 Edit Channels", callback_data: "edit_channels" },
+        { text: "🔧 Auto Settings", callback_data: "auto_settings" }
+      ],
+      [
+        { text: "🧪 Test Setup", callback_data: "test_broadcast" },
+        { text: "💡 Help Guide", callback_data: "broadcast_help" }
+      ],
+      [
+        { text: "🔙 Back to Broadcast", callback_data: "admin_broadcast" }
+      ]
+    ]
+  };
+
+  await sendMessage(chatId, settingsMessage, settingsKeyboard);
+}
+
+async function handleTestBroadcast(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  const testMessage = "🧪 **Test Broadcast**\n\nThis is a test message from Dynamic Capital VIP Bot.\nIf you're seeing this, broadcasting is working correctly! ✅";
+  
+  // For testing, send to the admin chat first
+  await sendMessage(chatId, `🧪 *Test Broadcast*
+
+📝 **Test Message:**
+${testMessage}
+
+🔧 **Test sent to your chat first.**
+If this works, you can proceed with broadcasting to channels.
+
+⚠️ **Before broadcasting to channels:**
+• Ensure bot has proper permissions
+• Verify channel IDs are correct
+• Test with one channel first`);
+
+  await logAdminAction(userId, 'test_broadcast', 'Executed broadcast test');
+}
+
 async function getBroadcastChannels(): Promise<string[]> {
   try {
     const channelsSetting = await getBotSetting('broadcast_channels');
@@ -1245,6 +1419,13 @@ serve(async (req) => {
       // Handle /refresh command for admins
       if (text === '/refresh' && isAdmin(userId)) {
         await handleRefreshBot(chatId, userId);
+        return new Response("OK", { status: 200 });
+      }
+
+      // Check if user is sending custom broadcast message
+      const userSession = getUserSession(userId);
+      if (userSession.awaitingInput === 'custom_broadcast_message') {
+        await handleCustomBroadcastSend(chatId, userId, text);
         return new Response("OK", { status: 200 });
       }
 
@@ -1390,6 +1571,18 @@ serve(async (req) => {
 
           case 'custom_broadcast':
             await handleCustomBroadcast(chatId, userId);
+            break;
+
+          case 'broadcast_history':
+            await handleBroadcastHistory(chatId, userId);
+            break;
+
+          case 'broadcast_settings':
+            await handleBroadcastSettings(chatId, userId);
+            break;
+
+          case 'test_broadcast':
+            await handleTestBroadcast(chatId, userId);
             break;
 
           default:
