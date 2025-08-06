@@ -1375,28 +1375,7 @@ User ${subscription.telegram_user_id} payment for ${subscription.subscription_pl
   }
 }
 
-// Enhanced keyboard generators
-async function getMainMenuKeyboard(): Promise<any> {
-  return {
-    inline_keyboard: [
-      [
-        { text: "💎 VIP Packages", callback_data: "view_vip_packages" },
-        { text: "🎓 Education", callback_data: "view_education" }
-      ],
-      [
-        { text: "🏢 About Us", callback_data: "about_us" },
-        { text: "🛟 Support", callback_data: "support" }
-      ],
-      [
-        { text: "💰 Promotions", callback_data: "view_promotions" },
-        { text: "❓ FAQ", callback_data: "faq" }
-      ],
-      [
-        { text: "📋 Terms", callback_data: "terms" }
-      ]
-    ]
-  };
-}
+// Enhanced keyboard generators - removed duplicate function
 
 async function getVipPackagesKeyboard(): Promise<any> {
   const packages = await getVipPackages();
