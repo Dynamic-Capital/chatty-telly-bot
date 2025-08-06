@@ -5,10 +5,24 @@ const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const BINANCE_API_KEY = Deno.env.get("BINANCE_API_KEY");
 const BINANCE_SECRET_KEY = Deno.env.get("BINANCE_SECRET_KEY");
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const ADMIN_USER_IDS = ["225513686"];
+// Support both standard and NEXT_PUBLIC env names for Supabase configuration
+const SUPABASE_URL =
+  Deno.env.get("SUPABASE_URL") || Deno.env.get("NEXT_PUBLIC_SUPABASE_URL");
+const SUPABASE_ANON_KEY =
+  Deno.env.get("SUPABASE_ANON_KEY") ||
+  Deno.env.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY");
+// Fall back to anon key if a dedicated service role key isn't provided
+const SUPABASE_SERVICE_ROLE_KEY =
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || SUPABASE_ANON_KEY;
+
+// Allow configuring admin IDs via environment variable (comma-separated)
+// and merge with any admin flags stored in the bot_users table
+const ADMIN_USER_IDS = new Set(
+  (Deno.env.get("ADMIN_USER_IDS")
+    ?.split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)) ?? ["225513686"]
+);
 
 // User sessions for features
 const userSessions = new Map();
@@ -23,13 +37,105 @@ const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },
 });
 
+// Simple in-memory caches to reduce repeated database queries
+const templateCache = new Map<string, string>();
+let promotionsCache: { data: any[]; timestamp: number } = { data: [], timestamp: 0 };
+
+const DEFAULT_WELCOME_TEMPLATE =
+  `🚀 *Welcome to Dynamic Capital VIP, {name}!*\n\n` +
+  `We're here to help you level up your trading with:\n\n` +
+  `• 🔔 Quick market updates\n` +
+  `• 📈 Beginner-friendly tips\n` +
+  `• 🎓 Easy learning resources\n\n` +
+  `Ready to get started? Pick an option below 👇`;
+
+const DEFAULT_HELP_TEMPLATE =
+  `🤖 *Bot Commands*\n\n` +
+  `• /start - 🚀 Open the main menu\n` +
+  `• /help - 📚 Show this help\n` +
+  `• Use the menu buttons below for quick navigation`;
+
+// Load additional admin IDs from the database so they can be managed dynamically
+async function refreshAdminIds() {
+  try {
+    const { data } = await supabaseAdmin
+      .from('bot_users')
+      .select('telegram_id')
+      .eq('is_admin', true);
+
+    data?.forEach((row: { telegram_id: string | number }) => {
+      ADMIN_USER_IDS.add(row.telegram_id.toString());
+    });
+  } catch (error) {
+    console.error('Failed to load admin IDs:', error);
+  }
+}
+// Basic connectivity checks so deployment issues surface in logs
+async function checkSupabaseConnection() {
+  try {
+    const { error } = await supabase
+      .from('bot_users')
+      .select('id')
+      .limit(1);
+    if (error) throw error;
+    console.log('Supabase connection successful');
+  } catch (err) {
+    console.error('Supabase connection failed:', err);
+  }
+}
+
+async function verifyTelegramBot() {
+  if (!BOT_TOKEN) {
+    console.error('TELEGRAM_BOT_TOKEN is not set');
+    return;
+  }
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getMe`);
+    const data = await res.json();
+    if (data.ok) {
+      console.log(`Telegram bot connected as @${data.result.username}`);
+    } else {
+      console.error('Telegram bot connection failed:', data);
+    }
+  } catch (err) {
+    console.error('Telegram bot check failed:', err);
+  }
+}
+
+await refreshAdminIds();
+await checkSupabaseConnection();
+await verifyTelegramBot();
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 function isAdmin(userId: string): boolean {
-  return ADMIN_USER_IDS.includes(userId);
+  return ADMIN_USER_IDS.has(userId);
+}
+
+async function getTemplate(name: string, fallback: string): Promise<string> {
+  const cached = templateCache.get(name);
+  if (cached) return cached;
+  try {
+    const { data } = await supabase
+      .from('auto_reply_templates')
+      .select('message_template')
+      .eq('name', name)
+      .eq('is_active', true)
+      .single();
+    const content = data?.message_template || fallback;
+    templateCache.set(name, content);
+    return content;
+  } catch (error) {
+    console.error(`Template fetch failed for ${name}:`, error);
+    return fallback;
+  }
+}
+
+function updateTemplateCache(name: string, content: string) {
+  templateCache.set(name, content);
 }
 
 async function sendMessage(chatId: number, text: string, replyMarkup?: any) {
@@ -272,21 +378,27 @@ async function fetchOrCreateBotUser(telegramId: string, firstName?: string, last
 
 // FAQ and Promo Code functions
 async function getActivePromotions() {
+  const now = Date.now();
+  if (now - promotionsCache.timestamp < 60_000) {
+    return promotionsCache.data;
+  }
   try {
     const { data, error } = await supabase
       .from('promotions')
       .select('*')
       .eq('is_active', true)
       .gte('valid_until', new Date().toISOString())
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(10);
 
     if (error) {
       console.error('Promotions query error:', error);
       return [];
     }
 
-    console.log('Active promotions found:', data?.length || 0);
-    return data || [];
+    promotionsCache = { data: data || [], timestamp: now };
+    console.log('Active promotions found:', promotionsCache.data.length);
+    return promotionsCache.data;
   } catch (error) {
     console.error('Error fetching promotions:', error);
     return [];
@@ -376,7 +488,7 @@ serve(async (req) => {
   }
 
   if (req.method === "GET") {
-    return new Response("Bot is running!", { status: 200 });
+    return new Response("Bot is live!", { status: 200 });
   }
 
   try {
@@ -418,15 +530,13 @@ serve(async (req) => {
             session.awaitingInput = null;
             await notifyAdminsOfNewReceipt(paymentId, userId, firstName || 'Unknown');
             
-            const successMessage = `✅ *Receipt Uploaded Successfully!*
+            const successMessage = `✅ *Receipt received!*
 
 📋 Payment ID: ${paymentId}
-📎 Receipt: Uploaded and saved
-⏰ Status: Under Review
+📎 File: saved
+⏳ Status: pending review
 
-Our team will review your payment within 24 hours and notify you once approved.
-
-Thank you for your patience!`;
+We'll check it soon and let you know. Thanks for your patience!`;
 
             const receiptKeyboard = {
               inline_keyboard: [
@@ -437,33 +547,19 @@ Thank you for your patience!`;
 
             await sendMessage(chatId, successMessage, receiptKeyboard);
           } else {
-            await sendMessage(chatId, "❌ Failed to upload receipt. Please try again or contact support.");
+            await sendMessage(chatId, "⚠️ Upload didn't work. Please try again or tap 'Get Support'.");
           }
           
           return new Response("OK", { status: 200 });
         }
       }
 
-      if (text === '/start') {
-        const welcomeMessage = `🎯 *Welcome to Dynamic Capital VIP!*
+      const cleanText = text?.trim()?.toLowerCase();
+      const command = cleanText?.split(" ")[0];
 
-👋 Hello ${firstName}! Ready to join our exclusive trading community?
-
-🌟 *What Our VIP Community Offers:*
-• 🔥 Premium trading signals & alerts
-• 📊 Daily market analysis & insights  
-• 🎓 Professional mentorship programs
-• 💎 Exclusive VIP chat access
-• 📈 Live market outlook sessions
-• 🎯 Personalized trading strategies
-
-🆓 *Free Member Benefits:*
-• Basic market updates
-• Limited community access
-• 3 educational resources per month
-
-💎 *Ready to unlock VIP benefits?*
-Choose an option below:`;
+      if (command === '/start') {
+        const template = await getTemplate('welcome_message', DEFAULT_WELCOME_TEMPLATE);
+        const welcomeMessage = template.replace('{name}', firstName || 'trader');
 
         const keyboard = {
           inline_keyboard: [
@@ -488,41 +584,52 @@ Choose an option below:`;
 
         await sendMessage(chatId, welcomeMessage, keyboard);
         await trackDailyAnalytics();
-        
+
+        return new Response("OK", { status: 200 });
+      }
+
+      if (command === '/help' || command === 'help') {
+        const helpMessage = await getTemplate('help_message', DEFAULT_HELP_TEMPLATE);
+        await sendMessage(chatId, helpMessage);
         return new Response("OK", { status: 200 });
       }
 
       // Handle admin commands with flexible text matching
-      const cleanText = text?.trim()?.toLowerCase();
-      
-      if (cleanText === '/admin' || cleanText === 'admin' || cleanText === '/admin@dynamic_vip_bot') {
+
+      if (
+        command === "/admin" ||
+        command === "admin" ||
+        command?.startsWith("/admin@")
+      ) {
         console.log(`Admin command received from user ${userId}, checking admin status...`);
         console.log(`User ID type: ${typeof userId}, Admin IDs: ${JSON.stringify(ADMIN_USER_IDS)}`);
         console.log(`isAdmin result: ${isAdmin(userId.toString())}`);
         
         if (!isAdmin(userId.toString())) {
-          await sendMessage(chatId, "❌ Access denied. Admin privileges required.");
+          await sendMessage(chatId, "🚫 Sorry, this command is for admins only.");
           return new Response("OK", { status: 200 });
         }
 
         const adminMessage = `🔐 *Admin Dashboard*
 
 📊 *Available Commands:*
-• 📈 View Statistics  
+• 📈 View Statistics
 • 👥 Manage Users
 • 💰 Manage Payments
 • 📢 Send Broadcast
-• 💾 Export Data
 • 💬 Manage Welcome Message
-• 📦 Manage Packages  
+• 📚 Manage Help Message
+• 📦 Manage Packages
 • 🎁 Manage Promo Codes
+• 💾 Export Data
 
 *⚡ Quick Commands:*
 /users - View users list
-/stats - Bot statistics  
+/stats - Bot statistics
 /packages - Manage packages
 /promos - Manage promos
 /welcome - Edit welcome message
+/helptext - Edit help message
 /broadcast - Send broadcast
 /help_admin - Commands help
 
@@ -540,13 +647,14 @@ Choose an admin action:`;
             ],
             [
               { text: "💬 Welcome Message", callback_data: "admin_welcome" },
-              { text: "📦 Packages", callback_data: "admin_packages" }
+              { text: "📚 Help Message", callback_data: "admin_help" }
             ],
             [
-              { text: "🎁 Promo Codes", callback_data: "admin_promos" },
-              { text: "💾 Export Data", callback_data: "admin_export" }
+              { text: "📦 Packages", callback_data: "admin_packages" },
+              { text: "🎁 Promo Codes", callback_data: "admin_promos" }
             ],
             [
+              { text: "💾 Export Data", callback_data: "admin_export" },
               { text: "🔙 Main Menu", callback_data: "back_to_main" }
             ]
           ]
@@ -722,6 +830,22 @@ Current welcome message will be replaced with your new message.`);
         return new Response("OK", { status: 200 });
       }
 
+      if (text === '/helptext' && isAdmin(userId.toString())) {
+        const helpSession = getUserSession(userId);
+        helpSession.awaitingInput = 'edit_help_message';
+
+        await sendMessage(chatId, `📝 *Edit Help Message*
+
+Please send the new help message you'd like users to see.
+
+You can use:
+• **Bold text** for emphasis
+• *Italic text* for style
+• \`Code text\` for highlights
+• Emojis for visual appeal`);
+        return new Response("OK", { status: 200 });
+      }
+
       if (text === '/broadcast' && isAdmin(userId.toString())) {
         const broadcastSession = getUserSession(userId);
         broadcastSession.awaitingInput = 'broadcast_message';
@@ -794,9 +918,11 @@ Type any command to get started!`;
                 message_template: text,
                 is_active: true
               });
-            
+
             session.awaitingInput = null;
-            
+
+            updateTemplateCache('welcome_message', text);
+
             await sendMessage(chatId, `✅ *Welcome Message Updated!*
 
 Your new welcome message has been saved and will be used for all new users.
@@ -809,6 +935,29 @@ The changes are now live!`);
             return new Response("OK", { status: 200 });
           } catch (error) {
             await sendMessage(chatId, "❌ Error updating welcome message. Please try again.");
+            return new Response("OK", { status: 200 });
+          }
+        }
+
+        // Handle help message editing
+        if (session.awaitingInput === 'edit_help_message') {
+          try {
+            await supabaseAdmin
+              .from('auto_reply_templates')
+              .upsert({
+                name: 'help_message',
+                trigger_type: 'help_command',
+                message_template: text,
+                is_active: true
+              });
+
+            session.awaitingInput = null;
+            updateTemplateCache('help_message', text);
+
+            await sendMessage(chatId, `✅ *Help Message Updated!*\n\n${text}`);
+            return new Response("OK", { status: 200 });
+          } catch (error) {
+            await sendMessage(chatId, '❌ Error updating help message. Please try again.');
             return new Response("OK", { status: 200 });
           }
         }
@@ -1411,6 +1560,29 @@ Choose an action:`;
           await sendMessage(chatId, welcomeManageMessage, welcomeKeyboard);
           break;
 
+        case data === 'admin_help':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+
+          const helpManageMessage = `📚 *Help Message Management*
+
+Current help message is displayed when users send /help command.
+
+Choose an action:`;
+
+          const helpKeyboard = {
+            inline_keyboard: [
+              [{ text: "📝 Edit Help Message", callback_data: "edit_help" }],
+              [{ text: "👀 Preview Help Message", callback_data: "preview_help" }],
+              [{ text: "🔙 Back to Admin", callback_data: "back_to_admin" }]
+            ]
+          };
+
+          await sendMessage(chatId, helpManageMessage, helpKeyboard);
+          break;
+
         case data === 'edit_welcome':
           if (!isAdmin(userId)) {
             await sendMessage(chatId, "❌ Unauthorized access.");
@@ -1433,33 +1605,45 @@ You can use:
 Send your new welcome message now:`);
           break;
 
+        case data === 'edit_help':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
+
+          const helpSession = getUserSession(userId);
+          helpSession.awaitingInput = 'edit_help_message';
+
+          await sendMessage(chatId, `📝 *Edit Help Message*
+
+Please send the new help message you'd like to use.
+
+You can use:
+• **Bold text** for emphasis
+• *Italic text* for style
+• Emojis 🎯
+
+Send your new help message now:`);
+          break;
+
         case data === 'preview_welcome':
           if (!isAdmin(userId)) {
             await sendMessage(chatId, "❌ Unauthorized access.");
             break;
           }
-          
-          const currentWelcome = `🎯 *Welcome to Dynamic Capital VIP!*
 
-👋 Hello ${firstName}! Ready to join our exclusive trading community?
+          const currentWelcome = await getTemplate('welcome_message', DEFAULT_WELCOME_TEMPLATE);
+          await sendMessage(chatId, `📋 *Current Welcome Message Preview:*\n\n${currentWelcome.replace('{name}', firstName || 'trader')}`);
+          break;
 
-🌟 *What Our VIP Community Offers:*
-• 🔥 Premium trading signals & alerts
-• 📊 Daily market analysis & insights  
-• 🎓 Professional mentorship programs
-• 💎 Exclusive VIP chat access
-• 📈 Live market outlook sessions
-• 🎯 Personalized trading strategies
+        case data === 'preview_help':
+          if (!isAdmin(userId)) {
+            await sendMessage(chatId, "❌ Unauthorized access.");
+            break;
+          }
 
-🆓 *Free Member Benefits:*
-• Basic market updates
-• Limited community access
-• 3 educational resources per month
-
-💎 *Ready to unlock VIP benefits?*
-Choose an option below:`;
-
-          await sendMessage(chatId, `📋 *Current Welcome Message Preview:*\n\n${currentWelcome}`);
+          const currentHelp = await getTemplate('help_message', DEFAULT_HELP_TEMPLATE);
+          await sendMessage(chatId, `📋 *Current Help Message Preview:*\n\n${currentHelp}`);
           break;
 
         case data === 'admin_packages':
