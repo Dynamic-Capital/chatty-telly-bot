@@ -1383,6 +1383,223 @@ We're preparing amazing educational content for you.
   }
 }
 
+// View User Profile Handler
+async function handleViewUserProfile(chatId: number, adminUserId: string, targetUserId: string): Promise<void> {
+  if (!isAdmin(adminUserId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    console.log(`👤 Admin ${adminUserId} viewing profile for user ${targetUserId}`);
+    
+    // Get user subscription details
+    const { data: subscriptions, error: subError } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select(`
+        *,
+        subscription_plans (
+          name,
+          price,
+          duration_months,
+          is_lifetime,
+          features
+        )
+      `)
+      .eq('telegram_user_id', targetUserId)
+      .order('created_at', { ascending: false });
+
+    if (subError) {
+      console.error('❌ Error fetching user subscriptions:', subError);
+      await sendMessage(chatId, "❌ Error loading user profile.");
+      return;
+    }
+
+    // Get bot user details if available
+    const { data: botUser } = await supabaseAdmin
+      .from('bot_users')
+      .select('*')
+      .eq('telegram_id', targetUserId)
+      .single();
+
+    // Get education enrollments
+    const { data: enrollments } = await supabaseAdmin
+      .from('education_enrollments')
+      .select(`
+        *,
+        education_packages (
+          name,
+          price,
+          duration_weeks
+        )
+      `)
+      .eq('student_telegram_id', targetUserId)
+      .order('created_at', { ascending: false });
+
+    // Build profile message
+    let profileMessage = `👤 **User Profile: ${targetUserId}**\n\n`;
+    
+    // User basic info
+    if (botUser) {
+      profileMessage += `📋 **Basic Information:**\n`;
+      profileMessage += `• **Name:** ${botUser.first_name || 'N/A'} ${botUser.last_name || ''}\n`;
+      profileMessage += `• **Username:** ${botUser.username ? '@' + botUser.username : 'N/A'}\n`;
+      profileMessage += `• **Admin Status:** ${botUser.is_admin ? '🔴 Admin' : '👤 User'}\n`;
+      profileMessage += `• **VIP Status:** ${botUser.is_vip ? '💎 VIP Member' : '👤 Regular'}\n`;
+      profileMessage += `• **Joined:** ${new Date(botUser.created_at).toLocaleDateString()}\n\n`;
+    }
+
+    // Current subscriptions
+    if (subscriptions && subscriptions.length > 0) {
+      profileMessage += `💎 **VIP Subscriptions:**\n`;
+      
+      const activeSubscriptions = subscriptions.filter(sub => sub.is_active);
+      const pendingSubscriptions = subscriptions.filter(sub => sub.payment_status === 'pending');
+      
+      if (activeSubscriptions.length > 0) {
+        profileMessage += `\n✅ **Active Subscriptions:**\n`;
+        activeSubscriptions.forEach((sub, index) => {
+          const plan = sub.subscription_plans;
+          const endDate = sub.subscription_end_date ? new Date(sub.subscription_end_date).toLocaleDateString() : 'Lifetime';
+          const daysLeft = sub.subscription_end_date ? 
+            Math.max(0, Math.ceil((new Date(sub.subscription_end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : '∞';
+          
+          profileMessage += `${index + 1}. **${plan?.name || 'Unknown Plan'}**\n`;
+          profileMessage += `   💰 Price: $${plan?.price || 'N/A'}\n`;
+          profileMessage += `   📅 Expires: ${endDate}\n`;
+          profileMessage += `   ⏰ Days Left: ${daysLeft}\n`;
+          profileMessage += `   💳 Method: ${sub.payment_method?.toUpperCase() || 'N/A'}\n`;
+          profileMessage += `   📝 Status: ${sub.payment_status}\n\n`;
+        });
+      }
+      
+      if (pendingSubscriptions.length > 0) {
+        profileMessage += `⏳ **Pending Subscriptions:**\n`;
+        pendingSubscriptions.forEach((sub, index) => {
+          const plan = sub.subscription_plans;
+          profileMessage += `${index + 1}. **${plan?.name || 'Unknown Plan'}**\n`;
+          profileMessage += `   💰 Price: $${plan?.price || 'N/A'}\n`;
+          profileMessage += `   💳 Method: ${sub.payment_method?.toUpperCase() || 'N/A'}\n`;
+          profileMessage += `   📋 Receipt: ${sub.receipt_telegram_file_id ? '✅ Uploaded' : '❌ Missing'}\n`;
+          profileMessage += `   📅 Created: ${new Date(sub.created_at).toLocaleDateString()}\n\n`;
+        });
+      }
+    } else {
+      profileMessage += `💎 **VIP Subscriptions:** No subscriptions found\n\n`;
+    }
+
+    // Education enrollments
+    if (enrollments && enrollments.length > 0) {
+      profileMessage += `🎓 **Education Enrollments:**\n`;
+      enrollments.forEach((enrollment, index) => {
+        const pkg = enrollment.education_packages;
+        profileMessage += `${index + 1}. **${pkg?.name || 'Unknown Course'}**\n`;
+        profileMessage += `   💰 Price: $${pkg?.price || 'N/A'}\n`;
+        profileMessage += `   📊 Progress: ${enrollment.progress_percentage || 0}%\n`;
+        profileMessage += `   📋 Status: ${enrollment.enrollment_status}\n`;
+        profileMessage += `   💳 Payment: ${enrollment.payment_status}\n\n`;
+      });
+    } else {
+      profileMessage += `🎓 **Education:** No enrollments found\n\n`;
+    }
+
+    // Admin actions
+    profileMessage += `🔧 **Quick Actions:**`;
+    
+    const actionKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "✅ Approve Payments", callback_data: `approve_user_payments_${targetUserId}` },
+          { text: "❌ Reject Payments", callback_data: `reject_user_payments_${targetUserId}` }
+        ],
+        [
+          { text: "💎 Make VIP", callback_data: `make_vip_${targetUserId}` },
+          { text: "📧 Send Message", callback_data: `message_user_${targetUserId}` }
+        ],
+        [
+          { text: "🔄 Refresh Profile", callback_data: `view_user_${targetUserId}` },
+          { text: "🔙 Back to Dashboard", callback_data: "admin_dashboard" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, profileMessage, actionKeyboard);
+    await logAdminAction(adminUserId, 'view_user_profile', `Viewed profile for user ${targetUserId}`);
+
+  } catch (error) {
+    console.error('🚨 Error viewing user profile:', error);
+    await sendMessage(chatId, `❌ Error loading user profile: ${error.message}`);
+  }
+}
+
+// View Pending Payments Handler
+async function handleViewPendingPayments(chatId: number, adminUserId: string): Promise<void> {
+  if (!isAdmin(adminUserId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  try {
+    console.log(`📋 Admin ${adminUserId} viewing pending payments`);
+    
+    const { data: pendingPayments, error } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select(`
+        *,
+        subscription_plans (
+          name,
+          price,
+          duration_months
+        )
+      `)
+      .eq('payment_status', 'pending')
+      .not('receipt_telegram_file_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error('❌ Error fetching pending payments:', error);
+      await sendMessage(chatId, "❌ Error loading pending payments.");
+      return;
+    }
+
+    if (!pendingPayments || pendingPayments.length === 0) {
+      await sendMessage(chatId, `📋 **Pending Payments**\n\n✅ No pending payments with receipts found.\n\nAll caught up! 🎉`);
+      return;
+    }
+
+    let message = `📋 **Pending Payments (${pendingPayments.length})**\n\n`;
+    
+    pendingPayments.forEach((payment, index) => {
+      const plan = payment.subscription_plans;
+      message += `${index + 1}. **User ${payment.telegram_user_id}**\n`;
+      message += `   📦 Package: ${plan?.name || 'Unknown'}\n`;
+      message += `   💰 Amount: $${plan?.price || 'N/A'}\n`;
+      message += `   💳 Method: ${payment.payment_method?.toUpperCase() || 'N/A'}\n`;
+      message += `   📅 Submitted: ${new Date(payment.created_at).toLocaleDateString()}\n`;
+      message += `   📋 Receipt: ${payment.receipt_telegram_file_id ? '✅ Uploaded' : '❌ Missing'}\n\n`;
+    });
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "✅ Approve All", callback_data: "approve_all_pending" },
+          { text: "🔄 Refresh", callback_data: "view_pending_payments" }
+        ],
+        [
+          { text: "🔙 Back to Dashboard", callback_data: "admin_dashboard" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, message, keyboard);
+    await logAdminAction(adminUserId, 'view_pending_payments', `Viewed ${pendingPayments.length} pending payments`);
+
+  } catch (error) {
+    console.error('🚨 Error viewing pending payments:', error);
+    await sendMessage(chatId, `❌ Error loading pending payments: ${error.message}`);
+  }
+
 // Payment Approval/Rejection Handlers
 async function handleApprovePayment(chatId: number, userId: string, paymentId: string): Promise<void> {
   if (!isAdmin(userId)) {
@@ -2879,6 +3096,11 @@ serve(async (req) => {
             } else if (callbackData.startsWith('reject_payment_')) {
               const paymentId = callbackData.replace('reject_payment_', '');
               await handleRejectPayment(chatId, userId, paymentId);
+            } else if (callbackData.startsWith('view_user_')) {
+              const targetUserId = callbackData.replace('view_user_', '');
+              await handleViewUserProfile(chatId, userId, targetUserId);
+            } else if (callbackData === 'view_pending_payments') {
+              await handleViewPendingPayments(chatId, userId);
             } else {
               console.log(`❓ Unknown callback: ${callbackData}`);
               console.log(`🔍 Full callback debug info:`, {
