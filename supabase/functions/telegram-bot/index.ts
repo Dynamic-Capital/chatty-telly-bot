@@ -1144,18 +1144,24 @@ async function getVipPackagesKeyboard(): Promise<any> {
 
   packages.forEach(pkg => {
     const priceText = pkg.is_lifetime ? '$' + pkg.price + ' Lifetime' : '$' + pkg.price + '/' + pkg.duration_months + 'mo';
+    const discount = pkg.duration_months >= 12 ? '🔥' : 
+                    pkg.duration_months >= 6 ? '⭐' : 
+                    pkg.duration_months >= 3 ? '💫' : '🎯';
     buttons.push([{
-      text: `💎 ${pkg.name} - ${priceText}`,
+      text: `${discount} ${pkg.name} - ${priceText}`,
       callback_data: `select_vip_${pkg.id}`
     }]);
   });
 
   buttons.push([
     { text: "🎁 View Promotions", callback_data: "view_promotions" },
-    { text: "❓ Have Questions?", callback_data: "contact_support" }
+    { text: "🎓 Education Packages", callback_data: "view_education" }
   ]);
   
-  buttons.push([{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]);
+  buttons.push([
+    { text: "❓ Have Questions?", callback_data: "contact_support" },
+    { text: "🔙 Back to Main Menu", callback_data: "back_main" }
+  ]);
 
   return { inline_keyboard: buttons };
 }
@@ -1636,21 +1642,31 @@ Follow our announcements for upcoming deals and discounts.
           ? `${promo.discount_value}% OFF` 
           : `$${promo.discount_value} OFF`;
         
-        message += `${index + 1}. **${promo.code}** - ${discountText}
-📝 ${promo.description}
+        const usesLeft = promo.max_uses ? (promo.max_uses - (promo.current_uses || 0)) : '∞';
+        const urgency = promo.max_uses && ((promo.current_uses || 0) / promo.max_uses) > 0.8 ? '🔥 LIMITED!' : '';
+        
+        message += `🎫 **${promo.code}** ${urgency}
+📢 ${discountText} - ${promo.description}
 ⏰ Valid until: ${validUntil}
-🎯 Uses left: ${(promo.max_uses || 999) - (promo.current_uses || 0)}
+🎯 Uses left: ${usesLeft}
 
 `;
       });
       
       message += `💡 **How to use:**
-Enter promo code during checkout to apply discount automatically!`;
+1️⃣ Select a VIP package
+2️⃣ Enter promo code during checkout
+3️⃣ Discount applied automatically!
+
+🔔 **Pro Tip:** Some promos have limited uses - claim yours now!`;
     }
 
     const keyboard = {
       inline_keyboard: [
-        [{ text: "💎 View VIP Packages", callback_data: "view_vip_packages" }],
+        [
+          { text: "💎 View VIP Packages", callback_data: "view_vip_packages" },
+          { text: "🎓 Education Courses", callback_data: "view_education" }
+        ],
         [{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]
       ]
     };
@@ -1766,27 +1782,48 @@ We're preparing amazing educational content for you.
 💡 **In the meantime:** Join VIP for access to daily market analysis and real-time learning opportunities!`;
     } else {
       packages.forEach((pkg, index) => {
-        message += `${index + 1}. **${pkg.name}**
-💰 Price: $${pkg.price}
+        const features = pkg.features && Array.isArray(pkg.features) ? pkg.features.slice(0, 3) : [];
+        const featuresText = features.length > 0 ? features.map(f => `• ${f}`).join('\n   ') : '• Comprehensive trading education';
+        
+        const studentInfo = pkg.max_students 
+          ? `👥 ${pkg.current_students || 0}/${pkg.max_students} enrolled` 
+          : `👥 ${pkg.current_students || 0} students`;
+        
+        const availability = pkg.max_students && (pkg.current_students >= pkg.max_students) 
+          ? '🔴 FULL - Join Waitlist' 
+          : '🟢 Available Now';
+        
+        message += `📚 **${pkg.name}** ${availability}
+💰 Price: $${pkg.price} ${pkg.currency}
 ⏱️ Duration: ${pkg.duration_weeks} weeks
 📈 Level: ${pkg.difficulty_level || 'All Levels'}
+${studentInfo}
 
-📝 ${pkg.description}
+📝 **Description:** ${pkg.description || 'Professional trading education'}
+
+✨ **Includes:**
+   ${featuresText}
 
 `;
       });
       
-      message += `💡 **Why Choose Our Education:**
-• Expert instructors with proven track records
-• Interactive lessons and live sessions
-• Certificate upon completion
-• Lifetime access to materials
-• Direct support from instructors`;
+      message += `🎓 **Why Choose Our Education:**
+• 🏆 Expert instructors with proven track records
+• 🎯 Interactive lessons and live trading sessions  
+• 📜 Certificate upon completion
+• ♾️ Lifetime access to all materials
+• 💬 Direct support from instructors
+• 📊 Real market case studies
+
+💡 **Special:** VIP members get 25% off all education packages!`;
     }
 
     const keyboard = {
       inline_keyboard: [
-        [{ text: "💎 Upgrade to VIP", callback_data: "view_vip_packages" }],
+        [
+          { text: "💎 Upgrade to VIP (25% OFF)", callback_data: "view_vip_packages" },
+          { text: "🎁 View Promotions", callback_data: "view_promotions" }
+        ],
         [{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]
       ]
     };
