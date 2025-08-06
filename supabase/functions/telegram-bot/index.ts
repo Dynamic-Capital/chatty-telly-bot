@@ -502,7 +502,10 @@ async function handleReceiptUpload(message: any, userId: string, firstName: stri
       .single();
     
     if (error || !subscription) {
-      await sendMessage(chatId, `❌ No pending payment found. 
+      // Only send this message in private chats, not in groups
+      const chatType = message.chat.type;
+      if (chatType === 'private') {
+        await sendMessage(chatId, `❌ No pending payment found. 
 
 🎯 **To submit a receipt:**
 1️⃣ First select a VIP package
@@ -511,6 +514,9 @@ async function handleReceiptUpload(message: any, userId: string, firstName: stri
 4️⃣ Then upload receipt
 
 💡 Use /start to begin the process.`);
+      } else {
+        console.log(`🔇 Ignoring receipt upload in ${chatType} - no pending payment for user ${userId}`);
+      }
       return;
     }
     
