@@ -2565,6 +2565,7 @@ serve(async (req) => {
       });
 
       try {
+        console.log(`🔍 Processing callback switch for: ${callbackData}`);
         switch (callbackData) {
           case 'view_vip_packages':
             console.log("💎 Displaying VIP packages");
@@ -2768,7 +2769,14 @@ serve(async (req) => {
               await handleRejectPayment(chatId, userId, paymentId);
             } else {
               console.log(`❓ Unknown callback: ${callbackData}`);
-              await sendMessage(chatId, "❓ Unknown action. Please try again or use /start for the main menu.");
+              console.log(`🔍 Full callback debug info:`, {
+                userId,
+                chatId,
+                callbackData,
+                firstName,
+                timestamp: new Date().toISOString()
+              });
+              await sendMessage(chatId, `❓ Unknown action: "${callbackData}". Please try again or use /start for the main menu.`);
             }
         }
 
