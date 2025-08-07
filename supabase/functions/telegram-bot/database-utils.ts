@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, no-case-declarations, no-prototype-builtins */
+/* eslint-disable @typescript-eslint/no-explicit-any, no-prototype-builtins */
 // Database utility functions for the Telegram bot
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -485,13 +485,14 @@ async function processCreatePlanInput(userId: string, inputText: string): Promis
         case 'name':
           planData.name = value;
           break;
-        case 'price':
+        case 'price': {
           const price = parseFloat(value);
           if (isNaN(price) || price <= 0) {
             return { success: false, message: "❌ Invalid price format. Use numbers only (e.g., 49.99)" };
           }
           planData.price = price;
           break;
+        }
         case 'duration':
           if (value.toLowerCase() === 'lifetime') {
             planData.is_lifetime = true;
