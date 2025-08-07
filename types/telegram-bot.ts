@@ -68,6 +68,22 @@ export interface BotSettings {
 }
 
 // ============================================
+// Auto Reply Interfaces
+// ============================================
+
+export interface AutoReplyTemplate {
+  id: string;
+  name: string;
+  trigger_type: string;
+  message_template: string;
+  conditions?: Record<string, unknown>;
+  display_order?: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================
 // Subscription & Payment Interfaces
 // ============================================
 

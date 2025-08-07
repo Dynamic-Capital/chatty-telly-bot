@@ -200,6 +200,28 @@ export async function setBotSetting(settingKey: string, settingValue: string, ad
   }
 }
 
+// Auto reply template functions
+export async function getAutoReplyTemplate(name: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('auto_reply_templates')
+      .select('message_template')
+      .eq('name', name)
+      .eq('is_active', true)
+      .single();
+
+    if (error) {
+      console.error(`Error fetching auto reply template ${name}:`, error);
+      return null;
+    }
+
+    return data?.message_template || null;
+  } catch (error) {
+    console.error(`Exception fetching auto reply template ${name}:`, error);
+    return null;
+  }
+}
+
 // VIP package management functions
 export async function getVipPackages(): Promise<any[]> {
   try {
