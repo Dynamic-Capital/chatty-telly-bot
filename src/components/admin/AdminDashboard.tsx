@@ -315,6 +315,7 @@ export const AdminDashboard = () => {
           <TabsTrigger value="bot-debug">🔧 Bot Debug</TabsTrigger>
           <TabsTrigger value="system-status">📊 System Status</TabsTrigger>
           <TabsTrigger value="welcome-editor">💬 Welcome Message</TabsTrigger>
+          <TabsTrigger value="vip-plans">💎 VIP Plans</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="settings">Bot Settings</TabsTrigger>
@@ -333,6 +334,10 @@ export const AdminDashboard = () => {
 
         <TabsContent value="welcome-editor" className="space-y-4">
           <WelcomeMessageEditor />
+        </TabsContent>
+
+        <TabsContent value="vip-plans" className="space-y-4">
+          <VipPlansManager />
         </TabsContent>
 
         <TabsContent value="users" className="space-y-4">

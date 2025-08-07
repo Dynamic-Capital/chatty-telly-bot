@@ -10,10 +10,31 @@ import {
   handlePromotionsManagement, 
   handleContentManagement, 
   handleBotSettingsManagement, 
-  handleTableStatsOverview 
+  handleTableStatsOverview,
+  handleEditVipPlan,
+  handleCreateVipPlan,
+  handleDeleteVipPlan,
+  handleEditSpecificPlan,
+  handleEditPlanPrice,
+  handleEditPlanName,
+  handleEditPlanDuration,
+  handleEditPlanFeatures,
+  handleAddPlanFeature,
+  handleConfirmDeletePlan,
+  handleExecuteDeletePlan,
+  handleTogglePlanLifetime
 } from "./admin-handlers.ts";
 
-// Rate limiting and anti-spam protection
+import { 
+  logAdminAction, 
+  getBotContent, 
+  setBotContent, 
+  getBotSetting, 
+  setBotSetting, 
+  getFormattedVipPackages, 
+  updateUserActivity,
+  processPlaneEditInput
+} from "./database-utils.ts";
 interface RateLimitEntry {
   count: number;
   lastReset: number;
