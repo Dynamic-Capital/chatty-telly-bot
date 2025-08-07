@@ -286,7 +286,6 @@ function getSecurityResponse(reason: string, blockDuration?: number): string {
 }
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -416,72 +415,7 @@ async function endBotSession(telegramUserId: string): Promise<void> {
 }
 
 // Optimized database utility functions with batching
-async function getBotContentBatch(contentKeys: string[]): Promise<Map<string, string>> {
-  try {
-    console.log(`📄 Fetching batch content: ${contentKeys.join(', ')}`);
-    const { data, error } = await supabaseAdmin
-      .rpc('get_bot_content_batch', { content_keys: contentKeys });
 
-    if (error) {
-      console.error(`❌ Error fetching batch content:`, error);
-      return new Map();
-    }
-
-    const contentMap = new Map<string, string>();
-    data?.forEach((item: any) => {
-      contentMap.set(item.content_key, item.content_value);
-    });
-
-    console.log(`✅ Batch content fetched: ${contentMap.size} items`);
-    return contentMap;
-  } catch (error) {
-    console.error(`🚨 Exception in getBotContentBatch:`, error);
-    return new Map();
-  }
-}
-
-async function getBotSettingsBatch(settingKeys: string[]): Promise<Map<string, string>> {
-  try {
-    console.log(`⚙️ Fetching batch settings: ${settingKeys.join(', ')}`);
-    const { data, error } = await supabaseAdmin
-      .rpc('get_bot_settings_batch', { setting_keys: settingKeys });
-
-    if (error) {
-      console.error(`❌ Error fetching batch settings:`, error);
-      return new Map();
-    }
-
-    const settingsMap = new Map<string, string>();
-    data?.forEach((item: any) => {
-      settingsMap.set(item.setting_key, item.setting_value);
-    });
-
-    console.log(`✅ Batch settings fetched: ${settingsMap.size} items`);
-    return settingsMap;
-  } catch (error) {
-    console.error(`🚨 Exception in getBotSettingsBatch:`, error);
-    return new Map();
-  }
-}
-
-async function getUserCompleteData(telegramUserId: string): Promise<any> {
-  try {
-    console.log(`👤 Fetching complete user data for: ${telegramUserId}`);
-    const { data, error } = await supabaseAdmin
-      .rpc('get_user_complete_data', { telegram_user_id_param: telegramUserId });
-
-    if (error) {
-      console.error(`❌ Error fetching user complete data:`, error);
-      return null;
-    }
-
-    console.log(`✅ Complete user data fetched for: ${telegramUserId}`);
-    return data;
-  } catch (error) {
-    console.error(`🚨 Exception in getUserCompleteData:`, error);
-    return null;
-  }
-}
 
 async function setBotContent(contentKey: string, contentValue: string, adminId: string): Promise<boolean> {
   try {
@@ -496,10 +430,8 @@ async function setBotContent(contentKey: string, contentValue: string, adminId: 
       });
 
     if (!error) {
-      // Invalidate cache for this content key
-      invalidateContentCache(contentKey);
       await logAdminAction(adminId, 'content_update', `Updated content: ${contentKey}`, 'bot_content');
-      console.log(`✅ Content updated and cache invalidated: ${contentKey}`);
+      console.log(`✅ Content updated: ${contentKey}`);
     } else {
       console.error(`❌ Error setting content: ${contentKey}`, error);
     }
@@ -523,10 +455,8 @@ async function setBotSetting(settingKey: string, settingValue: string, adminId: 
       });
 
     if (!error) {
-      // Invalidate cache for this setting key
-      invalidateSettingsCache(settingKey);
       await logAdminAction(adminId, 'setting_update', `Updated setting: ${settingKey}`, 'bot_settings');
-      console.log(`✅ Setting updated and cache invalidated: ${settingKey}`);
+      console.log(`✅ Setting updated: ${settingKey}`);
     } else {
       console.error(`❌ Error setting: ${settingKey}`, error);
     }
@@ -590,109 +520,7 @@ async function handleUnknownCommand(chatId: number, userId: string, command: str
   
   await sendMessage(chatId, message);
   
-// Cache for frequently accessed data to reduce DB calls
-const contentCache = new Map<string, { value: string; expires: number }>();
-const settingsCache = new Map<string, { value: string; expires: number }>();
-const CACHE_TTL = 300000; // 5 minutes cache
 
-// Optimized content retrieval with caching
-async function getBotContent(contentKey: string): Promise<string | null> {
-  console.log(`📄 [getBotContent] Starting fetch for key: ${contentKey}`);
-  const cached = contentCache.get(contentKey);
-  const now = Date.now();
-  
-  if (cached && cached.expires > now) {
-    console.log(`📄 [getBotContent] Cache hit for content: ${contentKey}`);
-    return cached.value;
-  }
-
-  try {
-    console.log(`📄 [getBotContent] Fetching from DB: ${contentKey}`);
-    const { data, error } = await supabaseAdmin
-      .from('bot_content')
-      .select('content_value')
-      .eq('content_key', contentKey)
-      .eq('is_active', true)
-      .single();
-
-    console.log(`📄 [getBotContent] DB query completed for: ${contentKey}, error: ${error ? 'yes' : 'no'}`);
-
-    if (error && error.code !== 'PGRST116') {
-      console.error(`❌ [getBotContent] Error fetching content for ${contentKey}:`, error);
-      return null;
-    }
-
-    const value = data?.content_value || null;
-    console.log(`📄 [getBotContent] Content found for ${contentKey}: ${value ? 'yes' : 'no'}`);
-    if (value) {
-      contentCache.set(contentKey, { value, expires: now + CACHE_TTL });
-      console.log(`📄 [getBotContent] Content cached for ${contentKey}`);
-    }
-
-    console.log(`✅ [getBotContent] Content fetched and cached for ${contentKey}`);
-    return value;
-  } catch (error) {
-    console.error(`🚨 [getBotContent] Exception in getBotContent for ${contentKey}:`, error);
-    return null;
-  }
-}
-
-// Optimized settings retrieval with caching
-async function getBotSetting(settingKey: string): Promise<string | null> {
-  const cached = settingsCache.get(settingKey);
-  const now = Date.now();
-  
-  if (cached && cached.expires > now) {
-    console.log(`⚙️ Cache hit for setting: ${settingKey}`);
-    return cached.value;
-  }
-
-  try {
-    console.log(`⚙️ Fetching setting from DB: ${settingKey}`);
-    const { data, error } = await supabaseAdmin
-      .from('bot_settings')
-      .select('setting_value')
-      .eq('setting_key', settingKey)
-      .eq('is_active', true)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error(`❌ Error fetching setting ${settingKey}:`, error);
-      return null;
-    }
-
-    const value = data?.setting_value || null;
-    if (value) {
-      settingsCache.set(settingKey, { value, expires: now + CACHE_TTL });
-    }
-
-    return value;
-  } catch (error) {
-    console.error(`🚨 Exception fetching setting ${settingKey}:`, error);
-    return null;
-  }
-}
-
-// Cache invalidation functions
-function invalidateContentCache(contentKey?: string): void {
-  if (contentKey) {
-    contentCache.delete(contentKey);
-    console.log(`🗑️ Cache invalidated for content: ${contentKey}`);
-  } else {
-    contentCache.clear();
-    console.log(`🗑️ All content cache cleared`);
-  }
-}
-
-function invalidateSettingsCache(settingKey?: string): void {
-  if (settingKey) {
-    settingsCache.delete(settingKey);
-    console.log(`🗑️ Cache invalidated for setting: ${settingKey}`);
-  } else {
-    settingsCache.clear();
-    console.log(`🗑️ All settings cache cleared`);
-  }
-}
   await supabaseAdmin
     .from('user_interactions')
     .insert({
@@ -939,7 +767,7 @@ async function handleReceiptUpload(message: any, userId: string, firstName: stri
     }
     
     // Save receipt information to media_files table
-    const { data: media, error: mediaError } = await supabaseAdmin
+    const { error: mediaError } = await supabaseAdmin
       .from('media_files')
       .insert({
         telegram_file_id: fileId,
@@ -1192,7 +1020,7 @@ async function getMainMenuKeyboard(): Promise<any> {
 }
 
 // VIP Package Selection Handler
-async function handleVipPackageSelection(chatId: number, userId: string, packageId: string, firstName: string): Promise<void> {
+async function handleVipPackageSelection(chatId: number, userId: string, packageId: string, _firstName: string): Promise<void> {
   try {
     console.log(`💎 User ${userId} selected VIP package: ${packageId}`);
     
