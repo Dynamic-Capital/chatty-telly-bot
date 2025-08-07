@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[ANALYTICS-DATA] ${step}${detailsStr}`);
 };
@@ -30,7 +30,7 @@ serve(async (req) => {
 
     const now = new Date();
     let startDate: Date;
-    let endDate = now;
+    const endDate = now;
 
     // Calculate date ranges based on timeframe
     switch (timeframe) {

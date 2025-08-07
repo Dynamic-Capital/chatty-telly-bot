@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -46,11 +46,7 @@ const Education: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchEducationData();
-  }, []);
-
-  const fetchEducationData = async () => {
+  const fetchEducationData = useCallback(async () => {
     try {
       // Fetch categories
       const { data: categoriesData, error: categoriesError } = await supabase
@@ -82,7 +78,11 @@ const Education: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchEducationData();
+  }, [fetchEducationData]);
 
   const filteredPackages = selectedCategory === 'all' 
     ? packages 

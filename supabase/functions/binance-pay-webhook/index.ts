@@ -179,9 +179,15 @@ serve(async (req) => {
             .eq('plan_id', payment.plan_id)
             .eq('is_active', true);
 
+          interface PlanChannel {
+            channel_name: string;
+            invite_link: string;
+            chat_id: string | null;
+          }
+
           if (!channelError && channels && channels.length > 0) {
             const linksText = channels
-              .map((c: any) => `🔗 ${c.channel_name}: ${c.invite_link}`)
+              .map((c: PlanChannel) => `🔗 ${c.channel_name}: ${c.invite_link}`)
               .join('\n');
 
             await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -197,9 +203,9 @@ serve(async (req) => {
 
             // Record channel membership entries when chat IDs are available
             const memberships = channels
-              .filter((c: any) => c.chat_id)
-              .map((c: any) => ({
-                channel_id: c.chat_id,
+              .filter((c: PlanChannel) => c.chat_id)
+              .map((c: PlanChannel) => ({
+                channel_id: c.chat_id!,
                 channel_name: c.channel_name,
                 package_id: payment.plan_id,
                 telegram_user_id: payment.user_id,

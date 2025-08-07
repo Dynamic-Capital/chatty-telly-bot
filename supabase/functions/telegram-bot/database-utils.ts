@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, no-case-declarations, no-prototype-builtins */
 // Database utility functions for the Telegram bot
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 

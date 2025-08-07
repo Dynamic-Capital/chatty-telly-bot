@@ -77,6 +77,7 @@ export const SystemStatus = () => {
 
   useEffect(() => {
     checkSystemStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkSystemStatus = async () => {
@@ -559,8 +560,7 @@ export const SystemStatus = () => {
                 </Button>
               </div>
             </CardContent>
-          </Card>
-        </div>
+        </Card>
         </TabsContent>
       </Tabs>
     </div>

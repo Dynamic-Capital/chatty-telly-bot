@@ -35,10 +35,6 @@ export const WelcomeMessageEditor = () => {
   const [previewMode, setPreviewMode] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchWelcomeMessage();
-  }, []);
-
   const fetchWelcomeMessage = async () => {
     try {
       setLoading(true);
@@ -81,6 +77,11 @@ export const WelcomeMessageEditor = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchWelcomeMessage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const createDefaultWelcomeMessage = async () => {
     const defaultMessage = `🎯 Welcome to Dynamic Capital VIP Bot!
@@ -179,7 +180,7 @@ export const WelcomeMessageEditor = () => {
     }
   };
 
-  const useTemplate = (template: string) => {
+  const applyTemplate = (template: string) => {
     setEditedMessage(template);
     toast({
       title: "Template Applied",
@@ -352,7 +353,7 @@ Choose an option below:`
                       <Button 
                         size="sm" 
                         variant="outline"
-                        onClick={() => useTemplate(template.content)}
+                        onClick={() => applyTemplate(template.content)}
                         disabled={saving}
                       >
                         Use Template

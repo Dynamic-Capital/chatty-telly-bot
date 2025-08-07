@@ -5,9 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 
+interface BotStatusResponse {
+  bot_status: string;
+  bot_info?: {
+    username?: string;
+    first_name?: string;
+  };
+  webhook_status: string;
+  webhook_info?: {
+    url?: string;
+  };
+  pending_updates?: number;
+  timestamp: string;
+}
+
 export const BotDebugger = () => {
   const [isChecking, setIsChecking] = useState(false);
-  const [botStatus, setBotStatus] = useState<any>(null);
+  const [botStatus, setBotStatus] = useState<BotStatusResponse | null>(null);
   const { toast } = useToast();
 
   const checkBotStatus = async () => {
