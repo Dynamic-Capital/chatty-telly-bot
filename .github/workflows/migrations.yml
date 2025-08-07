@@ -13,12 +13,12 @@ jobs:
         with: { version: latest }
 
       - name: Link project
-        run: supabase link --project-ref $PROJECT_ID
+        run: supabase link --project-ref $SUPABASE_PROJECT_ID
         env:
-          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: Apply migrations
         run: supabase db push --no-interactive
         env:
-          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
-          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
