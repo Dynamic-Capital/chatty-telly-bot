@@ -511,27 +511,6 @@ async function setBotContent(contentKey: string, contentValue: string, adminId: 
   }
 }
 
-async function getBotSetting(settingKey: string): Promise<string | null> {
-  try {
-    console.log(`⚙️ Fetching setting: ${settingKey}`);
-    const { data, error } = await supabaseAdmin
-      .from('bot_settings')
-      .select('setting_value')
-      .eq('setting_key', settingKey)
-      .eq('is_active', true)
-      .single();
-
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-      console.error(`❌ Error fetching setting ${settingKey}:`, error);
-    }
-
-    return data?.setting_value || null;
-  } catch (error) {
-    console.error(`🚨 Exception fetching setting ${settingKey}:`, error);
-    return null;
-  }
-}
-
 async function setBotSetting(settingKey: string, settingValue: string, adminId: string): Promise<boolean> {
   try {
     console.log(`⚙️ Setting bot setting: ${settingKey} = ${settingValue}`);

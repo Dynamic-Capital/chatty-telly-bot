@@ -47,7 +47,7 @@ export async function sendMessage(
 
 // Enhanced table management handlers
 export async function handleTableManagement(chatId: number, userId: string): Promise<void> {
-const tableMessage = `🗃️ *Database Table Management*
+  const defaultTableMessage = `🗃️ *Database Table Management*
 
 📊 *Available Tables:*
 • 👥 **Bot Users** - User management & admin status
@@ -67,6 +67,9 @@ const tableMessage = `🗃️ *Database Table Management*
 
 🔧 *Management Actions:*
 View, Create, Edit, Delete, Export data for any table.`;
+
+  const tableMessage =
+    (await getBotContent('table_management_message')) || defaultTableMessage;
 
   const tableKeyboard = {
     inline_keyboard: [
