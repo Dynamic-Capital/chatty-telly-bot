@@ -5,8 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, getQueryCounts } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getCached } from '@/utils/cache';
+import { getTimezones } from '@/utils/timezones';
 import { 
   Database, 
   Zap, 
@@ -43,6 +45,8 @@ export const SystemStatus = () => {
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const { toast } = useToast();
+  const supabasePublic = supabase.schema('public');
+  const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
   const edgeFunctions = [
     'telegram-bot',
@@ -76,6 +80,8 @@ export const SystemStatus = () => {
   ];
 
   useEffect(() => {
+    // Warm timezone cache to avoid repeated database lookups
+    getTimezones();
     checkSystemStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -83,10 +89,13 @@ export const SystemStatus = () => {
   const checkSystemStatus = async () => {
     setChecking(true);
     try {
-      await Promise.all([
-        checkEdgeFunctions(),
-        checkDatabaseTables()
+      const [functionStatuses, tableInfos] = await Promise.all([
+        getCached('function-status', CACHE_TTL, checkEdgeFunctions),
+        getCached('table-status', CACHE_TTL, checkDatabaseTables)
       ]);
+      setFunctions(functionStatuses);
+      setTables(tableInfos);
+      console.log('Supabase query counts', getQueryCounts());
     } catch (error) {
       console.error('Error checking system status:', error);
       toast({
@@ -100,7 +109,7 @@ export const SystemStatus = () => {
     }
   };
 
-  const checkEdgeFunctions = async () => {
+  const checkEdgeFunctions = async (): Promise<FunctionStatus[]> => {
     const functionStatuses: FunctionStatus[] = [];
 
     for (const functionName of edgeFunctions) {
@@ -123,21 +132,20 @@ export const SystemStatus = () => {
           name: functionName,
           status: 'error',
           lastChecked: new Date().toISOString(),
-          error: error.message
+          error: (error as Error).message
         });
       }
     }
 
-    setFunctions(functionStatuses);
+    return functionStatuses;
   };
 
-  const checkDatabaseTables = async () => {
+  const checkDatabaseTables = async (): Promise<TableInfo[]> => {
     const tableInfos: TableInfo[] = [];
 
     for (const tableName of coreTables) {
       try {
-        // Get record count
-        const { count, error: countError } = await supabase
+        const { count, error: countError } = await supabasePublic
           .from(tableName)
           .select('*', { count: 'exact', head: true });
 
@@ -151,8 +159,7 @@ export const SystemStatus = () => {
           continue;
         }
 
-        // Get latest record to check last updated
-        const { data: latestRecord } = await supabase
+        const { data: latestRecord } = await supabasePublic
           .from(tableName)
           .select('updated_at, created_at')
           .order('updated_at', { ascending: false })
@@ -165,7 +172,7 @@ export const SystemStatus = () => {
           name: tableName,
           recordCount: count || 0,
           lastUpdated,
-          hasRLS: true, // Assuming all tables have RLS based on schema
+          hasRLS: true,
           status: 'healthy'
         });
       } catch (error) {
@@ -178,7 +185,7 @@ export const SystemStatus = () => {
       }
     }
 
-    setTables(tableInfos);
+    return tableInfos;
   };
 
   const getStatusIcon = (status: string) => {
