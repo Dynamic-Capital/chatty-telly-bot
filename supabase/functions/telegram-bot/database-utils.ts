@@ -40,13 +40,29 @@ export async function getBotContent(contentKey: string): Promise<string | null> 
 // Create default content for missing keys
 async function createDefaultContent(contentKey: string): Promise<string | null> {
   const defaultContents = {
-    'welcome_message': `🎯 Welcome to Dynamic Capital VIP Bot!
+      'welcome_message': `👋 Welcome to Dynamic Capital VIP Bot!
 
-📈 Get premium trading signals & education
-💎 Join our VIP community
+🚀 Ready to boost your trading journey?
 
-👇 Choose what you need:`,
-    'about_us': `🏢 About Dynamic Capital
+📦 Browse VIP packages
+🎁 Apply promo codes
+📚 Access education
+
+Use the menu below to get started ⬇️`,
+      'package_info': `📦 VIP Packages
+
+Pick a plan that fits your goals:
+• Monthly signals
+• Lifetime access
+• Education bundles
+
+Use /vip to view current offers.`,
+      'promo_info': `🎁 Promo Codes
+
+Have a discount code? Send it during checkout to save!
+
+Tip: Watch our channel for new promotions.`,
+      'about_us': `🏢 About Dynamic Capital
 
 We are a leading trading education and signals provider with years of experience in financial markets.
 
