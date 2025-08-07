@@ -2,7 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = process.env.SUPABASE_URL ?? "https://qeejuomcapbdlhnjqjcc.supabase.co";
+const SUPABASE_URL = process.env.SUPABASE_URL ?? import.meta.env.VITE_SUPABASE_URL ?? "";
 const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_ANON_KEY ?? "";
 
 const queryCounts: Record<string, number> = {};

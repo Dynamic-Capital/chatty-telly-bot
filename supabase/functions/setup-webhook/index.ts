@@ -18,8 +18,13 @@ serve(async (req) => {
 
     console.log("Setting up Telegram webhook...");
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    if (!supabaseUrl) {
+      throw new Error("SUPABASE_URL is not set");
+    }
+
     // Get the webhook URL for our telegram-bot function
-    const webhookUrl = `https://qeejuomcapbdlhnjqjcc.supabase.co/functions/v1/telegram-bot`;
+    const webhookUrl = `${supabaseUrl}/functions/v1/telegram-bot`;
     
     console.log("Webhook URL:", webhookUrl);
 
