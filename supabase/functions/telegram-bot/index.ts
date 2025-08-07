@@ -5582,6 +5582,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
             await handleBotUsageReport(chatId, userId, '30d');
             await sendMessage(chatId, "✅ **Export Complete!** All reports generated above.");
             break;
+          case 'quick_diagnostic':
             if (isAdmin(userId)) {
               const diagnostic = `🔧 *Quick Diagnostic*
 
