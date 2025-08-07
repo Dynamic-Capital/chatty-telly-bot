@@ -10,6 +10,7 @@ import { BotSettings } from '@/components/admin/BotSettings';
 import { BotDebugger } from '@/components/admin/BotDebugger';
 import { ContactInfo } from '@/components/admin/ContactInfo';
 import { WelcomeMessageEditor } from '@/components/admin/WelcomeMessageEditor';
+import { SystemStatus } from '@/components/admin/SystemStatus';
 import { 
   Users, 
   CreditCard, 
@@ -312,6 +313,7 @@ export const AdminDashboard = () => {
       <Tabs defaultValue="bot-debug" className="space-y-4">
         <TabsList>
           <TabsTrigger value="bot-debug">🔧 Bot Debug</TabsTrigger>
+          <TabsTrigger value="system-status">📊 System Status</TabsTrigger>
           <TabsTrigger value="welcome-editor">💬 Welcome Message</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
@@ -323,6 +325,10 @@ export const AdminDashboard = () => {
 
         <TabsContent value="bot-debug" className="space-y-4">
           <BotDebugger />
+        </TabsContent>
+
+        <TabsContent value="system-status" className="space-y-4">
+          <SystemStatus />
         </TabsContent>
 
         <TabsContent value="welcome-editor" className="space-y-4">
