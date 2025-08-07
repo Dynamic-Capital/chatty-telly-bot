@@ -1,0 +1,24 @@
+name: Apply Supabase migrations
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+
+      - name: Link project
+        run: supabase link --project-ref $PROJECT_ID
+        env:
+          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
+
+      - name: Apply migrations
+        run: supabase db push --no-interactive
+        env:
+          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
