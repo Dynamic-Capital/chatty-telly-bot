@@ -271,3 +271,7 @@ Expected additional functions may be:
 - ⚠️ **Configuration**: Needs admin setup (70%)
 
 **The system is ready for scaling and production use.**
+---
+
+## 🔄 Recent Schema Updates
+- Added foreign key constraints linking analytics tables (`conversion_tracking`, `promo_analytics`, `user_surveys`) to `subscription_plans` for improved data integrity.
