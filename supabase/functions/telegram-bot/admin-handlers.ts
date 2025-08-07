@@ -179,8 +179,9 @@ export async function handleSubscriptionPlansManagement(chatId: number, userId: 
       return;
     }
 
-    let planMessage = `💎 *VIP Subscription Plans Management*\n\n`;
-    planMessage += `📦 *Current Plans (${plans?.length || 0}):*\n\n`;
+    let planMessage = `💎 *VIP Plans Dashboard*\n\n`;
+    planMessage += `Manage all subscription packages here.\n\n`;
+    planMessage += `📦 *Active Plans (${plans?.length || 0}):*\n\n`;
 
     plans?.forEach((plan, index) => {
       const duration = plan.is_lifetime ? 'Lifetime' : `${plan.duration_months} months`;
@@ -799,8 +800,9 @@ export async function handleEducationPackagesManagement(chatId: number, userId: 
       .order('created_at', { ascending: false })
       .limit(10);
 
-    let packageMessage = `🎓 *Education Packages Management*\n\n`;
-    packageMessage += `📚 *Current Packages (${packages?.length || 0}):*\n\n`;
+    let packageMessage = `🎓 *Education Packages Dashboard*\n\n`;
+    packageMessage += `Organize and review learning bundles.\n\n`;
+    packageMessage += `📚 *Active Packages (${packages?.length || 0}):*\n\n`;
 
     packages?.forEach((pkg, index) => {
       const status = pkg.is_active ? '✅' : '❌';
@@ -852,7 +854,8 @@ export async function handlePromotionsManagement(chatId: number, userId: string)
       .select('count', { count: 'exact' })
       .eq('is_active', true);
 
-    let promoMessage = `💰 *Promotions Management*\n\n`;
+    let promoMessage = `🎁 *Promotion Codes Dashboard*\n\n`;
+    promoMessage += `Stay on top of discounts and usage.\n\n`;
     promoMessage += `📊 *Statistics:*\n`;
     promoMessage += `• Active Promotions: ${activeCount.count || 0}\n`;
     promoMessage += `• Total Promotions: ${promos?.length || 0}\n\n`;
