@@ -5242,12 +5242,13 @@ serve(async (req) => {
             await handleViewPromotions(chatId, userId);
             break;
 
-          case 'back_main':
+          case 'back_main': {
             const autoReply = await getAutoReply('auto_reply_welcome', { firstName });
             const mainMessage = autoReply || await getWelcomeMessage(firstName);
             const mainKeyboard = await getMainMenuKeyboard();
             await sendMessage(chatId, mainMessage, mainKeyboard);
             break;
+          }
 
           case 'admin_dashboard':
             console.log(`🔐 Admin dashboard callback from: ${userId}`);
@@ -5363,7 +5364,7 @@ serve(async (req) => {
             await handleBotUsageReport(chatId, userId);
             break;
 
-          case 'report_security':
+            case 'report_security': {
             const securityReport = `🔒 **Security Report**
 
 🛡️ **Real-time Security Stats:**
@@ -5382,8 +5383,9 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
 
 ✅ **Security Status:** All systems protected
 *Last updated: ${new Date().toLocaleString()}*`;
-            await sendMessage(chatId, securityReport);
-            break;
+              await sendMessage(chatId, securityReport);
+              break;
+            }
 
           case 'analytics_dashboard':
             await handleTableStatsOverview(chatId, userId);
@@ -5437,7 +5439,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
             await handlePostTradeResult(chatId, userId);
             break;
 
-          case 'post_winning_trade':
+          case 'post_winning_trade': {
             const winningResult = await postToResultsChannel('winning_trade', {
               pair: 'BTC/USDT',
               entry: '42,500',
@@ -5452,8 +5454,9 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
               await sendMessage(chatId, "❌ Failed to post trade result. Check bot permissions in the channel.");
             }
             break;
+          }
 
-          case 'post_losing_trade':
+          case 'post_losing_trade': {
             const losingResult = await postToResultsChannel('losing_trade', {
               pair: 'ETH/USDT',
               entry: '2,340',
@@ -5468,8 +5471,9 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
               await sendMessage(chatId, "❌ Failed to post trade result. Check bot permissions in the channel.");
             }
             break;
+          }
 
-          case 'post_weekly_summary':
+          case 'post_weekly_summary': {
             const weeklyResult = await postToResultsChannel('weekly_summary', {
               week: 'Week of Jan 1-7, 2025',
               totalTrades: '24',
@@ -5487,8 +5491,9 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
               await sendMessage(chatId, "❌ Failed to post weekly summary. Check bot permissions in the channel.");
             }
             break;
+          }
 
-          case 'post_monthly_report':
+          case 'post_monthly_report': {
             const monthlyResult = await postToResultsChannel('monthly_report', {
               month: 'December 2024',
               totalTrades: '96',
@@ -5507,6 +5512,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
               await sendMessage(chatId, "❌ Failed to post monthly report. Check bot permissions in the channel.");
             }
             break;
+          }
 
           case 'custom_broadcast':
             await handleCustomBroadcast(chatId, userId);
