@@ -33,7 +33,11 @@ serve(async (req) => {
     console.log("Cleared pending updates:", clearUpdatesResult);
 
     // 3. Re-establish the webhook
-    const webhookUrl = `https://qeejuomcapbdlhnjqjcc.supabase.co/functions/v1/telegram-bot`;
+    const projectUrl = Deno.env.get("SUPABASE_URL");
+    if (!projectUrl) {
+      throw new Error("SUPABASE_URL is not set");
+    }
+    const webhookUrl = `${projectUrl}/functions/v1/telegram-bot`;
     const setWebhookResponse = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
       method: 'POST',
       headers: {

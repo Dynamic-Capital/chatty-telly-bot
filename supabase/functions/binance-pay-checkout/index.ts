@@ -10,7 +10,7 @@ const corsHeaders = {
 // Binance Pay API configuration
 const BINANCE_PAY_API_KEY = Deno.env.get('BINANCE_API_KEY')!;
 const BINANCE_PAY_SECRET_KEY = Deno.env.get('BINANCE_SECRET_KEY')!;
-const BINANCE_PAY_MERCHANT_ID = "59586072";
+const BINANCE_PAY_MERCHANT_ID = Deno.env.get('BINANCE_MERCHANT_ID') ?? "";
 const BINANCE_PAY_BASE_URL = "https://bpay.binanceapi.com";
 
 async function generateSignature(timestamp: string, nonce: string, body: string, secretKey: string): Promise<string> {

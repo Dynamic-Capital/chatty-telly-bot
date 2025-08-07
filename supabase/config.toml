@@ -1,4 +1,4 @@
-project_id = "qeejuomcapbdlhnjqjcc"
+project_id = "YOUR_SUPABASE_PROJECT_ID"
 
 [functions.telegram-bot]
 verify_jwt = false
