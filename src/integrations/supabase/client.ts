@@ -2,8 +2,29 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://qeejuomcapbdlhnjqjcc.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlZWp1b21jYXBiZGxobmpxamNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyMDE4MTUsImV4cCI6MjA2OTc3NzgxNX0.GfK9Wwx0WX_GhDIz1sIQzNstyAQIF2Jd6p7t02G44zk";
+const SUPABASE_URL = process.env.SUPABASE_URL ?? "https://qeejuomcapbdlhnjqjcc.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_ANON_KEY ?? "";
+
+const queryCounts: Record<string, number> = {};
+
+const loggingFetch: typeof fetch = async (input, init) => {
+  const start = Date.now();
+  const res = await fetch(input as RequestInfo, init);
+  const end = Date.now();
+  try {
+    const url = typeof input === 'string' ? input : input.url;
+    const path = new URL(url).pathname;
+    queryCounts[path] = (queryCounts[path] || 0) + 1;
+    console.log(`[Supabase] ${path} - ${res.status} - ${end - start}ms`);
+  } catch {
+    // ignore logging errors
+  }
+  return res;
+};
+
+export function getQueryCounts() {
+  return { ...queryCounts };
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -13,5 +34,8 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+  },
+  global: {
+    fetch: loggingFetch,
+  },
 });
