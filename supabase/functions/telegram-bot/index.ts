@@ -1,7 +1,7 @@
 /* eslint-disable no-case-declarations, @typescript-eslint/no-explicit-any */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getFormattedVipPackages } from "./database-utils.ts";
+import { getFormattedVipPackages, getBotContent } from "./database-utils.ts";
 import {
   handleTableManagement,
   handleUserTableManagement,
@@ -286,7 +286,6 @@ function getSecurityResponse(reason: string, blockDuration?: number): string {
 }
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -416,72 +415,7 @@ async function endBotSession(telegramUserId: string): Promise<void> {
 }
 
 // Optimized database utility functions with batching
-async function getBotContentBatch(contentKeys: string[]): Promise<Map<string, string>> {
-  try {
-    console.log(`📄 Fetching batch content: ${contentKeys.join(', ')}`);
-    const { data, error } = await supabaseAdmin
-      .rpc('get_bot_content_batch', { content_keys: contentKeys });
 
-    if (error) {
-      console.error(`❌ Error fetching batch content:`, error);
-      return new Map();
-    }
-
-    const contentMap = new Map<string, string>();
-    data?.forEach((item: any) => {
-      contentMap.set(item.content_key, item.content_value);
-    });
-
-    console.log(`✅ Batch content fetched: ${contentMap.size} items`);
-    return contentMap;
-  } catch (error) {
-    console.error(`🚨 Exception in getBotContentBatch:`, error);
-    return new Map();
-  }
-}
-
-async function getBotSettingsBatch(settingKeys: string[]): Promise<Map<string, string>> {
-  try {
-    console.log(`⚙️ Fetching batch settings: ${settingKeys.join(', ')}`);
-    const { data, error } = await supabaseAdmin
-      .rpc('get_bot_settings_batch', { setting_keys: settingKeys });
-
-    if (error) {
-      console.error(`❌ Error fetching batch settings:`, error);
-      return new Map();
-    }
-
-    const settingsMap = new Map<string, string>();
-    data?.forEach((item: any) => {
-      settingsMap.set(item.setting_key, item.setting_value);
-    });
-
-    console.log(`✅ Batch settings fetched: ${settingsMap.size} items`);
-    return settingsMap;
-  } catch (error) {
-    console.error(`🚨 Exception in getBotSettingsBatch:`, error);
-    return new Map();
-  }
-}
-
-async function getUserCompleteData(telegramUserId: string): Promise<any> {
-  try {
-    console.log(`👤 Fetching complete user data for: ${telegramUserId}`);
-    const { data, error } = await supabaseAdmin
-      .rpc('get_user_complete_data', { telegram_user_id_param: telegramUserId });
-
-    if (error) {
-      console.error(`❌ Error fetching user complete data:`, error);
-      return null;
-    }
-
-    console.log(`✅ Complete user data fetched for: ${telegramUserId}`);
-    return data;
-  } catch (error) {
-    console.error(`🚨 Exception in getUserCompleteData:`, error);
-    return null;
-  }
-}
 
 async function setBotContent(contentKey: string, contentValue: string, adminId: string): Promise<boolean> {
   try {
@@ -496,10 +430,8 @@ async function setBotContent(contentKey: string, contentValue: string, adminId: 
       });
 
     if (!error) {
-      // Invalidate cache for this content key
-      invalidateContentCache(contentKey);
       await logAdminAction(adminId, 'content_update', `Updated content: ${contentKey}`, 'bot_content');
-      console.log(`✅ Content updated and cache invalidated: ${contentKey}`);
+      console.log(`✅ Content updated: ${contentKey}`);
     } else {
       console.error(`❌ Error setting content: ${contentKey}`, error);
     }
@@ -523,10 +455,8 @@ async function setBotSetting(settingKey: string, settingValue: string, adminId: 
       });
 
     if (!error) {
-      // Invalidate cache for this setting key
-      invalidateSettingsCache(settingKey);
       await logAdminAction(adminId, 'setting_update', `Updated setting: ${settingKey}`, 'bot_settings');
-      console.log(`✅ Setting updated and cache invalidated: ${settingKey}`);
+      console.log(`✅ Setting updated: ${settingKey}`);
     } else {
       console.error(`❌ Error setting: ${settingKey}`, error);
     }
@@ -590,109 +520,7 @@ async function handleUnknownCommand(chatId: number, userId: string, command: str
   
   await sendMessage(chatId, message);
   
-// Cache for frequently accessed data to reduce DB calls
-const contentCache = new Map<string, { value: string; expires: number }>();
-const settingsCache = new Map<string, { value: string; expires: number }>();
-const CACHE_TTL = 300000; // 5 minutes cache
 
-// Optimized content retrieval with caching
-async function getBotContent(contentKey: string): Promise<string | null> {
-  console.log(`📄 [getBotContent] Starting fetch for key: ${contentKey}`);
-  const cached = contentCache.get(contentKey);
-  const now = Date.now();
-  
-  if (cached && cached.expires > now) {
-    console.log(`📄 [getBotContent] Cache hit for content: ${contentKey}`);
-    return cached.value;
-  }
-
-  try {
-    console.log(`📄 [getBotContent] Fetching from DB: ${contentKey}`);
-    const { data, error } = await supabaseAdmin
-      .from('bot_content')
-      .select('content_value')
-      .eq('content_key', contentKey)
-      .eq('is_active', true)
-      .single();
-
-    console.log(`📄 [getBotContent] DB query completed for: ${contentKey}, error: ${error ? 'yes' : 'no'}`);
-
-    if (error && error.code !== 'PGRST116') {
-      console.error(`❌ [getBotContent] Error fetching content for ${contentKey}:`, error);
-      return null;
-    }
-
-    const value = data?.content_value || null;
-    console.log(`📄 [getBotContent] Content found for ${contentKey}: ${value ? 'yes' : 'no'}`);
-    if (value) {
-      contentCache.set(contentKey, { value, expires: now + CACHE_TTL });
-      console.log(`📄 [getBotContent] Content cached for ${contentKey}`);
-    }
-
-    console.log(`✅ [getBotContent] Content fetched and cached for ${contentKey}`);
-    return value;
-  } catch (error) {
-    console.error(`🚨 [getBotContent] Exception in getBotContent for ${contentKey}:`, error);
-    return null;
-  }
-}
-
-// Optimized settings retrieval with caching
-async function getBotSetting(settingKey: string): Promise<string | null> {
-  const cached = settingsCache.get(settingKey);
-  const now = Date.now();
-  
-  if (cached && cached.expires > now) {
-    console.log(`⚙️ Cache hit for setting: ${settingKey}`);
-    return cached.value;
-  }
-
-  try {
-    console.log(`⚙️ Fetching setting from DB: ${settingKey}`);
-    const { data, error } = await supabaseAdmin
-      .from('bot_settings')
-      .select('setting_value')
-      .eq('setting_key', settingKey)
-      .eq('is_active', true)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error(`❌ Error fetching setting ${settingKey}:`, error);
-      return null;
-    }
-
-    const value = data?.setting_value || null;
-    if (value) {
-      settingsCache.set(settingKey, { value, expires: now + CACHE_TTL });
-    }
-
-    return value;
-  } catch (error) {
-    console.error(`🚨 Exception fetching setting ${settingKey}:`, error);
-    return null;
-  }
-}
-
-// Cache invalidation functions
-function invalidateContentCache(contentKey?: string): void {
-  if (contentKey) {
-    contentCache.delete(contentKey);
-    console.log(`🗑️ Cache invalidated for content: ${contentKey}`);
-  } else {
-    contentCache.clear();
-    console.log(`🗑️ All content cache cleared`);
-  }
-}
-
-function invalidateSettingsCache(settingKey?: string): void {
-  if (settingKey) {
-    settingsCache.delete(settingKey);
-    console.log(`🗑️ Cache invalidated for setting: ${settingKey}`);
-  } else {
-    settingsCache.clear();
-    console.log(`🗑️ All settings cache cleared`);
-  }
-}
   await supabaseAdmin
     .from('user_interactions')
     .insert({
@@ -830,6 +658,13 @@ async function sendMessage(
   }
 }
 
+async function sendAccessDeniedMessage(chatId: number, details = "") {
+  const baseMessage =
+    (await getBotContent('access_denied_message')) || '❌ Access denied.';
+  const finalMessage = details ? `${baseMessage} ${details}` : baseMessage;
+  await sendMessage(chatId, finalMessage);
+}
+
 // Function to delete a specific message
 async function deleteMessage(chatId: number, messageId: number): Promise<boolean> {
   try {
@@ -932,7 +767,7 @@ async function handleReceiptUpload(message: any, userId: string, firstName: stri
     }
     
     // Save receipt information to media_files table
-    const { data: media, error: mediaError } = await supabaseAdmin
+    const { error: mediaError } = await supabaseAdmin
       .from('media_files')
       .insert({
         telegram_file_id: fileId,
@@ -1185,7 +1020,7 @@ async function getMainMenuKeyboard(): Promise<any> {
 }
 
 // VIP Package Selection Handler
-async function handleVipPackageSelection(chatId: number, userId: string, packageId: string, firstName: string): Promise<void> {
+async function handleVipPackageSelection(chatId: number, userId: string, packageId: string, _firstName: string): Promise<void> {
   try {
     console.log(`💎 User ${userId} selected VIP package: ${packageId}`);
     
@@ -1803,7 +1638,7 @@ Ready to see our track record? 📊`;
 // Admin function to post trade results to channel
 async function handlePostTradeResult(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -2500,7 +2335,7 @@ ${pkg.description || 'Complete course package with expert instruction'}
   // View User Profile Handler
 async function handleViewUserProfile(chatId: number, adminUserId: string, targetUserId: string): Promise<void> {
   if (!isAdmin(adminUserId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -2649,7 +2484,7 @@ async function handleViewUserProfile(chatId: number, adminUserId: string, target
 // View Pending Payments Handler
 async function handleViewPendingPayments(chatId: number, adminUserId: string): Promise<void> {
   if (!isAdmin(adminUserId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -2718,7 +2553,7 @@ async function handleViewPendingPayments(chatId: number, adminUserId: string): P
 // Payment Approval/Rejection Handlers
 async function handleApprovePayment(chatId: number, userId: string, paymentId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -2798,7 +2633,7 @@ User ${subscription.telegram_user_id} has been activated for ${subscription.subs
 
 async function handleRejectPayment(chatId: number, userId: string, paymentId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -2855,7 +2690,7 @@ async function handleAdminDashboard(chatId: number, userId: string): Promise<voi
   
   if (!isAdmin(userId)) {
     console.log(`❌ Access denied for user: ${userId}`);
-    await sendMessage(chatId, "❌ Access denied. Admin privileges required.");
+    await sendAccessDeniedMessage(chatId, 'Admin privileges required.');
     return;
   }
 
@@ -2942,7 +2777,7 @@ async function handleAdminDashboard(chatId: number, userId: string): Promise<voi
 // Session management for admins
 async function handleViewSessions(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3021,7 +2856,7 @@ async function handleViewSessions(chatId: number, userId: string): Promise<void>
 // Bot Control Functions
 async function handleBotControl(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3067,7 +2902,7 @@ async function handleBotControl(chatId: number, userId: string): Promise<void> {
 
 async function handleBotStatus(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3140,7 +2975,7 @@ ${!tgTest.ok ? '❌ Telegram API Error' : ''}`;
 
 async function handleRefreshBot(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3180,7 +3015,7 @@ async function handleRefreshBot(chatId: number, userId: string): Promise<void> {
 // Broadcasting Functions
 async function handleBroadcastMenu(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3227,7 +3062,7 @@ async function handleBroadcastMenu(chatId: number, userId: string): Promise<void
 
 async function handleSendGreeting(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3297,7 +3132,7 @@ ${failCount > 0 ? '⚠️ Check logs for failed channels and verify permissions.
 
 async function handleSendChannelIntro(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3372,7 +3207,7 @@ ${failCount > 0 ? '⚠️ Some messages failed to send. Check bot permissions in
 
 async function handleCustomBroadcast(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3450,7 +3285,7 @@ async function handleNewChatMember(message: any): Promise<void> {
 // Function to handle custom broadcast sending
 async function handleCustomBroadcastSend(chatId: number, userId: string, message: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3515,7 +3350,7 @@ ${failCount > 0 ? '⚠️ Some messages failed. Check bot permissions in those c
 // Additional broadcast helper functions
 async function handleBroadcastHistory(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3553,7 +3388,7 @@ Run the analytics setup command to start tracking broadcast metrics.
 
 async function handleBroadcastSettings(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3598,7 +3433,7 @@ Use the admin settings panel or contact support.
 
 async function handleTestBroadcast(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3624,7 +3459,7 @@ If this works, you can proceed with broadcasting to channels.
 // Admin Settings Handler
 async function handleAdminSettings(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3692,7 +3527,7 @@ async function handleAdminSettings(chatId: number, userId: string): Promise<void
 // Settings Toggle Handlers
 async function handleToggleAutoDelete(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3722,7 +3557,7 @@ Settings updated successfully!`;
 
 async function handleToggleAutoIntro(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3752,7 +3587,7 @@ Settings updated successfully!`;
 
 async function handleToggleMaintenance(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3782,7 +3617,7 @@ Settings updated successfully!`;
 
 async function handleViewAllSettings(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3847,7 +3682,7 @@ async function getBroadcastChannels(): Promise<string[]> {
 // Analytics and Reports Functions
 async function handleAnalyticsMenu(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3900,7 +3735,7 @@ Choose a report type to generate:`;
 
 async function handleUserAnalyticsReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3994,7 +3829,7 @@ async function handleUserAnalyticsReport(chatId: number, userId: string, timeRan
 
 async function handlePaymentReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4074,7 +3909,7 @@ async function handlePaymentReport(chatId: number, userId: string, timeRange: st
 
 async function handlePackageReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4205,7 +4040,7 @@ Generated: ${new Date().toLocaleString()}`;
 
 async function handlePromotionReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4332,7 +4167,7 @@ Generated: ${new Date().toLocaleString()}`;
 
   async function handleBotUsageReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4412,7 +4247,7 @@ Generated: ${new Date().toLocaleString()}`;
 // Additional table management handlers
 async function handlePaymentsTableManagement(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4482,7 +4317,7 @@ async function handlePaymentsTableManagement(chatId: number, userId: string): Pr
 
 async function handleBroadcastTableManagement(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4539,7 +4374,7 @@ async function handleBroadcastTableManagement(chatId: number, userId: string): P
 
 async function handleBankAccountsTableManagement(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4586,7 +4421,7 @@ async function handleBankAccountsTableManagement(chatId: number, userId: string)
 
 async function handleAutoReplyTableManagement(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4632,7 +4467,7 @@ async function handleAutoReplyTableManagement(chatId: number, userId: string): P
 
 async function handleEducationPackageStats(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4685,7 +4520,7 @@ async function handleEducationPackageStats(chatId: number, userId: string): Prom
 
 async function handleEducationCategoriesManagement(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4730,7 +4565,7 @@ async function handleEducationCategoriesManagement(chatId: number, userId: strin
 
   async function handleEducationEnrollmentsView(chatId: number, userId: string): Promise<void> {
     if (!isAdmin(userId)) {
-      await sendMessage(chatId, "❌ Access denied.");
+      await sendAccessDeniedMessage(chatId);
       return;
     }
 
@@ -4739,7 +4574,7 @@ async function handleEducationCategoriesManagement(chatId: number, userId: strin
 
   async function handleCreatePromotion(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4786,7 +4621,7 @@ Please contact the developer to add new promotions with the above details, as th
 
 async function handleEditContent(chatId: number, userId: string, contentKey: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4825,7 +4660,7 @@ async function handleContentEditSave(
   contentKey: string
 ): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4839,7 +4674,7 @@ async function handleContentEditSave(
 
 async function handlePreviewAllContent(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4936,7 +4771,7 @@ async function handlePreviewAllContent(chatId: number, userId: string): Promise<
 
   async function handleQuickAnalytics(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -5291,7 +5126,7 @@ serve(async (req) => {
         if (isAdmin(userId)) {
           await handleAdminDashboard(chatId, userId);
         } else {
-          await sendMessage(chatId, "❌ Access denied. Admin privileges required.\n\n🔑 Your ID: `" + userId + "`\n🛟 Contact support if you should have admin access.");
+          await sendAccessDeniedMessage(chatId, `Admin privileges required.\n\n🔑 Your ID: \`${userId}\`\n🛟 Contact support if you should have admin access.`);
         }
         return new Response("OK", { status: 200 });
       }
@@ -5934,7 +5769,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
               console.log(`🔧 Admin ${userId} editing plan: ${planId}`);
               
               if (!isAdmin(userId)) {
-                await sendMessage(chatId, "❌ Access denied.");
+                await sendAccessDeniedMessage(chatId);
                 return;
               }
               

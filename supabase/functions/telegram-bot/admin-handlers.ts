@@ -45,6 +45,28 @@ export async function sendMessage(
   }
 }
 
+interface MessageSection {
+  title: string;
+  items: string[];
+  numbered?: boolean;
+}
+
+function buildMessage(title: string, sections: MessageSection[]): string {
+  const lines: string[] = [title];
+  for (const section of sections) {
+    lines.push("", section.title);
+    section.items.forEach((item, index) => {
+      const itemLines = item.split("\n");
+      const prefix = section.numbered ? `${index + 1}. ` : "• ";
+      lines.push(prefix + itemLines[0]);
+      for (let i = 1; i < itemLines.length; i++) {
+        lines.push(`   ${itemLines[i]}`);
+      }
+    });
+  }
+  return lines.join("\n");
+}
+
 // Enhanced table management handlers
 export async function handleTableManagement(chatId: number, userId: string): Promise<void> {
   const defaultTableMessage = `🗃️ *Database Table Management*
@@ -136,18 +158,24 @@ export async function handleUserTableManagement(chatId: number, userId: string):
       .select('count', { count: 'exact' })
       .eq('is_vip', true);
 
-    let userMessage = `👥 *Bot Users Management*\n\n`;
-    userMessage += `📊 *Statistics:*\n`;
-    userMessage += `• Total Users: ${totalCount.count || 0}\n`;
-    userMessage += `• Admin Users: ${adminCount.count || 0}\n`;
-    userMessage += `• VIP Users: ${vipCount.count || 0}\n\n`;
-
-    userMessage += `👤 *Recent Users (Last 10):*\n`;
-    users?.forEach((user, index) => {
-      const status = user.is_admin ? '🔑' : user.is_vip ? '💎' : '👤';
-      userMessage += `${index + 1}. ${status} ${user.first_name || 'Unknown'} (@${user.username || 'N/A'})\n`;
-      userMessage += `   ID: ${user.telegram_id} | Joined: ${new Date(user.created_at).toLocaleDateString()}\n`;
-    });
+    const userMessage = buildMessage('👥 *Bot Users Management*', [
+      {
+        title: '📊 *Statistics:*',
+        items: [
+          `Total Users: ${totalCount.count || 0}`,
+          `Admin Users: ${adminCount.count || 0}`,
+          `VIP Users: ${vipCount.count || 0}`
+        ]
+      },
+      {
+        title: '👤 *Recent Users (Last 10):*',
+        items: users?.map((user) => {
+          const status = user.is_admin ? '🔑' : user.is_vip ? '💎' : '👤';
+          return `${status} ${user.first_name || 'Unknown'} (@${user.username || 'N/A'})\nID: ${user.telegram_id} | Joined: ${new Date(user.created_at).toLocaleDateString()}`;
+        }) || [],
+        numbered: true
+      }
+    ]);
 
     const userKeyboard = {
       inline_keyboard: [
@@ -186,16 +214,16 @@ export async function handleSubscriptionPlansManagement(chatId: number, userId: 
       return;
     }
 
-    let planMessage = `💎 *VIP Subscription Plans Management*\n\n`;
-    planMessage += `📦 *Current Plans (${plans?.length || 0}):*\n\n`;
-
-    plans?.forEach((plan, index) => {
-      const duration = plan.is_lifetime ? 'Lifetime' : `${plan.duration_months} months`;
-      planMessage += `${index + 1}. **${plan.name}**\n`;
-      planMessage += `   💰 ${plan.currency} ${plan.price} (${duration})\n`;
-      planMessage += `   ✨ Features: ${plan.features?.length || 0} items\n`;
-      planMessage += `   ID: \`${plan.id}\`\n\n`;
-    });
+    const planMessage = buildMessage('💎 *VIP Subscription Plans Management*', [
+      {
+        title: `📦 *Current Plans (${plans?.length || 0}):*`,
+        items: plans?.map((plan) => {
+          const duration = plan.is_lifetime ? 'Lifetime' : `${plan.duration_months} months`;
+          return `**${plan.name}**\n💰 ${plan.currency} ${plan.price} (${duration})\n✨ Features: ${plan.features?.length || 0} items\nID: \`${plan.id}\``;
+        }) || [],
+        numbered: true
+      }
+    ]);
 
     const planKeyboard = {
       inline_keyboard: [
