@@ -5904,8 +5904,14 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
             } else if (callbackData.startsWith('message_user_')) {
               const targetUserId = callbackData.replace('message_user_', '');
               await sendMessage(chatId, `📧 Direct messaging to user ${targetUserId}. Feature coming soon!`);
-            } else if (callbackData.startsWith('edit_plan_')) {
-              const planId = callbackData.replace('edit_plan_', '');
+            } else if (
+              callbackData.startsWith('edit_plan_') ||
+              callbackData.startsWith('editplan')
+            ) {
+              // Support both current `edit_plan_` prefix and legacy `editplan` format
+              const planId = callbackData
+                .replace('edit_plan_', '')
+                .replace('editplan', '');
               console.log(`🔧 Admin ${userId} editing plan: ${planId}`);
               
               if (!isAdmin(userId)) {
