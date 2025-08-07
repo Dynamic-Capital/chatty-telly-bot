@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { BotSettings } from '@/components/admin/BotSettings';
 import { BotDebugger } from '@/components/admin/BotDebugger';
 import { ContactInfo } from '@/components/admin/ContactInfo';
+import { WelcomeMessageEditor } from '@/components/admin/WelcomeMessageEditor';
 import { 
   Users, 
   CreditCard, 
@@ -311,6 +312,7 @@ export const AdminDashboard = () => {
       <Tabs defaultValue="bot-debug" className="space-y-4">
         <TabsList>
           <TabsTrigger value="bot-debug">🔧 Bot Debug</TabsTrigger>
+          <TabsTrigger value="welcome-editor">💬 Welcome Message</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="settings">Bot Settings</TabsTrigger>
@@ -321,6 +323,10 @@ export const AdminDashboard = () => {
 
         <TabsContent value="bot-debug" className="space-y-4">
           <BotDebugger />
+        </TabsContent>
+
+        <TabsContent value="welcome-editor" className="space-y-4">
+          <WelcomeMessageEditor />
         </TabsContent>
 
         <TabsContent value="users" className="space-y-4">
