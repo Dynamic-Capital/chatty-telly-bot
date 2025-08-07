@@ -81,51 +81,57 @@ export const AdminDashboard = () => {
       
       // Fetch stats
       const [usersResponse, paymentsResponse, subscriptionsResponse, enrollmentsResponse] = await Promise.all([
-        supabase.from('bot_users').select('*', { count: 'exact' }),
-        supabase.from('payments').select('*', { count: 'exact' }),
-        supabase.from('user_subscriptions').select('*').eq('is_active', true),
-        supabase.from('education_enrollments').select('*', { count: 'exact' })
+        supabase.from('bot_users').select('id', { count: 'exact', head: true }),
+        supabase.from('payments').select('id', { count: 'exact', head: true }),
+        supabase.from('user_subscriptions').select('id', { count: 'exact', head: true }).eq('is_active', true),
+        supabase.from('education_enrollments').select('id', { count: 'exact', head: true })
       ]);
 
+      if (usersResponse.error) throw usersResponse.error;
+      if (paymentsResponse.error) throw paymentsResponse.error;
+      if (subscriptionsResponse.error) throw subscriptionsResponse.error;
+      if (enrollmentsResponse.error) throw enrollmentsResponse.error;
+
       // Calculate revenue
-      const { data: paymentsData } = await supabase
+      const { data: paymentsData, error: paymentsDataError } = await supabase
         .from('payments')
         .select('amount')
         .eq('status', 'completed');
-      
+
+      if (paymentsDataError) throw paymentsDataError;
       const totalRevenue = paymentsData?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0;
 
       // Get today's users
       const today = new Date().toISOString().split('T')[0];
-      const { data: todayUsersData } = await supabase
+      const { count: todayUsersCount, error: todayUsersError } = await supabase
         .from('bot_users')
-        .select('*', { count: 'exact' })
+        .select('id', { count: 'exact', head: true })
         .gte('created_at', today);
+      if (todayUsersError) throw todayUsersError;
 
       setStats({
         totalUsers: usersResponse.count || 0,
         totalPayments: paymentsResponse.count || 0,
-        activeSubscriptions: subscriptionsResponse.data?.length || 0,
+        activeSubscriptions: subscriptionsResponse.count || 0,
         totalEnrollments: enrollmentsResponse.count || 0,
         totalRevenue,
-        todayUsers: todayUsersData?.length || 0
+        todayUsers: todayUsersCount || 0
       });
 
       // Fetch detailed data
-      const { data: usersData } = await supabase
+      const { data: usersData, error: usersDataError } = await supabase
         .from('bot_users')
-        .select('*')
+        .select('id, telegram_id, first_name, last_name, username, is_vip, created_at, subscription_expires_at')
         .order('created_at', { ascending: false })
         .limit(50);
+      if (usersDataError) throw usersDataError;
 
-      const { data: paymentsData2 } = await supabase
+      const { data: paymentsData2, error: paymentsData2Error } = await supabase
         .from('payments')
-        .select(`
-          *,
-          subscription_plans (name)
-        `)
+        .select('id, amount, currency, status, payment_method, created_at, subscription_plans(name)')
         .order('created_at', { ascending: false })
         .limit(50);
+      if (paymentsData2Error) throw paymentsData2Error;
 
       setUsers(usersData || []);
       setPayments(paymentsData2 || []);

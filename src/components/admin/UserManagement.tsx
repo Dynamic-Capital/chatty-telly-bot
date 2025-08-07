@@ -87,10 +87,17 @@ export function UserManagement() {
     try {
       setLoading(true);
       const [usersResponse, packagesResponse, paymentsResponse] = await Promise.all([
-        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-        supabase.from('subscription_plans').select('*').order('name'),
-        supabase.from('user_subscriptions')
-          .select('*, subscription_plans(*)')
+        supabase
+          .from('profiles')
+          .select('id, telegram_id, username, first_name, last_name, display_name, email, role, is_active, created_at')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('subscription_plans')
+          .select('id, name, price, duration_months, features')
+          .order('name'),
+        supabase
+          .from('user_subscriptions')
+          .select('id, telegram_user_id, payment_method, created_at, receipt_telegram_file_id, subscription_plans(name, price)')
           .eq('payment_status', 'pending')
           .not('receipt_telegram_file_id', 'is', null)
           .order('created_at', { ascending: false })
@@ -98,20 +105,21 @@ export function UserManagement() {
 
       if (usersResponse.error) throw usersResponse.error;
       if (packagesResponse.error) throw packagesResponse.error;
+      if (paymentsResponse.error) throw paymentsResponse.error;
 
       setUsers(usersResponse.data || []);
       setPackages(packagesResponse.data || []);
       setPendingPayments(paymentsResponse.data || []);
-      
+
       // Load assignments separately to handle the complex join
       const assignmentsResponse = await supabase
         .from('user_package_assignments')
-        .select('*')
+        .select('id, user_id, package_id, assigned_at, expires_at, is_active, telegram_added, telegram_channels, notes')
         .eq('is_active', true)
         .order('assigned_at', { ascending: false });
-        
+
       if (!assignmentsResponse.error) {
-        setAssignments(assignmentsResponse.data as any || []);
+        setAssignments((assignmentsResponse.data as any) || []);
       }
     } catch (error) {
       console.error('Error loading data:', error);
