@@ -608,9 +608,19 @@ async function handleUnknownCommand(chatId: number, userId: string, command: str
   
   const autoReply = await getAutoReply('auto_reply_unknown');
   const message = autoReply || `🤔 I didn't understand "${command}". Try /start for the main menu!`;
-  
+
   await sendMessage(chatId, message);
-  
+
+  await supabaseAdmin
+    .from('user_interactions')
+    .insert({
+      telegram_user_id: userId,
+      interaction_type: 'unknown_command',
+      interaction_data: { command, timestamp: new Date().toISOString() }
+    });
+
+}
+
 // Cache for frequently accessed data to reduce DB calls
 const contentCache = new Map<string, { value: string; expires: number }>();
 const settingsCache = new Map<string, { value: string; expires: number }>();
@@ -713,14 +723,6 @@ function invalidateSettingsCache(settingKey?: string): void {
     settingsCache.clear();
     console.log(`🗑️ All settings cache cleared`);
   }
-}
-  await supabaseAdmin
-    .from('user_interactions')
-    .insert({
-      telegram_user_id: userId,
-      interaction_type: 'unknown_command',
-      interaction_data: { command, timestamp: new Date().toISOString() }
-    });
 }
 
 async function handleHelpCommand(chatId: number, userId: string, firstName: string): Promise<void> {
