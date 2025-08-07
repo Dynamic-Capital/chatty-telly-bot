@@ -1,7 +1,7 @@
 /* eslint-disable no-case-declarations, @typescript-eslint/no-explicit-any */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getFormattedVipPackages } from "./database-utils.ts";
+import { getFormattedVipPackages, getBotContent } from "./database-utils.ts";
 import {
   handleTableManagement,
   handleUserTableManagement,
@@ -828,6 +828,13 @@ async function sendMessage(
     console.error("🚨 Error sending message:", error);
     return null;
   }
+}
+
+async function sendAccessDeniedMessage(chatId: number, details = "") {
+  const baseMessage =
+    (await getBotContent('access_denied_message')) || '❌ Access denied.';
+  const finalMessage = details ? `${baseMessage} ${details}` : baseMessage;
+  await sendMessage(chatId, finalMessage);
 }
 
 // Function to delete a specific message
@@ -1803,7 +1810,7 @@ Ready to see our track record? 📊`;
 // Admin function to post trade results to channel
 async function handlePostTradeResult(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -2500,7 +2507,7 @@ ${pkg.description || 'Complete course package with expert instruction'}
   // View User Profile Handler
 async function handleViewUserProfile(chatId: number, adminUserId: string, targetUserId: string): Promise<void> {
   if (!isAdmin(adminUserId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -2649,7 +2656,7 @@ async function handleViewUserProfile(chatId: number, adminUserId: string, target
 // View Pending Payments Handler
 async function handleViewPendingPayments(chatId: number, adminUserId: string): Promise<void> {
   if (!isAdmin(adminUserId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -2718,7 +2725,7 @@ async function handleViewPendingPayments(chatId: number, adminUserId: string): P
 // Payment Approval/Rejection Handlers
 async function handleApprovePayment(chatId: number, userId: string, paymentId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -2798,7 +2805,7 @@ User ${subscription.telegram_user_id} has been activated for ${subscription.subs
 
 async function handleRejectPayment(chatId: number, userId: string, paymentId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -2855,7 +2862,7 @@ async function handleAdminDashboard(chatId: number, userId: string): Promise<voi
   
   if (!isAdmin(userId)) {
     console.log(`❌ Access denied for user: ${userId}`);
-    await sendMessage(chatId, "❌ Access denied. Admin privileges required.");
+    await sendAccessDeniedMessage(chatId, 'Admin privileges required.');
     return;
   }
 
@@ -2942,7 +2949,7 @@ async function handleAdminDashboard(chatId: number, userId: string): Promise<voi
 // Session management for admins
 async function handleViewSessions(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3021,7 +3028,7 @@ async function handleViewSessions(chatId: number, userId: string): Promise<void>
 // Bot Control Functions
 async function handleBotControl(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3067,7 +3074,7 @@ async function handleBotControl(chatId: number, userId: string): Promise<void> {
 
 async function handleBotStatus(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3140,7 +3147,7 @@ ${!tgTest.ok ? '❌ Telegram API Error' : ''}`;
 
 async function handleRefreshBot(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3180,7 +3187,7 @@ async function handleRefreshBot(chatId: number, userId: string): Promise<void> {
 // Broadcasting Functions
 async function handleBroadcastMenu(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3227,7 +3234,7 @@ async function handleBroadcastMenu(chatId: number, userId: string): Promise<void
 
 async function handleSendGreeting(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3297,7 +3304,7 @@ ${failCount > 0 ? '⚠️ Check logs for failed channels and verify permissions.
 
 async function handleSendChannelIntro(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3372,7 +3379,7 @@ ${failCount > 0 ? '⚠️ Some messages failed to send. Check bot permissions in
 
 async function handleCustomBroadcast(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3450,7 +3457,7 @@ async function handleNewChatMember(message: any): Promise<void> {
 // Function to handle custom broadcast sending
 async function handleCustomBroadcastSend(chatId: number, userId: string, message: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3515,7 +3522,7 @@ ${failCount > 0 ? '⚠️ Some messages failed. Check bot permissions in those c
 // Additional broadcast helper functions
 async function handleBroadcastHistory(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3553,7 +3560,7 @@ Run the analytics setup command to start tracking broadcast metrics.
 
 async function handleBroadcastSettings(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3598,7 +3605,7 @@ Use the admin settings panel or contact support.
 
 async function handleTestBroadcast(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3624,7 +3631,7 @@ If this works, you can proceed with broadcasting to channels.
 // Admin Settings Handler
 async function handleAdminSettings(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3692,7 +3699,7 @@ async function handleAdminSettings(chatId: number, userId: string): Promise<void
 // Settings Toggle Handlers
 async function handleToggleAutoDelete(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3722,7 +3729,7 @@ Settings updated successfully!`;
 
 async function handleToggleAutoIntro(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3752,7 +3759,7 @@ Settings updated successfully!`;
 
 async function handleToggleMaintenance(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3782,7 +3789,7 @@ Settings updated successfully!`;
 
 async function handleViewAllSettings(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3847,7 +3854,7 @@ async function getBroadcastChannels(): Promise<string[]> {
 // Analytics and Reports Functions
 async function handleAnalyticsMenu(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3900,7 +3907,7 @@ Choose a report type to generate:`;
 
 async function handleUserAnalyticsReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -3994,7 +4001,7 @@ async function handleUserAnalyticsReport(chatId: number, userId: string, timeRan
 
 async function handlePaymentReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4074,7 +4081,7 @@ async function handlePaymentReport(chatId: number, userId: string, timeRange: st
 
 async function handlePackageReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4205,7 +4212,7 @@ Generated: ${new Date().toLocaleString()}`;
 
 async function handlePromotionReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4332,7 +4339,7 @@ Generated: ${new Date().toLocaleString()}`;
 
   async function handleBotUsageReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4412,7 +4419,7 @@ Generated: ${new Date().toLocaleString()}`;
 // Additional table management handlers
 async function handlePaymentsTableManagement(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4482,7 +4489,7 @@ async function handlePaymentsTableManagement(chatId: number, userId: string): Pr
 
 async function handleBroadcastTableManagement(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4539,7 +4546,7 @@ async function handleBroadcastTableManagement(chatId: number, userId: string): P
 
 async function handleBankAccountsTableManagement(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4586,7 +4593,7 @@ async function handleBankAccountsTableManagement(chatId: number, userId: string)
 
 async function handleAutoReplyTableManagement(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4632,7 +4639,7 @@ async function handleAutoReplyTableManagement(chatId: number, userId: string): P
 
 async function handleEducationPackageStats(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4685,7 +4692,7 @@ async function handleEducationPackageStats(chatId: number, userId: string): Prom
 
 async function handleEducationCategoriesManagement(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4730,7 +4737,7 @@ async function handleEducationCategoriesManagement(chatId: number, userId: strin
 
   async function handleEducationEnrollmentsView(chatId: number, userId: string): Promise<void> {
     if (!isAdmin(userId)) {
-      await sendMessage(chatId, "❌ Access denied.");
+      await sendAccessDeniedMessage(chatId);
       return;
     }
 
@@ -4739,7 +4746,7 @@ async function handleEducationCategoriesManagement(chatId: number, userId: strin
 
   async function handleCreatePromotion(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4786,7 +4793,7 @@ Please contact the developer to add new promotions with the above details, as th
 
 async function handleEditContent(chatId: number, userId: string, contentKey: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4825,7 +4832,7 @@ async function handleContentEditSave(
   contentKey: string
 ): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4839,7 +4846,7 @@ async function handleContentEditSave(
 
 async function handlePreviewAllContent(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -4936,7 +4943,7 @@ async function handlePreviewAllContent(chatId: number, userId: string): Promise<
 
   async function handleQuickAnalytics(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
+    await sendAccessDeniedMessage(chatId);
     return;
   }
 
@@ -5291,7 +5298,7 @@ serve(async (req) => {
         if (isAdmin(userId)) {
           await handleAdminDashboard(chatId, userId);
         } else {
-          await sendMessage(chatId, "❌ Access denied. Admin privileges required.\n\n🔑 Your ID: `" + userId + "`\n🛟 Contact support if you should have admin access.");
+          await sendAccessDeniedMessage(chatId, `Admin privileges required.\n\n🔑 Your ID: \`${userId}\`\n🛟 Contact support if you should have admin access.`);
         }
         return new Response("OK", { status: 200 });
       }
@@ -5934,7 +5941,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
               console.log(`🔧 Admin ${userId} editing plan: ${planId}`);
               
               if (!isAdmin(userId)) {
-                await sendMessage(chatId, "❌ Access denied.");
+                await sendAccessDeniedMessage(chatId);
                 return;
               }
               
