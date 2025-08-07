@@ -48,6 +48,17 @@ export const SystemStatus = () => {
   const supabasePublic = supabase.schema('public');
   const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+  const supabaseProjectId =
+    supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] ?? '';
+  const openSupabase = (path: string) => {
+    if (!supabaseProjectId) return;
+    window.open(
+      `https://supabase.com/dashboard/project/${supabaseProjectId}${path}`,
+      '_blank'
+    );
+  };
+
   const edgeFunctions = [
     'telegram-bot',
     'test-bot-status',
@@ -536,26 +547,26 @@ export const SystemStatus = () => {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => window.open('https://supabase.com/dashboard/project/qeejuomcapbdlhnjqjcc', '_blank')}
+                  onClick={() => openSupabase('')}
                 >
                   <Server className="h-4 w-4 mr-2" />
                   Supabase Dashboard
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => window.open('https://supabase.com/dashboard/project/qeejuomcapbdlhnjqjcc/functions', '_blank')}
+                  onClick={() => openSupabase('/functions')}
                 >
                   <Code className="h-4 w-4 mr-2" />
                   Functions Console
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => window.open('https://supabase.com/dashboard/project/qeejuomcapbdlhnjqjcc/editor', '_blank')}
+                  onClick={() => openSupabase('/editor')}
                 >
                   <Database className="h-4 w-4 mr-2" />
                   Database Editor

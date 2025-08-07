@@ -1,4 +1,4 @@
-project_id = "qeejuomcapbdlhnjqjcc"
+project_id = "your-project-ref"
 
 [functions.telegram-bot]
 verify_jwt = false
