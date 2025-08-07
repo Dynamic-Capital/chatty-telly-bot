@@ -47,11 +47,12 @@ export async function sendMessage(
 
 // Enhanced table management handlers
 export async function handleTableManagement(chatId: number, userId: string): Promise<void> {
-  const tableMessage = `🗃️ *Database Table Management*
+const tableMessage = `🗃️ *Database Table Management*
 
 📊 *Available Tables:*
 • 👥 **Bot Users** - User management & admin status
 • 💎 **Subscription Plans** - VIP packages & pricing
+• 📢 **Plan Channels** - Channel & group links per plan
 • 🎓 **Education Packages** - Courses & learning content
 • 💰 **Promotions** - Discount codes & campaigns
 • 📱 **Bot Content** - Messages & UI text
@@ -74,27 +75,30 @@ View, Create, Edit, Delete, Export data for any table.`;
         { text: "💎 VIP Plans", callback_data: "manage_table_subscription_plans" }
       ],
       [
-        { text: "🎓 Education", callback_data: "manage_table_education_packages" },
-        { text: "💰 Promotions", callback_data: "manage_table_promotions" }
+        { text: "📢 Plan Channels", callback_data: "manage_table_plan_channels" },
+        { text: "🎓 Education", callback_data: "manage_table_education_packages" }
       ],
       [
-        { text: "📱 Content", callback_data: "manage_table_bot_content" },
-        { text: "⚙️ Settings", callback_data: "manage_table_bot_settings" }
+        { text: "💰 Promotions", callback_data: "manage_table_promotions" },
+        { text: "📱 Content", callback_data: "manage_table_bot_content" }
       ],
       [
-        { text: "📈 Analytics", callback_data: "manage_table_daily_analytics" },
-        { text: "💬 Sessions", callback_data: "manage_table_user_sessions" }
+        { text: "⚙️ Settings", callback_data: "manage_table_bot_settings" },
+        { text: "📈 Analytics", callback_data: "manage_table_daily_analytics" }
       ],
       [
-        { text: "💳 Payments", callback_data: "manage_table_payments" },
-        { text: "📢 Broadcasts", callback_data: "manage_table_broadcast_messages" }
+        { text: "💬 Sessions", callback_data: "manage_table_user_sessions" },
+        { text: "💳 Payments", callback_data: "manage_table_payments" }
       ],
       [
-        { text: "🏦 Bank Accounts", callback_data: "manage_table_bank_accounts" },
-        { text: "📝 Templates", callback_data: "manage_table_auto_reply_templates" }
+        { text: "📢 Broadcasts", callback_data: "manage_table_broadcast_messages" },
+        { text: "🏦 Bank Accounts", callback_data: "manage_table_bank_accounts" }
       ],
       [
-        { text: "📊 Quick Stats", callback_data: "table_stats_overview" },
+        { text: "📝 Templates", callback_data: "manage_table_auto_reply_templates" },
+        { text: "📊 Quick Stats", callback_data: "table_stats_overview" }
+      ],
+      [
         { text: "💾 Export All", callback_data: "export_all_tables" }
       ],
       [
@@ -215,6 +219,43 @@ export async function handleSubscriptionPlansManagement(chatId: number, userId: 
   } catch (error) {
     console.error('Error in subscription plans management:', error);
     await sendMessage(chatId, "❌ Error fetching subscription plans. Please try again.");
+  }
+}
+
+export async function handlePlanChannelsManagement(chatId: number, userId: string): Promise<void> {
+  try {
+    const { data: channels, error } = await supabaseAdmin
+      .from('plan_channels')
+      .select('channel_name, channel_type, invite_link, is_active, plan_id')
+      .order('channel_name');
+
+    if (error) {
+      console.error('Error fetching plan channels:', error);
+      await sendMessage(chatId, '❌ Error fetching plan channels. Please try again.');
+      return;
+    }
+
+    let msg = `📢 *Plan Channels Management*\n\n`;
+    channels?.forEach((channel, index) => {
+      msg += `${index + 1}. ${channel.channel_name} (${channel.channel_type})\n`;
+      msg += `   🔗 ${channel.invite_link}\n`;
+      msg += `   Plan: \`${channel.plan_id}\`\n`;
+      msg += `   Status: ${channel.is_active ? '✅ Active' : '⛔ Inactive'}\n\n`;
+    });
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: '🔄 Refresh', callback_data: 'manage_table_plan_channels' },
+          { text: '🔙 Back', callback_data: 'manage_tables' }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, msg, keyboard);
+  } catch (error) {
+    console.error('Error in plan channels management:', error);
+    await sendMessage(chatId, '❌ Error fetching plan channels. Please try again.');
   }
 }
 

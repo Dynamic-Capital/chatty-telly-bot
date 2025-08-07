@@ -1,12 +1,14 @@
 /**
  * Telegram Bot TypeScript Definitions
- * 
+ *
  * Comprehensive type definitions for the Dynamic Capital VIP Bot
  * Compatible with AI code generation tools (Codex, ChatGPT, Bolt)
- * 
+ *
  * @author Dynamic Capital Team
  * @version 1.0.0
  */
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 // ============================================
 // Core Bot Interfaces
@@ -70,6 +72,18 @@ export interface BotSettings {
 // ============================================
 // Subscription & Payment Interfaces
 // ============================================
+
+export interface PlanChannel {
+  id: string;
+  plan_id: string;
+  channel_name: string;
+  channel_type: 'channel' | 'group';
+  invite_link: string;
+  chat_id?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface SubscriptionPlan {
   id: string;

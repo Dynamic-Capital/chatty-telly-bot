@@ -843,16 +843,60 @@ export type Database = {
             foreignKeyName: "payments_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "bot_users"
-            referencedColumns: ["id"]
-          },
-        ]
+          referencedRelation: "bot_users"
+          referencedColumns: ["id"]
+        },
+      ]
+    }
+    plan_channels: {
+      Row: {
+        id: string
+        plan_id: string
+        channel_name: string
+        channel_type: string
+        invite_link: string
+        chat_id: string | null
+        is_active: boolean | null
+        created_at: string | null
+        updated_at: string | null
       }
-      profiles: {
-        Row: {
-          avatar_url: string | null
-          created_at: string | null
-          display_name: string | null
+      Insert: {
+        id?: string
+        plan_id: string
+        channel_name: string
+        channel_type?: string
+        invite_link: string
+        chat_id?: string | null
+        is_active?: boolean | null
+        created_at?: string | null
+        updated_at?: string | null
+      }
+      Update: {
+        id?: string
+        plan_id?: string
+        channel_name?: string
+        channel_type?: string
+        invite_link?: string
+        chat_id?: string | null
+        is_active?: boolean | null
+        created_at?: string | null
+        updated_at?: string | null
+      }
+      Relationships: [
+        {
+          foreignKeyName: "plan_channels_plan_id_fkey"
+          columns: ["plan_id"]
+          isOneToOne: false
+          referencedRelation: "subscription_plans"
+          referencedColumns: ["id"]
+        },
+      ]
+    }
+    profiles: {
+      Row: {
+        avatar_url: string | null
+        created_at: string | null
+        display_name: string | null
           email: string | null
           first_name: string | null
           id: string
