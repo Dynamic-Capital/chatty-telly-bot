@@ -195,9 +195,10 @@ serve(async (req) => {
               })
             });
 
-            // Record channel membership entries
-            await supabase.from('channel_memberships').insert(
-              channels.map((c: any) => ({
+            // Record channel membership entries when chat IDs are available
+            const memberships = channels
+              .filter((c: any) => c.chat_id)
+              .map((c: any) => ({
                 channel_id: c.chat_id,
                 channel_name: c.channel_name,
                 package_id: payment.plan_id,
@@ -206,8 +207,11 @@ serve(async (req) => {
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
                 added_at: new Date().toISOString()
-              }))
-            );
+              }));
+
+            if (memberships.length > 0) {
+              await supabase.from('channel_memberships').insert(memberships);
+            }
           }
 
         } catch (error) {
