@@ -1,7 +1,7 @@
 /* eslint-disable no-case-declarations, @typescript-eslint/no-explicit-any */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getFormattedVipPackages } from "./database-utils.ts";
+import { getFormattedVipPackages, formatContent } from "./database-utils.ts";
 import {
   handleTableManagement,
   handleUserTableManagement,
@@ -415,31 +415,6 @@ async function endBotSession(telegramUserId: string): Promise<void> {
   }
 }
 
-// Optimized database utility functions with batching
-async function getBotContentBatch(contentKeys: string[]): Promise<Map<string, string>> {
-  try {
-    console.log(`📄 Fetching batch content: ${contentKeys.join(', ')}`);
-    const { data, error } = await supabaseAdmin
-      .rpc('get_bot_content_batch', { content_keys: contentKeys });
-
-    if (error) {
-      console.error(`❌ Error fetching batch content:`, error);
-      return new Map();
-    }
-
-    const contentMap = new Map<string, string>();
-    data?.forEach((item: any) => {
-      contentMap.set(item.content_key, item.content_value);
-    });
-
-    console.log(`✅ Batch content fetched: ${contentMap.size} items`);
-    return contentMap;
-  } catch (error) {
-    console.error(`🚨 Exception in getBotContentBatch:`, error);
-    return new Map();
-  }
-}
-
 async function getBotSettingsBatch(settingKeys: string[]): Promise<Map<string, string>> {
   try {
     console.log(`⚙️ Fetching batch settings: ${settingKeys.join(', ')}`);
@@ -461,25 +436,6 @@ async function getBotSettingsBatch(settingKeys: string[]): Promise<Map<string, s
   } catch (error) {
     console.error(`🚨 Exception in getBotSettingsBatch:`, error);
     return new Map();
-  }
-}
-
-async function getUserCompleteData(telegramUserId: string): Promise<any> {
-  try {
-    console.log(`👤 Fetching complete user data for: ${telegramUserId}`);
-    const { data, error } = await supabaseAdmin
-      .rpc('get_user_complete_data', { telegram_user_id_param: telegramUserId });
-
-    if (error) {
-      console.error(`❌ Error fetching user complete data:`, error);
-      return null;
-    }
-
-    console.log(`✅ Complete user data fetched for: ${telegramUserId}`);
-    return data;
-  } catch (error) {
-    console.error(`🚨 Exception in getUserCompleteData:`, error);
-    return null;
   }
 }
 
@@ -704,22 +660,12 @@ function invalidateSettingsCache(settingKey?: string): void {
 
 async function handleHelpCommand(chatId: number, userId: string, firstName: string): Promise<void> {
   console.log(`❓ Help command from ${userId}`);
-  
-  const autoReply = await getAutoReply('auto_reply_help', { firstName });
-  const message = autoReply || `❓ **Need Help?**\n\n🤖 Use /start for the main menu\n🔑 Admins can use /admin\n\n🛟 Contact: @DynamicCapital_Support`;
-  
-  await sendMessage(chatId, message);
-}
 
-function formatContent(content: string, variables: Record<string, string>): string {
-  let formattedContent = content;
-  
-  Object.entries(variables).forEach(([key, value]) => {
-    const placeholder = `{${key}}`;
-    formattedContent = formattedContent.replace(new RegExp(placeholder, 'g'), value || '');
-  });
-  
-  return formattedContent;
+  const autoReply = await getAutoReply('auto_reply_help', { firstName });
+  const content = autoReply || await getBotContent('help_message');
+  const message = content || `❓ **Need Help?**\n\n🤖 Use /start for the main menu\n🔑 Admins can use /admin\n\n🛟 Contact: @DynamicCapital_Support`;
+
+  await sendMessage(chatId, message);
 }
 
 // Load additional admin IDs from the database
@@ -1631,7 +1577,7 @@ To democratize access to professional trading education and real-time market ins
 }
 
 async function handleSupport(chatId: number, userId: string): Promise<void> {
-  const content = await getBotContent('support') || `🛟 **Customer Support**
+  const content = await getBotContent('support_message') || `🛟 **Customer Support**
 
 Our dedicated support team is here to help you 24/7!
 
@@ -5990,6 +5936,8 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
               }
             } else if (callbackData === 'about_us') {
               await handleAboutUs(chatId, userId);
+            } else if (callbackData === 'contact_support') {
+              await handleSupport(chatId, userId);
             } else if (callbackData === 'support') {
               await handleSupport(chatId, userId);
             } else if (callbackData === 'view_promotions') {
