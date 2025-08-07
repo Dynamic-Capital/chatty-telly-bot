@@ -2512,12 +2512,13 @@ ${pkg.description || 'Complete course package with expert instruction'}
     // Log the selection
     await logAdminAction(userId, 'education_selection', `User selected education package: ${pkg.name}`, 'education_packages', packageId);
     
-  } catch (error) {
-    console.error('🚨 Error in education package selection:', error);
-    await sendMessage(chatId, "❌ An error occurred. Please try again.");
+    } catch (error) {
+      console.error('🚨 Error in education package selection:', error);
+      await sendMessage(chatId, "❌ An error occurred. Please try again.");
+    }
   }
 
-// View User Profile Handler
+  // View User Profile Handler
 async function handleViewUserProfile(chatId: number, adminUserId: string, targetUserId: string): Promise<void> {
   if (!isAdmin(adminUserId)) {
     await sendMessage(chatId, "❌ Access denied.");
@@ -4344,12 +4345,13 @@ Generated: ${new Date().toLocaleString()}`;
     await sendMessage(chatId, message);
     await logAdminAction(userId, 'report_generated', `Promotion analytics report for ${timeRange}`, 'reports');
 
-  } catch (error) {
-    console.error('❌ Error generating promotion report:', error);
-    await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+    } catch (error) {
+      console.error('❌ Error generating promotion report:', error);
+      await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+    }
   }
 
-async function handleBotUsageReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
+  async function handleBotUsageReport(chatId: number, userId: string, timeRange: string = '30d'): Promise<void> {
   if (!isAdmin(userId)) {
     await sendMessage(chatId, "❌ Access denied.");
     return;
@@ -4747,13 +4749,16 @@ async function handleEducationCategoriesManagement(chatId: number, userId: strin
   }
 }
 
-async function handleEducationEnrollmentsView(chatId: number, userId: string): Promise<void> {
-  if (!isAdmin(userId)) {
-    await sendMessage(chatId, "❌ Access denied.");
-    return;
-}
+  async function handleEducationEnrollmentsView(chatId: number, userId: string): Promise<void> {
+    if (!isAdmin(userId)) {
+      await sendMessage(chatId, "❌ Access denied.");
+      return;
+    }
 
-async function handleCreatePromotion(chatId: number, userId: string): Promise<void> {
+    await sendMessage(chatId, "📚 Enrollment view coming soon.");
+  }
+
+  async function handleCreatePromotion(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
     await sendMessage(chatId, "❌ Access denied.");
     return;
@@ -4817,22 +4822,39 @@ async function handleEditContent(chatId: number, userId: string, contentKey: str
     if (error && error.code !== 'PGRST116') throw error;
 
     const currentContent = content?.content_value || 'No content found';
-    
-    await sendMessage(chatId, `💬 **Edit Content: ${contentKey.replace(/_/g, ' ').toUpperCase()}**
 
-**Current Content:**
-${currentContent.substring(0, 500)}${currentContent.length > 500 ? '...' : ''}
+    const userSession = getUserSession(userId);
+    userSession.awaitingInput = `edit_content:${contentKey}`;
 
-**Instructions:**
-To edit this content, please contact the developer with the new content text. Content editing requires database access for security and proper formatting.
-
-**Content Key:** ${contentKey}
-**Last Updated:** ${content?.updated_at ? new Date(content.updated_at).toLocaleString() : 'Never'}
-**Created By:** ${content?.created_by || 'System'}`);
-
+    await sendMessage(
+      chatId,
+      `💬 **Edit Content: ${contentKey.replace(/_/g, ' ').toUpperCase()}**\n\n` +
+        `**Current Content:**\n` +
+        `${currentContent.substring(0, 500)}${currentContent.length > 500 ? '...' : ''}\n\n` +
+        `Send the new content in your next message.`
+    );
   } catch (error) {
     console.error('❌ Error loading content:', error);
     await sendMessage(chatId, `❌ Error loading content: ${error.message}`);
+  }
+}
+
+async function handleContentEditSave(
+  chatId: number,
+  userId: string,
+  newContent: string,
+  contentKey: string
+): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+
+  const success = await setBotContent(contentKey, newContent, userId);
+  if (success) {
+    await sendMessage(chatId, `✅ Content updated for *${contentKey}*`);
+  } else {
+    await sendMessage(chatId, `❌ Failed to update content for *${contentKey}*`);
   }
 }
 
@@ -4927,12 +4949,13 @@ async function handlePreviewAllContent(chatId: number, userId: string): Promise<
 
     await sendMessage(chatId, message, keyboard);
 
-  } catch (error) {
-    console.error('❌ Error in education enrollments view:', error);
-    await sendMessage(chatId, `❌ Error loading enrollments data: ${error.message}`);
+    } catch (error) {
+      console.error('❌ Error in education enrollments view:', error);
+      await sendMessage(chatId, `❌ Error loading enrollments data: ${error.message}`);
+    }
   }
 
-async function handleQuickAnalytics(chatId: number, userId: string): Promise<void> {
+  async function handleQuickAnalytics(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
     await sendMessage(chatId, "❌ Access denied.");
     return;
@@ -5318,6 +5341,12 @@ serve(async (req) => {
         await handleCustomBroadcastSend(chatId, userId, text);
         return new Response("OK", { status: 200 });
       }
+      if (userSession.awaitingInput?.startsWith('edit_content:')) {
+        const contentKey = userSession.awaitingInput.split(':')[1];
+        userSession.awaitingInput = null;
+        await handleContentEditSave(chatId, userId, text, contentKey);
+        return new Response("OK", { status: 200 });
+      }
 
       // Handle /broadcast command for admins
       if (text === '/broadcast' && isAdmin(userId)) {
@@ -5700,10 +5729,6 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
             await handleAnalyticsMenu(chatId, userId);
             break;
 
-          case 'admin_broadcast':
-            await handleBroadcastMenu(chatId, userId);
-            break;
-
           case 'admin_tools':
             await handleBotControl(chatId, userId);
             break;
@@ -5829,14 +5854,28 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
 
           // Content Management Callbacks
           case 'edit_content_welcome_message':
+            await handleEditContent(chatId, userId, 'welcome_message');
+            break;
           case 'edit_content_about_us':
+            await handleEditContent(chatId, userId, 'about_us');
+            break;
           case 'edit_content_support_message':
+            await handleEditContent(chatId, userId, 'support');
+            break;
           case 'edit_content_terms_conditions':
+            await handleEditContent(chatId, userId, 'terms');
+            break;
           case 'edit_content_faq_general':
+            await handleEditContent(chatId, userId, 'faq');
+            break;
           case 'edit_content_maintenance_message':
-          case 'add_new_content':
+            await handleEditContent(chatId, userId, 'maintenance_message');
+            break;
           case 'preview_all_content':
-            await sendMessage(chatId, "💬 Content editing features coming soon!");
+            await handlePreviewAllContent(chatId, userId);
+            break;
+          case 'add_new_content':
+            await sendMessage(chatId, '➕ Adding new content is not yet supported.');
             break;
 
           // Bot Settings Callbacks
