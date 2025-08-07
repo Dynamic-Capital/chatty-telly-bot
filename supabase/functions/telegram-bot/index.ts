@@ -1334,6 +1334,70 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
         const bankPkg = { ...pkg, price: finalPrice };
         paymentInstructions = await getBankTransferInstructions(pkg, subscription.id);
         break;
+      // Handle VIP plan management callbacks
+      if (data === 'edit_vip_plan') {
+        await handleEditVipPlan(chatId, userId);
+        return;
+      }
+
+      if (data === 'create_vip_plan') {
+        await handleCreateVipPlan(chatId, userId);
+        return;
+      }
+
+      if (data === 'delete_vip_plan') {
+        await handleDeleteVipPlan(chatId, userId);
+        return;
+      }
+
+      if (data.startsWith('edit_plan_')) {
+        const planId = data.replace('edit_plan_', '');
+        if (planId.includes('_')) {
+          // Handle specific edit actions
+          if (data.startsWith('edit_plan_price_')) {
+            const id = data.replace('edit_plan_price_', '');
+            await handleEditPlanPrice(chatId, userId, id);
+          } else if (data.startsWith('edit_plan_name_')) {
+            const id = data.replace('edit_plan_name_', '');
+            await handleEditPlanName(chatId, userId, id);
+          } else if (data.startsWith('edit_plan_duration_')) {
+            const id = data.replace('edit_plan_duration_', '');
+            await handleEditPlanDuration(chatId, userId, id);
+          } else if (data.startsWith('edit_plan_features_')) {
+            const id = data.replace('edit_plan_features_', '');
+            await handleEditPlanFeatures(chatId, userId, id);
+          }
+        } else {
+          // Show plan details for editing
+          await handleEditSpecificPlan(chatId, userId, planId);
+        }
+        return;
+      }
+
+      if (data.startsWith('toggle_plan_lifetime_')) {
+        const planId = data.replace('toggle_plan_lifetime_', '');
+        await handleTogglePlanLifetime(chatId, userId, planId);
+        return;
+      }
+
+      if (data.startsWith('confirm_delete_plan_')) {
+        const planId = data.replace('confirm_delete_plan_', '');
+        await handleConfirmDeletePlan(chatId, userId, planId);
+        return;
+      }
+
+      if (data.startsWith('delete_plan_confirmed_')) {
+        const planId = data.replace('delete_plan_confirmed_', '');
+        await handleExecuteDeletePlan(chatId, userId, planId);
+        return;
+      }
+
+      if (data.startsWith('add_plan_feature_')) {
+        const planId = data.replace('add_plan_feature_', '');
+        await handleAddPlanFeature(chatId, userId, planId);
+        return;
+      }
+
       default:
         console.error(`❌ Unknown payment method: ${method}`);
         await sendMessage(chatId, `❌ Unknown payment method: ${method}. Please try again.`);

@@ -282,10 +282,17 @@ export async function createVipPackage(packageData: any, adminId: string): Promi
 
 export async function updateVipPackage(packageId: string, packageData: any, adminId: string): Promise<boolean> {
   try {
+    console.log('Updating VIP package:', { packageId, packageData, adminId });
+    
     const { error } = await supabaseAdmin
       .from('subscription_plans')
       .update(packageData)
       .eq('id', packageId);
+
+    if (error) {
+      console.error('Database error updating VIP package:', error);
+      return false;
+    }
 
     if (!error) {
       await logAdminAction(adminId, 'package_update', `Updated VIP package: ${packageId}`, 'subscription_plans', packageId, {}, packageData);
@@ -298,6 +305,259 @@ export async function updateVipPackage(packageId: string, packageData: any, admi
   }
 }
 
+// Process text input for plan editing
+export async function processPlaneEditInput(
+  userId: string, 
+  inputText: string, 
+  sessionData: any
+): Promise<{ success: boolean; message: string; planId?: string }> {
+  try {
+    const { plan_id: planId, awaiting_input } = sessionData;
+    
+    if (!planId) {
+      return { success: false, message: "❌ Session data corrupted. Please start over." };
+    }
+
+    switch (awaiting_input) {
+      case 'plan_price': {
+        const price = parseFloat(inputText.trim());
+        if (isNaN(price) || price <= 0) {
+          return { success: false, message: "❌ Invalid price. Please enter a valid number (e.g., 49.99)" };
+        }
+
+        const { error } = await supabaseAdmin
+          .from('subscription_plans')
+          .update({ 
+            price: price,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', planId);
+
+        if (error) {
+          console.error('Error updating plan price:', error);
+          return { success: false, message: `❌ Database error: ${error.message}` };
+        }
+
+        await logAdminAction(userId, 'plan_price_update', `Updated plan price to $${price}`, 'subscription_plans', planId);
+        return { 
+          success: true, 
+          message: `✅ Price updated to $${price} successfully!`,
+          planId 
+        };
+      }
+
+      case 'plan_name': {
+        const name = inputText.trim();
+        if (!name || name.length < 3) {
+          return { success: false, message: "❌ Plan name must be at least 3 characters long." };
+        }
+
+        const { error } = await supabaseAdmin
+          .from('subscription_plans')
+          .update({ 
+            name: name,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', planId);
+
+        if (error) {
+          console.error('Error updating plan name:', error);
+          return { success: false, message: `❌ Database error: ${error.message}` };
+        }
+
+        await logAdminAction(userId, 'plan_name_update', `Updated plan name to "${name}"`, 'subscription_plans', planId);
+        return { 
+          success: true, 
+          message: `✅ Plan name updated to "${name}" successfully!`,
+          planId 
+        };
+      }
+
+      case 'plan_duration': {
+        const input = inputText.trim().toLowerCase();
+        let isLifetime = false;
+        let durationMonths = 0;
+
+        if (input === 'lifetime') {
+          isLifetime = true;
+          durationMonths = 0;
+        } else {
+          const duration = parseInt(input);
+          if (isNaN(duration) || duration <= 0) {
+            return { success: false, message: "❌ Invalid duration. Enter a number (e.g., 12) or 'lifetime'" };
+          }
+          durationMonths = duration;
+        }
+
+        const { error } = await supabaseAdmin
+          .from('subscription_plans')
+          .update({ 
+            duration_months: durationMonths,
+            is_lifetime: isLifetime,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', planId);
+
+        if (error) {
+          console.error('Error updating plan duration:', error);
+          return { success: false, message: `❌ Database error: ${error.message}` };
+        }
+
+        const durationText = isLifetime ? 'Lifetime' : `${durationMonths} months`;
+        await logAdminAction(userId, 'plan_duration_update', `Updated plan duration to ${durationText}`, 'subscription_plans', planId);
+        return { 
+          success: true, 
+          message: `✅ Duration updated to ${durationText} successfully!`,
+          planId 
+        };
+      }
+
+      case 'plan_add_feature': {
+        const feature = inputText.trim();
+        if (!feature || feature.length < 3) {
+          return { success: false, message: "❌ Feature description must be at least 3 characters long." };
+        }
+
+        // Get current features
+        const { data: plan, error: fetchError } = await supabaseAdmin
+          .from('subscription_plans')
+          .select('features')
+          .eq('id', planId)
+          .single();
+
+        if (fetchError || !plan) {
+          return { success: false, message: "❌ Error fetching current plan features." };
+        }
+
+        const currentFeatures = plan.features || [];
+        const updatedFeatures = [...currentFeatures, feature];
+
+        const { error } = await supabaseAdmin
+          .from('subscription_plans')
+          .update({ 
+            features: updatedFeatures,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', planId);
+
+        if (error) {
+          console.error('Error adding plan feature:', error);
+          return { success: false, message: `❌ Database error: ${error.message}` };
+        }
+
+        await logAdminAction(userId, 'plan_feature_add', `Added feature "${feature}" to plan`, 'subscription_plans', planId);
+        return { 
+          success: true, 
+          message: `✅ Feature "${feature}" added successfully!`,
+          planId 
+        };
+      }
+
+      case 'create_vip_plan': {
+        return await processCreatePlanInput(userId, inputText);
+      }
+
+      default:
+        return { success: false, message: "❌ Unknown input type. Please start over." };
+    }
+  } catch (error) {
+    console.error('Error in processPlaneEditInput:', error);
+    return { success: false, message: "❌ Unexpected error occurred. Please try again." };
+  }
+}
+
+// Process plan creation input
+async function processCreatePlanInput(userId: string, inputText: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const lines = inputText.split('\n').map(line => line.trim()).filter(line => line);
+    const planData: any = {};
+
+    for (const line of lines) {
+      const [key, ...valueParts] = line.split(':');
+      const value = valueParts.join(':').trim();
+      
+      if (!key || !value) continue;
+
+      const keyLower = key.toLowerCase().trim();
+      
+      switch (keyLower) {
+        case 'name':
+          planData.name = value;
+          break;
+        case 'price':
+          const price = parseFloat(value);
+          if (isNaN(price) || price <= 0) {
+            return { success: false, message: "❌ Invalid price format. Use numbers only (e.g., 49.99)" };
+          }
+          planData.price = price;
+          break;
+        case 'duration':
+          if (value.toLowerCase() === 'lifetime') {
+            planData.is_lifetime = true;
+            planData.duration_months = 0;
+          } else {
+            const duration = parseInt(value);
+            if (isNaN(duration) || duration <= 0) {
+              return { success: false, message: "❌ Invalid duration. Use numbers (e.g., 12) or 'lifetime'" };
+            }
+            planData.is_lifetime = false;
+            planData.duration_months = duration;
+          }
+          break;
+        case 'currency':
+          planData.currency = value.toUpperCase();
+          break;
+        case 'features':
+          planData.features = value.split(',').map(f => f.trim()).filter(f => f);
+          break;
+      }
+    }
+
+    // Validate required fields
+    if (!planData.name) {
+      return { success: false, message: "❌ Plan name is required" };
+    }
+    if (!planData.price) {
+      return { success: false, message: "❌ Plan price is required" };
+    }
+    if (!planData.hasOwnProperty('is_lifetime')) {
+      return { success: false, message: "❌ Plan duration is required" };
+    }
+    if (!planData.features || planData.features.length === 0) {
+      return { success: false, message: "❌ At least one feature is required" };
+    }
+
+    // Set defaults
+    planData.currency = planData.currency || 'USD';
+
+    // Create the plan
+    const { data: newPlan, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .insert(planData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating plan:', error);
+      return { success: false, message: `❌ Database error: ${error.message}` };
+    }
+
+    await logAdminAction(userId, 'plan_create', `Created VIP plan: ${planData.name}`, 'subscription_plans', newPlan.id);
+    
+    const durationText = planData.is_lifetime ? 'Lifetime' : `${planData.duration_months} months`;
+    return { 
+      success: true, 
+      message: `✅ *Plan Created Successfully!*\n\n` +
+               `**${planData.name}**\n` +
+               `💰 ${planData.currency} ${planData.price}\n` +
+               `⏰ ${durationText}\n` +
+               `✨ ${planData.features.length} features`
+    };
+  } catch (error) {
+    console.error('Error in processCreatePlanInput:', error);
+    return { success: false, message: "❌ Error creating plan. Please check the format and try again." };
+  }
+}
 export async function deleteVipPackage(packageId: string, adminId: string): Promise<boolean> {
   try {
     const { error } = await supabaseAdmin

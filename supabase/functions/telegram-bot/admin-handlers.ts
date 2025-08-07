@@ -173,6 +173,12 @@ export async function handleSubscriptionPlansManagement(chatId: number, userId: 
       .select('*')
       .order('price', { ascending: true });
 
+    if (error) {
+      console.error('Error fetching subscription plans:', error);
+      await sendMessage(chatId, "❌ Error fetching subscription plans. Please try again.");
+      return;
+    }
+
     let planMessage = `💎 *VIP Subscription Plans Management*\n\n`;
     planMessage += `📦 *Current Plans (${plans?.length || 0}):*\n\n`;
 
@@ -212,6 +218,579 @@ export async function handleSubscriptionPlansManagement(chatId: number, userId: 
   }
 }
 
+// Handle VIP plan editing workflow
+export async function handleEditVipPlan(chatId: number, userId: string): Promise<void> {
+  try {
+    const { data: plans, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('*')
+      .order('price', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching plans for editing:', error);
+      await sendMessage(chatId, "❌ Error fetching plans. Please try again.");
+      return;
+    }
+
+    if (!plans || plans.length === 0) {
+      await sendMessage(chatId, "❌ No VIP plans found. Create a plan first.");
+      return;
+    }
+
+    let editMessage = `✏️ *Select Plan to Edit*\n\n`;
+    editMessage += `📦 *Available Plans:*\n\n`;
+
+    const editKeyboard = {
+      inline_keyboard: [
+        ...plans.map((plan, index) => ([{
+          text: `${index + 1}. ${plan.name} ($${plan.price})`,
+          callback_data: `edit_plan_${plan.id}`
+        }])),
+        [{ text: "🔙 Back", callback_data: "manage_table_subscription_plans" }]
+      ]
+    };
+
+    await sendMessage(chatId, editMessage, editKeyboard);
+  } catch (error) {
+    console.error('Error in handleEditVipPlan:', error);
+    await sendMessage(chatId, "❌ Error loading plans for editing. Please try again.");
+  }
+}
+
+// Handle specific plan editing
+export async function handleEditSpecificPlan(chatId: number, userId: string, planId: string): Promise<void> {
+  try {
+    const { data: plan, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('*')
+      .eq('id', planId)
+      .single();
+
+    if (error || !plan) {
+      console.error('Error fetching plan for editing:', error);
+      await sendMessage(chatId, "❌ Plan not found. Please try again.");
+      return;
+    }
+
+    const duration = plan.is_lifetime ? 'Lifetime' : `${plan.duration_months} months`;
+    let planDetails = `✏️ *Editing Plan: ${plan.name}*\n\n`;
+    planDetails += `💰 **Current Price:** ${plan.currency} ${plan.price}\n`;
+    planDetails += `⏰ **Duration:** ${duration}\n`;
+    planDetails += `✨ **Features (${plan.features?.length || 0}):**\n`;
+    
+    if (plan.features && plan.features.length > 0) {
+      plan.features.forEach((feature, index) => {
+        planDetails += `   ${index + 1}. ${feature}\n`;
+      });
+    } else {
+      planDetails += `   No features configured\n`;
+    }
+    
+    planDetails += `\n📅 **Created:** ${new Date(plan.created_at).toLocaleDateString()}\n`;
+    planDetails += `🔄 **Updated:** ${new Date(plan.updated_at).toLocaleDateString()}\n\n`;
+    planDetails += `What would you like to edit?`;
+
+    const editOptionsKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "💰 Edit Price", callback_data: `edit_plan_price_${planId}` },
+          { text: "📝 Edit Name", callback_data: `edit_plan_name_${planId}` }
+        ],
+        [
+          { text: "⏰ Edit Duration", callback_data: `edit_plan_duration_${planId}` },
+          { text: "✨ Edit Features", callback_data: `edit_plan_features_${planId}` }
+        ],
+        [
+          { text: "🔄 Toggle Lifetime", callback_data: `toggle_plan_lifetime_${planId}` },
+          { text: "💱 Change Currency", callback_data: `edit_plan_currency_${planId}` }
+        ],
+        [
+          { text: "🗑️ Delete Plan", callback_data: `confirm_delete_plan_${planId}` }
+        ],
+        [
+          { text: "🔙 Back to Plans", callback_data: "manage_table_subscription_plans" }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, planDetails, editOptionsKeyboard);
+  } catch (error) {
+    console.error('Error in handleEditSpecificPlan:', error);
+    await sendMessage(chatId, "❌ Error loading plan details. Please try again.");
+  }
+}
+
+// Handle plan price editing
+export async function handleEditPlanPrice(chatId: number, userId: string, planId: string): Promise<void> {
+  try {
+    const { data: plan, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('name, price, currency')
+      .eq('id', planId)
+      .single();
+
+    if (error || !plan) {
+      await sendMessage(chatId, "❌ Plan not found.");
+      return;
+    }
+
+    const priceMessage = `💰 *Edit Price for ${plan.name}*\n\n` +
+      `Current Price: **${plan.currency} ${plan.price}**\n\n` +
+      `Please send the new price (numbers only):\n` +
+      `Example: 49.99`;
+
+    const cancelKeyboard = {
+      inline_keyboard: [
+        [{ text: "❌ Cancel", callback_data: `edit_plan_${planId}` }]
+      ]
+    };
+
+    await sendMessage(chatId, priceMessage, cancelKeyboard);
+    
+    // Set user session to await price input
+    await supabaseAdmin
+      .from('user_sessions')
+      .upsert({
+        telegram_user_id: userId,
+        awaiting_input: 'plan_price',
+        session_data: { plan_id: planId, plan_name: plan.name },
+        last_activity: new Date().toISOString(),
+        is_active: true
+      });
+
+  } catch (error) {
+    console.error('Error in handleEditPlanPrice:', error);
+    await sendMessage(chatId, "❌ Error setting up price editing. Please try again.");
+  }
+}
+
+// Handle plan name editing
+export async function handleEditPlanName(chatId: number, userId: string, planId: string): Promise<void> {
+  try {
+    const { data: plan, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('name')
+      .eq('id', planId)
+      .single();
+
+    if (error || !plan) {
+      await sendMessage(chatId, "❌ Plan not found.");
+      return;
+    }
+
+    const nameMessage = `📝 *Edit Name for Plan*\n\n` +
+      `Current Name: **${plan.name}**\n\n` +
+      `Please send the new plan name:`;
+
+    const cancelKeyboard = {
+      inline_keyboard: [
+        [{ text: "❌ Cancel", callback_data: `edit_plan_${planId}` }]
+      ]
+    };
+
+    await sendMessage(chatId, nameMessage, cancelKeyboard);
+    
+    // Set user session to await name input
+    await supabaseAdmin
+      .from('user_sessions')
+      .upsert({
+        telegram_user_id: userId,
+        awaiting_input: 'plan_name',
+        session_data: { plan_id: planId },
+        last_activity: new Date().toISOString(),
+        is_active: true
+      });
+
+  } catch (error) {
+    console.error('Error in handleEditPlanName:', error);
+    await sendMessage(chatId, "❌ Error setting up name editing. Please try again.");
+  }
+}
+
+// Handle plan duration editing
+export async function handleEditPlanDuration(chatId: number, userId: string, planId: string): Promise<void> {
+  try {
+    const { data: plan, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('name, duration_months, is_lifetime')
+      .eq('id', planId)
+      .single();
+
+    if (error || !plan) {
+      await sendMessage(chatId, "❌ Plan not found.");
+      return;
+    }
+
+    const currentDuration = plan.is_lifetime ? 'Lifetime' : `${plan.duration_months} months`;
+    const durationMessage = `⏰ *Edit Duration for ${plan.name}*\n\n` +
+      `Current Duration: **${currentDuration}**\n\n` +
+      `Please send the new duration in months (numbers only):\n` +
+      `Example: 12 (for 12 months)\n` +
+      `Or send "lifetime" for lifetime access`;
+
+    const cancelKeyboard = {
+      inline_keyboard: [
+        [{ text: "❌ Cancel", callback_data: `edit_plan_${planId}` }]
+      ]
+    };
+
+    await sendMessage(chatId, durationMessage, cancelKeyboard);
+    
+    // Set user session to await duration input
+    await supabaseAdmin
+      .from('user_sessions')
+      .upsert({
+        telegram_user_id: userId,
+        awaiting_input: 'plan_duration',
+        session_data: { plan_id: planId, plan_name: plan.name },
+        last_activity: new Date().toISOString(),
+        is_active: true
+      });
+
+  } catch (error) {
+    console.error('Error in handleEditPlanDuration:', error);
+    await sendMessage(chatId, "❌ Error setting up duration editing. Please try again.");
+  }
+}
+
+// Handle plan features editing
+export async function handleEditPlanFeatures(chatId: number, userId: string, planId: string): Promise<void> {
+  try {
+    const { data: plan, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('name, features')
+      .eq('id', planId)
+      .single();
+
+    if (error || !plan) {
+      await sendMessage(chatId, "❌ Plan not found.");
+      return;
+    }
+
+    let featuresMessage = `✨ *Edit Features for ${plan.name}*\n\n`;
+    featuresMessage += `📋 **Current Features:**\n`;
+    
+    if (plan.features && plan.features.length > 0) {
+      plan.features.forEach((feature, index) => {
+        featuresMessage += `${index + 1}. ${feature}\n`;
+      });
+    } else {
+      featuresMessage += `No features configured\n`;
+    }
+    
+    featuresMessage += `\nWhat would you like to do?`;
+
+    const featuresKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "➕ Add Feature", callback_data: `add_plan_feature_${planId}` },
+          { text: "🗑️ Remove Feature", callback_data: `remove_plan_feature_${planId}` }
+        ],
+        [
+          { text: "🔄 Replace All", callback_data: `replace_plan_features_${planId}` }
+        ],
+        [
+          { text: "🔙 Back", callback_data: `edit_plan_${planId}` }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, featuresMessage, featuresKeyboard);
+  } catch (error) {
+    console.error('Error in handleEditPlanFeatures:', error);
+    await sendMessage(chatId, "❌ Error loading plan features. Please try again.");
+  }
+}
+
+// Handle adding a feature to a plan
+export async function handleAddPlanFeature(chatId: number, userId: string, planId: string): Promise<void> {
+  try {
+    const { data: plan, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('name')
+      .eq('id', planId)
+      .single();
+
+    if (error || !plan) {
+      await sendMessage(chatId, "❌ Plan not found.");
+      return;
+    }
+
+    const addFeatureMessage = `➕ *Add Feature to ${plan.name}*\n\n` +
+      `Please send the new feature description:\n` +
+      `Example: "Premium trading signals"\n` +
+      `Example: "24/7 customer support"`;
+
+    const cancelKeyboard = {
+      inline_keyboard: [
+        [{ text: "❌ Cancel", callback_data: `edit_plan_features_${planId}` }]
+      ]
+    };
+
+    await sendMessage(chatId, addFeatureMessage, cancelKeyboard);
+    
+    // Set user session to await feature input
+    await supabaseAdmin
+      .from('user_sessions')
+      .upsert({
+        telegram_user_id: userId,
+        awaiting_input: 'plan_add_feature',
+        session_data: { plan_id: planId, plan_name: plan.name },
+        last_activity: new Date().toISOString(),
+        is_active: true
+      });
+
+  } catch (error) {
+    console.error('Error in handleAddPlanFeature:', error);
+    await sendMessage(chatId, "❌ Error setting up feature addition. Please try again.");
+  }
+}
+
+// Handle creating a new VIP plan
+export async function handleCreateVipPlan(chatId: number, userId: string): Promise<void> {
+  const createMessage = `➕ *Create New VIP Plan*\n\n` +
+    `Please send the plan details in this format:\n\n` +
+    `**Format:**\n` +
+    `Name: Plan Name\n` +
+    `Price: 49.99\n` +
+    `Duration: 1 (months, or "lifetime")\n` +
+    `Currency: USD\n` +
+    `Features: Feature 1, Feature 2, Feature 3\n\n` +
+    `**Example:**\n` +
+    `Name: Premium VIP\n` +
+    `Price: 99.99\n` +
+    `Duration: 3\n` +
+    `Currency: USD\n` +
+    `Features: Premium signals, VIP chat, Priority support`;
+
+  const cancelKeyboard = {
+    inline_keyboard: [
+      [{ text: "❌ Cancel", callback_data: "manage_table_subscription_plans" }]
+    ]
+  };
+
+  await sendMessage(chatId, createMessage, cancelKeyboard);
+  
+  // Set user session to await plan creation input
+  await supabaseAdmin
+    .from('user_sessions')
+    .upsert({
+      telegram_user_id: userId,
+      awaiting_input: 'create_vip_plan',
+      session_data: {},
+      last_activity: new Date().toISOString(),
+      is_active: true
+    });
+}
+
+// Handle plan deletion confirmation
+export async function handleDeleteVipPlan(chatId: number, userId: string): Promise<void> {
+  try {
+    const { data: plans, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('*')
+      .order('price', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching plans for deletion:', error);
+      await sendMessage(chatId, "❌ Error fetching plans. Please try again.");
+      return;
+    }
+
+    if (!plans || plans.length === 0) {
+      await sendMessage(chatId, "❌ No VIP plans found to delete.");
+      return;
+    }
+
+    let deleteMessage = `🗑️ *Select Plan to Delete*\n\n`;
+    deleteMessage += `⚠️ **WARNING:** This action cannot be undone!\n\n`;
+    deleteMessage += `📦 *Available Plans:*\n\n`;
+
+    const deleteKeyboard = {
+      inline_keyboard: [
+        ...plans.map((plan, index) => ([{
+          text: `🗑️ ${index + 1}. ${plan.name} ($${plan.price})`,
+          callback_data: `confirm_delete_plan_${plan.id}`
+        }])),
+        [{ text: "🔙 Back", callback_data: "manage_table_subscription_plans" }]
+      ]
+    };
+
+    await sendMessage(chatId, deleteMessage, deleteKeyboard);
+  } catch (error) {
+    console.error('Error in handleDeleteVipPlan:', error);
+    await sendMessage(chatId, "❌ Error loading plans for deletion. Please try again.");
+  }
+}
+
+// Handle plan deletion confirmation
+export async function handleConfirmDeletePlan(chatId: number, userId: string, planId: string): Promise<void> {
+  try {
+    const { data: plan, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('name, price')
+      .eq('id', planId)
+      .single();
+
+    if (error || !plan) {
+      await sendMessage(chatId, "❌ Plan not found.");
+      return;
+    }
+
+    const confirmMessage = `⚠️ *Confirm Plan Deletion*\n\n` +
+      `Are you sure you want to delete:\n` +
+      `**${plan.name}** ($${plan.price})\n\n` +
+      `⚠️ This action cannot be undone!`;
+
+    const confirmKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "✅ Yes, Delete", callback_data: `delete_plan_confirmed_${planId}` },
+          { text: "❌ Cancel", callback_data: `edit_plan_${planId}` }
+        ]
+      ]
+    };
+
+    await sendMessage(chatId, confirmMessage, confirmKeyboard);
+  } catch (error) {
+    console.error('Error in handleConfirmDeletePlan:', error);
+    await sendMessage(chatId, "❌ Error setting up plan deletion. Please try again.");
+  }
+}
+
+// Execute plan deletion
+export async function handleExecuteDeletePlan(chatId: number, userId: string, planId: string): Promise<void> {
+  try {
+    // First check if plan has active subscriptions
+    const { data: activeSubscriptions, error: subError } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select('count')
+      .eq('plan_id', planId)
+      .eq('is_active', true);
+
+    if (subError) {
+      console.error('Error checking active subscriptions:', subError);
+    }
+
+    if (activeSubscriptions && activeSubscriptions.length > 0) {
+      await sendMessage(chatId, 
+        `❌ Cannot delete plan!\n\n` +
+        `This plan has ${activeSubscriptions.length} active subscription(s).\n` +
+        `Please wait for subscriptions to expire or manually deactivate them first.`
+      );
+      return;
+    }
+
+    // Get plan name for confirmation
+    const { data: plan, error: planError } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('name')
+      .eq('id', planId)
+      .single();
+
+    if (planError || !plan) {
+      await sendMessage(chatId, "❌ Plan not found.");
+      return;
+    }
+
+    // Delete the plan
+    const { error: deleteError } = await supabaseAdmin
+      .from('subscription_plans')
+      .delete()
+      .eq('id', planId);
+
+    if (deleteError) {
+      console.error('Error deleting plan:', deleteError);
+      await sendMessage(chatId, `❌ Error deleting plan: ${deleteError.message}`);
+      return;
+    }
+
+    // Log admin action
+    await logAdminAction(
+      userId,
+      'plan_delete',
+      `Deleted VIP plan: ${plan.name}`,
+      'subscription_plans',
+      planId
+    );
+
+    await sendMessage(chatId, 
+      `✅ *Plan Deleted Successfully*\n\n` +
+      `**${plan.name}** has been permanently deleted.\n\n` +
+      `Returning to plans management...`
+    );
+
+    // Return to plans management after 2 seconds
+    setTimeout(async () => {
+      await handleSubscriptionPlansManagement(chatId, userId);
+    }, 2000);
+
+  } catch (error) {
+    console.error('Error in handleExecuteDeletePlan:', error);
+    await sendMessage(chatId, "❌ Error deleting plan. Please try again.");
+  }
+}
+
+// Toggle plan lifetime status
+export async function handleTogglePlanLifetime(chatId: number, userId: string, planId: string): Promise<void> {
+  try {
+    const { data: plan, error } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('name, is_lifetime, duration_months')
+      .eq('id', planId)
+      .single();
+
+    if (error || !plan) {
+      await sendMessage(chatId, "❌ Plan not found.");
+      return;
+    }
+
+    const newLifetimeStatus = !plan.is_lifetime;
+    const updateData = {
+      is_lifetime: newLifetimeStatus,
+      duration_months: newLifetimeStatus ? 0 : (plan.duration_months || 1),
+      updated_at: new Date().toISOString()
+    };
+
+    const { error: updateError } = await supabaseAdmin
+      .from('subscription_plans')
+      .update(updateData)
+      .eq('id', planId);
+
+    if (updateError) {
+      console.error('Error updating plan lifetime status:', updateError);
+      await sendMessage(chatId, `❌ Error updating plan: ${updateError.message}`);
+      return;
+    }
+
+    // Log admin action
+    await logAdminAction(
+      userId,
+      'plan_update',
+      `Toggled lifetime status for plan: ${plan.name}`,
+      'subscription_plans',
+      planId,
+      { is_lifetime: plan.is_lifetime },
+      { is_lifetime: newLifetimeStatus }
+    );
+
+    const statusText = newLifetimeStatus ? 'Lifetime' : 'Monthly/Yearly';
+    await sendMessage(chatId, 
+      `✅ *Plan Updated*\n\n` +
+      `**${plan.name}** is now a **${statusText}** plan.\n\n` +
+      `Returning to plan details...`
+    );
+
+    // Return to plan editing after 2 seconds
+    setTimeout(async () => {
+      await handleEditSpecificPlan(chatId, userId, planId);
+    }, 2000);
+
+  } catch (error) {
+    console.error('Error in handleTogglePlanLifetime:', error);
+    await sendMessage(chatId, "❌ Error toggling plan lifetime status. Please try again.");
+  }
+}
 export async function handleEducationPackagesManagement(chatId: number, userId: string): Promise<void> {
   try {
     const { data: packages, error } = await supabaseAdmin
