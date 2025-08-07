@@ -1,4 +1,4 @@
-/* eslint-disable no-case-declarations, @typescript-eslint/no-explicit-any, no-prototype-builtins */
+/* eslint-disable no-case-declarations, @typescript-eslint/no-explicit-any */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getFormattedVipPackages } from "./database-utils.ts";
@@ -1429,7 +1429,7 @@ async function getCryptoPayInstructions(pkg: any, subscriptionId: string): Promi
     console.log('₿ Fetching crypto wallet addresses...');
     
     // Try to get crypto addresses from bot_content table
-    const { data: cryptoSettings, error } = await supabaseAdmin
+    const { data: cryptoSettings, error: _error } = await supabaseAdmin
       .from('bot_content')
       .select('content_key, content_value')
       .in('content_key', ['crypto_btc_address', 'crypto_eth_address', 'crypto_usdt_trc20', 'crypto_usdt_erc20'])

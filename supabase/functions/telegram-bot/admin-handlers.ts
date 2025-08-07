@@ -113,7 +113,7 @@ View, Create, Edit, Delete, Export data for any table.`;
 // Individual table management handlers
 export async function handleUserTableManagement(chatId: number, userId: string): Promise<void> {
   try {
-    const { data: users, error } = await supabaseAdmin
+    const { data: users, error: _error } = await supabaseAdmin
       .from('bot_users')
       .select('*')
       .order('created_at', { ascending: false })
@@ -834,7 +834,7 @@ export async function handleTogglePlanLifetime(chatId: number, userId: string, p
 }
 export async function handleEducationPackagesManagement(chatId: number, userId: string): Promise<void> {
   try {
-    const { data: packages, error } = await supabaseAdmin
+    const { data: packages, error: _error } = await supabaseAdmin
       .from('education_packages')
       .select('*, category:education_categories(name)')
       .order('created_at', { ascending: false })
@@ -882,7 +882,7 @@ export async function handleEducationPackagesManagement(chatId: number, userId: 
 
 export async function handlePromotionsManagement(chatId: number, userId: string): Promise<void> {
   try {
-    const { data: promos, error } = await supabaseAdmin
+    const { data: promos, error: _error } = await supabaseAdmin
       .from('promotions')
       .select('*')
       .order('created_at', { ascending: false })
@@ -1012,7 +1012,7 @@ export async function handleContentManagement(chatId: number, userId: string): P
 
 export async function handleBotSettingsManagement(chatId: number, userId: string): Promise<void> {
   try {
-    const { data: settings, error } = await supabaseAdmin
+    const { data: settings, error: _error } = await supabaseAdmin
       .from('bot_settings')
       .select('*')
       .order('setting_key', { ascending: true });

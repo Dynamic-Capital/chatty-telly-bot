@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,10 +7,25 @@ import { Badge } from "@/components/ui/badge";
 
 export default function BotStatusPage() {
   const [isChecking, setIsChecking] = useState(false);
-  const [botStatus, setBotStatus] = useState<any>(null);
+  interface BotStatusResponse {
+    bot_status?: string;
+    bot_info?: {
+      username?: string;
+      first_name?: string;
+      id?: string;
+    };
+    webhook_status?: string;
+    webhook_info?: {
+      url?: string;
+    };
+    pending_updates?: number;
+    timestamp: string;
+  }
+
+  const [botStatus, setBotStatus] = useState<BotStatusResponse | null>(null);
   const { toast } = useToast();
 
-  const checkBotStatus = async () => {
+  const checkBotStatus = useCallback(async () => {
     setIsChecking(true);
     try {
       const { data, error } = await supabase.functions.invoke('test-bot-status');
@@ -34,9 +49,9 @@ export default function BotStatusPage() {
     } finally {
       setIsChecking(false);
     }
-  };
+  }, [toast]);
 
-  const resetBot = async () => {
+  const resetBot = useCallback(async () => {
     try {
       toast({
         title: "Resetting Bot...",
@@ -64,12 +79,12 @@ export default function BotStatusPage() {
         variant: "destructive",
       });
     }
-  };
+  }, [checkBotStatus, toast]);
 
   // Auto-check on mount
   useEffect(() => {
     checkBotStatus();
-  }, []);
+  }, [checkBotStatus]);
 
   return (
     <div className="container mx-auto p-6 space-y-6">

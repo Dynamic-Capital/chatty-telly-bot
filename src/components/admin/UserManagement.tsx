@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,7 +54,7 @@ export function UserManagement() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [packages, setPackages] = useState<SubscriptionPlan[]>([]);
   const [assignments, setAssignments] = useState<PackageAssignment[]>([]);
-  const [pendingPayments, setPendingPayments] = useState<any[]>([]);
+  const [pendingPayments, setPendingPayments] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
@@ -77,13 +77,7 @@ export function UserManagement() {
     notes: ''
   });
 
-  useEffect(() => {
-    if (isAdmin) {
-      loadData();
-    }
-  }, [isAdmin]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [usersResponse, packagesResponse, paymentsResponse] = await Promise.all([
@@ -111,7 +105,7 @@ export function UserManagement() {
         .order('assigned_at', { ascending: false });
         
       if (!assignmentsResponse.error) {
-        setAssignments(assignmentsResponse.data as any || []);
+        setAssignments((assignmentsResponse.data as PackageAssignment[]) || []);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -123,7 +117,13 @@ export function UserManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadData();
+    }
+  }, [isAdmin, loadData]);
 
   const addUser = async () => {
     try {
