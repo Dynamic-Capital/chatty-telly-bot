@@ -109,84 +109,79 @@ export const SystemStatus = () => {
     }
   };
 
-  const checkEdgeFunctions = async (): Promise<FunctionStatus[]> => {
-    const functionStatuses: FunctionStatus[] = [];
+    const checkEdgeFunctions = async (): Promise<FunctionStatus[]> => {
+      const checks = edgeFunctions.map(async (functionName) => {
+        try {
+          const startTime = Date.now();
+          const { data: _data, error } = await supabase.functions.invoke(functionName, {
+            body: { test: true }
+          });
+          const responseTime = Date.now() - startTime;
 
-    for (const functionName of edgeFunctions) {
-      try {
-        const startTime = Date.now();
-        const { data: _data, error } = await supabase.functions.invoke(functionName, {
-          body: { test: true }
-        });
-        const responseTime = Date.now() - startTime;
+          return {
+            name: functionName,
+            status: error ? 'error' : 'active',
+            lastChecked: new Date().toISOString(),
+            responseTime,
+            error: error?.message
+          } as FunctionStatus;
+        } catch (error) {
+          return {
+            name: functionName,
+            status: 'error',
+            lastChecked: new Date().toISOString(),
+            error: (error as Error).message
+          } as FunctionStatus;
+        }
+      });
 
-        functionStatuses.push({
-          name: functionName,
-          status: error ? 'error' : 'active',
-          lastChecked: new Date().toISOString(),
-          responseTime,
-          error: error?.message
-        });
-      } catch (error) {
-        functionStatuses.push({
-          name: functionName,
-          status: 'error',
-          lastChecked: new Date().toISOString(),
-          error: (error as Error).message
-        });
-      }
-    }
+      return Promise.all(checks);
+    };
 
-    return functionStatuses;
-  };
+    const checkDatabaseTables = async (): Promise<TableInfo[]> => {
+      const checks = coreTables.map(async (tableName) => {
+        try {
+          const { count, error: countError } = await supabasePublic
+            .from(tableName)
+            .select('*', { count: 'exact', head: true });
 
-  const checkDatabaseTables = async (): Promise<TableInfo[]> => {
-    const tableInfos: TableInfo[] = [];
+          if (countError) {
+            return {
+              name: tableName,
+              recordCount: 0,
+              hasRLS: false,
+              status: 'error'
+            } as TableInfo;
+          }
 
-    for (const tableName of coreTables) {
-      try {
-        const { count, error: countError } = await supabasePublic
-          .from(tableName)
-          .select('*', { count: 'exact', head: true });
+          const { data: latestRecord } = await supabasePublic
+            .from(tableName)
+            .select('updated_at, created_at')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .single();
 
-        if (countError) {
-          tableInfos.push({
+          const lastUpdated = latestRecord?.updated_at || latestRecord?.created_at;
+
+          return {
+            name: tableName,
+            recordCount: count || 0,
+            lastUpdated,
+            hasRLS: true,
+            status: 'healthy'
+          } as TableInfo;
+        } catch (error) {
+          return {
             name: tableName,
             recordCount: 0,
             hasRLS: false,
             status: 'error'
-          });
-          continue;
+          } as TableInfo;
         }
+      });
 
-        const { data: latestRecord } = await supabasePublic
-          .from(tableName)
-          .select('updated_at, created_at')
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        const lastUpdated = latestRecord?.updated_at || latestRecord?.created_at;
-
-        tableInfos.push({
-          name: tableName,
-          recordCount: count || 0,
-          lastUpdated,
-          hasRLS: true,
-          status: 'healthy'
-        });
-      } catch (error) {
-        tableInfos.push({
-          name: tableName,
-          recordCount: 0,
-          hasRLS: false,
-          status: 'error'
-        });
-      }
-    }
-
-    return tableInfos;
-  };
+      return Promise.all(checks);
+    };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
