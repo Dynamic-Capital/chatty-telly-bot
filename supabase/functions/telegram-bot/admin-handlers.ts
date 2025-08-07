@@ -323,6 +323,12 @@ export async function handleContentManagement(chatId: number, userId: string): P
       .select('*')
       .order('content_key', { ascending: true });
 
+    if (error) {
+      console.error('Error fetching bot content:', error);
+      await sendMessage(chatId, "❌ Error fetching content data. Please try again.");
+      return;
+    }
+
     let contentMessage = `📱 *Bot Content Management*\n\n`;
     contentMessage += `📝 *Editable Content (${content?.length || 0} items):*\n\n`;
 
@@ -332,7 +338,10 @@ export async function handleContentManagement(chatId: number, userId: string): P
       'support_message': '🛟 Support Info',
       'terms_conditions': '📋 Terms & Conditions',
       'faq_general': '❓ FAQ Content',
-      'maintenance_message': '🔧 Maintenance Notice'
+      'maintenance_message': '🔧 Maintenance Notice',
+      'vip_benefits': '💎 VIP Benefits',
+      'payment_instructions': '💳 Payment Instructions',
+      'help_message': '❓ Help Content'
     };
 
     content?.forEach((item, index) => {
@@ -358,6 +367,10 @@ export async function handleContentManagement(chatId: number, userId: string): P
         [
           { text: "❓ FAQ", callback_data: "edit_content_faq_general" },
           { text: "🔧 Maintenance", callback_data: "edit_content_maintenance_message" }
+        ],
+        [
+          { text: "💎 VIP Benefits", callback_data: "edit_content_vip_benefits" },
+          { text: "💳 Payment Info", callback_data: "edit_content_payment_instructions" }
         ],
         [
           { text: "➕ Add Content", callback_data: "add_new_content" },

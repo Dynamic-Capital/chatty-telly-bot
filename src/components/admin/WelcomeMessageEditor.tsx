@@ -42,6 +42,8 @@ export const WelcomeMessageEditor = () => {
   const fetchWelcomeMessage = async () => {
     try {
       setLoading(true);
+      console.log('Fetching welcome message from database...');
+      
       const { data, error } = await supabase
         .from('bot_content')
         .select('*')
@@ -50,11 +52,22 @@ export const WelcomeMessageEditor = () => {
 
       if (error) {
         console.error('Error fetching welcome message:', error);
+        
         // Create default welcome message if it doesn't exist
-        await createDefaultWelcomeMessage();
+        if (error.code === 'PGRST116') {
+          console.log('Welcome message not found, creating default...');
+          await createDefaultWelcomeMessage();
+        } else {
+          toast({
+            title: "Error",
+            description: `Failed to load welcome message: ${error.message}`,
+            variant: "destructive",
+          });
+        }
         return;
       }
 
+      console.log('Welcome message loaded successfully:', data);
       setWelcomeMessage(data);
       setEditedMessage(data.content_value);
     } catch (error) {
@@ -78,6 +91,8 @@ export const WelcomeMessageEditor = () => {
 👇 Choose what you need:`;
 
     try {
+      console.log('Creating default welcome message...');
+      
       const { data, error } = await supabase
         .from('bot_content')
         .insert({
@@ -94,8 +109,14 @@ export const WelcomeMessageEditor = () => {
 
       if (error) throw error;
 
+      console.log('Default welcome message created:', data);
       setWelcomeMessage(data);
       setEditedMessage(data.content_value);
+      
+      toast({
+        title: "Default Created",
+        description: "Default welcome message has been created",
+      });
     } catch (error) {
       console.error('Error creating default welcome message:', error);
       toast({
@@ -111,6 +132,8 @@ export const WelcomeMessageEditor = () => {
 
     try {
       setSaving(true);
+      console.log('Saving welcome message...', { id: welcomeMessage.id, content: editedMessage });
+      
       const { error } = await supabase
         .from('bot_content')
         .update({
@@ -122,6 +145,7 @@ export const WelcomeMessageEditor = () => {
 
       if (error) throw error;
 
+      console.log('Welcome message saved successfully');
       setWelcomeMessage(prev => prev ? {
         ...prev,
         content_value: editedMessage,
@@ -137,7 +161,7 @@ export const WelcomeMessageEditor = () => {
       console.error('Error saving welcome message:', error);
       toast({
         title: "Error",
-        description: "Failed to save welcome message",
+        description: `Failed to save welcome message: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -148,11 +172,19 @@ export const WelcomeMessageEditor = () => {
   const resetToOriginal = () => {
     if (welcomeMessage) {
       setEditedMessage(welcomeMessage.content_value);
+      toast({
+        title: "Reset",
+        description: "Message reset to original content",
+      });
     }
   };
 
   const useTemplate = (template: string) => {
     setEditedMessage(template);
+    toast({
+      title: "Template Applied",
+      description: "Template has been loaded into the editor",
+    });
   };
 
   const templates = [
@@ -321,6 +353,7 @@ Choose an option below:`
                         size="sm" 
                         variant="outline"
                         onClick={() => useTemplate(template.content)}
+                        disabled={saving}
                       >
                         Use Template
                       </Button>
@@ -330,6 +363,14 @@ Choose an option below:`
                     </div>
                   </div>
                 ))}
+                
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h4 className="font-medium text-blue-800 mb-2">💡 Template Usage</h4>
+                  <p className="text-sm text-blue-700">
+                    Click "Use Template" to load any template into the editor. 
+                    You can then customize it further before saving.
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>

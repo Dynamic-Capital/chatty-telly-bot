@@ -20,12 +20,103 @@ export async function getBotContent(contentKey: string): Promise<string | null> 
 
     if (error) {
       console.error(`Error fetching content for ${contentKey}:`, error);
+      
+      // If content doesn't exist, create default content
+      if (error.code === 'PGRST116') {
+        console.log(`Creating default content for ${contentKey}`);
+        const defaultContent = await createDefaultContent(contentKey);
+        return defaultContent;
+      }
       return null;
     }
 
     return data?.content_value || null;
   } catch (error) {
     console.error(`Exception in getBotContent for ${contentKey}:`, error);
+    return null;
+  }
+}
+
+// Create default content for missing keys
+async function createDefaultContent(contentKey: string): Promise<string | null> {
+  const defaultContents = {
+    'welcome_message': `🎯 Welcome to Dynamic Capital VIP Bot!
+
+📈 Get premium trading signals & education
+💎 Join our VIP community
+
+👇 Choose what you need:`,
+    'about_us': `🏢 About Dynamic Capital
+
+We are a leading trading education and signals provider with years of experience in financial markets.
+
+Our mission is to help traders succeed through:
+• Premium trading signals
+• Educational resources
+• Community support
+• Expert guidance`,
+    'support_message': `🛟 Need Help?
+
+Our support team is here to assist you!
+
+📞 Contact us:
+• Telegram: @DynamicCapital_Support
+• Response time: Within 24 hours
+• Available: Monday - Friday, 9 AM - 6 PM UTC`,
+    'help_message': `❓ Bot Commands & Help
+
+Available commands:
+/start - Main menu
+/vip - View VIP packages
+/help - Show this help
+/support - Contact support
+/about - About us
+
+Need assistance? Contact @DynamicCapital_Support`,
+    'vip_benefits': `💎 VIP Membership Benefits
+
+🚀 Premium Trading Signals
+📊 Daily Market Analysis
+💬 VIP Community Access
+🎓 Educational Resources
+📞 Priority Support
+💰 Exclusive Promotions`,
+    'payment_instructions': `💳 Payment Instructions
+
+We accept:
+🏦 Bank Transfer
+₿ Cryptocurrency
+💳 Binance Pay
+
+After payment, upload your receipt and we'll activate your VIP access within 24 hours.`
+  };
+
+  const defaultValue = defaultContents[contentKey];
+  if (!defaultValue) return null;
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('bot_content')
+      .insert({
+        content_key: contentKey,
+        content_value: defaultValue,
+        content_type: 'text',
+        description: `Auto-generated default content for ${contentKey}`,
+        is_active: true,
+        created_by: 'system',
+        last_modified_by: 'system'
+      })
+      .select('content_value')
+      .single();
+
+    if (error) {
+      console.error(`Error creating default content for ${contentKey}:`, error);
+      return null;
+    }
+
+    return data?.content_value || null;
+  } catch (error) {
+    console.error(`Exception creating default content for ${contentKey}:`, error);
     return null;
   }
 }
@@ -39,6 +130,8 @@ export async function setBotContent(contentKey: string, contentValue: string, ad
         content_value: contentValue,
         last_modified_by: adminId,
         updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'content_key'
       });
 
     if (!error) {
