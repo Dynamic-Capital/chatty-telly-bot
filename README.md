@@ -1,8 +1,14 @@
-# Welcome to your Lovable project
+# Chatty Telly Bot
+
+This repository hosts the source code for **Chatty Telly Bot**, a Telegram bot whose codebase is collaboratively managed with [Lovable](https://lovable.dev) and Codex. The project is synchronized in both directions:
+
+- **Lovable ↔ GitHub** – edits made in Lovable are committed back to this repository and GitHub changes are pulled into Lovable.
+- **Codex ↔ GitHub** – Codex keeps the repository in sync with your local development environment.
+- **Supabase ↔ Bot** – bot content and settings are stored in Supabase tables and referenced from the Telegram bot via edge functions.
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/4e724637-b932-47ad-a2c1-d134b3febb47
+**Lovable Project URL**: https://lovable.dev/projects/4e724637-b932-47ad-a2c1-d134b3febb47
 
 ## How can I edit this code?
 
@@ -12,11 +18,11 @@ There are several ways of editing your application.
 
 Simply visit the [Lovable Project](https://lovable.dev/projects/4e724637-b932-47ad-a2c1-d134b3febb47) and start prompting.
 
-Changes made via Lovable will be committed automatically to this repo.
+Changes made via Lovable will be committed automatically to this repo. Use Lovable for quick prompts or UI‑driven edits.
 
 **Use your preferred IDE**
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable and Codex.
 
 The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
@@ -50,6 +56,16 @@ npm run dev
 - Click on "New codespace" to launch a new Codespace environment.
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
+## Bot features
+
+- Content, announcements, and settings are stored in Supabase tables so updates can be made without redeploying code.
+- Edge functions (e.g., `telegram-bot`) handle callbacks from Telegram and read/write to Supabase.
+- Admins can edit or delete bot content directly from Telegram; changes are persisted to the database.
+
+## Branch protection
+
+The `main` branch contains the core, production-ready code and should be protected. Use the `work` branch for day‑to‑day development and merge through pull requests to avoid accidental overwrites.
+
 ## What technologies are used for this project?
 
 This project is built with:
@@ -59,6 +75,7 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Supabase (Database & Edge Functions)
 
 ## How can I deploy this project?
 
