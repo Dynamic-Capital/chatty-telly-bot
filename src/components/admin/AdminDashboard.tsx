@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { BotSettings } from '@/components/admin/BotSettings';
 import { BotDebugger } from '@/components/admin/BotDebugger';
+import { ContactInfo } from '@/components/admin/ContactInfo';
 import { 
   Users, 
   CreditCard, 
@@ -172,6 +173,11 @@ export const AdminDashboard = () => {
           data = analytics || [];
           break;
         }
+        case 'contact_links': {
+          const { data: contacts } = await supabase.from('contact_links').select('*');
+          data = contacts || [];
+          break;
+        }
         default:
           throw new Error('Invalid table name');
       }
@@ -205,14 +211,24 @@ export const AdminDashboard = () => {
     
     setBroadcasting(true);
     try {
-      // This would typically call your Telegram bot API
-      // For now, we'll just simulate the broadcast
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Call the actual Telegram bot broadcast function
+      const { data, error } = await supabase.functions.invoke('telegram-bot', {
+        body: {
+          action: 'broadcast',
+          message: broadcastMessage,
+          target_audience: 'all'
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
       setBroadcastMessage('');
-      alert('Broadcast sent successfully!');
+      alert(`Broadcast sent successfully to ${data?.recipients || 0} users!`);
     } catch (error) {
       console.error('Broadcast error:', error);
-      alert('Failed to send broadcast');
+      alert('Failed to send broadcast: ' + (error.message || 'Unknown error'));
     } finally {
       setBroadcasting(false);
     }
@@ -299,6 +315,7 @@ export const AdminDashboard = () => {
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="settings">Bot Settings</TabsTrigger>
           <TabsTrigger value="broadcast">Broadcast</TabsTrigger>
+          <TabsTrigger value="contact">Contact Info</TabsTrigger>
           <TabsTrigger value="export">Export Data</TabsTrigger>
         </TabsList>
 
@@ -421,6 +438,10 @@ export const AdminDashboard = () => {
           <BotSettings />
         </TabsContent>
 
+        <TabsContent value="contact" className="space-y-4">
+          <ContactInfo />
+        </TabsContent>
+
         <TabsContent value="export" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
@@ -429,7 +450,8 @@ export const AdminDashboard = () => {
               { name: 'user_subscriptions', title: 'Subscriptions', description: 'User subscriptions' },
               { name: 'education_enrollments', title: 'Enrollments', description: 'Education enrollments' },
               { name: 'promotions', title: 'Promotions', description: 'Promotion codes' },
-              { name: 'daily_analytics', title: 'Analytics', description: 'Daily analytics data' }
+              { name: 'daily_analytics', title: 'Analytics', description: 'Daily analytics data' },
+              { name: 'contact_links', title: 'Contact Links', description: 'Bot contact information' }
             ].map((table) => (
               <Card key={table.name}>
                 <CardHeader>

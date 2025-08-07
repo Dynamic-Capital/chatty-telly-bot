@@ -5899,6 +5899,65 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
             } else if (callbackData.startsWith('message_user_')) {
               const targetUserId = callbackData.replace('message_user_', '');
               await sendMessage(chatId, `📧 Direct messaging to user ${targetUserId}. Feature coming soon!`);
+            } else if (callbackData.startsWith('edit_plan_')) {
+              const planId = callbackData.replace('edit_plan_', '');
+              console.log(`🔧 Admin ${userId} editing plan: ${planId}`);
+              
+              if (!isAdmin(userId)) {
+                await sendMessage(chatId, "❌ Access denied.");
+                return;
+              }
+              
+              try {
+                const { data: plan, error } = await supabaseAdmin
+                  .from('subscription_plans')
+                  .select('*')
+                  .eq('id', planId)
+                  .single();
+                
+                if (error) throw error;
+                
+                if (!plan) {
+                  await sendMessage(chatId, "❌ Plan not found.");
+                  return;
+                }
+                
+                const editMessage = `✏️ **Edit Plan: ${plan.name}**
+                
+📋 **Current Details:**
+• **Name:** ${plan.name}
+• **Price:** $${plan.price} ${plan.currency}
+• **Duration:** ${plan.is_lifetime ? 'Lifetime' : `${plan.duration_months} months`}
+• **Features:** ${plan.features?.length || 0} items
+
+🔧 **What would you like to edit?**`;
+                
+                const editKeyboard = {
+                  inline_keyboard: [
+                    [
+                      { text: "📝 Edit Name", callback_data: `edit_plan_name_${planId}` },
+                      { text: "💰 Edit Price", callback_data: `edit_plan_price_${planId}` }
+                    ],
+                    [
+                      { text: "⏰ Edit Duration", callback_data: `edit_plan_duration_${planId}` },
+                      { text: "✨ Edit Features", callback_data: `edit_plan_features_${planId}` }
+                    ],
+                    [
+                      { text: "🗑️ Delete Plan", callback_data: `delete_plan_${planId}` }
+                    ],
+                    [
+                      { text: "🔙 Back to Plans", callback_data: "edit_vip_plan" }
+                    ]
+                  ]
+                };
+                
+                await sendMessage(chatId, editMessage, editKeyboard);
+                await logAdminAction(userId, 'plan_edit_view', `Viewing edit options for plan: ${plan.name}`, 'subscription_plans', planId);
+                
+              } catch (error) {
+                console.error('🚨 Error loading plan for editing:', error);
+                await sendMessage(chatId, `❌ Error loading plan: ${error.message}`);
+              }
             } else if (callbackData === 'about_us') {
               await handleAboutUs(chatId, userId);
             } else if (callbackData === 'support') {
