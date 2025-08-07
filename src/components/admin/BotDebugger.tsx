@@ -52,7 +52,7 @@ export const BotDebugger = () => {
 
   const resetBot = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('reset-bot');
+      const { data: _data, error } = await supabase.functions.invoke('reset-bot');
       
       if (error) {
         throw error;

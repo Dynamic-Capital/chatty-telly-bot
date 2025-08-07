@@ -106,7 +106,7 @@ export const SystemStatus = () => {
     for (const functionName of edgeFunctions) {
       try {
         const startTime = Date.now();
-        const { data, error } = await supabase.functions.invoke(functionName, {
+        const { data: _data, error } = await supabase.functions.invoke(functionName, {
           body: { test: true }
         });
         const responseTime = Date.now() - startTime;

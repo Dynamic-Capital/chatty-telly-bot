@@ -150,7 +150,7 @@ export async function setBotContent(contentKey: string, contentValue: string, ad
 // Settings management functions
 export async function getBotSetting(settingKey: string): Promise<string | null> {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error: _error } = await supabaseAdmin
       .from('bot_settings')
       .select('setting_value')
       .eq('setting_key', settingKey)
@@ -580,7 +580,7 @@ export async function deleteVipPackage(packageId: string, adminId: string): Prom
 // Education package management functions
 export async function getEducationPackages(): Promise<any[]> {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error: _error } = await supabaseAdmin
       .from('education_packages')
       .select('*')
       .eq('is_active', true)
@@ -613,7 +613,7 @@ export async function createEducationPackage(packageData: any, adminId: string):
 // Promotion management functions
 export async function getActivePromotions(): Promise<any[]> {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error: _error } = await supabaseAdmin
       .from('promotions')
       .select('*')
       .eq('is_active', true)
