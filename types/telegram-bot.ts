@@ -71,6 +71,18 @@ export interface BotSettings {
 // Subscription & Payment Interfaces
 // ============================================
 
+export interface PlanChannel {
+  id: string;
+  plan_id: string;
+  channel_name: string;
+  channel_type: 'channel' | 'group';
+  invite_link: string;
+  chat_id?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SubscriptionPlan {
   id: string;
   name: string;

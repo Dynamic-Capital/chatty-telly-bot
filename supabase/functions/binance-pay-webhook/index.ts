@@ -162,7 +162,7 @@ serve(async (req) => {
       if (botToken) {
         try {
           const message = `🎉 <b>Payment Successful!</b>\n\n✅ Your ${payment.subscription_plans.name} subscription has been activated!\n💎 You now have VIP access until ${endDate.toLocaleDateString()}\n\n🚀 Welcome to the VIP club!`;
-          
+
           await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -172,9 +172,43 @@ serve(async (req) => {
               parse_mode: 'HTML'
             })
           });
+          // Fetch plan channel links from database
+          const { data: channels, error: channelError } = await supabase
+            .from('plan_channels')
+            .select('channel_name, invite_link, chat_id')
+            .eq('plan_id', payment.plan_id)
+            .eq('is_active', true);
 
-          // Add user to VIP channel and group (implement later when chat IDs are available)
-          console.log(`User ${payment.user_id} payment completed, should be added to VIP groups`);
+          if (!channelError && channels && channels.length > 0) {
+            const linksText = channels
+              .map((c: any) => `🔗 ${c.channel_name}: ${c.invite_link}`)
+              .join('\n');
+
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: payment.user_id,
+                text: `📢 <b>VIP Access Links</b>\n\n${linksText}`,
+                parse_mode: 'HTML',
+                disable_web_page_preview: true
+              })
+            });
+
+            // Record channel membership entries
+            await supabase.from('channel_memberships').insert(
+              channels.map((c: any) => ({
+                channel_id: c.chat_id,
+                channel_name: c.channel_name,
+                package_id: payment.plan_id,
+                telegram_user_id: payment.user_id,
+                is_active: true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                added_at: new Date().toISOString()
+              }))
+            );
+          }
 
         } catch (error) {
           console.error('Error sending Telegram notification:', error);
