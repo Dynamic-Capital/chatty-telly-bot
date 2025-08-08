@@ -20,6 +20,7 @@ import {
   handleBotSettingsManagement,
   handleTableStatsOverview
 } from "./admin-handlers.ts";
+import { ocrTextFromBlob, parseReceipt } from "./ocr.ts";
 
 const DEFAULT_BOT_SETTINGS: Record<string, string> = {
   session_timeout_minutes: "30",
@@ -431,6 +432,7 @@ const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const BOT_VERSION = Deno.env.get("BOT_VERSION") || "0.0.0";
+const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
 
 console.log("🚀 Bot starting with environment check...");
 console.log("BOT_TOKEN exists:", !!BOT_TOKEN);
@@ -1077,6 +1079,136 @@ Review the receipt and approve or reject the payment.`;
     
   } catch (error) {
     console.error('🚨 Error notifying admins about receipt:', error);
+  }
+}
+
+async function handleBankReceipt(message: TelegramMessage, userId: string): Promise<void> {
+  try {
+    const chatId = message.chat.id;
+    const fileId = message.photo
+      ? message.photo[message.photo.length - 1].file_id
+      : message.document?.file_id;
+    if (!fileId) {
+      await sendMessage(chatId, "❌ Unable to process the uploaded file. Please try again.");
+      return;
+    }
+
+    const fileInfoRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`);
+    const fileInfo = await fileInfoRes.json();
+    const filePath = fileInfo.result?.file_path;
+    if (!filePath) {
+      await sendMessage(chatId, "❌ Could not fetch file info from Telegram.");
+      return;
+    }
+
+    const fileRes = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`);
+    const blob = await fileRes.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+    const { data: dup } = await supabaseAdmin
+      .from('receipts')
+      .select('id')
+      .eq('image_sha256', hashHex)
+      .maybeSingle();
+    if (dup) {
+      await sendMessage(chatId, "⚠️ This receipt was already submitted.");
+      return;
+    }
+
+    const storagePath = `${userId}/${hashHex}`;
+    await supabaseAdmin.storage.from('receipts').upload(storagePath, blob, {
+      contentType: fileRes.headers.get('content-type') || undefined,
+    });
+    const { data: urlData } = supabaseAdmin.storage
+      .from('receipts')
+      .getPublicUrl(storagePath);
+    const fileUrl = urlData.publicUrl;
+
+    const text = await ocrTextFromBlob(blob);
+    const ocr = parseReceipt(text);
+
+    let intent = null;
+    if (ocr.payCode) {
+      const { data } = await supabaseAdmin
+        .from('payment_intents')
+        .select('*')
+        .eq('pay_code', ocr.payCode)
+        .maybeSingle();
+      intent = data;
+    }
+    if (!intent) {
+      const { data } = await supabaseAdmin
+        .from('payment_intents')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('method', 'bank')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      intent = data;
+    }
+
+    if (!intent) {
+      await supabaseAdmin.from('receipts').insert({
+        user_id: userId,
+        file_url: fileUrl,
+        image_sha256: hashHex,
+        ocr_text: ocr.text,
+        ocr_amount: ocr.total,
+        ocr_timestamp: ocr.dateText ? new Date(ocr.dateText).toISOString() : null,
+        ocr_beneficiary: ocr.beneficiary,
+        ocr_pay_code: ocr.payCode,
+        reason: 'no_intent_found',
+      });
+      await sendMessage(chatId, "❓ Receipt received but no matching payment found. Our team will review it.");
+      return;
+    }
+
+    const windowSeconds = 180;
+    const amtOK = ocr.total != null &&
+      Math.abs(ocr.total - intent.expected_amount) / intent.expected_amount <= 0.02;
+    const ocrDate = ocr.dateText ? new Date(ocr.dateText) : undefined;
+    const timeOK = ocrDate
+      ? Math.abs(ocrDate.getTime() - new Date(intent.created_at).getTime()) / 1000 <= windowSeconds
+      : false;
+    const beneficiaryOK = (ocr.beneficiary ?? "").toLowerCase().includes("dynamic");
+    const payCodeOK = intent.pay_code && ocr.payCode === intent.pay_code;
+    const approve = (amtOK && timeOK && beneficiaryOK) && (ocr.success || payCodeOK);
+
+    await supabaseAdmin.from('receipts').insert({
+      payment_id: intent.id,
+      user_id: userId,
+      file_url: fileUrl,
+      image_sha256: hashHex,
+      ocr_text: ocr.text,
+      ocr_amount: ocr.total,
+      ocr_timestamp: ocrDate?.toISOString(),
+      ocr_beneficiary: ocr.beneficiary,
+      ocr_pay_code: ocr.payCode,
+      verdict: approve ? 'approved' : 'manual_review',
+      reason: approve ? null : 'auto_rules_failed',
+    });
+
+    if (approve) {
+      await supabaseAdmin
+        .from('payment_intents')
+        .update({ status: 'approved', approved_at: new Date().toISOString() })
+        .eq('id', intent.id);
+      await sendMessage(chatId, "✅ Payment verified successfully!");
+    } else {
+      await supabaseAdmin
+        .from('payment_intents')
+        .update({ status: 'manual_review' })
+        .eq('id', intent.id);
+      await sendMessage(chatId, "📥 Receipt received. It will be reviewed shortly.");
+    }
+  } catch (error) {
+    console.error('🚨 Error processing bank receipt:', error);
+    await sendMessage(message.chat.id, "❌ An error occurred processing your receipt.");
   }
 }
 
@@ -5406,6 +5538,11 @@ async function handleMessageUser(
 serve(async (req: Request): Promise<Response> => {
   console.log(`📥 Request received: ${req.method} ${req.url}`);
 
+  const url = new URL(req.url);
+  if (url.searchParams.get("secret") !== WEBHOOK_SECRET) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
   // Check for new deployments on each request to notify admins
   await checkBotVersion();
 
@@ -5647,7 +5784,7 @@ serve(async (req: Request): Promise<Response> => {
 
       // Handle photo/document uploads (receipts)
       if (update.message.photo || update.message.document) {
-        await handleReceiptUpload(update.message, userId, firstName);
+        await handleBankReceipt(update.message, userId);
         return new Response("OK", { status: 200 });
       }
 
