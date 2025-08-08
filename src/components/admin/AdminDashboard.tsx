@@ -337,7 +337,15 @@ export const AdminDashboard = () => {
         </TabsContent>
 
         <TabsContent value="vip-plans" className="space-y-4">
-          <VipPlansManager />
+          <Card>
+            <CardHeader>
+              <CardTitle>VIP Plans</CardTitle>
+              <CardDescription>Manage subscription plans (UI coming soon)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Configure plans in the subscription_plans table.</p>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="users" className="space-y-4">

@@ -5187,9 +5187,9 @@ serve(async (req) => {
       }
 
       // Check if user is waiting for promo code input
-      const userSession = userSessions.get(userId);
-      if (userSession && userSession.type === 'waiting_promo_code') {
-        await handlePromoCodeInput(chatId, userId, text.trim().toUpperCase(), userSession);
+      const promoSession = userSessions.get(userId);
+      if (promoSession && promoSession.type === 'waiting_promo_code') {
+        await handlePromoCodeInput(chatId, userId, text.trim().toUpperCase(), promoSession);
         return new Response("OK", { status: 200 });
       }
 

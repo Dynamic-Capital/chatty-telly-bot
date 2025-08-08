@@ -153,7 +153,7 @@ export const SystemStatus = () => {
       const checks = coreTables.map(async (tableName) => {
         try {
           const { count, error: countError } = await supabasePublic
-            .from(tableName)
+            .from(tableName as any)
             .select('*', { count: 'exact', head: true });
 
           if (countError) {
@@ -165,12 +165,12 @@ export const SystemStatus = () => {
             } as TableInfo;
           }
 
-          const { data: latestRecord } = await supabasePublic
-            .from(tableName)
-            .select('updated_at, created_at')
+          const { data: latestRecord } = await (supabasePublic as any)
+            .from(tableName as any)
+            .select('updated_at, created_at' as any)
             .order('updated_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
           const lastUpdated = latestRecord?.updated_at || latestRecord?.created_at;
 

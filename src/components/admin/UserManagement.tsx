@@ -36,6 +36,15 @@ interface SubscriptionPlan {
   features: string[];
 }
 
+interface PendingPayment {
+  id: string;
+  telegram_user_id: string;
+  payment_method: string | null;
+  created_at: string;
+  receipt_telegram_file_id: string | null;
+  subscription_plans?: { name?: string; price?: number } | null;
+}
+
 interface PackageAssignment {
   id: string;
   user_id: string;
@@ -54,7 +63,7 @@ export function UserManagement() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [packages, setPackages] = useState<SubscriptionPlan[]>([]);
   const [assignments, setAssignments] = useState<PackageAssignment[]>([]);
-  const [pendingPayments, setPendingPayments] = useState<Record<string, unknown>[]>([]);
+  const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
