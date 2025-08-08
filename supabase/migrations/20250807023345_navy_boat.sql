@@ -125,7 +125,7 @@ Need assistance? Contact @DynamicCapital_Support',
 
 We accept:
 🏦 Bank Transfer
-₿ Cryptocurrency
+🪙 USDT (TRC20)
 💳 Binance Pay
 
 After payment, upload your receipt and we''ll activate your VIP access within 24 hours.',
@@ -136,6 +136,27 @@ After payment, upload your receipt and we''ll activate your VIP access within 24
   'system'
 )
 ON CONFLICT (content_key) DO NOTHING;
+
+-- Ensure only USDT (TRC20) crypto address is stored
+DELETE FROM bot_content
+WHERE content_key IN ('crypto_btc_address', 'crypto_eth_address', 'crypto_usdt_erc20');
+
+INSERT INTO bot_content (content_key, content_value, content_type, description, is_active, created_by, last_modified_by)
+VALUES (
+  'crypto_usdt_trc20',
+  'TQeAph1kiaVbwvY2NS1EwepqrnoTpK6Wss',
+  'text',
+  'USDT (TRC20) payment address',
+  true,
+  'system',
+  'system'
+)
+ON CONFLICT (content_key) DO UPDATE
+SET content_value = EXCLUDED.content_value,
+    content_type = EXCLUDED.content_type,
+    description = EXCLUDED.description,
+    is_active = EXCLUDED.is_active,
+    last_modified_by = EXCLUDED.last_modified_by;
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_bot_content_key_active 

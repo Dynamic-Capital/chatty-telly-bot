@@ -207,7 +207,7 @@ Expected additional functions may be:
 | Lifetime VIP | $999 | Lifetime | ✅ Active |
 
 ### 💳 **Payment Methods (3 Active)**
-- ✅ **Crypto payments** (BTC, ETH, USDT)
+- ✅ **Crypto payments** (USDT - TRC20)
 - ✅ **Binance Pay** (API integrated)
 - ✅ **Bank transfers** (3 accounts: BML, MIB)
 

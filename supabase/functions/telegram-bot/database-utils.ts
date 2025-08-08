@@ -89,7 +89,7 @@ Need assistance? Contact @DynamicCapital_Support`,
 A: Select a VIP package, complete payment, and you'll be added automatically after verification.
 
 🔷 **Q: What payment methods do you accept?**
-A: We accept Binance Pay, cryptocurrency (BTC, ETH, USDT), and bank transfers.
+A: We accept Binance Pay, USDT (TRC20), and bank transfers.
 
 🔷 **Q: How quickly are signals sent?**
 A: VIP signals are sent in real-time as market opportunities arise, typically 5-10 per day.
@@ -119,7 +119,7 @@ A: Yes! We offer comprehensive courses for beginners to advanced traders.
 
 We accept:
 🏦 Bank Transfer
-₿ Cryptocurrency
+🪙 USDT (TRC20)
 💳 Binance Pay
 
 After payment, upload your receipt and we'll activate your VIP access within 24 hours.`
