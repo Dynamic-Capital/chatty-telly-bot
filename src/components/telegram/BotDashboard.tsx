@@ -1,20 +1,16 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { 
-  BotIcon, 
-  SendIcon, 
-  Settings, 
-  Activity, 
-  MessageSquare, 
-  Users, 
-  Package, 
-  HeadphonesIcon, 
-  Gift, 
+  BotIcon,
+  Settings,
+  Activity,
+  MessageSquare,
+  Users,
+  Package,
+  HeadphonesIcon,
+  Gift,
   CreditCard,
   BarChart3,
   Shield,
@@ -25,12 +21,12 @@ import { useToast } from "@/hooks/use-toast";
 
 const BotDashboard = () => {
   const [currentView, setCurrentView] = useState<'welcome' | 'config' | 'packages' | 'support' | 'analytics' | 'promos'>('welcome');
-  const [botToken, setBotToken] = useState("");
+  const [botToken, _setBotToken] = useState("");
   const [isConnected, setIsConnected] = useState(false);
   const [message, setMessage] = useState("");
   const { toast } = useToast();
 
-  const handleConnect = () => {
+  const _handleConnect = () => {
     if (!botToken.trim()) {
       toast({
         title: "Error",
@@ -46,7 +42,7 @@ const BotDashboard = () => {
     });
   };
 
-  const handleSendMessage = () => {
+  const _handleSendMessage = () => {
     if (!message.trim()) {
       toast({
         title: "Error",

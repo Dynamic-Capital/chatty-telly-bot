@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { instrument, command, context } = await req.json();
+    const { instrument, command, context: _context } = await req.json();
 
     if (!instrument) {
       return new Response(JSON.stringify({ error: 'Instrument is required' }), {

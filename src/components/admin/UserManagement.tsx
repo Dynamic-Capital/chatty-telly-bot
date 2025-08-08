@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, Search, Edit, Trash2, UserPlus, Users, Package, Loader2 } from 'lucide-react';
+import { Plus, Search, Users, Package, Loader2 } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -66,7 +66,6 @@ export function UserManagement() {
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isAssignPackageOpen, setIsAssignPackageOpen] = useState(false);
 
@@ -134,7 +133,7 @@ export function UserManagement() {
     }
   }, [isAdmin, loadData]);
 
-  const addUser = async () => {
+  const addUser = () => {
     try {
       if (!newUser.first_name || !newUser.email) {
         toast({

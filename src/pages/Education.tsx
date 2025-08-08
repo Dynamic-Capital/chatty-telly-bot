@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Clock, Users, Star, GraduationCap, Trophy, Target } from 'lucide-react';
+import { Clock, Users, Star, GraduationCap, Target } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -99,7 +99,7 @@ const Education: React.FC = () => {
     }
   };
 
-  const handleEnrollClick = (packageData: EducationPackage) => {
+  const handleEnrollClick = (_packageData: EducationPackage) => {
     toast({
       title: "Enrollment Available",
       description: "Contact our Telegram bot @DynamicCapital_Support to enroll in this program.",

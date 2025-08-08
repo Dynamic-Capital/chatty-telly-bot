@@ -69,7 +69,7 @@ serve(async (req) => {
     const { bizType, data } = webhookData;
 
     if (bizType === 'PAY_SUCCESS') {
-      const { merchantTradeNo, transactionId, transactionTime, payerInfo } = data;
+      const { merchantTradeNo, transactionId, transactionTime: _transactionTime, payerInfo: _payerInfo } = data;
 
       // Find the payment record
       const { data: payment, error: paymentError } = await supabase

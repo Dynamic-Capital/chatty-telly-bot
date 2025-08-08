@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { question, context } = await req.json();
+    const { question, context: _context } = await req.json();
 
     if (!question) {
       return new Response(JSON.stringify({ error: 'Question is required' }), {

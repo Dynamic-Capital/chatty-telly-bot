@@ -8,12 +8,12 @@ const corsHeaders = {
 };
 
 // Binance Pay API configuration
-const BINANCE_PAY_API_KEY = Deno.env.get('BINANCE_API_KEY')!;
-const BINANCE_PAY_SECRET_KEY = Deno.env.get('BINANCE_SECRET_KEY')!;
-const BINANCE_PAY_MERCHANT_ID = "59586072";
-const BINANCE_PAY_BASE_URL = "https://bpay.binanceapi.com";
+const _BINANCE_PAY_API_KEY = Deno.env.get('BINANCE_API_KEY')!;
+const _BINANCE_PAY_SECRET_KEY = Deno.env.get('BINANCE_SECRET_KEY')!;
+const _BINANCE_PAY_MERCHANT_ID = "59586072";
+const _BINANCE_PAY_BASE_URL = "https://bpay.binanceapi.com";
 
-async function generateSignature(timestamp: string, nonce: string, body: string, secretKey: string): Promise<string> {
+async function _generateSignature(timestamp: string, nonce: string, body: string, secretKey: string): Promise<string> {
   const payload = timestamp + '\n' + nonce + '\n' + body + '\n';
   
   const encoder = new TextEncoder();
@@ -36,7 +36,7 @@ async function generateSignature(timestamp: string, nonce: string, body: string,
     .toUpperCase();
 }
 
-function generateNonce(): string {
+function _generateNonce(): string {
   return crypto.randomUUID().replace(/-/g, '');
 }
 
@@ -50,7 +50,7 @@ serve(async (req) => {
     const requestBody = await req.json();
     console.log('Request body:', requestBody);
     
-    const { planId, telegramUserId, telegramUsername } = requestBody;
+    const { planId, telegramUserId, telegramUsername: _telegramUsername } = requestBody;
 
     if (!planId || !telegramUserId) {
       throw new Error('Missing required parameters: planId or telegramUserId');

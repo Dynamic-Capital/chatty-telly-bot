@@ -2,9 +2,9 @@ import { getCached } from './cache';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-interface IntlWithSupportedValues extends typeof Intl {
+type IntlWithSupportedValues = typeof Intl & {
   supportedValuesOf?: (key: string) => string[];
-}
+};
 
 export function getTimezones(): Promise<string[]> {
   return getCached('timezones', DAY_MS, () => {

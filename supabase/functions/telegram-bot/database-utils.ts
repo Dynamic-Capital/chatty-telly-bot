@@ -538,7 +538,7 @@ async function processCreatePlanInput(userId: string, inputText: string): Promis
     if (!planData.price) {
       return { success: false, message: "❌ Plan price is required" };
     }
-    if (!planData.hasOwnProperty('is_lifetime')) {
+    if (!('is_lifetime' in planData)) {
       return { success: false, message: "❌ Plan duration is required" };
     }
     if (!planData.features || planData.features.length === 0) {

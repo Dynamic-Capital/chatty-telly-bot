@@ -1,13 +1,12 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { 
-  GraduationCap, 
-  Bot, 
-  Home, 
-  Settings, 
-  BarChart3, 
-  Menu 
+import {
+  GraduationCap,
+  Bot,
+  Home,
+  Settings,
+  Menu
 } from 'lucide-react';
 import {
   DropdownMenu,
