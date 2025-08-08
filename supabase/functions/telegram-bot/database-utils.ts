@@ -610,6 +610,28 @@ export async function getEducationPackages(): Promise<Record<string, unknown>[]>
   }
 }
 
+export async function getEducationEnrollments(studentTelegramId?: string): Promise<Record<string, unknown>[]> {
+  try {
+    let query = supabaseAdmin
+      .from('education_enrollments')
+      .select(`
+        *,
+        education_packages(name, price)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (studentTelegramId) {
+      query = query.eq('student_telegram_id', studentTelegramId);
+    }
+
+    const { data, error: _error } = await query;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching education enrollments:', error);
+    return [];
+  }
+}
+
 export async function createEducationPackage(packageData: Record<string, unknown>, adminId: string): Promise<boolean> {
   try {
     const { error } = await supabaseAdmin

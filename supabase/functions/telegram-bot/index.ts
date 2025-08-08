@@ -1,7 +1,7 @@
 /* eslint-disable no-case-declarations */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getFormattedVipPackages, getBotContent, getBotSetting } from "./database-utils.ts";
+import { getFormattedVipPackages, getBotContent, getBotSetting, getEducationEnrollments } from "./database-utils.ts";
 import {
   handleTableManagement,
   handleUserTableManagement,
@@ -4753,7 +4753,46 @@ async function handleEducationCategoriesManagement(chatId: number, userId: strin
       return;
     }
 
-    await sendMessage(chatId, "📚 Enrollment view coming soon.");
+    try {
+      const enrollments = await getEducationEnrollments(userId);
+
+      if (!enrollments || enrollments.length === 0) {
+        await sendMessage(chatId, '📚 No education enrollments found.');
+        return;
+      }
+
+      let message = `🎓 **Education Enrollments**\n\n`;
+
+      const enrollmentList = enrollments as Array<{
+        enrollment_status?: string;
+        payment_status?: string;
+        payment_method?: string;
+        education_packages?: { name?: string };
+      }>;
+
+      enrollmentList.forEach((enrollment, index) => {
+        const pkg = enrollment.education_packages;
+        const status = enrollment.enrollment_status || 'unknown';
+        const paymentStatus = enrollment.payment_status || 'unknown';
+        const paymentMethod = enrollment.payment_method || 'N/A';
+        message += `${index + 1}. ${pkg?.name || 'Unknown Package'}\n`;
+        message += `   📌 Status: ${status}\n`;
+        message += `   💳 Payment: ${paymentStatus} via ${paymentMethod}\n\n`;
+      });
+
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: '🔙 Back to Education', callback_data: 'manage_table_education_packages' }
+          ]
+        ]
+      };
+
+      await sendMessage(chatId, message, keyboard);
+    } catch (error) {
+      console.error('❌ Error in education enrollments view:', error);
+      await sendMessage(chatId, '❌ Error loading enrollments data.');
+    }
   }
 
   async function handleCreatePromotion(chatId: number, userId: string): Promise<void> {
