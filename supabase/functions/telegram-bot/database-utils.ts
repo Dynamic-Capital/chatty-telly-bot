@@ -1,4 +1,3 @@
-/* eslint-disable no-prototype-builtins */
 // Database utility functions for the Telegram bot
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -696,6 +695,33 @@ export async function getActivePromotions(): Promise<Record<string, unknown>[]> 
     return data || [];
   } catch (error) {
     console.error('Error fetching promotions:', error);
+    return [];
+  }
+}
+
+// Contact link management functions
+interface ContactLink {
+  display_name: string;
+  url: string;
+  icon_emoji: string;
+}
+
+export async function getContactLinks(): Promise<ContactLink[]> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('contact_links')
+      .select('display_name, url, icon_emoji')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching contact links:', error);
+      return [];
+    }
+
+    return data as ContactLink[];
+  } catch (error) {
+    console.error('Exception in getContactLinks:', error);
     return [];
   }
 }

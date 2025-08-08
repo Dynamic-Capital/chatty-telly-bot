@@ -1,4 +1,3 @@
-/* eslint-disable no-case-declarations */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
@@ -7,7 +6,8 @@ import {
   getBotSetting,
   setBotSetting,
   getAllBotSettings,
-  resetBotSettings
+  resetBotSettings,
+  getContactLinks
 } from "./database-utils.ts";
 import {
   handleTableManagement,
@@ -1654,44 +1654,36 @@ To democratize access to professional trading education and real-time market ins
 }
 
 async function handleSupport(chatId: number, userId: string): Promise<void> {
-  const content = await getBotContent('support') || `🛟 **Customer Support**
+  const baseMessage =
+    (await getBotContent('support')) ||
+    `🛟 **Customer Support**\n\nOur dedicated team is here to help you!\n\nInclude your user ID \`${userId}\` when contacting us.\n\n`;
 
-Our dedicated support team is here to help you 24/7!
+  const links = await getContactLinks();
 
-📞 **Contact Methods:**
-• Telegram: @DynamicCapital_Support
-• Email: support@dynamicvip.com
-• Live Chat: Available in VIP groups
+  const escapeMarkdown = (text: string) =>
+    text.replace(/[_*()[\]~`>#+=|{}.!-]/g, (m) => `\\${m}`);
 
-⏰ **Response Times:**
-• VIP Members: Within 1 hour
-• General Support: Within 24 hours
+  const contactInfo = links
+    .map((l) => `${l.icon_emoji} ${escapeMarkdown(l.display_name)}: ${escapeMarkdown(l.url)}`)
+    .join('\n');
 
-❓ **Common Questions:**
-• Payment issues
-• Account access
-• Signal explanations
-• Technical analysis help
-• Platform guidance
+  const buttons = links.map((l) => ({
+    text: `${l.icon_emoji} ${l.display_name}`,
+    url: l.url,
+  }));
 
-💡 **Tips for Faster Support:**
-• Include your user ID: \`${userId}\`
-• Describe your issue clearly
-• Attach screenshots if relevant
+  const rows: Array<Array<Record<string, string>>> = [];
+  for (let i = 0; i < buttons.length; i += 2) {
+    rows.push(buttons.slice(i, i + 2));
+  }
+  rows.push([{ text: '🔙 Back to Main Menu', callback_data: 'back_main' }]);
 
-🎯 **VIP Support:** Upgrade to VIP for priority support and direct access to our senior analysts!`;
+  const message =
+    contactInfo.length > 0
+      ? `${baseMessage}${contactInfo}`
+      : `${baseMessage}No contact methods are configured.`;
 
-  const keyboard = {
-    inline_keyboard: [
-      [
-        { text: "💬 Contact Support", url: "https://t.me/DynamicCapital_Support" },
-        { text: "📧 Email Us", url: "mailto:support@dynamicvip.com" }
-      ],
-      [{ text: "🔙 Back to Main Menu", callback_data: "back_main" }]
-    ]
-  };
-
-  await sendMessage(chatId, content, keyboard);
+  await sendMessage(chatId, message, { inline_keyboard: rows });
 }
 
 async function handleViewPromotions(chatId: number, _userId: string): Promise<void> {
