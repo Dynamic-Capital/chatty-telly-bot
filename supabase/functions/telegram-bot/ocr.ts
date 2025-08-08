@@ -1,17 +1,35 @@
 import { createWorker } from "npm:tesseract.js@5";
+import type { Worker as TesseractWorker } from "npm:tesseract.js@5";
+
+type OCRWorker = TesseractWorker & {
+  loadLanguage: (lang: string) => Promise<unknown>;
+  initialize?: (lang: string) => Promise<unknown>;
+  reinitialize?: (lang: string) => Promise<unknown>;
+  setParameters: (params: Record<string, string>) => Promise<unknown>;
+  recognize: (blob: Blob) => Promise<{ data: { text: string } }>;
+};
 
 export async function ocrTextFromBlob(blob: Blob): Promise<string> {
-  const worker: any = await createWorker();
-  await worker.loadLanguage("eng");
-  await worker.initialize("eng");
-  await worker.setParameters({
-    tessedit_char_whitelist: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$€₹:. -/()",
-    preserve_interword_spaces: "1",
-    user_defined_dpi: "300",
-  });
-  const { data } = await worker.recognize(blob);
-  await worker.terminate();
-  return data.text;
+  const worker: OCRWorker = await createWorker();
+
+  try {
+    await worker.load();
+    await worker.loadLanguage("eng");
+    if (worker.initialize) {
+      await worker.initialize("eng");
+    } else if (worker.reinitialize) {
+      await worker.reinitialize("eng");
+    }
+    await worker.setParameters({
+      tessedit_char_whitelist: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$€₹:. -/()",
+      preserve_interword_spaces: "1",
+      user_defined_dpi: "300",
+    });
+    const { data } = await worker.recognize(blob);
+    return data.text;
+  } finally {
+    await worker.terminate();
+  }
 }
 
 export function parseReceipt(text: string) {
