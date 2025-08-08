@@ -430,6 +430,7 @@ function getSecurityResponse(reason: string, blockDuration?: number): string {
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const BOT_VERSION = Deno.env.get("BOT_VERSION") || "0.0.0";
 
 console.log("🚀 Bot starting with environment check...");
 console.log("BOT_TOKEN exists:", !!BOT_TOKEN);
@@ -3199,6 +3200,29 @@ async function handleRefreshBot(chatId: number, userId: string): Promise<void> {
     await sendMessage(chatId, `❌ Error during refresh: ${(error as Error).message}`);
   }
 }
+
+async function checkBotVersionAndNotify(): Promise<void> {
+  try {
+    const storedVersion = await getBotSetting('bot_version');
+    if (storedVersion !== BOT_VERSION) {
+      console.log(`🔔 New bot version detected: ${BOT_VERSION} (previous: ${storedVersion})`);
+      await setBotSetting('bot_version', BOT_VERSION, 'system');
+      const notifyMessage = `🤖 Bot updated to version ${BOT_VERSION}\n🔄 Refreshing bot prompt...`;
+      for (const adminId of ADMIN_USER_IDS) {
+        await sendMessage(parseInt(adminId), notifyMessage);
+      }
+      const firstAdmin = ADMIN_USER_IDS.values().next().value;
+      if (firstAdmin) {
+        await handleRefreshBot(parseInt(firstAdmin), firstAdmin);
+      }
+      await logAdminAction('system', 'version_update', `Bot updated to version ${BOT_VERSION}`);
+    }
+  } catch (error) {
+    console.error('🚨 Error checking bot version:', error);
+  }
+}
+
+await checkBotVersionAndNotify();
 
 // Broadcasting Functions
 async function handleBroadcastMenu(chatId: number, userId: string): Promise<void> {
