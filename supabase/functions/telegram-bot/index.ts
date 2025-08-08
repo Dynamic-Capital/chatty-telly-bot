@@ -766,7 +766,8 @@ function getUserSession(userId: string | number) {
 async function sendMessage(
   chatId: number,
   text: string,
-  replyMarkup?: Record<string, unknown>
+  replyMarkup?: Record<string, unknown>,
+  options?: { autoDelete?: boolean; deleteAfterSeconds?: number }
 ) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const payload = {
@@ -793,28 +794,25 @@ async function sendMessage(
     const result = await response.json();
     console.log(`✅ Message sent successfully to ${chatId}`);
 
-    // Auto-delete messages in groups after specified time
-    if (result.ok && result.result) {
+    // Auto-delete messages after specified time unless disabled
+    if (result.ok && result.result && options?.autoDelete !== false) {
       const messageId = result.result.message_id;
-      const chatType = await getChatType(chatId);
-      
-      // Check if auto-deletion is enabled and it's a group/supergroup
-      const autoDeleteEnabled = await getBotSetting('auto_delete_enabled');
-      const deleteDelay = parseInt(await getBotSetting('auto_delete_delay_seconds') || '30');
-      
-      if (autoDeleteEnabled === 'true' && (chatType === 'group' || chatType === 'supergroup')) {
-        console.log(`⏰ Scheduling auto-deletion for message ${messageId} in chat ${chatId} after ${deleteDelay} seconds`);
-        
-        // Schedule deletion after specified delay
-        setTimeout(async () => {
-          try {
-            console.log(`🗑️ Auto-deleting message ${messageId} from chat ${chatId}`);
-            await deleteMessage(chatId, messageId);
-          } catch (error) {
-            console.error(`❌ Failed to auto-delete message ${messageId}:`, error);
-          }
-        }, deleteDelay * 1000); // Convert seconds to milliseconds
-      }
+      const deleteDelay =
+        options?.deleteAfterSeconds ||
+        parseInt((await getBotSetting('auto_delete_delay_seconds')) || '30');
+
+      console.log(
+        `⏰ Scheduling auto-deletion for message ${messageId} in chat ${chatId} after ${deleteDelay} seconds`
+      );
+
+      setTimeout(async () => {
+        try {
+          console.log(`🗑️ Auto-deleting message ${messageId} from chat ${chatId}`);
+          await deleteMessage(chatId, messageId);
+        } catch (error) {
+          console.error(`❌ Failed to auto-delete message ${messageId}:`, error);
+        }
+      }, deleteDelay * 1000);
     }
 
     return result;
@@ -893,29 +891,6 @@ async function deleteMessage(chatId: number, messageId: number): Promise<boolean
     return false;
   }
 }
-
-// Function to get chat type (private, group, supergroup, channel)
-async function getChatType(chatId: number): Promise<string> {
-  try {
-    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId })
-    });
-
-    const result = await response.json();
-
-    if (result.ok && result.result) {
-      return result.result.type;
-    }
-
-    return 'unknown';
-  } catch (error) {
-    console.error('🚨 Error getting chat type:', error);
-    return 'unknown';
-  }
-}
-
 // Receipt Upload Handler
 async function handleReceiptUpload(
   message: TelegramMessage,
@@ -1235,6 +1210,18 @@ function getMainMenuKeyboard(): InlineKeyboard {
 async function handleVipPackageSelection(chatId: number, userId: string, packageId: string, _firstName: string): Promise<void> {
   try {
     console.log(`💎 User ${userId} selected VIP package: ${packageId}`);
+
+    // Clean up any previous package or payment messages
+    const session = userSessions.get(userId) || {};
+    if (session.lastPackageMessageId) {
+      await deleteMessage(chatId, session.lastPackageMessageId);
+    }
+    if (session.paymentMessageId) {
+      await deleteMessage(chatId, session.paymentMessageId);
+    }
+    if (session.paymentTimeout) {
+      clearTimeout(session.paymentTimeout);
+    }
     
     // Get package details
     const { data: pkg, error } = await supabaseAdmin
@@ -1270,7 +1257,16 @@ ${pkg.features?.map((f: string) => `• ${f}`).join('\n') || '• Premium featur
       ]
     };
 
-    await sendMessage(chatId, message, keyboard);
+    const sent = await sendMessage(chatId, message, keyboard);
+
+    if (sent?.result?.message_id) {
+      userSessions.set(userId, {
+        ...session,
+        lastPackageMessageId: sent.result.message_id,
+        paymentMessageId: undefined,
+        paymentTimeout: undefined,
+      });
+    }
     
     // Log the selection
     await logAdminAction(userId, 'package_selection', `User selected package: ${pkg.name}`, 'subscription_plans', packageId);
@@ -1285,6 +1281,15 @@ ${pkg.features?.map((f: string) => `• ${f}`).join('\n') || '• Premium featur
 async function handlePaymentMethodSelection(chatId: number, userId: string, packageId: string, method: string): Promise<void> {
   try {
     console.log(`💳 User ${userId} selected payment method: ${method} for package: ${packageId}`);
+
+    // Clear any previous payment session
+    const session = userSessions.get(userId) || {};
+    if (session.paymentMessageId) {
+      await deleteMessage(chatId, session.paymentMessageId);
+    }
+    if (session.paymentTimeout) {
+      clearTimeout(session.paymentTimeout);
+    }
     
     // Check if user has applied promo code
     const userSession = userSessions.get(userId);
@@ -1368,7 +1373,28 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
     }
 
     console.log(`📝 Payment instructions generated for method: ${method}`);
-    await sendMessage(chatId, paymentInstructions);
+    const sent = await sendMessage(chatId, paymentInstructions, undefined, {
+      autoDelete: false,
+    });
+
+    if (sent?.result?.message_id) {
+      const timeout = setTimeout(async () => {
+        await sendMessage(chatId, '⏰ Payment session expired. Please start again.');
+        await deleteMessage(chatId, sent.result.message_id);
+        const sess = userSessions.get(userId);
+        if (sess) {
+          delete sess.paymentMessageId;
+          delete sess.paymentTimeout;
+          userSessions.set(userId, sess);
+        }
+      }, 60 * 1000);
+
+      userSessions.set(userId, {
+        ...session,
+        paymentMessageId: sent.result.message_id,
+        paymentTimeout: timeout,
+      });
+    }
     
     // Notify admins of new payment
     await notifyAdminsNewPayment(userId, pkg.name, method, pkg.price, subscription.id);
@@ -2514,6 +2540,18 @@ ${studentInfo}
 async function handleEducationPackageSelection(chatId: number, userId: string, packageId: string, _firstName: string): Promise<void> {
   try {
     console.log(`🎓 User ${userId} selected education package: ${packageId}`);
+
+    // Clean up any previous package or payment messages
+    const session = userSessions.get(userId) || {};
+    if (session.lastPackageMessageId) {
+      await deleteMessage(chatId, session.lastPackageMessageId);
+    }
+    if (session.paymentMessageId) {
+      await deleteMessage(chatId, session.paymentMessageId);
+    }
+    if (session.paymentTimeout) {
+      clearTimeout(session.paymentTimeout);
+    }
     
     // Get package details
     const { data: pkg, error } = await supabaseAdmin
@@ -2554,16 +2592,31 @@ ${pkg.description || 'Complete course package with expert instruction'}
       ]
     };
 
-    await sendMessage(chatId, message, keyboard);
+    const sent = await sendMessage(chatId, message, keyboard);
+
+    if (sent?.result?.message_id) {
+      userSessions.set(userId, {
+        ...session,
+        lastPackageMessageId: sent.result.message_id,
+        paymentMessageId: undefined,
+        paymentTimeout: undefined,
+      });
+    }
     
     // Log the selection
-    await logAdminAction(userId, 'education_selection', `User selected education package: ${pkg.name}`, 'education_packages', packageId);
-    
-    } catch (error) {
-      console.error('🚨 Error in education package selection:', error);
-      await sendMessage(chatId, "❌ An error occurred. Please try again.");
-    }
+    await logAdminAction(
+      userId,
+      'education_selection',
+      `User selected education package: ${pkg.name}`,
+      'education_packages',
+      packageId
+    );
+
+  } catch (error) {
+    console.error('🚨 Error in education package selection:', error);
+    await sendMessage(chatId, "❌ An error occurred. Please try again.");
   }
+}
 
   // View User Profile Handler
 async function handleViewUserProfile(chatId: number, adminUserId: string, targetUserId: string): Promise<void> {
