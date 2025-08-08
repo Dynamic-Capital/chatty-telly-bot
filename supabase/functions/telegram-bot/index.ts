@@ -1157,7 +1157,7 @@ async function getWelcomeMessage(firstName: string): Promise<FormattedMessage> {
     if (!template) {
       const escapedName = escapeMarkdownV2(firstName);
       // eslint-disable-next-line no-useless-escape
-      const defaultMessage = `*Welcome to* __Dynamic Capital VIP__, ${escapedName}\!\n\nWe're here to help you level up your trading with:\n\n• \`Quick market updates\`\n• _Beginner-friendly tips_\n• ||Exclusive learning resources||\n\nReady to get started? Pick an option below 👇`;
+      const defaultMessage = `*Welcome to* __Dynamic Capital VIP__, ${escapedName}\!\n\nWe're here to help you level up your trading with:\n\n• \`Quick market updates\`\n• _Beginner\-friendly tips_\n• ||Exclusive learning resources||\n\nReady to get started? Pick an option below 👇`;
       console.log(`📄 [getWelcomeMessage] Using default message for: ${firstName}`);
       return { text: defaultMessage, parseMode: 'MarkdownV2' };
     }
