@@ -5554,6 +5554,17 @@ serve(async (req: Request): Promise<Response> => {
         return new Response("OK", { status: 200 });
       }
 
+      // Check if user is waiting for promo code input before processing other message types
+      const promoSession = userSessions.get(userId);
+      if (promoSession && promoSession.type === 'waiting_promo_code') {
+        if (!text) {
+          await sendMessage(chatId, "❌ Promo codes must be sent as text. Please try again.");
+        } else {
+          await handlePromoCodeInput(chatId, userId, text.trim().toUpperCase(), promoSession);
+        }
+        return new Response("OK", { status: 200 });
+      }
+
       // Handle photo/document uploads (receipts)
       if (update.message.photo || update.message.document) {
         await handleReceiptUpload(update.message, userId, firstName);
@@ -5563,13 +5574,6 @@ serve(async (req: Request): Promise<Response> => {
       // Handle unknown commands with auto-reply
       if (text?.startsWith('/')) {
         await handleUnknownCommand(chatId, userId, text);
-        return new Response("OK", { status: 200 });
-      }
-
-      // Check if user is waiting for promo code input
-      const promoSession = userSessions.get(userId);
-      if (promoSession && promoSession.type === 'waiting_promo_code') {
-        await handlePromoCodeInput(chatId, userId, text.trim().toUpperCase(), promoSession);
         return new Response("OK", { status: 200 });
       }
 
