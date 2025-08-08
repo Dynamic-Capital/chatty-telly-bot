@@ -20,6 +20,7 @@ import {
   handleBotSettingsManagement,
   handleTableStatsOverview
 } from "./admin-handlers.ts";
+import { verifyTronTx } from "./verify-tron.ts";
 
 const DEFAULT_BOT_SETTINGS: Record<string, string> = {
   session_timeout_minutes: "30",
@@ -1023,6 +1024,74 @@ Thank you for choosing Dynamic Capital VIP! 🌟`);
   }
 }
 
+// Handle on-chain transaction hash submissions
+async function handleTxidSubmission(chatId: number, userId: string, txid: string): Promise<void> {
+  try {
+    console.log(`🔍 TXID received from ${userId}: ${txid}`);
+
+    // Get latest pending payment intent for this user
+    const { data: intent, error } = await supabaseAdmin
+      .from('payment_intents')
+      .select('id, expected_amount, deposit_address, min_confirmations, subscription_id')
+      .eq('user_id', userId)
+      .eq('method', 'crypto')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !intent) {
+      await sendMessage(chatId, `❌ No pending crypto payment found.`);
+      return;
+    }
+
+    const verify = await verifyTronTx(txid, intent);
+    const token = Deno.env.get('TRON_USDT_CONTRACT') || '';
+
+    if (verify.ok) {
+      await supabaseAdmin.from('crypto_deposits').insert({
+        payment_id: intent.id,
+        network: 'tron',
+        token_contract: token,
+        txid,
+        from_address: verify.details.from,
+        to_address: verify.details.to,
+        amount: verify.details.amount,
+        confirmations: verify.details.confirmations,
+        status: 'confirmed',
+        raw: verify.raw
+      });
+
+      await supabaseAdmin.from('payment_intents').update({ status: 'confirmed', txid }).eq('id', intent.id);
+      await supabaseAdmin.from('user_subscriptions').update({ payment_status: 'approved', is_active: true }).eq('id', intent.subscription_id);
+      await sendMessage(chatId, `✅ Confirmed: ${verify.details.amount} USDT`);
+    } else if (verify.awaiting) {
+      await supabaseAdmin.from('crypto_deposits').upsert({
+        payment_id: intent.id,
+        network: 'tron',
+        token_contract: token,
+        txid,
+        to_address: intent.deposit_address ?? Deno.env.get('CRYPTO_TRON_ADDRESS') || '',
+        amount: intent.expected_amount,
+        confirmations: verify.details?.confirmations ?? 0,
+        status: 'seen',
+        raw: verify.raw
+      }, { onConflict: 'txid' });
+
+      await supabaseAdmin.from('payment_intents').update({ txid }).eq('id', intent.id);
+      const need = intent.min_confirmations || Number(Deno.env.get('TRON_MIN_CONFIRMATIONS') ?? 20);
+      const have = verify.details?.confirmations ?? 0;
+      await sendMessage(chatId, `🧩 Seen on-chain. Waiting for ${need} confirmations (now ${have}/${need}). I'll notify you.`);
+    } else {
+      await supabaseAdmin.from('payment_intents').update({ status: 'manual_review', txid }).eq('id', intent.id);
+      await sendMessage(chatId, `❌ Unable to verify transaction (${verify.reason}). A manual review is required.`);
+    }
+  } catch (err) {
+    console.error('🚨 Error handling TXID submission:', err);
+    await sendMessage(chatId, '❌ Error verifying transaction. Please try again later.');
+  }
+}
+
 // Admin Receipt Notification Function
 async function notifyAdminsReceiptSubmitted(
   userId: string,
@@ -1381,6 +1450,24 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
       case 'crypto': {
         console.log('🪙 Processing USDT (TRC20) instructions');
         const cryptoPkg = { ...pkg, price: finalPrice };
+        // Create payment intent for on-chain verification
+        const depositAddress = Deno.env.get('CRYPTO_TRON_ADDRESS') || 'TQeAph1kiaVbwvY2NS1EwepqrnoTpK6Wss';
+        const { error: intentError } = await supabaseAdmin
+          .from('payment_intents')
+          .insert({
+            user_id: userId,
+            subscription_id: subscription.id,
+            method: 'crypto',
+            network: 'tron',
+            expected_amount: finalPrice,
+            currency: 'USDT',
+            deposit_address: depositAddress,
+            min_confirmations: Number(Deno.env.get('TRON_MIN_CONFIRMATIONS') ?? 20),
+            status: 'pending'
+          });
+        if (intentError) {
+          console.error('❌ Error creating payment intent:', intentError);
+        }
         paymentInstructions = await getCryptoPayInstructions(cryptoPkg, subscription.id);
         break;
       }
@@ -5673,6 +5760,12 @@ serve(async (req: Request): Promise<Response> => {
         } else {
           await handlePromoCodeInput(chatId, userId, text.trim().toUpperCase(), promoSession);
         }
+        return new Response("OK", { status: 200 });
+      }
+
+      // Detect raw TXID submissions
+      if (text && /^[A-Fa-f0-9]{64}$/.test(text.trim())) {
+        await handleTxidSubmission(chatId, userId, text.trim());
         return new Response("OK", { status: 200 });
       }
 
