@@ -1,4 +1,4 @@
-/// <reference path="../../types/tesseract.d.ts" />
+/// <reference path="../../../types/tesseract.d.ts" />
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   getFormattedVipPackages,
@@ -22,6 +22,33 @@ import {
 import { ocrTextFromBlob } from "./ocr.ts";
 import { parseBankSlip } from "./bank-parsers.ts";
 import { getApprovedBeneficiaryByAccountNumber, normalizeAccount } from "./helpers/beneficiary.ts";
+
+type TgMessage = {
+  photo?: Array<{ file_id: string; width?: number; height?: number }>;
+  document?: { file_id: string; mime_type?: string; file_name?: string };
+};
+
+function getFileIdFromMessage(msg: TgMessage | undefined): string | null {
+  if (!msg) return null;
+  if (Array.isArray(msg.photo) && msg.photo.length > 0) {
+    return msg.photo[msg.photo.length - 1].file_id;
+  }
+  if (msg.document && isImageMime(msg.document.mime_type)) {
+    return msg.document.file_id;
+  }
+  return null;
+}
+
+function isImageMime(mime?: string): boolean {
+  return typeof mime === "string" && /^image\//i.test(mime);
+}
+
+function okJSON(body: unknown = { ok: true }): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}
 
 const DEFAULT_BOT_SETTINGS: Record<string, string> = {
   session_timeout_minutes: "30",
@@ -912,10 +939,7 @@ async function deleteMessage(chatId: number, messageId: number): Promise<boolean
 async function handleReceiptUpload(message: TelegramMessage, userId: string): Promise<void> {
   const chatId = message.chat.id;
   try {
-    // 2. Identify file
-    const fileId = message.photo
-      ? message.photo[message.photo.length - 1].file_id
-      : message.document?.file_id;
+    const fileId = getFileIdFromMessage(message);
     if (!fileId) {
       await sendMessage(chatId, "❌ Unable to process the uploaded file. Please try again.");
       return;
@@ -5505,16 +5529,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    const body = await req.text();
-    const update = JSON.parse(body);
+    const update = await req.json().catch(() => ({} as any));
 
     console.log("📨 Update received:", JSON.stringify(update, null, 2));
+    const msg = update.message ?? update.edited_message ?? update.channel_post ?? update.edited_channel_post ?? {};
 
     // Extract user info
     const from = update.message?.from || update.callback_query?.from;
     if (!from) {
       console.log("❌ No 'from' user found in update");
-      return new Response("OK", { status: 200 });
+      return okJSON();
     }
 
     const chatId = update.message?.chat?.id || update.callback_query?.message?.chat?.id;
@@ -5733,9 +5757,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
 
       // Handle photo/document uploads (receipts)
-      if (update.message.photo || update.message.document) {
-        await handleReceiptUpload(update.message, userId);
-        return new Response("OK", { status: 200 });
+      const fileId = getFileIdFromMessage(msg);
+      if (fileId) {
+        await handleReceiptUpload(msg as TelegramMessage, userId);
+        return okJSON();
       }
 
       // Handle unknown commands with auto-reply
@@ -6519,10 +6544,10 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
     }
     
     return new Response("OK", { status: 200 });
-    
+
   } catch (error) {
     console.error("🚨 Main error:", error);
-    return new Response("Error", { status: 500, headers: corsHeaders });
+    return okJSON();
   }
 });
 
