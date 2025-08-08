@@ -26,6 +26,14 @@ If you want to work locally using your own IDE, you can clone this repo and push
 
 The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
+### Supabase CLI
+
+Some development tasks require the [Supabase CLI](https://supabase.com/docs/guides/cli). Install it locally with:
+
+```sh
+npm run setup:supabase
+```
+
 Follow these steps:
 
 ```sh

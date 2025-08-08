@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "test": "node --test",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "setup:supabase": "bash scripts/setup-supabase-cli.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
