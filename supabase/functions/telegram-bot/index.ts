@@ -1,4 +1,4 @@
-/* eslint-disable no-case-declarations, @typescript-eslint/no-explicit-any */
+/* eslint-disable no-case-declarations */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getFormattedVipPackages, getBotContent, getBotSetting } from "./database-utils.ts";
@@ -30,6 +30,130 @@ interface SecurityStats {
   suspiciousUsers: Set<string>;
   lastCleanup: number;
 }
+
+// Basic types for frequently used structures
+interface VipPackage {
+  id: number;
+  name: string;
+  price: number;
+  duration_months: number;
+  is_lifetime: boolean;
+  features?: string[];
+  [key: string]: unknown;
+}
+
+interface TelegramMessage {
+  chat: { id: number; type?: string; title?: string };
+  photo?: Array<{ file_id: string }>;
+  document?: { file_id: string; file_name?: string };
+  caption?: string;
+  new_chat_members?: Array<{ username?: string; is_bot?: boolean }>;
+}
+
+interface SubscriptionRecord {
+  id: string;
+  subscription_plans?: { name?: string; price?: number };
+  payment_method?: string;
+  [key: string]: unknown;
+}
+
+interface PromoSession {
+  packageId: string;
+  price: number;
+  promoApplied?: boolean;
+  timestamp: number;
+  [key: string]: unknown;
+}
+
+interface UserRecord {
+  created_at: string;
+  [key: string]: unknown;
+}
+
+interface TopUser {
+  telegram_user_id: string;
+  count: number;
+}
+
+interface AnalyticsData {
+  timeRange: string;
+  totalUsers: number;
+  newUsers: number;
+  activeUsers: number;
+  vipUsers: number;
+  adminUsers: number;
+  growthData: { dailyGrowth: number; weeklyGrowth: number };
+  topUsers: TopUser[];
+}
+
+interface PaymentMethodStat {
+  payment_method?: string;
+  count: number;
+}
+
+interface PaymentReportData {
+  timeRange: string;
+  totalPayments: number;
+  pendingPayments: number;
+  completedPayments: number;
+  rejectedPayments: number;
+  totalRevenue: number;
+  avgPayment: number;
+  paymentMethods: PaymentMethodStat[];
+}
+
+interface CommandStat {
+  interaction_data?: string;
+  count: number;
+}
+
+interface SecurityEvent {
+  interaction_type: string;
+  count: number;
+}
+
+interface BotUsageData {
+  timeRange: string;
+  totalInteractions: number;
+  totalSessions: number;
+  avgSessionDuration: number;
+  totalActivities: number;
+  commandStats: CommandStat[];
+  securityEvents: SecurityEvent[];
+}
+
+interface UserAnalyticsCSVData {
+  timeRange: string;
+  totalUsers: number;
+  newUsers: number;
+  activeUsers: number;
+  vipUsers: number;
+  adminUsers: number;
+}
+
+interface PaymentCSV {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  payment_method: string;
+  created_at: string;
+}
+
+interface TradeData {
+  pair?: string;
+  entry?: number | string;
+  exit?: number | string;
+  profit?: number | string;
+  amount?: number | string;
+  duration?: string;
+  loss?: number | string;
+  [key: string]: unknown;
+}
+
+type InlineKeyboard = {
+  inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
+};
 
 // In-memory rate limiting store
 const rateLimitStore = new Map<string, RateLimitEntry>();
@@ -251,7 +375,11 @@ function cleanupRateLimit(): void {
   }
 }
 
-function logSecurityEvent(userId: string, event: string, details?: any): void {
+function logSecurityEvent(
+  userId: string,
+  event: string,
+  details?: Record<string, unknown>
+): void {
   const timestamp = new Date().toISOString();
   console.log(`🔒 SECURITY [${timestamp}] User: ${userId}, Event: ${event}`, details ? JSON.stringify(details) : '');
   
@@ -320,7 +448,10 @@ const BOT_START_TIME = new Date();
 console.log("🕐 Bot started at:", BOT_START_TIME.toISOString());
 
 // Session Management Functions
-async function startBotSession(telegramUserId: string, userInfo: any = {}): Promise<string> {
+async function startBotSession(
+  telegramUserId: string,
+  userInfo: Record<string, unknown> = {}
+): Promise<string> {
   try {
     console.log(`🔄 Starting session for user: ${telegramUserId}`);
     
@@ -359,7 +490,10 @@ async function startBotSession(telegramUserId: string, userInfo: any = {}): Prom
   }
 }
 
-async function updateBotSession(telegramUserId: string, activityData: any = {}): Promise<void> {
+async function updateBotSession(
+  telegramUserId: string,
+  activityData: Record<string, unknown> = {}
+): Promise<void> {
   try {
     const session = activeBotSessions.get(telegramUserId);
     if (!session) {
@@ -474,8 +608,8 @@ async function logAdminAction(
   description: string,
   affectedTable?: string,
   affectedRecordId?: string,
-  oldValues?: any,
-  newValues?: any
+  oldValues?: Record<string, unknown>,
+  newValues?: Record<string, unknown>
 ): Promise<void> {
   try {
     await supabaseAdmin
@@ -715,7 +849,11 @@ async function getChatType(chatId: number): Promise<string> {
 }
 
 // Receipt Upload Handler
-async function handleReceiptUpload(message: any, userId: string, firstName: string): Promise<void> {
+async function handleReceiptUpload(
+  message: TelegramMessage,
+  userId: string,
+  firstName: string
+): Promise<void> {
   try {
     console.log(`📄 Receipt upload from user: ${userId}`);
     
@@ -834,7 +972,13 @@ Thank you for choosing Dynamic Capital VIP! 🌟`);
 }
 
 // Admin Receipt Notification Function
-async function notifyAdminsReceiptSubmitted(userId: string, firstName: string, subscription: any, fileId: string, fileType: string): Promise<void> {
+async function notifyAdminsReceiptSubmitted(
+  userId: string,
+  firstName: string,
+  subscription: SubscriptionRecord,
+  fileId: string,
+  fileType: string
+): Promise<void> {
   try {
     const message = `🧾 **New Receipt Submitted!**
 
@@ -947,7 +1091,7 @@ async function getWelcomeMessage(firstName: string): Promise<string> {
   }
 }
 
-async function getVipPackages(): Promise<any[]> {
+async function getVipPackages(): Promise<VipPackage[]> {
   try {
     console.log("💎 Fetching VIP packages...");
     const { data, error } = await supabaseAdmin
@@ -961,18 +1105,18 @@ async function getVipPackages(): Promise<any[]> {
     }
 
     console.log(`✅ Fetched ${data?.length || 0} VIP packages`);
-    return data || [];
+    return (data as VipPackage[]) || [];
   } catch (error) {
     console.error('🚨 Exception fetching VIP packages:', error);
     return [];
   }
 }
 
-async function getVipPackagesKeyboard(): Promise<any> {
+async function getVipPackagesKeyboard(): Promise<InlineKeyboard> {
   const packages = await getVipPackages();
-  const buttons = [];
+  const buttons: InlineKeyboard['inline_keyboard'] = [];
 
-  packages.forEach(pkg => {
+  packages.forEach((pkg: VipPackage) => {
     const priceText = pkg.is_lifetime ? '$' + pkg.price + ' Lifetime' : '$' + pkg.price + '/' + pkg.duration_months + 'mo';
     const discount = pkg.duration_months >= 12 ? '🔥' : 
                     pkg.duration_months >= 6 ? '⭐' : 
@@ -996,7 +1140,7 @@ async function getVipPackagesKeyboard(): Promise<any> {
   return { inline_keyboard: buttons };
 }
 
-async function getMainMenuKeyboard(): Promise<any> {
+async function getMainMenuKeyboard(): Promise<InlineKeyboard> {
   return {
     inline_keyboard: [
       [
@@ -1169,7 +1313,10 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
 }
 
 // Payment Instructions Functions
-async function getBinancePayInstructions(pkg: any, subscriptionId: string): Promise<string> {
+async function getBinancePayInstructions(
+  pkg: VipPackage,
+  subscriptionId: string
+): Promise<string> {
   try {
     console.log('💳 Processing Binance Pay checkout...');
     
@@ -1238,7 +1385,10 @@ ${checkoutUrl}
   }
 }
 
-async function getCryptoPayInstructions(pkg: any, subscriptionId: string): Promise<string> {
+async function getCryptoPayInstructions(
+  pkg: VipPackage,
+  subscriptionId: string
+): Promise<string> {
   try {
     console.log('₿ Fetching crypto wallet addresses...');
     
@@ -1304,7 +1454,10 @@ ${walletAddresses}
   }
 }
 
-async function getBankTransferInstructions(pkg: any, subscriptionId: string): Promise<string> {
+async function getBankTransferInstructions(
+  pkg: VipPackage,
+  subscriptionId: string
+): Promise<string> {
   try {
     console.log('🏦 Fetching bank accounts for transfer instructions...');
     
@@ -1679,7 +1832,10 @@ Select the type of result to post:`;
 }
 
 // Function to post trade result to the results channel
-async function postToResultsChannel(resultType: string, tradeData: any): Promise<boolean> {
+async function postToResultsChannel(
+  resultType: string,
+  tradeData: TradeData
+): Promise<boolean> {
   try {
     // Get results channel ID from bot content
     const channelContent = await getBotContent('trading_results_channel_id') || '';
@@ -2002,7 +2158,12 @@ async function handleShowPaymentMethods(chatId: number, userId: string, packageI
   }
 }
 
-async function handlePromoCodeInput(chatId: number, userId: string, promoCode: string, userSession: any): Promise<void> {
+async function handlePromoCodeInput(
+  chatId: number,
+  userId: string,
+  promoCode: string,
+  userSession: PromoSession
+): Promise<void> {
   try {
     console.log(`🎫 Processing promo code input: ${promoCode} for user ${userId}`);
     
@@ -2250,7 +2411,7 @@ ${studentInfo}
 
     // Create keyboard with package selection buttons
     const keyboard = {
-      inline_keyboard: [] as any[]
+      inline_keyboard: [] as InlineKeyboard['inline_keyboard']
     };
 
     // Add selection buttons for each package
@@ -3231,7 +3392,7 @@ async function handleCustomBroadcast(chatId: number, userId: string): Promise<vo
 📤 **Send your message now:**`);
 }
 
-async function handleNewChatMember(message: any): Promise<void> {
+async function handleNewChatMember(message: TelegramMessage): Promise<void> {
   const chatId = message.chat.id;
   const chatTitle = message.chat.title || 'Unknown Chat';
   const newMembers = message.new_chat_members || [];
@@ -3239,7 +3400,10 @@ async function handleNewChatMember(message: any): Promise<void> {
   console.log(`👥 New member(s) added to ${chatTitle} (${chatId})`);
 
   // Check if the bot itself was added
-  const botMember = newMembers.find((member: any) => member.username === 'Dynamic_VIP_BOT' || member.is_bot);
+  const botMember = newMembers.find(
+    (member: { username?: string; is_bot?: boolean }) =>
+      member.username === 'Dynamic_VIP_BOT' || member.is_bot
+  );
   
   if (botMember) {
     console.log(`🤖 Bot was added to new chat: ${chatTitle}`);
@@ -3903,7 +4067,7 @@ async function handlePaymentReport(chatId: number, userId: string, timeRange: st
     });
 
     // Generate CSV export
-    const csvData = generatePaymentCSV(revenueData.data || []);
+    const csvData = generatePaymentCSV((revenueData.data as PaymentCSV[]) || []);
 
     await sendMessage(chatId, report);
     await sendMessage(chatId, `📄 **Payment Data CSV:**\n\`\`\`\n${csvData}\n\`\`\``);
@@ -4875,20 +5039,22 @@ function getTimeFilter(timeRange: string): string {
   }
 }
 
-function calculateGrowthMetrics(userData: any[]): any {
+function calculateGrowthMetrics(
+  userData: UserRecord[]
+): { dailyGrowth: number; weeklyGrowth: number } {
   if (!userData.length) return { dailyGrowth: 0, weeklyGrowth: 0 };
-  
+
   const now = new Date();
   const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  
+
   const dailyUsers = userData.filter(u => new Date(u.created_at) >= oneDayAgo).length;
   const weeklyUsers = userData.filter(u => new Date(u.created_at) >= oneWeekAgo).length;
-  
+
   return { dailyGrowth: dailyUsers, weeklyGrowth: weeklyUsers };
 }
 
-function generateUserAnalyticsReport(data: any): string {
+function generateUserAnalyticsReport(data: AnalyticsData): string {
   return `👥 **User Analytics Report** (${data.timeRange})
 
 📊 **User Statistics:**
@@ -4904,7 +5070,7 @@ function generateUserAnalyticsReport(data: any): string {
 • 📊 Growth Rate: ${data.totalUsers > 0 ? ((data.newUsers / data.totalUsers) * 100).toFixed(1) : 0}%
 
 🏆 **Most Active Users:**
-${data.topUsers.slice(0, 3).map((user: any, index: number) => 
+${data.topUsers.slice(0, 3).map((user, index) =>
   `${index + 1}. User ${user.telegram_user_id}: ${user.count} interactions`
 ).join('\n') || 'No data available'}
 
@@ -4915,7 +5081,7 @@ ${data.topUsers.slice(0, 3).map((user: any, index: number) =>
 *Generated: ${new Date().toLocaleString()}*`;
 }
 
-function generatePaymentReport(data: any): string {
+function generatePaymentReport(data: PaymentReportData): string {
   return `💰 **Payment Report** (${data.timeRange})
 
 📊 **Payment Statistics:**
@@ -4930,7 +5096,7 @@ function generatePaymentReport(data: any): string {
 • 📈 Success Rate: ${data.totalPayments > 0 ? ((data.completedPayments / data.totalPayments) * 100).toFixed(1) : 0}%
 
 💳 **Payment Methods:**
-${data.paymentMethods.map((method: any) => 
+${data.paymentMethods.map(method =>
   `• ${method.payment_method || 'Unknown'}: ${method.count} payments`
 ).join('\n') || 'No data available'}
 
@@ -4941,7 +5107,7 @@ ${data.paymentMethods.map((method: any) =>
 *Generated: ${new Date().toLocaleString()}*`;
 }
 
-function generateBotUsageReport(data: any): string {
+function generateBotUsageReport(data: BotUsageData): string {
   return `📱 **Bot Usage Report** (${data.timeRange})
 
 📊 **Usage Statistics:**
@@ -4951,12 +5117,12 @@ function generateBotUsageReport(data: any): string {
 • 📱 Total Activities: ${data.totalActivities}
 
 🤖 **Popular Commands:**
-${data.commandStats.slice(0, 5).map((cmd: any, index: number) => 
+${data.commandStats.slice(0, 5).map((cmd, index) =>
   `${index + 1}. ${cmd.interaction_data || 'Unknown'}: ${cmd.count} uses`
 ).join('\n') || 'No command data available'}
 
 🚨 **Security Events:**
-${data.securityEvents.map((event: any) => 
+${data.securityEvents.map(event =>
   `• ${event.interaction_type}: ${event.count} occurrences`
 ).join('\n') || 'No security events'}
 
@@ -4967,12 +5133,12 @@ ${data.securityEvents.map((event: any) =>
 *Generated: ${new Date().toLocaleString()}*`;
 }
 
-function generateUserAnalyticsCSV(data: any): string {
+function generateUserAnalyticsCSV(data: UserAnalyticsCSVData): string {
   return `Date,Total Users,New Users,Active Users,VIP Users,Admin Users,Time Range
 ${new Date().toISOString().split('T')[0]},${data.totalUsers},${data.newUsers},${data.activeUsers},${data.vipUsers},${data.adminUsers},${data.timeRange}`;
 }
 
-function generatePaymentCSV(payments: any[]): string {
+function generatePaymentCSV(payments: PaymentCSV[]): string {
   let csv = 'ID,Amount,Currency,Status,Payment Method,Created At\n';
   csv += payments.map(p =>
     `${p.id},${p.amount},${p.currency},${p.status},${p.payment_method},${p.created_at}`
