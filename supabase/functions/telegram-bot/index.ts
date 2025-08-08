@@ -1,10 +1,9 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+/// <reference path="../../types/tesseract.d.ts" />
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   getFormattedVipPackages,
   getBotContent,
   getBotSetting,
-  setBotSetting,
   getAllBotSettings,
   resetBotSettings,
   getContactLinks
@@ -20,7 +19,9 @@ import {
   handleBotSettingsManagement,
   handleTableStatsOverview
 } from "./admin-handlers.ts";
-import { ocrTextFromBlob, parseReceipt } from "./ocr.ts";
+import { ocrTextFromBlob } from "./ocr.ts";
+import { parseBankSlip } from "./bank-parsers.ts";
+import { getApprovedBeneficiaryByAccountNumber, normalizeAccount } from "./helpers/beneficiary.ts";
 
 const DEFAULT_BOT_SETTINGS: Record<string, string> = {
   session_timeout_minutes: "30",
@@ -469,6 +470,11 @@ const corsHeaders = {
 const BOT_START_TIME = new Date();
 console.log("🕐 Bot started at:", BOT_START_TIME.toISOString());
 
+// Receipt auto-approval constants
+const AMOUNT_TOLERANCE = 0.02; // ±2%
+const WINDOW_SECONDS = 180; // time gap between intent.created_at and slip time
+const REQUIRE_PAY_CODE = false; // can be flipped to true later
+
 // Session Management Functions
 async function startBotSession(
   telegramUserId: string,
@@ -902,9 +908,11 @@ async function deleteMessage(chatId: number, messageId: number): Promise<boolean
     return false;
   }
 }
-async function handleBankReceipt(message: TelegramMessage, userId: string): Promise<void> {
+// New auto-approval handler for bank slip uploads
+async function handleReceiptUpload(message: TelegramMessage, userId: string): Promise<void> {
+  const chatId = message.chat.id;
   try {
-    const chatId = message.chat.id;
+    // 2. Identify file
     const fileId = message.photo
       ? message.photo[message.photo.length - 1].file_id
       : message.document?.file_id;
@@ -913,122 +921,187 @@ async function handleBankReceipt(message: TelegramMessage, userId: string): Prom
       return;
     }
 
-    const fileInfoRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`);
-    const fileInfo = await fileInfoRes.json();
-    const filePath = fileInfo.result?.file_path;
+    const infoRes = await fetch(
+      `https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`,
+    );
+    const info = await infoRes.json();
+    const filePath = info.result?.file_path;
     if (!filePath) {
       await sendMessage(chatId, "❌ Could not fetch file info from Telegram.");
       return;
     }
 
-    const fileRes = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`);
+    const fileRes = await fetch(
+      `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`,
+    );
     const blob = await fileRes.blob();
     const arrayBuffer = await blob.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 
+    // 3. Duplicate guard
     const { data: dup } = await supabaseAdmin
-      .from('receipts')
-      .select('id')
-      .eq('image_sha256', hashHex)
+      .from("receipts")
+      .select("id")
+      .eq("image_sha256", hashHex)
       .maybeSingle();
     if (dup) {
-      await sendMessage(chatId, "⚠️ This receipt was already submitted.");
+      await sendMessage(chatId, "This receipt was already used");
       return;
     }
 
-    const storagePath = `${userId}/${hashHex}`;
-    await supabaseAdmin.storage.from('receipts').upload(storagePath, blob, {
-      contentType: fileRes.headers.get('content-type') || undefined,
+    // 4. Storage upload
+    const ext = filePath.split(".").pop() || "jpg";
+    const storagePath = `${userId}/${Date.now()}.${ext}`;
+    await supabaseAdmin.storage.from("receipts").upload(storagePath, blob, {
+      contentType: fileRes.headers.get("content-type") || undefined,
     });
-    const { data: urlData } = supabaseAdmin.storage
-      .from('receipts')
-      .getPublicUrl(storagePath);
-    const fileUrl = urlData.publicUrl;
+    const fileUrl = storagePath; // private bucket path
 
+    // 5. OCR
     const text = await ocrTextFromBlob(blob);
-    const ocr = parseReceipt(text);
 
-    let intent = null;
-    if (ocr.payCode) {
+    // 6. Parse bank slip
+    const parsed = parseBankSlip(text);
+
+    // 7. Find intent
+    let intent = null as any;
+    if (parsed.payCode) {
       const { data } = await supabaseAdmin
-        .from('payment_intents')
-        .select('*')
-        .eq('pay_code', ocr.payCode)
+        .from("payment_intents")
+        .select("*")
+        .eq("pay_code", parsed.payCode)
         .maybeSingle();
       intent = data;
     }
     if (!intent) {
       const { data } = await supabaseAdmin
-        .from('payment_intents')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('method', 'bank')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
+        .from("payment_intents")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("method", "bank")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       intent = data;
     }
 
     if (!intent) {
-      await supabaseAdmin.from('receipts').insert({
+      await supabaseAdmin.from("receipts").insert({
         user_id: userId,
         file_url: fileUrl,
         image_sha256: hashHex,
-        ocr_text: ocr.text,
-        ocr_amount: ocr.total,
-        ocr_timestamp: ocr.dateText ? new Date(ocr.dateText).toISOString() : null,
-        ocr_beneficiary: ocr.beneficiary,
-        ocr_pay_code: ocr.payCode,
-        reason: 'no_intent_found',
+        bank: parsed.bank,
+        ocr_text: parsed.rawText,
+        ocr_amount: parsed.amount,
+        ocr_currency: parsed.currency,
+        ocr_status: parsed.status,
+        ocr_success_word: parsed.successWord,
+        ocr_reference: parsed.reference,
+        ocr_from_name: parsed.fromName,
+        ocr_to_name: parsed.toName,
+        ocr_to_account: parsed.toAccount,
+        ocr_pay_code: parsed.payCode,
+        ocr_txn_date: parsed.ocrTxnDateIso,
+        ocr_value_date: parsed.ocrValueDateIso,
+        verdict: "manual_review",
+        reason: "no_intent_found",
       });
-      await sendMessage(chatId, "❓ Receipt received but no matching payment found. Our team will review it.");
+      await sendMessage(
+        chatId,
+        "🔎 We couldn’t auto-match your receipt. Sent for review. Reason: no_intent_found",
+      );
       return;
     }
 
-    const windowSeconds = 180;
-    const amtOK = ocr.total != null &&
-      Math.abs(ocr.total - intent.expected_amount) / intent.expected_amount <= 0.02;
-    const ocrDate = ocr.dateText ? new Date(ocr.dateText) : undefined;
-    const timeOK = ocrDate
-      ? Math.abs(ocrDate.getTime() - new Date(intent.created_at).getTime()) / 1000 <= windowSeconds
-      : false;
-    const beneficiaryOK = (ocr.beneficiary ?? "").toLowerCase().includes("dynamic");
-    const payCodeOK = intent.pay_code && ocr.payCode === intent.pay_code;
-    const approve = (amtOK && timeOK && beneficiaryOK) && (ocr.success || payCodeOK);
+    // 8. Beneficiary check
+    let beneficiaryOK = false;
+    const toAccount = parsed.toAccount ? normalizeAccount(parsed.toAccount) : null;
+    const toName = parsed.toName?.toLowerCase() || null;
+    if (intent.expected_beneficiary_account_last4 && toAccount) {
+      beneficiaryOK = toAccount.endsWith(
+        intent.expected_beneficiary_account_last4,
+      );
+    }
+    if (!beneficiaryOK && intent.expected_beneficiary_name && toName) {
+      beneficiaryOK =
+        intent.expected_beneficiary_name.toLowerCase() === toName;
+    }
+    if (!beneficiaryOK && toAccount) {
+      const ben = await getApprovedBeneficiaryByAccountNumber(
+        supabaseAdmin as any,
+        toAccount,
+      ) as any;
+      if (ben && ben.account_name && toName) {
+        beneficiaryOK = ben.account_name.toLowerCase() === toName;
+      }
+    }
 
-    await supabaseAdmin.from('receipts').insert({
+    // 9. Decision rules
+    const amountOK = parsed.amount != null &&
+      Math.abs(parsed.amount - intent.expected_amount) /
+          intent.expected_amount <= AMOUNT_TOLERANCE;
+    const slipTimeStr = parsed.ocrTxnDateIso ?? parsed.ocrValueDateIso;
+    const timeOK = slipTimeStr
+      ? Math.abs(new Date(slipTimeStr).getTime() -
+          new Date(intent.created_at).getTime()) / 1000 <= WINDOW_SECONDS
+      : false;
+    const statusOK = parsed.successWord || parsed.status === "SUCCESS";
+    const payCodeOK = !REQUIRE_PAY_CODE || !intent.pay_code ||
+      parsed.payCode === intent.pay_code;
+    const approved =
+      amountOK && timeOK && statusOK && beneficiaryOK && payCodeOK;
+
+    // 10. Write receipt row
+    await supabaseAdmin.from("receipts").insert({
       payment_id: intent.id,
       user_id: userId,
       file_url: fileUrl,
       image_sha256: hashHex,
-      ocr_text: ocr.text,
-      ocr_amount: ocr.total,
-      ocr_timestamp: ocrDate?.toISOString(),
-      ocr_beneficiary: ocr.beneficiary,
-      ocr_pay_code: ocr.payCode,
-      verdict: approve ? 'approved' : 'manual_review',
-      reason: approve ? null : 'auto_rules_failed',
+      bank: parsed.bank,
+      ocr_text: parsed.rawText,
+      ocr_amount: parsed.amount,
+      ocr_currency: parsed.currency,
+      ocr_status: parsed.status,
+      ocr_success_word: parsed.successWord,
+      ocr_reference: parsed.reference,
+      ocr_from_name: parsed.fromName,
+      ocr_to_name: parsed.toName,
+      ocr_to_account: parsed.toAccount,
+      ocr_pay_code: parsed.payCode,
+      ocr_txn_date: parsed.ocrTxnDateIso,
+      ocr_value_date: parsed.ocrValueDateIso,
+      verdict: approved ? "approved" : "manual_review",
+      reason: approved ? null : "auto_rules_failed",
     });
 
-    if (approve) {
+    // 11. Update intent
+    if (approved) {
       await supabaseAdmin
-        .from('payment_intents')
-        .update({ status: 'approved', approved_at: new Date().toISOString(), pay_code: null })
-        .eq('id', intent.id);
-      await sendMessage(chatId, "✅ Payment verified successfully!");
+        .from("payment_intents")
+        .update({ status: "approved", approved_at: new Date().toISOString() })
+        .eq("id", intent.id);
     } else {
       await supabaseAdmin
-        .from('payment_intents')
-        .update({ status: 'manual_review', pay_code: null })
-        .eq('id', intent.id);
-      await sendMessage(chatId, "📥 Receipt received. It will be reviewed shortly.");
+        .from("payment_intents")
+        .update({ status: "manual_review" })
+        .eq("id", intent.id);
     }
-  } catch (error) {
-    console.error('🚨 Error processing bank receipt:', error);
-    await sendMessage(message.chat.id, "❌ An error occurred processing your receipt.");
+
+    // 12. Reply
+    if (approved) {
+      await sendMessage(chatId, "✅ Receipt verified. Access granted.");
+    } else {
+      await sendMessage(
+        chatId,
+        "🔎 We couldn’t auto-match your receipt. Sent for review. Reason: auto_rules_failed",
+      );
+    }
+  } catch (err) {
+    console.error("🚨 Error processing receipt:", err);
+    await sendMessage(chatId, "❌ An error occurred processing your receipt.");
   }
 }
 
@@ -5407,9 +5480,8 @@ async function handleMessageUser(
     await sendMessage(chatId, `❌ Unable to get contact info for user ${targetUserId}.`);
   }
 }
-
 // Main serve function
-serve(async (req: Request): Promise<Response> => {
+Deno.serve(async (req: Request): Promise<Response> => {
   console.log(`📥 Request received: ${req.method} ${req.url}`);
 
   const url = new URL(req.url);
@@ -5662,7 +5734,7 @@ serve(async (req: Request): Promise<Response> => {
 
       // Handle photo/document uploads (receipts)
       if (update.message.photo || update.message.document) {
-        await handleBankReceipt(update.message, userId);
+        await handleReceiptUpload(update.message, userId);
         return new Response("OK", { status: 200 });
       }
 
