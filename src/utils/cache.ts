@@ -6,6 +6,8 @@ interface CacheEntry<T> {
 }
 
 const cache = new Map<string, CacheEntry<unknown>>();
+// Track keys we've cached so we only touch our own entries in storage
+const cacheKeys = new Set<string>();
 
 function getStorage() {
   try {
@@ -37,6 +39,7 @@ export async function getCached<T>(key: string, ttlMs: number, fetcher: Fetcher<
         const parsed = JSON.parse(raw) as CacheEntry<T>;
         if (parsed.expiry > now) {
           cache.set(key, parsed);
+          cacheKeys.add(key);
           return parsed.value;
         }
       }
@@ -48,6 +51,7 @@ export async function getCached<T>(key: string, ttlMs: number, fetcher: Fetcher<
   const value = await fetcher();
   const entry: CacheEntry<T> = { value, expiry: now + ttlMs };
   cache.set(key, entry);
+  cacheKeys.add(key);
   try {
     storage?.setItem(key, JSON.stringify(entry));
   } catch {
@@ -59,6 +63,7 @@ export async function getCached<T>(key: string, ttlMs: number, fetcher: Fetcher<
 export function clearCache(key?: string) {
   if (key) {
     cache.delete(key);
+    cacheKeys.delete(key);
     try {
       storage?.removeItem(key);
     } catch {
@@ -66,11 +71,16 @@ export function clearCache(key?: string) {
     }
   } else {
     cache.clear();
-    try {
-      storage?.clear();
-    } catch {
-      // ignore storage clear errors
+    if (storage) {
+      try {
+        for (const k of cacheKeys) {
+          storage.removeItem(k);
+        }
+      } catch {
+        // ignore storage clear errors
+      }
     }
+    cacheKeys.clear();
   }
 }
 
