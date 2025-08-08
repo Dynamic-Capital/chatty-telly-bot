@@ -1,3 +1,3 @@
-declare module "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js" {
+declare module "tesseract.js" {
   export function createWorker(): any;
 }

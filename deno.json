@@ -1,8 +1,9 @@
 {
   "tasks": {
-    "check": "deno check supabase/functions/telegram-bot/index.ts",
+    "check": "deno check supabase/functions/telegram-bot/*.ts supabase/functions/telegram-bot/**/*.ts",
     "serve": "supabase functions serve"
   },
+  "nodeModulesDir": "auto",
   "compilerOptions": {
     "types": ["./types/tesseract.d.ts"]
   }

@@ -16,4 +16,4 @@ jobs:
       - uses: denoland/setup-deno@v1
         with:
           deno-version: v1.x
-      - run: deno check supabase/functions/telegram-bot/index.ts
+      - run: deno check supabase/functions/telegram-bot/*.ts supabase/functions/telegram-bot/**/*.ts
