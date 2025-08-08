@@ -1,4 +1,4 @@
-import { type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2?dts";
 
 const BENEFICIARY_TABLE = Deno.env.get("BENEFICIARY_TABLE") ?? "beneficiaries";
 

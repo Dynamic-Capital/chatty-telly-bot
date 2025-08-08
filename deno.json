@@ -7,5 +7,7 @@
   "compilerOptions": {
     "types": ["./types/tesseract.d.ts"]
   },
-  "importMap": "./supabase/functions/telegram-bot/vendor/import_map.json"
+  "importMap": "./supabase/functions/telegram-bot/vendor/import_map.json",
+  "lint": { "files": { "include": ["supabase/functions", "tests"], "exclude": ["apps/mini"] } },
+  "fmt": { "files": { "include": ["supabase/functions", "tests"], "exclude": ["apps/mini"] } }
 }
