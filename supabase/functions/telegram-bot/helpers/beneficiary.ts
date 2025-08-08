@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const BENEFICIARY_TABLE = Deno.env.get("BENEFICIARY_TABLE") ?? "beneficiaries";
 
@@ -7,13 +7,13 @@ export function normalizeAccount(n: string) {
 }
 
 export async function getApprovedBeneficiaryByAccountNumber(
-  supabase: ReturnType<typeof createClient>,
-  accountNumber: string
-) {
+  supabase: SupabaseClient,
+  accountNumber: string,
+): Promise<{ account_name?: string | null } | null> {
   const acct = normalizeAccount(accountNumber);
   const { data, error } = await supabase
-    .from(BENEFICIARY_TABLE)
-    .select("*")
+    .from<{ account_name?: string | null }>(BENEFICIARY_TABLE)
+    .select("account_name")
     .eq("account_number", acct)
     .eq("active", true)
     .limit(1)

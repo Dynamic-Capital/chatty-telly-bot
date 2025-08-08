@@ -124,6 +124,7 @@ interface PaymentReportData {
 }
 
 interface PaymentIntent {
+  id: string;
   expected_amount: number;
   expected_beneficiary_account_last4?: string | null;
   expected_beneficiary_name?: string | null;
