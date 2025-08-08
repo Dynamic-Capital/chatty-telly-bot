@@ -1487,7 +1487,6 @@ export function handleEnvStatus() {
     "SUPABASE_SERVICE_ROLE_KEY",
     "TELEGRAM_BOT_TOKEN",
     "TELEGRAM_WEBHOOK_SECRET",
-    "MINI_APP_URL",
   ]);
   return base;
 }

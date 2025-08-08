@@ -23,5 +23,5 @@ The project relies on a shared set of environment keys. Set them in your local `
 `✅` indicates where each key should be set.
 
 `MINI_APP_URL` should point to the deployed Telegram Mini App (for example,
-`https://mini.dynamic.capital/`). The function requires this value and will
-automatically append a trailing slash if missing to avoid redirect issues.
+`https://mini.dynamic.capital/`). If set, the bot shows a Mini App button and
+will automatically append a trailing slash if missing to avoid redirect issues.

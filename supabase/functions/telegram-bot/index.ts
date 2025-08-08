@@ -51,7 +51,6 @@ const REQUIRED_ENV_KEYS = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "TELEGRAM_BOT_TOKEN",
   "TELEGRAM_WEBHOOK_SECRET",
-  "MINI_APP_URL",
 ];
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -100,12 +99,7 @@ async function notifyUser(chatId: number, text: string): Promise<void> {
 }
 
 async function sendMiniAppLink(chatId: number): Promise<void> {
-  if (!BOT_TOKEN) return;
-  if (!MINI_APP_URL) {
-    console.warn("MINI_APP_URL missing; skipping Mini App button");
-    await notifyUser(chatId, "Mini App URL not configured");
-    return;
-  }
+  if (!BOT_TOKEN || !MINI_APP_URL) return;
   await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
