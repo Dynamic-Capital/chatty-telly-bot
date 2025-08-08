@@ -3303,6 +3303,29 @@ async function handleRefreshBot(chatId: number, userId: string): Promise<void> {
   }
 }
 
+async function checkBotVersionAndNotify(): Promise<void> {
+  try {
+    const storedVersion = await getBotSetting('bot_version');
+    if (storedVersion !== BOT_VERSION) {
+      console.log(`🔔 New bot version detected: ${BOT_VERSION} (previous: ${storedVersion})`);
+      await setBotSetting('bot_version', BOT_VERSION, 'system');
+      const notifyMessage = `🤖 Bot updated to version ${BOT_VERSION}\n🔄 Refreshing bot prompt...`;
+      for (const adminId of ADMIN_USER_IDS) {
+        await sendMessage(parseInt(adminId), notifyMessage);
+      }
+      const firstAdmin = ADMIN_USER_IDS.values().next().value;
+      if (firstAdmin) {
+        await handleRefreshBot(parseInt(firstAdmin), firstAdmin);
+      }
+      await logAdminAction('system', 'version_update', `Bot updated to version ${BOT_VERSION}`);
+    }
+  } catch (error) {
+    console.error('🚨 Error checking bot version:', error);
+  }
+}
+
+await checkBotVersionAndNotify();
+
 // Broadcasting Functions
 async function handleBroadcastMenu(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
