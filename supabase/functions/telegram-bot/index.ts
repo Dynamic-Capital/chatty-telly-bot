@@ -1570,11 +1570,22 @@ async function getBankTransferInstructions(
     } else {
       console.log('⚠️ No active bank accounts found');
       bankDetails = `🏦 **Bank Account Details:**
-📧 Account Name: Dynamic Capital Ltd
-🔢 Account Number: \`Will be provided shortly\`
+1️⃣ **BML**
+📧 Account Name: ABDL.M.I.AFLHAL
+🔢 Account Number: \`7730000133061\`
+💱 Currency: MVR
+
+2️⃣ **MIB**
+📧 Account Name: Abdul M. I. A
+🔢 Account Number: \`90103101672241000\`
+💱 Currency: MVR
+
+3️⃣ **MIB**
+📧 Account Name: Abdul M. I. A
+🔢 Account Number: \`90103101672242000\`
 💱 Currency: USD
 
-⚠️ Contact @DynamicCapital_Support for complete bank details`;
+⚠️ Contact @DynamicCapital_Support for assistance`;
     }
 
     // Update subscription with bank details for reference
