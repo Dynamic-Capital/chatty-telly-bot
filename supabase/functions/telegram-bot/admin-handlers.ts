@@ -1057,7 +1057,9 @@ export async function handleBotSettingsManagement(chatId: number, _userId: strin
       'max_follow_ups': '🔢 Max Follow-ups',
       'maintenance_mode': '🔧 Maintenance Mode',
       'auto_welcome': '🚀 Auto Welcome',
-      'admin_notifications': '🔔 Admin Notifications'
+      'admin_notifications': '🔔 Admin Notifications',
+      'ocr_enabled': '🖼️ OCR Processing',
+      'auto_approve_payments': '✅ Auto Approve Payments'
     };
 
     settings?.forEach((setting: { setting_key: keyof typeof settingTypes; is_active: boolean; setting_value: string; updated_at: string }, index: number) => {
