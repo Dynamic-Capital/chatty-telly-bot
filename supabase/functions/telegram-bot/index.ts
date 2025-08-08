@@ -64,6 +64,7 @@ const MINI_APP_URL = (() => {
   if (!url) return null;
   return url.endsWith("/") ? url : `${url}/`;
 })();
+const MINI_APP_SHORT_NAME = Deno.env.get("MINI_APP_SHORT_NAME") || null;
 
 // Optional feature flags (currently unused)
 const _OPENAI_ENABLED = Deno.env.get("OPENAI_ENABLED") === "true";
@@ -98,19 +99,30 @@ async function notifyUser(chatId: number, text: string): Promise<void> {
   });
 }
 
+function buildWebAppButton(label = "Open Mini App") {
+  if (MINI_APP_SHORT_NAME) {
+    return { text: label, web_app: { short_name: MINI_APP_SHORT_NAME } };
+  }
+  if (MINI_APP_URL) {
+    return { text: label, web_app: { url: MINI_APP_URL } };
+  }
+  return null;
+}
+
 async function sendMiniAppLink(chatId: number): Promise<void> {
-  if (!BOT_TOKEN || !MINI_APP_URL) return;
+  if (!BOT_TOKEN) return;
+  const button = buildWebAppButton("Open Mini App");
+  const reply_markup = button ? { inline_keyboard: [[button]] } : undefined;
+
   await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,
-      text: "Open the Dynamic Capital mini app",
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "Open Mini App", web_app: { url: MINI_APP_URL } }],
-        ],
-      },
+      text: button
+        ? "Open the Dynamic Capital mini app"
+        : "Mini app not configured yet.",
+      reply_markup,
     }),
   });
 }
@@ -197,7 +209,9 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
   if (!text) return;
   const chatId = msg.chat.id;
   try {
-    if (text === "/start") {
+    if (text.startsWith("/start")) {
+      await sendMiniAppLink(chatId);
+    } else if (text === "/app") {
       await sendMiniAppLink(chatId);
     } else if (text === "/ping") {
       await notifyUser(chatId, JSON.stringify(handlePing()));
