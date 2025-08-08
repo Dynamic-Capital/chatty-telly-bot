@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.trade-helper]
 verify_jwt = false
+
+[functions.ocr-worker]
+verify_jwt = false
+
+[functions.payment-notifier]
+verify_jwt = false
