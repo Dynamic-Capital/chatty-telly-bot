@@ -430,11 +430,13 @@ function getSecurityResponse(reason: string, blockDuration?: number): string {
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const BOT_VERSION = Deno.env.get("BOT_VERSION") || "0.0.0";
 
 console.log("🚀 Bot starting with environment check...");
 console.log("BOT_TOKEN exists:", !!BOT_TOKEN);
 console.log("SUPABASE_URL exists:", !!SUPABASE_URL);
 console.log("SUPABASE_SERVICE_ROLE_KEY exists:", !!SUPABASE_SERVICE_ROLE_KEY);
+console.log("BOT_VERSION:", BOT_VERSION);
 
 if (!BOT_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error("❌ Missing required environment variables");
@@ -728,8 +730,36 @@ async function refreshAdminIds() {
   }
 }
 
+async function checkBotVersion(): Promise<void> {
+  try {
+    const storedVersion = await getBotSetting('bot_version');
+    if (storedVersion !== BOT_VERSION) {
+      console.log(`📢 Bot version change detected: ${storedVersion} -> ${BOT_VERSION}`);
+      await setBotSetting('bot_version', BOT_VERSION, 'system');
+      const versionMessage = storedVersion
+        ? `🚀 Bot updated from v${storedVersion} to v${BOT_VERSION}`
+        : `🚀 Bot running version v${BOT_VERSION}`;
+
+      for (const adminId of ADMIN_USER_IDS) {
+        try {
+          await sendMessage(
+            parseInt(adminId),
+            `${versionMessage}\n🔄 Refreshing bot configuration...`
+          );
+          await handleRefreshBot(parseInt(adminId), adminId);
+        } catch (error) {
+          console.error(`❌ Failed to notify admin ${adminId} about version update:`, error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('🚨 Error checking bot version:', error);
+  }
+}
+
 // Initialize admin IDs
 await refreshAdminIds();
+await checkBotVersion();
 
 function isAdmin(userId: string): boolean {
   const result = ADMIN_USER_IDS.has(userId);

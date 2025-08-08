@@ -360,14 +360,17 @@ function createActionKeyboard(actions: Array<{text: string, data: string}>): Tel
 interface BotEnvironment {
   // 🤖 Required - Telegram Bot Configuration
   TELEGRAM_BOT_TOKEN: string;      // Get from @BotFather on Telegram
-  
+
   // 🗄️ Required - Supabase Configuration
   SUPABASE_URL: string;            // Your Supabase project URL
   SUPABASE_SERVICE_ROLE_KEY: string; // Service role key (not anon key!)
-  
+
   // 🧠 Optional - AI Features
   OPENAI_API_KEY?: string;         // For AI-powered FAQ responses
-  
+
+  // 🔄 Optional - Bot Versioning
+  BOT_VERSION?: string;            // Current bot version
+
   // 💳 Optional - Payment Processing
   BINANCE_API_KEY?: string;        // For Binance Pay integration
   BINANCE_SECRET_KEY?: string;     // Binance API secret

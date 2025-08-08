@@ -482,6 +482,7 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
 # Optional
+BOT_VERSION=current_bot_version
 OPENAI_API_KEY=your_openai_key_for_ai_features
 BINANCE_API_KEY=for_payment_processing
 BINANCE_SECRET_KEY=for_payment_processing
