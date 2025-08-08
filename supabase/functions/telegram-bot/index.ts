@@ -748,7 +748,6 @@ async function checkBotVersion(): Promise<void> {
 
 // Initialize admin IDs
 await refreshAdminIds();
-await checkBotVersion();
 
 function isAdmin(userId: string): boolean {
   const result = ADMIN_USER_IDS.has(userId);
@@ -5346,6 +5345,9 @@ async function handleMessageUser(
 // Main serve function
 serve(async (req: Request): Promise<Response> => {
   console.log(`📥 Request received: ${req.method} ${req.url}`);
+
+  // Check for new deployments on each request to notify admins
+  await checkBotVersion();
 
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
