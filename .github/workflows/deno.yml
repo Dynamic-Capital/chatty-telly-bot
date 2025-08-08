@@ -34,6 +34,9 @@ jobs:
       # - name: Verify formatting
       #   run: deno fmt --check
 
+      - name: Type check
+        run: deno check supabase/functions/telegram-bot/*.ts supabase/functions/telegram-bot/**/*.ts
+
       - name: Run linter
         run: deno lint
 

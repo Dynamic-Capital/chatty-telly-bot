@@ -388,26 +388,37 @@ async function startReceiptPipeline(update: TelegramUpdate): Promise<void> {
 }
 
 export async function serveWebhook(req: Request): Promise<Response> {
-  const { ok, missing } = requireEnv(REQUIRED_ENV_KEYS);
-  if (!ok) {
-    console.error("Missing env vars", missing);
+  try {
+    const { ok, missing } = requireEnv(REQUIRED_ENV_KEYS);
+    if (!ok) {
+      console.error("Missing env vars", missing);
+      return okJSON();
+    }
+
+    const url = new URL(req.url);
+    if (url.searchParams.get("secret") !== WEBHOOK_SECRET) {
+      return okJSON();
+    }
+
+    const body = await extractTelegramUpdate(req);
+    if (body && typeof body === "object" &&
+      (body as { test?: string }).test === "ping" &&
+      Object.keys(body).length === 1) {
+      return okJSON({ pong: true });
+    }
+    const update = body as TelegramUpdate | null;
+    if (!update) return okJSON();
+
+    handleCommand(update);
+
+    const fileId = getFileIdFromUpdate(update);
+    if (fileId) startReceiptPipeline(update);
+
+    return okJSON();
+  } catch (err) {
+    console.error("serveWebhook error", err);
     return okJSON();
   }
-
-  const url = new URL(req.url);
-  if (url.searchParams.get("secret") !== WEBHOOK_SECRET) {
-    return okJSON();
-  }
-
-  const update = await extractTelegramUpdate(req);
-  if (!update) return okJSON();
-
-  handleCommand(update);
-
-  const fileId = getFileIdFromUpdate(update);
-  if (fileId) startReceiptPipeline(update);
-
-  return okJSON();
 }
 
 Deno.serve(serveWebhook);

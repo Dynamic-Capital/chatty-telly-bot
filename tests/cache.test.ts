@@ -1,8 +1,9 @@
+// @ts-nocheck: cross-runtime test uses dynamic imports
 let registerTest;
 let assertEquals;
 if (typeof Deno !== "undefined") {
   registerTest = Deno.test;
-  ({ assertEquals } = await import("https://deno.land/std/testing/asserts.ts"));
+  ({ assertEquals } = await import("https://deno.land/std@0.224.0/testing/asserts.ts"));
 } else {
   const { test } = await import("node:test");
   registerTest = test;
