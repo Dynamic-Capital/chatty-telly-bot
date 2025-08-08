@@ -123,6 +123,14 @@ interface PaymentReportData {
   paymentMethods: PaymentMethodStat[];
 }
 
+interface PaymentIntent {
+  expected_amount: number;
+  expected_beneficiary_account_last4?: string | null;
+  expected_beneficiary_name?: string | null;
+  created_at: string;
+  pay_code?: string | null;
+}
+
 interface CommandStat {
   interaction_data?: string;
   count: number;
@@ -968,14 +976,14 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
     const parsed = parseBankSlip(text);
 
     // 7. Find intent
-    let intent = null as any;
+    let intent: PaymentIntent | null = null;
     if (parsed.payCode) {
       const { data } = await supabaseAdmin
         .from("payment_intents")
         .select("*")
         .eq("pay_code", parsed.payCode)
         .maybeSingle();
-      intent = data;
+      intent = data as PaymentIntent | null;
     }
     if (!intent) {
       const { data } = await supabaseAdmin
@@ -987,7 +995,7 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      intent = data;
+      intent = data as PaymentIntent | null;
     }
 
     if (!intent) {
@@ -1033,9 +1041,9 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
     }
     if (!beneficiaryOK && toAccount) {
       const ben = await getApprovedBeneficiaryByAccountNumber(
-        supabaseAdmin as any,
+        supabaseAdmin,
         toAccount,
-      ) as any;
+      );
       if (ben && ben.account_name && toName) {
         beneficiaryOK = ben.account_name.toLowerCase() === toName;
       }
