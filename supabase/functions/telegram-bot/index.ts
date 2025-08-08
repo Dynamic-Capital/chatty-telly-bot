@@ -1355,7 +1355,7 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
         break;
       }
       case 'crypto': {
-        console.log('₿ Processing Crypto instructions');
+        console.log('🪙 Processing USDT (TRC20) instructions');
         const cryptoPkg = { ...pkg, price: finalPrice };
         paymentInstructions = await getCryptoPayInstructions(cryptoPkg, subscription.id);
         break;
@@ -1484,33 +1484,25 @@ async function getCryptoPayInstructions(
   subscriptionId: string
 ): Promise<string> {
   try {
-    console.log('₿ Fetching crypto wallet addresses...');
-    
-    // Try to get crypto addresses from bot_content table
+    console.log('🪙 Fetching USDT wallet address...');
+
+    // Try to get USDT (TRC20) address from bot_content table
     const { data: cryptoSettings, error: _error } = await supabaseAdmin
       .from('bot_content')
       .select('content_key, content_value')
-      .in('content_key', ['crypto_btc_address', 'crypto_eth_address', 'crypto_usdt_trc20', 'crypto_usdt_erc20'])
+      .in('content_key', ['crypto_usdt_trc20'])
       .eq('is_active', true);
 
     let walletAddresses = '';
     if (cryptoSettings && cryptoSettings.length > 0) {
       const addressMap = new Map(cryptoSettings.map(item => [item.content_key, item.content_value]));
-      
-      walletAddresses = `🪙 **Wallet Addresses:**
-${addressMap.get('crypto_btc_address') ? `• **Bitcoin (BTC):** \`${addressMap.get('crypto_btc_address')}\`` : ''}
-${addressMap.get('crypto_eth_address') ? `• **Ethereum (ETH):** \`${addressMap.get('crypto_eth_address')}\`` : ''}
-${addressMap.get('crypto_usdt_trc20') ? `• **USDT (TRC20):** \`${addressMap.get('crypto_usdt_trc20')}\`` : ''}
-${addressMap.get('crypto_usdt_erc20') ? `• **USDT (ERC20):** \`${addressMap.get('crypto_usdt_erc20')}\`` : ''}`.replace(/\n\n/g, '\n');
+
+      walletAddresses = `🪙 **USDT (TRC20) Wallet:** \`${addressMap.get('crypto_usdt_trc20')}\``;
     } else {
-      walletAddresses = `🪙 **Accepted Cryptocurrencies:**
-• **Bitcoin (BTC):** \`bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh\`
-• **Ethereum (ETH):** \`0x742d35Cc6642C4532F35B35D00a8e0c8dC2dA4cB\`
-• **USDT (TRC20):** \`TLPjmhVJ8xJDrA36BNhSj1kFnV2kdEKdWs\`
-• **USDT (ERC20):** \`0x742d35Cc6642C4532F35B35D00a8e0c8dC2dA4cB\``;
+      walletAddresses = `🪙 **USDT (TRC20) Wallet:** \`TQeAph1kiaVbwvY2NS1EwepqrnoTpK6Wss\``;
     }
 
-    return `₿ **Cryptocurrency Payment Instructions**
+      return `🪙 **USDT Payment Instructions**
 
 📦 **Package:** ${pkg.name}
 💰 **Amount:** $${pkg.price} USD
@@ -1520,14 +1512,14 @@ ${walletAddresses}
 📝 **Reference:** \`SUB_${subscriptionId.substring(0, 8)}\`
 
 📱 **Instructions:**
-1️⃣ Calculate equivalent crypto amount
-2️⃣ Send to appropriate wallet address above
+1️⃣ Calculate equivalent USDT amount
+2️⃣ Send to the wallet address above
 3️⃣ Include reference in transaction memo (if supported)
 4️⃣ Take screenshot of transaction confirmation
 5️⃣ Send screenshot + transaction hash to this chat
 
 ⚠️ **Important:**
-• Double-check wallet addresses before sending
+• Double-check wallet address before sending
 • Include reference ID: SUB_${subscriptionId.substring(0, 8)}
 • Send from personal wallet only (not exchange)
 • Payment confirmed within 6 blockchain confirmations
@@ -1535,18 +1527,18 @@ ${walletAddresses}
 
 ❓ Need help? Contact @DynamicCapital_Support`;
     
-  } catch (error) {
-    console.error('❌ Error fetching crypto addresses:', error);
-    return `₿ **Cryptocurrency Payment Instructions**
+    } catch (error) {
+      console.error('❌ Error fetching USDT address:', error);
+      return `🪙 **USDT Payment Instructions**
 
 📦 **Package:** ${pkg.name}
 💰 **Amount:** $${pkg.price} USD
 
-⚠️ Error loading crypto addresses. Please contact @DynamicCapital_Support for wallet details.
+⚠️ Error loading wallet address. Please contact @DynamicCapital_Support for wallet details.
 
 📝 **Reference:** \`SUB_${subscriptionId.substring(0, 8)}\``;
+    }
   }
-}
 
 async function getBankTransferInstructions(
   pkg: VipPackage,
@@ -2229,7 +2221,7 @@ ${priceLine}
       inline_keyboard: [
         [
           { text: "💳 Binance Pay", callback_data: `payment_method_${packageId}_binance` },
-          { text: "₿ Crypto", callback_data: `payment_method_${packageId}_crypto` }
+          { text: "🪙 USDT (TRC20)", callback_data: `payment_method_${packageId}_crypto` }
         ],
         [
           { text: "🏦 Bank Transfer", callback_data: `payment_method_${packageId}_bank` }
@@ -2317,8 +2309,8 @@ async function handlePromoCodeInput(
       const keyboard = {
         inline_keyboard: [
           [
-            { text: "💳 Binance Pay", callback_data: `payment_method_${userSession.packageId}_binance` },
-            { text: "₿ Crypto", callback_data: `payment_method_${userSession.packageId}_crypto` }
+          { text: "💳 Binance Pay", callback_data: `payment_method_${userSession.packageId}_binance` },
+          { text: "🪙 USDT (TRC20)", callback_data: `payment_method_${userSession.packageId}_crypto` }
           ],
           [
             { text: "🏦 Bank Transfer", callback_data: `payment_method_${userSession.packageId}_bank` }
@@ -2366,7 +2358,7 @@ async function handleFAQ(chatId: number, _userId: string): Promise<void> {
 A: Select a VIP package, complete payment, and you'll be added automatically after verification.
 
 🔷 **Q: What payment methods do you accept?**
-A: We accept Binance Pay, cryptocurrency (BTC, ETH, USDT), and bank transfers.
+A: We accept Binance Pay, USDT (TRC20), and bank transfers.
 
 🔷 **Q: How quickly are signals sent?**
 A: VIP signals are sent in real-time as market opportunities arise, typically 5-10 per day.
@@ -2581,7 +2573,7 @@ ${pkg.description || 'Complete course package with expert instruction'}
       inline_keyboard: [
         [
           { text: "💳 Binance Pay", callback_data: `payment_method_${packageId}_binance` },
-          { text: "₿ Crypto", callback_data: `payment_method_${packageId}_crypto` }
+          { text: "🪙 USDT (TRC20)", callback_data: `payment_method_${packageId}_crypto` }
         ],
         [
           { text: "🏦 Bank Transfer", callback_data: `payment_method_${packageId}_bank` }
