@@ -1,0 +1,23 @@
+name: Post Deploy Smoke
+
+on:
+  workflow_run:
+    workflows: ["Deploy Edge Functions"]
+    types: ["completed"]
+
+jobs:
+  smoke:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+      TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+    steps:
+      - name: Ping webhook
+        run: |
+          curl -sS -X POST "$WEBHOOK_URL?secret=$TELEGRAM_WEBHOOK_SECRET" \
+            -H 'content-type: application/json' -d '{"test":"ping"}'
+      - name: Check Telegram webhook info
+        run: |
+          curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"

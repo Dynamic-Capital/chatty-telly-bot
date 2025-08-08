@@ -18,5 +18,6 @@ The project relies on a shared set of environment keys. Set them in your local `
 | FAQ_ENABLED | ✅ | ✅ | ❌ |
 | WINDOW_SECONDS | ✅ | ✅ | ❌ |
 | AMOUNT_TOLERANCE | ✅ | ✅ | ❌ |
+| MINI_APP_URL | ✅ | ✅ | ❌ |
 
 `✅` indicates where each key should be set.

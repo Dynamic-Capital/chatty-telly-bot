@@ -21,7 +21,7 @@ import {
 import { ocrTextFromBlob } from "./ocr.ts";
 import { parseBankSlip } from "./bank-parsers.ts";
 import { getApprovedBeneficiaryByAccountNumber, normalizeAccount } from "./helpers/beneficiary.ts";
-import { requireEnv } from "./helpers/require-env.ts";
+import { requireEnv } from "./helpers/config.ts";
 
 const DEFAULT_BOT_SETTINGS: Record<string, string> = {
   session_timeout_minutes: "30",
