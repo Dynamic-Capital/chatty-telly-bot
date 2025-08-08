@@ -24,7 +24,7 @@ export function parseReceipt(text: string) {
   const dateText = dtMatch ? `${dtMatch[1]} ${dtMatch[2]}` : null;
 
   const success = /\b(successful|completed|processed)\b/i.test(join);
-  const beneficiary = lines.find(l => /\b(Dynamic|Capital)\b/i) || null;
+  const beneficiary = lines.find(l => /\b(Dynamic|Capital)\b/i.test(l)) || null;
   const payCode = (join.match(/\bDC-[A-Z0-9]{6}\b/) || [null])[0];
 
   return { text, total, dateText, success, beneficiary, payCode };
