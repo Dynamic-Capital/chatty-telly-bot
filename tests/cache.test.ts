@@ -38,8 +38,8 @@ const localStorageMock = (() => {
 registerTest("clearCache only removes cached entries", async () => {
   localStorage.setItem("external", "keep");
 
-  await getCached("foo", 1000, async () => "foo");
-  await getCached("bar", 1000, async () => "bar");
+  await getCached("foo", 1000, () => Promise.resolve("foo"));
+  await getCached("bar", 1000, () => Promise.resolve("bar"));
 
   clearCache();
 

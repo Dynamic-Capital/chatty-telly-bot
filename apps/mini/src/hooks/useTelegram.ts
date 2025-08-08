@@ -14,7 +14,7 @@ interface TelegramWebApp {
 }
 
 function getWebApp(): TelegramWebApp | undefined {
-  return (window as unknown as { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
+  return (globalThis as unknown as { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
 }
 
 export function useTelegram() {
@@ -26,9 +26,9 @@ export function useTelegram() {
     Object.entries(params).forEach(([k, v]) => {
       root.style.setProperty(`--tg-${k}`, String(v));
     });
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      root.style.setProperty('--dc-motion', 'none');
-    }
+      if (globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+        root.style.setProperty('--dc-motion', 'none');
+      }
     webApp.ready();
   }, []);
 }
