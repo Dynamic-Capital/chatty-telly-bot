@@ -891,29 +891,6 @@ async function deleteMessage(chatId: number, messageId: number): Promise<boolean
     return false;
   }
 }
-
-// Function to get chat type (private, group, supergroup, channel)
-async function getChatType(chatId: number): Promise<string> {
-  try {
-    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId })
-    });
-
-    const result = await response.json();
-
-    if (result.ok && result.result) {
-      return result.result.type;
-    }
-
-    return 'unknown';
-  } catch (error) {
-    console.error('🚨 Error getting chat type:', error);
-    return 'unknown';
-  }
-}
-
 // Receipt Upload Handler
 async function handleReceiptUpload(
   message: TelegramMessage,
