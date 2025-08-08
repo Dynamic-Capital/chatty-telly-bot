@@ -23,3 +23,14 @@ dist-ssr
 *.sln
 *.sw?
 .env
+# Deno/Supabase caches & artifacts
+.deno/
+.deno_cache/
+deno_dir/
+supabase/.tmp/
+supabase/functions/**/vendor/
+supabase/functions/**/.edge/
+**/*.cas
+
+# Mini app build & deps
+apps/mini/dist/

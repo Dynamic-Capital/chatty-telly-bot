@@ -1,0 +1,125 @@
+:root {
+  --dc-brand:#2FD2C5;
+  --dc-ink:#0B3D3A;
+
+  --dc-bg:#0B0E11;
+  --dc-text:#E9F3F4;
+  --dc-text-dim:#C8D6D8;
+
+  --dc-glass:rgba(255,255,255,.08);
+  --dc-glass-stroke:rgba(255,255,255,.18);
+  --dc-blur:16px;
+  --dc-shadow:0 8px 30px rgba(0,0,0,.25);
+
+  --dc-good:#10D07A;
+  --dc-warn:#FFD166;
+  --dc-bad:#FF6B6B;
+  --dc-info:#9AA8FF;
+
+  --r-sm:10px;
+  --r-md:16px;
+  --r-lg:22px;
+
+  --sp-1:8px;
+  --sp-2:12px;
+  --sp-3:16px;
+  --sp-4:24px;
+  --sp-5:32px;
+}
+
+.dc-screen {
+  background: var(--dc-bg);
+  color: var(--dc-text);
+  padding: var(--sp-4);
+  min-height: 100vh;
+}
+
+.dc-panel {
+  background: var(--dc-glass);
+  backdrop-filter: blur(var(--dc-blur));
+  border: 1px solid var(--dc-glass-stroke);
+  border-radius: var(--r-lg);
+  box-shadow: var(--dc-shadow);
+  padding: var(--sp-4);
+}
+
+.dc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--dc-glass-stroke);
+}
+
+.dc-chip {
+  display: inline-block;
+  padding: 0 var(--sp-2);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.dc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  min-height: 44px;
+  transition: transform .15s ease;
+}
+
+.dc-btn:active {
+  transform: scale(0.96);
+}
+
+.dc-btn--primary {
+  background: var(--dc-brand);
+  color: var(--dc-ink);
+}
+
+.dc-btn--glass {
+  background: var(--dc-glass);
+  color: var(--dc-text);
+  backdrop-filter: blur(var(--dc-blur));
+  border: 1px solid var(--dc-glass-stroke);
+}
+
+.dc-btn--approve {
+  background: var(--dc-good);
+  color: var(--dc-ink);
+}
+
+.dc-btn--reject {
+  background: var(--dc-bad);
+  color: var(--dc-ink);
+}
+
+.dc-pill--awaiting {
+  background: var(--dc-warn);
+  color: var(--dc-ink);
+}
+
+.dc-pill--verified {
+  background: var(--dc-good);
+  color: var(--dc-ink);
+}
+
+.dc-pill--rejected {
+  background: var(--dc-bad);
+  color: var(--dc-ink);
+}
+
+.dc-pill--review {
+  background: var(--dc-info);
+  color: var(--dc-ink);
+}
+
+.dc-input {
+  background: var(--dc-glass);
+  border: 1px solid var(--dc-glass-stroke);
+  border-radius: var(--r-md);
+  padding: var(--sp-3);
+  color: var(--dc-text);
+  width: 100%;
+}
