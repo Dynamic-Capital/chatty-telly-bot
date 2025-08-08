@@ -1,16 +1,17 @@
-import { createWorker } from "npm:tesseract.js@5";
-import type { Worker as TesseractWorker } from "npm:tesseract.js@5";
-
-type OCRWorker = TesseractWorker & {
+// @deno-types="../../../types/tesseract.d.ts"
+import { createWorker } from "https://esm.sh/tesseract.js@5?dts";
+type OCRWorker = {
+  load: () => Promise<unknown>;
   loadLanguage: (lang: string) => Promise<unknown>;
   initialize?: (lang: string) => Promise<unknown>;
   reinitialize?: (lang: string) => Promise<unknown>;
   setParameters: (params: Record<string, string>) => Promise<unknown>;
   recognize: (blob: Blob) => Promise<{ data: { text: string } }>;
+  terminate: () => Promise<unknown>;
 };
 
 export async function ocrTextFromBlob(blob: Blob): Promise<string> {
-  const worker: OCRWorker = await createWorker();
+  const worker = await createWorker() as unknown as OCRWorker;
 
   try {
     await worker.load();

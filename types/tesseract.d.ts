@@ -1,3 +1,8 @@
+type Buffer = unknown;
+declare namespace NodeJS {
+  interface ReadableStream {}
+}
+
 interface BaseWorker {
   load(): Promise<void>;
   loadLanguage(lang: string): Promise<void>;

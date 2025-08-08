@@ -1,0 +1,34 @@
+{
+  "imports": {
+    "https://esm.sh/@supabase/supabase-js@2?dts": "./esm.sh/@supabase/supabase-js@2.54.0.js",
+    "https://esm.sh/tesseract.js@5?dts": "./esm.sh/tesseract.js@5.1.1.js",
+    "https://esm.sh/": "./esm.sh/"
+  },
+  "scopes": {
+    "./esm.sh/": {
+      "/@supabase/node-fetch@^2.6.14?target=denonext": "./esm.sh/@supabase/node-fetch@2.6.15.js",
+      "/whatwg-url@^5.0.0?target=denonext": "./esm.sh/whatwg-url@5.0.0.js",
+      "/@supabase/node-fetch@2.6.15/denonext/node-fetch.mjs": "./esm.sh/@supabase/node-fetch@2.6.15/denonext/node-fetch.mjs",
+      "/@supabase/node-fetch@^2.6.13?target=denonext": "./esm.sh/@supabase/node-fetch@2.6.15.js",
+      "/@supabase/storage-js@2.10.4/denonext/storage-js.mjs": "./esm.sh/@supabase/storage-js@2.10.4/denonext/storage-js.mjs",
+      "/@supabase/functions-js@2.4.5/denonext/functions-js.mjs": "./esm.sh/@supabase/functions-js@2.4.5/denonext/functions-js.mjs",
+      "/@supabase/postgrest-js@1.19.4/denonext/postgrest-js.mjs": "./esm.sh/@supabase/postgrest-js@1.19.4/denonext/postgrest-js.mjs",
+      "/@supabase/realtime-js@2.15.0/denonext/realtime-js.mjs": "./esm.sh/@supabase/realtime-js@2.15.0/denonext/realtime-js.mjs",
+      "/@supabase/storage-js@^2.10.4?target=denonext": "./esm.sh/@supabase/storage-js@2.10.4.js",
+      "/@supabase/auth-js@2.71.1/denonext/auth-js.mjs": "./esm.sh/@supabase/auth-js@2.71.1/denonext/auth-js.mjs",
+      "/@supabase/supabase-js@2.54.0/denonext/supabase-js.mjs": "./esm.sh/@supabase/supabase-js@2.54.0/denonext/supabase-js.mjs",
+      "/is-electron@2.2.2/denonext/is-electron.mjs": "./esm.sh/is-electron@2.2.2/denonext/is-electron.mjs",
+      "/is-url@1.2.4/denonext/is-url.mjs": "./esm.sh/is-url@1.2.4/denonext/is-url.mjs",
+      "/regenerator-runtime@0.13.11/denonext/regenerator-runtime.mjs": "./esm.sh/regenerator-runtime@0.13.11/denonext/regenerator-runtime.mjs",
+      "/regenerator-runtime@^0.13.3/runtime?target=denonext": "./esm.sh/regenerator-runtime@0.13.11/runtime.js",
+      "/is-electron@^2.2.2?target=denonext": "./esm.sh/is-electron@2.2.2.js",
+      "/is-url@^1.2.4?target=denonext": "./esm.sh/is-url@1.2.4.js",
+      "/tesseract.js@5.1.1/denonext/tesseract.mjs": "./esm.sh/tesseract.js@5.1.1/denonext/tesseract.mjs",
+      "/tr46@0.0.3/denonext/tr46.mjs": "./esm.sh/tr46@0.0.3/denonext/tr46.mjs",
+      "/webidl-conversions@3.0.1/denonext/webidl-conversions.mjs": "./esm.sh/webidl-conversions@3.0.1/denonext/webidl-conversions.mjs",
+      "/webidl-conversions@^3.0.0?target=denonext": "./esm.sh/webidl-conversions@3.0.1.js",
+      "/tr46@~0.0.3?target=denonext": "./esm.sh/tr46@0.0.3.js",
+      "/whatwg-url@5.0.0/denonext/whatwg-url.mjs": "./esm.sh/whatwg-url@5.0.0/denonext/whatwg-url.mjs"
+    }
+  }
+}
