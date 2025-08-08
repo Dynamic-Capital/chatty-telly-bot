@@ -1,7 +1,7 @@
-import { createWorker } from "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js";
+import Tesseract from "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js";
 
 export async function ocrTextFromBlob(blob: Blob): Promise<string> {
-  const worker = await createWorker();
+  const worker = await Tesseract.createWorker();
   await worker.loadLanguage("eng");
   await worker.initialize("eng");
   await worker.setParameters({
