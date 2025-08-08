@@ -5041,7 +5041,8 @@ serve(async (req) => {
 
     // Handle regular messages
     if (update.message) {
-      const text = update.message.text;
+      const text = (update.message.text || '').trim();
+      const baseCommand = text.split(' ')[0].split('@')[0];
       console.log(`📝 Processing text message: ${text} from user: ${userId}`);
 
       // Update session activity
@@ -5060,9 +5061,8 @@ serve(async (req) => {
       }
 
       // Check for command spam before processing commands
-      if (text && text.startsWith('/')) {
-        const command = text.split(' ')[0];
-        if (isCommandSpam(userId, command) && !isUserAdmin) {
+      if (baseCommand && baseCommand.startsWith('/')) {
+        if (isCommandSpam(userId, baseCommand) && !isUserAdmin) {
           const response = getSecurityResponse('command_spam');
           await sendMessage(chatId, response);
           return new Response("OK", { status: 200 });
@@ -5070,7 +5070,7 @@ serve(async (req) => {
       }
 
       // Handle /start command with dynamic welcome message
-      if (text === '/start') {
+      if (baseCommand === '/start') {
         console.log(`🚀 Start command from: ${userId} (${firstName})`);
         
         // Add timeout to prevent hanging
@@ -5118,7 +5118,7 @@ serve(async (req) => {
       }
 
       // Handle /admin command
-      if (text === '/admin') {
+      if (baseCommand === '/admin') {
         console.log(`🔐 Admin command from: ${userId} (${firstName})`);
         console.log(`🔐 Admin check result: ${isAdmin(userId)}`);
         console.log(`🔐 Current admin IDs: ${Array.from(ADMIN_USER_IDS).join(', ')}`);
@@ -5132,19 +5132,19 @@ serve(async (req) => {
       }
 
       // Handle /help command
-      if (text === '/help') {
+      if (baseCommand === '/help') {
         await handleHelpCommand(chatId, userId, firstName);
         return new Response("OK", { status: 200 });
       }
 
       // Handle /status command for admins
-      if (text === '/status' && isAdmin(userId)) {
+      if (baseCommand === '/status' && isAdmin(userId)) {
         await handleBotStatus(chatId, userId);
         return new Response("OK", { status: 200 });
       }
 
       // Handle /refresh command for admins
-      if (text === '/refresh' && isAdmin(userId)) {
+      if (baseCommand === '/refresh' && isAdmin(userId)) {
         await handleRefreshBot(chatId, userId);
         return new Response("OK", { status: 200 });
       }
@@ -5163,7 +5163,7 @@ serve(async (req) => {
       }
 
       // Handle /broadcast command for admins
-      if (text === '/broadcast' && isAdmin(userId)) {
+      if (baseCommand === '/broadcast' && isAdmin(userId)) {
         await handleBroadcastMenu(chatId, userId);
         return new Response("OK", { status: 200 });
       }
@@ -5182,7 +5182,7 @@ serve(async (req) => {
 
       // Handle unknown commands with auto-reply
       if (text?.startsWith('/')) {
-        await handleUnknownCommand(chatId, userId, text);
+        await handleUnknownCommand(chatId, userId, baseCommand);
         return new Response("OK", { status: 200 });
       }
 
