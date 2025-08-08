@@ -15,7 +15,16 @@ serve(async (req) => {
   }
 
   try {
-    const { question, context: _context } = await req.json();
+    const { question, context: _context, test } = await req
+      .json()
+      .catch(() => ({}));
+
+    if (test) {
+      return new Response(
+        JSON.stringify({ success: true, message: 'ai-faq-assistant OK' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!question) {
       return new Response(JSON.stringify({ error: 'Question is required' }), {

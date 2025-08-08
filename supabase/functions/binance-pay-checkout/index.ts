@@ -47,10 +47,22 @@ serve(async (req) => {
 
   try {
     console.log('Binance Pay checkout request started');
-    const requestBody = await req.json();
+    const requestBody = await req.json().catch(() => ({}));
     console.log('Request body:', requestBody);
-    
-    const { planId, telegramUserId, telegramUsername: _telegramUsername } = requestBody;
+
+    const {
+      planId,
+      telegramUserId,
+      telegramUsername: _telegramUsername,
+      test,
+    } = requestBody;
+
+    if (test) {
+      return new Response(
+        JSON.stringify({ success: true, message: 'binance-pay-checkout OK' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!planId || !telegramUserId) {
       throw new Error('Missing required parameters: planId or telegramUserId');

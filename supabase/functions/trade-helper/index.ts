@@ -15,7 +15,16 @@ serve(async (req) => {
   }
 
   try {
-    const { instrument, command, context: _context } = await req.json();
+    const { instrument, command, context: _context, test } = await req
+      .json()
+      .catch(() => ({}));
+
+    if (test) {
+      return new Response(
+        JSON.stringify({ success: true, message: 'trade-helper OK' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!instrument) {
       return new Response(JSON.stringify({ error: 'Instrument is required' }), {
