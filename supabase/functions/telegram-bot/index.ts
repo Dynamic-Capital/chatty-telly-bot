@@ -1,4 +1,4 @@
-/// <reference path="../../types/tesseract.d.ts" />
+/// <reference path="../../../types/tesseract.d.ts" />
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   getFormattedVipPackages,
