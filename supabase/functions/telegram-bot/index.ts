@@ -51,6 +51,7 @@ const REQUIRED_ENV_KEYS = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "TELEGRAM_BOT_TOKEN",
   "TELEGRAM_WEBHOOK_SECRET",
+  "MINI_APP_URL",
 ];
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -58,7 +59,12 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
   "";
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
 const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
-const MINI_APP_URL = Deno.env.get("MINI_APP_URL");
+// Ensure MINI_APP_URL always includes a trailing slash to avoid redirects
+const MINI_APP_URL = (() => {
+  const url = Deno.env.get("MINI_APP_URL");
+  if (!url) return null;
+  return url.endsWith("/") ? url : `${url}/`;
+})();
 
 // Optional feature flags (currently unused)
 const _OPENAI_ENABLED = Deno.env.get("OPENAI_ENABLED") === "true";
