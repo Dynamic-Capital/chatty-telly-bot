@@ -1,7 +1,14 @@
 /* eslint-disable no-case-declarations */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getFormattedVipPackages, getBotContent, getBotSetting } from "./database-utils.ts";
+import {
+  getFormattedVipPackages,
+  getBotContent,
+  getBotSetting,
+  setBotSetting,
+  getAllBotSettings,
+  resetBotSettings
+} from "./database-utils.ts";
 import {
   handleTableManagement,
   handleUserTableManagement,
@@ -13,6 +20,13 @@ import {
   handleBotSettingsManagement,
   handleTableStatsOverview
 } from "./admin-handlers.ts";
+
+const DEFAULT_BOT_SETTINGS: Record<string, string> = {
+  session_timeout_minutes: "30",
+  payment_timeout_minutes: "60",
+  admin_notifications: "true",
+  max_login_attempts: "5"
+};
 
 // Rate limiting and anti-spam protection
 interface RateLimitEntry {
@@ -797,6 +811,27 @@ async function sendAccessDeniedMessage(chatId: number, details = "") {
     (await getBotContent('access_denied_message')) || '❌ Access denied.';
   const finalMessage = details ? `${baseMessage} ${details}` : baseMessage;
   await sendMessage(chatId, finalMessage);
+}
+
+async function promptSettingUpdate(
+  chatId: number,
+  userId: string,
+  settingKey: string,
+  promptText: string
+): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendAccessDeniedMessage(chatId);
+    return;
+  }
+  const currentValue = await getBotSetting(settingKey);
+  const userSession = getUserSession(userId);
+  userSession.awaitingInput = `update_setting:${settingKey}`;
+  await sendMessage(
+    chatId,
+    `⚙️ *Update Setting: ${settingKey}*\n${promptText}\nCurrent value: \`${
+      currentValue ?? 'not set'
+    }\`\nSend the new value in your next message.`
+  );
 }
 
 // Function to delete a specific message
@@ -5386,6 +5421,18 @@ serve(async (req: Request): Promise<Response> => {
         await handleCustomBroadcastSend(chatId, userId, text);
         return new Response("OK", { status: 200 });
       }
+      if (userSession.awaitingInput?.startsWith('update_setting:')) {
+        const settingKey = userSession.awaitingInput.split(':')[1];
+        userSession.awaitingInput = null;
+        const success = await setBotSetting(settingKey, text, userId);
+        await sendMessage(
+          chatId,
+          success
+            ? `✅ Updated *${settingKey}* to \`${text}\``
+            : `❌ Failed to update *${settingKey}*`
+        );
+        return new Response("OK", { status: 200 });
+      }
       if (userSession.awaitingInput?.startsWith('edit_content:')) {
         const contentKey = userSession.awaitingInput.split(':')[1];
         userSession.awaitingInput = null;
@@ -5933,13 +5980,66 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
 
           // Bot Settings Callbacks
           case 'config_session_settings':
-          case 'config_payment_settings':
-          case 'config_notification_settings':
-          case 'config_security_settings':
-          case 'reset_all_settings':
-          case 'backup_settings':
-            await sendMessage(chatId, "⚙️ Advanced settings configuration coming soon!");
+            await promptSettingUpdate(
+              chatId,
+              userId,
+              'session_timeout_minutes',
+              'Enter new session timeout in minutes.'
+            );
             break;
+          case 'config_payment_settings':
+            await promptSettingUpdate(
+              chatId,
+              userId,
+              'payment_timeout_minutes',
+              'Enter payment timeout in minutes.'
+            );
+            break;
+          case 'config_notification_settings':
+            await promptSettingUpdate(
+              chatId,
+              userId,
+              'admin_notifications',
+              'Enable admin notifications? (true/false)'
+            );
+            break;
+          case 'config_security_settings':
+            await promptSettingUpdate(
+              chatId,
+              userId,
+              'max_login_attempts',
+              'Enter maximum login attempts before lockout.'
+            );
+            break;
+          case 'reset_all_settings': {
+            if (!isAdmin(userId)) {
+              await sendAccessDeniedMessage(chatId);
+              break;
+            }
+            const success = await resetBotSettings(DEFAULT_BOT_SETTINGS, userId);
+            await sendMessage(
+              chatId,
+              success
+                ? '✅ All settings have been reset to defaults.'
+                : '❌ Failed to reset settings.'
+            );
+            break;
+          }
+          case 'backup_settings': {
+            if (!isAdmin(userId)) {
+              await sendAccessDeniedMessage(chatId);
+              break;
+            }
+            const settings = await getAllBotSettings();
+            const formatted = Object.entries(settings)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join('\n');
+            await sendMessage(
+              chatId,
+              `📦 *Current Settings Backup*\n\n${formatted || 'No settings found.'}`
+            );
+            break;
+          }
 
           // Additional Settings Toggles
           case 'set_delete_delay':

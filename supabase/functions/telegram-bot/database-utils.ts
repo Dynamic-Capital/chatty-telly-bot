@@ -195,6 +195,62 @@ export async function setBotSetting(settingKey: string, settingValue: string, ad
   }
 }
 
+export async function getAllBotSettings(): Promise<Record<string, string>> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('bot_settings')
+      .select('setting_key, setting_value');
+
+    if (error) {
+      console.error('Error fetching all bot settings:', error);
+      return {};
+    }
+
+    const settings: Record<string, string> = {};
+    data?.forEach(s => {
+      settings[s.setting_key] = s.setting_value;
+    });
+    return settings;
+  } catch (error) {
+    console.error('Exception in getAllBotSettings:', error);
+    return {};
+  }
+}
+
+export async function resetBotSettings(
+  defaultSettings: Record<string, string>,
+  adminId: string
+): Promise<boolean> {
+  try {
+    const rows = Object.entries(defaultSettings).map(([key, value]) => ({
+      setting_key: key,
+      setting_value: value,
+      updated_at: new Date().toISOString()
+    }));
+
+    const { error } = await supabaseAdmin
+      .from('bot_settings')
+      .upsert(rows, { onConflict: 'setting_key' });
+
+    if (!error) {
+      await logAdminAction(
+        adminId,
+        'settings_reset',
+        'Reset all bot settings',
+        'bot_settings',
+        undefined,
+        {},
+        defaultSettings
+      );
+    }
+
+    return !error;
+  } catch (error) {
+    console.error('Exception in resetBotSettings:', error);
+    return false;
+  }
+}
+
 // VIP package management functions
 export async function getVipPackages(): Promise<VipPackage[]> {
   try {
