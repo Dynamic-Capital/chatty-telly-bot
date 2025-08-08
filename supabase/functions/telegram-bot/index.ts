@@ -1,7 +1,7 @@
 /* eslint-disable no-case-declarations, @typescript-eslint/no-explicit-any */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getFormattedVipPackages, getBotContent } from "./database-utils.ts";
+import { getFormattedVipPackages, getBotContent, getBotSetting } from "./database-utils.ts";
 import {
   handleTableManagement,
   handleUserTableManagement,
@@ -1042,7 +1042,7 @@ async function handleVipPackageSelection(chatId: number, userId: string, package
 ⏱️ **Duration:** ${pkg.is_lifetime ? 'Lifetime Access' : pkg.duration_months + ' months'}
 
 ✨ **Features:**
-${pkg.features?.map(f => `• ${f}`).join('\n') || '• Premium features included'}
+${pkg.features?.map((f: string) => `• ${f}`).join('\n') || '• Premium features included'}
 
 🎯 **Next steps:**`;
 
@@ -1164,7 +1164,7 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
     
   } catch (error) {
     console.error('🚨 Error in payment method selection:', error);
-    await sendMessage(chatId, `❌ An error occurred: ${error.message}. Please try again.`);
+    await sendMessage(chatId, `❌ An error occurred: ${(error as Error).message}. Please try again.`);
   }
 }
 
@@ -2022,7 +2022,7 @@ async function handlePromoCodeInput(chatId: number, userId: string, promoCode: s
       // Record promo usage
       const { data: promo } = await supabaseAdmin
         .from('promotions')
-        .select('id')
+        .select('id, current_uses')
         .eq('code', promoCode)
         .single();
 
@@ -2038,7 +2038,7 @@ async function handlePromoCodeInput(chatId: number, userId: string, promoCode: s
         await supabaseAdmin
           .from('promotions')
           .update({
-            current_uses: supabaseAdmin.raw('current_uses + 1')
+            current_uses: (promo.current_uses || 0) + 1
           })
           .eq('id', promo.id);
       }
@@ -2213,7 +2213,7 @@ We're preparing amazing educational content for you.
     } else {
       packages.forEach((pkg, index) => {
         const features = pkg.features && Array.isArray(pkg.features) ? pkg.features.slice(0, 3) : [];
-        const featuresText = features.length > 0 ? features.map(f => `• ${f}`).join('\n   ') : '• Comprehensive trading education';
+        const featuresText = features.length > 0 ? features.map((f: string) => `• ${f}`).join('\n   ') : '• Comprehensive trading education';
         
         const studentInfo = pkg.max_students 
           ? `👥 ${pkg.current_students || 0}/${pkg.max_students} enrolled` 
@@ -2477,7 +2477,7 @@ async function handleViewUserProfile(chatId: number, adminUserId: string, target
 
   } catch (error) {
     console.error('🚨 Error viewing user profile:', error);
-    await sendMessage(chatId, `❌ Error loading user profile: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading user profile: ${(error as Error).message}`);
   }
 }
 
@@ -2546,7 +2546,7 @@ async function handleViewPendingPayments(chatId: number, adminUserId: string): P
 
   } catch (error) {
     console.error('🚨 Error viewing pending payments:', error);
-    await sendMessage(chatId, `❌ Error loading pending payments: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading pending payments: ${(error as Error).message}`);
   }
 }
 
@@ -2627,7 +2627,7 @@ User ${subscription.telegram_user_id} has been activated for ${subscription.subs
 
   } catch (error) {
     console.error('🚨 Error approving payment:', error);
-    await sendMessage(chatId, `❌ Error approving payment: ${error.message}`);
+    await sendMessage(chatId, `❌ Error approving payment: ${(error as Error).message}`);
   }
 }
 
@@ -2680,7 +2680,7 @@ User ${subscription.telegram_user_id} payment for ${subscription.subscription_pl
 
   } catch (error) {
     console.error('🚨 Error rejecting payment:', error);
-    await sendMessage(chatId, `❌ Error rejecting payment: ${error.message}`);
+    await sendMessage(chatId, `❌ Error rejecting payment: ${(error as Error).message}`);
   }
 }
 
@@ -2770,7 +2770,7 @@ async function handleAdminDashboard(chatId: number, userId: string): Promise<voi
     console.log(`✅ Admin dashboard sent to: ${userId}`);
   } catch (error) {
     console.error('🚨 Error in admin dashboard:', error);
-    await sendMessage(chatId, `❌ Error loading admin dashboard: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading admin dashboard: ${(error as Error).message}`);
   }
 }
 
@@ -2849,7 +2849,7 @@ async function handleViewSessions(chatId: number, userId: string): Promise<void>
     await sendMessage(chatId, sessionMessage, sessionKeyboard);
   } catch (error) {
     console.error('🚨 Error viewing sessions:', error);
-    await sendMessage(chatId, `❌ Error fetching sessions: ${error.message}`);
+    await sendMessage(chatId, `❌ Error fetching sessions: ${(error as Error).message}`);
   }
 }
 
@@ -2947,7 +2947,7 @@ async function handleBotStatus(chatId: number, userId: string): Promise<void> {
 • 📱 API Response: ${tgTime < 100 ? '🟢 Fast' : tgTime < 500 ? '🟡 Moderate' : '🔴 Slow'} (${tgTime}ms)
 • 💾 ${memoryInfo}
 
-${dbTest.error ? `❌ DB Error: ${dbTest.error.message}` : ''}
+${dbTest.error ? `❌ DB Error: ${(dbTest.error as Error).message}` : ''}
 ${!tgTest.ok ? '❌ Telegram API Error' : ''}`;
 
     const statusKeyboard = {
@@ -2969,7 +2969,7 @@ ${!tgTest.ok ? '❌ Telegram API Error' : ''}`;
     await sendMessage(chatId, statusMessage, statusKeyboard);
   } catch (error) {
     console.error('🚨 Error in bot status check:', error);
-    await sendMessage(chatId, `❌ Error checking bot status: ${error.message}`);
+    await sendMessage(chatId, `❌ Error checking bot status: ${(error as Error).message}`);
   }
 }
 
@@ -3008,7 +3008,7 @@ async function handleRefreshBot(chatId: number, userId: string): Promise<void> {
     await logAdminAction(userId, 'bot_refresh', 'Bot refresh completed successfully');
   } catch (error) {
     console.error('🚨 Error during bot refresh:', error);
-    await sendMessage(chatId, `❌ Error during refresh: ${error.message}`);
+    await sendMessage(chatId, `❌ Error during refresh: ${(error as Error).message}`);
   }
 }
 
@@ -3520,7 +3520,7 @@ async function handleAdminSettings(chatId: number, userId: string): Promise<void
 
   } catch (error) {
     console.error('🚨 Error in admin settings:', error);
-    await sendMessage(chatId, `❌ Error loading settings: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading settings: ${(error as Error).message}`);
   }
 }
 
@@ -3551,7 +3551,7 @@ Settings updated successfully!`;
     setTimeout(() => handleAdminSettings(chatId, userId), 2000);
     
   } catch (error) {
-    await sendMessage(chatId, `❌ Error toggling auto-delete: ${error.message}`);
+    await sendMessage(chatId, `❌ Error toggling auto-delete: ${(error as Error).message}`);
   }
 }
 
@@ -3581,7 +3581,7 @@ Settings updated successfully!`;
     setTimeout(() => handleAdminSettings(chatId, userId), 2000);
     
   } catch (error) {
-    await sendMessage(chatId, `❌ Error toggling auto-intro: ${error.message}`);
+    await sendMessage(chatId, `❌ Error toggling auto-intro: ${(error as Error).message}`);
   }
 }
 
@@ -3611,7 +3611,7 @@ Settings updated successfully!`;
     setTimeout(() => handleAdminSettings(chatId, userId), 2000);
     
   } catch (error) {
-    await sendMessage(chatId, `❌ Error toggling maintenance: ${error.message}`);
+    await sendMessage(chatId, `❌ Error toggling maintenance: ${(error as Error).message}`);
   }
 }
 
@@ -3660,7 +3660,7 @@ async function handleViewAllSettings(chatId: number, userId: string): Promise<vo
     await sendMessage(chatId, settingsText, allSettingsKeyboard);
     
   } catch (error) {
-    await sendMessage(chatId, `❌ Error loading all settings: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading all settings: ${(error as Error).message}`);
   }
 }
 
@@ -3787,13 +3787,18 @@ async function handleUserAnalyticsReport(chatId: number, userId: string, timeRan
     const growthData = calculateGrowthMetrics(userGrowthQuery.data || []);
     
     // Get top active users
-    const topUsersQuery = await supabaseAdmin
+    const topUsersRaw = await supabaseAdmin
       .from('user_interactions')
-      .select('telegram_user_id, count(*)')
-      .gte('created_at', timeFilter)
-      .group('telegram_user_id')
-      .order('count', { ascending: false })
-      .limit(5);
+      .select('telegram_user_id')
+      .gte('created_at', timeFilter);
+
+    const topUsers = Object.entries((topUsersRaw.data || []).reduce((acc: Record<string, number>, row: { telegram_user_id: string }) => {
+      acc[row.telegram_user_id] = (acc[row.telegram_user_id] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>))
+      .map(([telegram_user_id, count]) => ({ telegram_user_id, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
 
     const report = generateUserAnalyticsReport({
       totalUsers: totalUsers.count || 0,
@@ -3802,7 +3807,7 @@ async function handleUserAnalyticsReport(chatId: number, userId: string, timeRan
       vipUsers: vipUsers.count || 0,
       adminUsers: adminUsers.count || 0,
       growthData,
-      topUsers: topUsersQuery.data || [],
+      topUsers,
       timeRange
     });
 
@@ -3823,7 +3828,7 @@ async function handleUserAnalyticsReport(chatId: number, userId: string, timeRan
 
   } catch (error) {
     console.error('❌ Error generating user analytics:', error);
-    await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+    await sendMessage(chatId, `❌ Error generating report: ${(error as Error).message}`);
   }
 }
 
@@ -3876,11 +3881,15 @@ async function handlePaymentReport(chatId: number, userId: string, timeRange: st
     const avgPayment = revenueData.data?.length ? totalRevenue / revenueData.data.length : 0;
 
     // Get payment method breakdown
-    const paymentMethodsQuery = await supabaseAdmin
+    const paymentMethodsRaw = await supabaseAdmin
       .from('payments')
-      .select('payment_method, count(*)')
-      .gte('created_at', timeFilter)
-      .group('payment_method');
+      .select('payment_method')
+      .gte('created_at', timeFilter);
+
+    const paymentMethods = Object.entries((paymentMethodsRaw.data || []).reduce((acc: Record<string, number>, row: { payment_method: string }) => {
+      acc[row.payment_method] = (acc[row.payment_method] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>)).map(([payment_method, count]) => ({ payment_method, count }));
 
     const report = generatePaymentReport({
       totalPayments: totalPayments.count || 0,
@@ -3889,7 +3898,7 @@ async function handlePaymentReport(chatId: number, userId: string, timeRange: st
       rejectedPayments: rejectedPayments.count || 0,
       totalRevenue,
       avgPayment,
-      paymentMethods: paymentMethodsQuery.data || [],
+      paymentMethods,
       timeRange
     });
 
@@ -3903,7 +3912,7 @@ async function handlePaymentReport(chatId: number, userId: string, timeRange: st
 
   } catch (error) {
     console.error('❌ Error generating payment report:', error);
-    await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+    await sendMessage(chatId, `❌ Error generating report: ${(error as Error).message}`);
   }
 }
 
@@ -4034,7 +4043,7 @@ Generated: ${new Date().toLocaleString()}`;
 
   } catch (error) {
     console.error('❌ Error generating package report:', error);
-    await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+    await sendMessage(chatId, `❌ Error generating report: ${(error as Error).message}`);
   }
 }
 
@@ -4161,7 +4170,7 @@ Generated: ${new Date().toLocaleString()}`;
 
     } catch (error) {
       console.error('❌ Error generating promotion report:', error);
-      await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+      await sendMessage(chatId, `❌ Error generating report: ${(error as Error).message}`);
     }
   }
 
@@ -4177,50 +4186,61 @@ Generated: ${new Date().toLocaleString()}`;
     const timeFilter = getTimeFilter(timeRange);
     
     // Fetch bot usage statistics
-    const [totalInteractions, commandStats, sessionStats, securityStats] = await Promise.all([
+    const [totalInteractions, commandStatsRaw, sessionStats, securityEventsRaw] = await Promise.all([
       // Total interactions
       supabaseAdmin
         .from('user_interactions')
         .select('count', { count: 'exact' })
         .gte('created_at', timeFilter),
-      
+
       // Command usage stats
       supabaseAdmin
         .from('user_interactions')
-        .select('interaction_type, count(*)')
+        .select('interaction_data')
         .gte('created_at', timeFilter)
-        .eq('interaction_type', 'command')
-        .group('interaction_data')
-        .limit(10),
-      
+        .eq('interaction_type', 'command'),
+
       // Session statistics
       supabaseAdmin
         .from('bot_sessions')
         .select('duration_minutes, activity_count, created_at')
         .gte('created_at', timeFilter),
-      
+
       // Error/security events
       supabaseAdmin
         .from('user_interactions')
-        .select('interaction_type, count(*)')
+        .select('interaction_type')
         .gte('created_at', timeFilter)
         .in('interaction_type', ['unknown_command', 'error', 'security_block'])
-        .group('interaction_type')
     ]);
 
+    const commandStats = Object.entries((commandStatsRaw.data || []).reduce((acc: Record<string, number>, row: { interaction_data: string }) => {
+      const key = row.interaction_data || 'unknown';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>))
+      .map(([interaction_data, count]) => ({ interaction_data, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const securityEvents = Object.entries((securityEventsRaw.data || []).reduce((acc: Record<string, number>, row: { interaction_type: string }) => {
+      acc[row.interaction_type] = (acc[row.interaction_type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>)).map(([interaction_type, count]) => ({ interaction_type, count }));
+
     // Calculate usage metrics
-    const avgSessionDuration = sessionStats.data?.length ? 
-      sessionStats.data.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) / sessionStats.data.length : 0;
-    
-    const totalActivities = sessionStats.data?.reduce((sum, s) => sum + (s.activity_count || 0), 0) || 0;
+    const avgSessionDuration = sessionStats.data?.length ?
+      sessionStats.data.reduce((sum: number, s: { duration_minutes?: number }) => sum + (s.duration_minutes || 0), 0) / sessionStats.data.length : 0;
+
+    const totalActivities = sessionStats.data?.reduce((sum: number, s: { activity_count?: number }) => sum + (s.activity_count || 0), 0) || 0;
 
     const report = generateBotUsageReport({
       totalInteractions: totalInteractions.count || 0,
       totalSessions: sessionStats.data?.length || 0,
       avgSessionDuration,
       totalActivities,
-      commandStats: commandStats.data || [],
-      securityEvents: securityStats.data || [],
+      commandStats,
+      securityEvents,
       timeRange
     });
 
@@ -4240,7 +4260,7 @@ Generated: ${new Date().toLocaleString()}`;
 
   } catch (error) {
     console.error('❌ Error generating bot usage report:', error);
-    await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+    await sendMessage(chatId, `❌ Error generating report: ${(error as Error).message}`);
   }
 }
 
@@ -4311,7 +4331,7 @@ async function handlePaymentsTableManagement(chatId: number, userId: string): Pr
 
   } catch (error) {
     console.error('❌ Error in payments table management:', error);
-    await sendMessage(chatId, `❌ Error loading payments data: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading payments data: ${(error as Error).message}`);
   }
 }
 
@@ -4368,7 +4388,7 @@ async function handleBroadcastTableManagement(chatId: number, userId: string): P
 
   } catch (error) {
     console.error('❌ Error in broadcast table management:', error);
-    await sendMessage(chatId, `❌ Error loading broadcast data: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading broadcast data: ${(error as Error).message}`);
   }
 }
 
@@ -4415,7 +4435,7 @@ async function handleBankAccountsTableManagement(chatId: number, userId: string)
 
   } catch (error) {
     console.error('❌ Error in bank accounts table management:', error);
-    await sendMessage(chatId, `❌ Error loading bank accounts data: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading bank accounts data: ${(error as Error).message}`);
   }
 }
 
@@ -4461,7 +4481,7 @@ async function handleAutoReplyTableManagement(chatId: number, userId: string): P
 
   } catch (error) {
     console.error('❌ Error in auto reply table management:', error);
-    await sendMessage(chatId, `❌ Error loading auto reply data: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading auto reply data: ${(error as Error).message}`);
   }
 }
 
@@ -4514,7 +4534,7 @@ async function handleEducationPackageStats(chatId: number, userId: string): Prom
 
   } catch (error) {
     console.error('❌ Error in education package stats:', error);
-    await sendMessage(chatId, `❌ Error loading education stats: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading education stats: ${(error as Error).message}`);
   }
 }
 
@@ -4559,7 +4579,7 @@ async function handleEducationCategoriesManagement(chatId: number, userId: strin
 
   } catch (error) {
     console.error('❌ Error in education categories management:', error);
-    await sendMessage(chatId, `❌ Error loading categories data: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading categories data: ${(error as Error).message}`);
   }
 }
 
@@ -4649,7 +4669,7 @@ async function handleEditContent(chatId: number, userId: string, contentKey: str
     );
   } catch (error) {
     console.error('❌ Error loading content:', error);
-    await sendMessage(chatId, `❌ Error loading content: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading content: ${(error as Error).message}`);
   }
 }
 
@@ -4718,7 +4738,7 @@ async function handlePreviewAllContent(chatId: number, userId: string): Promise<
 
   } catch (error) {
     console.error('❌ Error loading all content:', error);
-    await sendMessage(chatId, `❌ Error loading content: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading content: ${(error as Error).message}`);
   }
 
   try {
@@ -4765,7 +4785,7 @@ async function handlePreviewAllContent(chatId: number, userId: string): Promise<
 
     } catch (error) {
       console.error('❌ Error in education enrollments view:', error);
-      await sendMessage(chatId, `❌ Error loading enrollments data: ${error.message}`);
+      await sendMessage(chatId, `❌ Error loading enrollments data: ${(error as Error).message}`);
     }
   }
 
@@ -4834,7 +4854,7 @@ async function handlePreviewAllContent(chatId: number, userId: string): Promise<
 
   } catch (error) {
     console.error('❌ Error generating quick analytics:', error);
-    await sendMessage(chatId, `❌ Error generating analytics: ${error.message}`);
+    await sendMessage(chatId, `❌ Error generating analytics: ${(error as Error).message}`);
   }
 }
 
@@ -4954,14 +4974,59 @@ ${new Date().toISOString().split('T')[0]},${data.totalUsers},${data.newUsers},${
 
 function generatePaymentCSV(payments: any[]): string {
   let csv = 'ID,Amount,Currency,Status,Payment Method,Created At\n';
-  csv += payments.map(p => 
+  csv += payments.map(p =>
     `${p.id},${p.amount},${p.currency},${p.status},${p.payment_method},${p.created_at}`
   ).join('\n');
   return csv;
 }
 
+// Placeholder admin handlers for future implementation
+async function handleAddAdminUser(chatId: number, userId: string): Promise<void> {
+  await sendMessage(chatId, '🚧 Admin user management coming soon.');
+}
+
+async function handleSearchUser(chatId: number, userId: string): Promise<void> {
+  await sendMessage(chatId, '🔍 User search feature coming soon.');
+}
+
+async function handleManageVipUsers(chatId: number, userId: string): Promise<void> {
+  await sendMessage(chatId, '👥 VIP user management coming soon.');
+}
+
+async function handleExportUsers(chatId: number, userId: string): Promise<void> {
+  await sendMessage(chatId, '📤 User export feature coming soon.');
+}
+
+async function handleCreateVipPlan(chatId: number, userId: string): Promise<void> {
+  await sendMessage(chatId, '🆕 VIP plan creation coming soon.');
+}
+
+async function handleEditVipPlan(chatId: number, userId: string): Promise<void> {
+  await sendMessage(chatId, '✏️ VIP plan editing coming soon.');
+}
+
+async function handleDeleteVipPlan(chatId: number, userId: string): Promise<void> {
+  await sendMessage(chatId, '🗑️ VIP plan deletion coming soon.');
+}
+
+async function handleVipPlanStats(chatId: number, userId: string): Promise<void> {
+  await sendMessage(chatId, '📊 VIP plan statistics coming soon.');
+}
+
+async function handleUpdatePlanPricing(chatId: number, userId: string): Promise<void> {
+  await sendMessage(chatId, '💰 Plan pricing update coming soon.');
+}
+
+async function handleManagePlanFeatures(chatId: number, userId: string): Promise<void> {
+  await sendMessage(chatId, '✨ Plan feature management coming soon.');
+}
+
+async function handleMakeUserVip(chatId: number, adminId: string, targetUserId: string): Promise<void> {
+  await sendMessage(chatId, `👑 Making user ${targetUserId} VIP is coming soon.`);
+}
+
 // Main serve function
-serve(async (req) => {
+serve(async (req: Request): Promise<Response> => {
   console.log(`📥 Request received: ${req.method} ${req.url}`);
 
   if (req.method === "OPTIONS") {
@@ -5074,7 +5139,7 @@ serve(async (req) => {
         console.log(`🚀 Start command from: ${userId} (${firstName})`);
         
         // Add timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise: Promise<Response> = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Start command timeout')), 10000) // 10 second timeout
         );
         
@@ -5109,7 +5174,7 @@ serve(async (req) => {
         })();
         
         try {
-          return await Promise.race([startCommandPromise, timeoutPromise]);
+          return await Promise.race<Response>([startCommandPromise, timeoutPromise]);
         } catch (error) {
           console.error(`⏱️ Start command timeout or error for user ${userId}:`, error);
           await sendMessage(chatId, "⏱️ The request is taking longer than expected. Please try /start again.");
@@ -5330,12 +5395,12 @@ serve(async (req) => {
                   })
                   .is('session_end', null)
                   .lt('session_start', cutoffTime)
-                  .select('count', { count: 'exact' });
+                  .select();
 
                 await sendMessage(chatId, `🧹 *Old Sessions Cleaned!*\n\n✅ Cleaned ${data?.length || 0} old sessions\n🕐 Sessions older than 24h ended`);
                 await logAdminAction(userId, 'session_cleanup', `Cleaned ${data?.length || 0} old sessions`);
               } catch (error) {
-                await sendMessage(chatId, `❌ Error cleaning sessions: ${error.message}`);
+                await sendMessage(chatId, `❌ Error cleaning sessions: ${(error as Error).message}`);
               }
             }
             break;
@@ -5776,7 +5841,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
               
               if (!isAdmin(userId)) {
                 await sendAccessDeniedMessage(chatId);
-                return;
+                return new Response("OK", { status: 200 });
               }
               
               try {
@@ -5790,7 +5855,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
                 
                 if (!plan) {
                   await sendMessage(chatId, "❌ Plan not found.");
-                  return;
+                  return new Response("OK", { status: 200 });
                 }
                 
                 const editMessage = `✏️ **Edit Plan: ${plan.name}**
@@ -5827,7 +5892,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
                 
               } catch (error) {
                 console.error('🚨 Error loading plan for editing:', error);
-                await sendMessage(chatId, `❌ Error loading plan: ${error.message}`);
+                await sendMessage(chatId, `❌ Error loading plan: ${(error as Error).message}`);
               }
             } else if (callbackData === 'about_us') {
               await handleAboutUs(chatId, userId);

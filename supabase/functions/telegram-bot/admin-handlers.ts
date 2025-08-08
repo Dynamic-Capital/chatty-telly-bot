@@ -351,7 +351,7 @@ export async function handleEditSpecificPlan(chatId: number, userId: string, pla
     planDetails += `✨ **Features (${plan.features?.length || 0}):**\n`;
     
     if (plan.features && plan.features.length > 0) {
-      plan.features.forEach((feature, index) => {
+      plan.features.forEach((feature: string, index: number) => {
         planDetails += `   ${index + 1}. ${feature}\n`;
       });
     } else {
@@ -543,7 +543,7 @@ export async function handleEditPlanFeatures(chatId: number, userId: string, pla
     featuresMessage += `📋 **Current Features:**\n`;
     
     if (plan.features && plan.features.length > 0) {
-      plan.features.forEach((feature, index) => {
+      plan.features.forEach((feature: string, index: number) => {
         featuresMessage += `${index + 1}. ${feature}\n`;
       });
     } else {
@@ -983,7 +983,7 @@ export async function handleContentManagement(chatId: number, userId: string): P
     let contentMessage = `📱 *Bot Content Management*\n\n`;
     contentMessage += `📝 *Editable Content (${content?.length || 0} items):*\n\n`;
 
-    const contentTypes = {
+    const contentTypes: Record<string, string> = {
       'welcome_message': '🚀 Welcome Message',
       'about_us': '🏢 About Us',
       'support_message': '🛟 Support Info',
@@ -995,7 +995,7 @@ export async function handleContentManagement(chatId: number, userId: string): P
       'help_message': '❓ Help Content'
     };
 
-    content?.forEach((item, index) => {
+    content?.forEach((item: { content_key: keyof typeof contentTypes; is_active: boolean; content_value: string; updated_at: string }, index: number) => {
       const displayName = contentTypes[item.content_key] || `📄 ${item.content_key}`;
       const status = item.is_active ? '🟢' : '🔴';
       const preview = item.content_value.substring(0, 50) + '...';
@@ -1051,7 +1051,7 @@ export async function handleBotSettingsManagement(chatId: number, userId: string
     let settingsMessage = `⚙️ *Bot Settings Management*\n\n`;
     settingsMessage += `🔧 *Current Settings (${settings?.length || 0} items):*\n\n`;
 
-    const settingTypes = {
+    const settingTypes: Record<string, string> = {
       'session_timeout_minutes': '🕐 Session Timeout',
       'follow_up_delay_minutes': '📬 Follow-up Delay',
       'max_follow_ups': '🔢 Max Follow-ups',
@@ -1060,7 +1060,7 @@ export async function handleBotSettingsManagement(chatId: number, userId: string
       'admin_notifications': '🔔 Admin Notifications'
     };
 
-    settings?.forEach((setting, index) => {
+    settings?.forEach((setting: { setting_key: keyof typeof settingTypes; is_active: boolean; setting_value: string; updated_at: string }, index: number) => {
       const displayName = settingTypes[setting.setting_key] || `⚙️ ${setting.setting_key}`;
       const status = setting.is_active ? '🟢' : '🔴';
       

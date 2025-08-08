@@ -40,7 +40,7 @@ export async function getBotContent(contentKey: string): Promise<string | null> 
 
 // Create default content for missing keys
 async function createDefaultContent(contentKey: string): Promise<string | null> {
-  const defaultContents = {
+  const defaultContents: Record<string, string> = {
     'welcome_message': `🎯 Welcome to Dynamic Capital VIP Bot!
 
 📈 Get premium trading signals & education
@@ -137,7 +137,7 @@ export async function setBotContent(contentKey: string, contentValue: string, ad
 
     if (!error) {
       // Log admin action
-      await logAdminAction(adminId, 'content_update', `Updated content: ${contentKey}`, 'bot_content', null, {}, { content_key: contentKey, content_value: contentValue });
+      await logAdminAction(adminId, 'content_update', `Updated content: ${contentKey}`, 'bot_content', undefined, {}, { content_key: contentKey, content_value: contentValue });
     }
 
     return !error;
@@ -175,7 +175,7 @@ export async function setBotSetting(settingKey: string, settingValue: string, ad
       });
 
     if (!error) {
-      await logAdminAction(adminId, 'setting_update', `Updated setting: ${settingKey}`, 'bot_settings', null, {}, { setting_key: settingKey, setting_value: settingValue });
+      await logAdminAction(adminId, 'setting_update', `Updated setting: ${settingKey}`, 'bot_settings', undefined, {}, { setting_key: settingKey, setting_value: settingValue });
     }
 
     return !error;
@@ -239,7 +239,7 @@ export async function getFormattedVipPackages(): Promise<string> {
     
     message += `   ✨ **Features:**\n`;
     if (pkg.features && Array.isArray(pkg.features)) {
-      pkg.features.forEach(feature => {
+      pkg.features.forEach((feature: string) => {
         message += `      • ${feature}\n`;
       });
     }
@@ -271,7 +271,7 @@ export async function createVipPackage(packageData: any, adminId: string): Promi
       .insert(packageData);
 
     if (!error) {
-      await logAdminAction(adminId, 'package_create', `Created VIP package: ${packageData.name}`, 'subscription_plans', null, {}, packageData);
+      await logAdminAction(adminId, 'package_create', `Created VIP package: ${packageData.name}`, 'subscription_plans', undefined, {}, packageData);
     }
 
     return !error;
@@ -601,7 +601,7 @@ export async function createEducationPackage(packageData: any, adminId: string):
       .insert(packageData);
 
     if (!error) {
-      await logAdminAction(adminId, 'edu_package_create', `Created education package: ${packageData.name}`, 'education_packages', null, {}, packageData);
+      await logAdminAction(adminId, 'edu_package_create', `Created education package: ${packageData.name}`, 'education_packages', undefined, {}, packageData);
     }
 
     return !error;
@@ -635,7 +635,7 @@ export async function createPromotion(promoData: any, adminId: string): Promise<
       .insert(promoData);
 
     if (!error) {
-      await logAdminAction(adminId, 'promo_create', `Created promotion: ${promoData.code}`, 'promotions', null, {}, promoData);
+      await logAdminAction(adminId, 'promo_create', `Created promotion: ${promoData.code}`, 'promotions', undefined, {}, promoData);
     }
 
     return !error;
