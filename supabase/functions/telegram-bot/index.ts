@@ -61,7 +61,7 @@ interface VipPackage {
 interface TelegramMessage {
   chat: { id: number; type?: string; title?: string };
   photo?: Array<{ file_id: string }>;
-  document?: { file_id: string; file_name?: string };
+  document?: { file_id: string; file_name?: string; mime_type?: string };
   caption?: string;
   new_chat_members?: Array<{ username?: string; is_bot?: boolean }>;
 }
@@ -440,19 +440,24 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const BOT_VERSION = Deno.env.get("BOT_VERSION") || "0.0.0";
 const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
 
-console.log("🚀 Bot starting with environment check...");
-console.log("BOT_TOKEN exists:", !!BOT_TOKEN);
-console.log("SUPABASE_URL exists:", !!SUPABASE_URL);
-console.log("SUPABASE_SERVICE_ROLE_KEY exists:", !!SUPABASE_SERVICE_ROLE_KEY);
+const ENV_READY =
+  BOT_TOKEN && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY && WEBHOOK_SECRET;
 
-if (!BOT_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error("❌ Missing required environment variables");
-  throw new Error("Missing required environment variables");
+log("🚀 Bot starting with environment check...");
+log("BOT_TOKEN exists:", !!BOT_TOKEN);
+log("SUPABASE_URL exists:", !!SUPABASE_URL);
+log("SUPABASE_SERVICE_ROLE_KEY exists:", !!SUPABASE_SERVICE_ROLE_KEY);
+log("WEBHOOK_SECRET exists:", !!WEBHOOK_SECRET);
+
+if (!ENV_READY) {
+  log("❌ Missing required environment variables");
 }
 
-const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
-  auth: { persistSession: false },
-});
+const supabaseAdmin = ENV_READY
+  ? createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
+    auth: { persistSession: false },
+  })
+  : null as any;
 
 // Admin user IDs - including the user who's testing
 const ADMIN_USER_IDS = new Set(["225513686"]);
@@ -474,6 +479,31 @@ console.log("🕐 Bot started at:", BOT_START_TIME.toISOString());
 const AMOUNT_TOLERANCE = 0.02; // ±2%
 const WINDOW_SECONDS = 180; // time gap between intent.created_at and slip time
 const REQUIRE_PAY_CODE = false; // can be flipped to true later
+
+function log(...args: unknown[]) {
+  console.log("[telegram-bot]", ...args);
+}
+
+function okJSON(body: Record<string, unknown> = { ok: true }) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function isImageMime(mime?: string | null): boolean {
+  return !!mime && mime.startsWith("image/");
+}
+
+function getFileIdFromMessage(msg: TelegramMessage): string | null {
+  if (msg.photo && msg.photo.length > 0) {
+    return msg.photo[msg.photo.length - 1].file_id;
+  }
+  if (msg.document && isImageMime(msg.document.mime_type)) {
+    return msg.document.file_id;
+  }
+  return null;
+}
 
 // Session Management Functions
 async function startBotSession(
@@ -909,15 +939,19 @@ async function deleteMessage(chatId: number, messageId: number): Promise<boolean
   }
 }
 // New auto-approval handler for bank slip uploads
-async function handleReceiptUpload(message: TelegramMessage, userId: string): Promise<void> {
+async function handleReceiptUpload(
+  message: TelegramMessage,
+  userId: string,
+  fileId: string,
+): Promise<void> {
   const chatId = message.chat.id;
+  const start = Date.now();
+  log("OCR pipeline start", { userId, fileId });
+  // TODO: move heavy OCR to a scheduled worker if the platform cancels this task after returning.
   try {
-    // 2. Identify file
-    const fileId = message.photo
-      ? message.photo[message.photo.length - 1].file_id
-      : message.document?.file_id;
+    await sendMessage(chatId, "⏳ Checking your receipt…");
     if (!fileId) {
-      await sendMessage(chatId, "❌ Unable to process the uploaded file. Please try again.");
+      log("missing file_id for receipt upload");
       return;
     }
 
@@ -1099,8 +1133,14 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
         "🔎 We couldn’t auto-match your receipt. Sent for review. Reason: auto_rules_failed",
       );
     }
+    log("OCR pipeline finish", {
+      userId,
+      ms: Date.now() - start,
+      verdict: approved ? "approved" : "manual_review",
+      reason: approved ? null : "auto_rules_failed",
+    });
   } catch (err) {
-    console.error("🚨 Error processing receipt:", err);
+    log("Error processing receipt", err);
     await sendMessage(chatId, "❌ An error occurred processing your receipt.");
   }
 }
@@ -5482,33 +5522,37 @@ async function handleMessageUser(
 }
 // Main serve function
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log(`📥 Request received: ${req.method} ${req.url}`);
-
-  const url = new URL(req.url);
-  if (url.searchParams.get("secret") !== WEBHOOK_SECRET) {
-    return new Response("Forbidden", { status: 403 });
-  }
-
-  // Check for new deployments on each request to notify admins
-  await checkBotVersion();
-
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  if (req.method === "GET") {
-    const uptimeMinutes = Math.floor((Date.now() - BOT_START_TIME.getTime()) / 1000 / 60);
-    return new Response(
-      `🚀 Enhanced Dynamic Capital Bot is live!\n\n⏰ Uptime: ${uptimeMinutes} minutes\n🔑 Admins: ${ADMIN_USER_IDS.size}\n💬 Sessions: ${userSessions.size}`, 
-      { status: 200, headers: corsHeaders }
-    );
-  }
-
   try {
-    const body = await req.text();
-    const update = JSON.parse(body);
+    log(`📥 Request received: ${req.method} ${req.url}`);
+    if (!ENV_READY) {
+      log("Environment not ready");
+      return okJSON();
+    }
 
-    console.log("📨 Update received:", JSON.stringify(update, null, 2));
+    const url = new URL(req.url);
+    if (url.searchParams.get("secret") !== WEBHOOK_SECRET) {
+      log("Webhook secret mismatch");
+      return okJSON();
+    }
+
+    // Check for new deployments on each request to notify admins
+    await checkBotVersion();
+
+    if (req.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders });
+    }
+
+    if (req.method === "GET") {
+      const uptimeMinutes = Math.floor((Date.now() - BOT_START_TIME.getTime()) / 1000 / 60);
+      return new Response(
+        `🚀 Enhanced Dynamic Capital Bot is live!\n\n⏰ Uptime: ${uptimeMinutes} minutes\n🔑 Admins: ${ADMIN_USER_IDS.size}\n💬 Sessions: ${userSessions.size}`,
+        { status: 200, headers: corsHeaders }
+      );
+    }
+
+    const update = await req.json();
+
+    log("📨 Update received:", JSON.stringify(update, null, 2));
 
     // Extract user info
     const from = update.message?.from || update.callback_query?.from;
@@ -5733,9 +5777,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
 
       // Handle photo/document uploads (receipts)
+      const fileId = getFileIdFromMessage(update.message);
+      if (fileId) {
+        log("📸 file detected", { fileId });
+        // Do not block webhook; always return within seconds.
+        handleReceiptUpload(update.message, userId, fileId).catch((err) =>
+          log("receipt pipeline error", err)
+        );
+        // TODO: move heavy work to scheduled worker if background tasks are unreliable.
+        return okJSON();
+      }
       if (update.message.photo || update.message.document) {
-        await handleReceiptUpload(update.message, userId);
-        return new Response("OK", { status: 200 });
+        return okJSON();
       }
 
       // Handle unknown commands with auto-reply
@@ -6518,11 +6571,12 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
       }
     }
     
+    log("Webhook end");
     return new Response("OK", { status: 200 });
     
   } catch (error) {
-    console.error("🚨 Main error:", error);
-    return new Response("Error", { status: 500, headers: corsHeaders });
+    log("🚨 Main error:", error);
+    return okJSON();
   }
 });
 
