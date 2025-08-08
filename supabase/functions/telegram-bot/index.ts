@@ -1,4 +1,4 @@
-/// <reference path="../../types/tesseract.d.ts" />
+/// <reference path="../../../types/tesseract.d.ts" />
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   getFormattedVipPackages,
@@ -121,6 +121,15 @@ interface PaymentReportData {
   totalRevenue: number;
   avgPayment: number;
   paymentMethods: PaymentMethodStat[];
+}
+
+interface PaymentIntent {
+  id: string;
+  expected_amount: number;
+  expected_beneficiary_account_last4?: string | null;
+  expected_beneficiary_name?: string | null;
+  created_at: string;
+  pay_code?: string | null;
 }
 
 interface CommandStat {
@@ -439,6 +448,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const BOT_VERSION = Deno.env.get("BOT_VERSION") || "0.0.0";
 const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
+const TELEGRAM_API_URL =
+  Deno.env.get("TELEGRAM_API_URL") || "https://api.telegram.org";
 
 console.log("🚀 Bot starting with environment check...");
 console.log("BOT_TOKEN exists:", !!BOT_TOKEN);
@@ -786,7 +797,7 @@ async function sendMessage(
     parseMode?: string;
   }
 ) {
-  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  const url = `${TELEGRAM_API_URL}/bot${BOT_TOKEN}/sendMessage`;
   const payload = {
     chat_id: chatId,
     text: text,
@@ -885,7 +896,7 @@ async function showAdvancedSettings(chatId: number, userId: string) {
 // Function to delete a specific message
 async function deleteMessage(chatId: number, messageId: number): Promise<boolean> {
   try {
-    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
+    const response = await fetch(`${TELEGRAM_API_URL}/bot${BOT_TOKEN}/deleteMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -922,7 +933,7 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
     }
 
     const infoRes = await fetch(
-      `https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`,
+      `${TELEGRAM_API_URL}/bot${BOT_TOKEN}/getFile?file_id=${fileId}`,
     );
     const info = await infoRes.json();
     const filePath = info.result?.file_path;
@@ -932,7 +943,7 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
     }
 
     const fileRes = await fetch(
-      `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`,
+      `${TELEGRAM_API_URL}/file/bot${BOT_TOKEN}/${filePath}`,
     );
     const blob = await fileRes.blob();
     const arrayBuffer = await blob.arrayBuffer();
@@ -966,14 +977,14 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
     const parsed = parseBankSlip(text);
 
     // 7. Find intent
-    let intent = null as any;
+    let intent: PaymentIntent | null = null;
     if (parsed.payCode) {
       const { data } = await supabaseAdmin
         .from("payment_intents")
         .select("*")
         .eq("pay_code", parsed.payCode)
         .maybeSingle();
-      intent = data;
+      intent = data as PaymentIntent | null;
     }
     if (!intent) {
       const { data } = await supabaseAdmin
@@ -985,7 +996,7 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      intent = data;
+      intent = data as PaymentIntent | null;
     }
 
     if (!intent) {
@@ -1031,9 +1042,9 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
     }
     if (!beneficiaryOK && toAccount) {
       const ben = await getApprovedBeneficiaryByAccountNumber(
-        supabaseAdmin as any,
+        supabaseAdmin,
         toAccount,
-      ) as any;
+      );
       if (ben && ben.account_name && toName) {
         beneficiaryOK = ben.account_name.toLowerCase() === toName;
       }
@@ -1119,7 +1130,7 @@ async function addUserToVipChannel(telegramUserId: string): Promise<void> {
     for (const channelId of vipChannels) {
       try {
         // Add user to channel (requires bot to be admin in the channel)
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/approveChatJoinRequest`, {
+        await fetch(`${TELEGRAM_API_URL}/bot${BOT_TOKEN}/approveChatJoinRequest`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2104,7 +2115,7 @@ Join our VIP community for detailed analysis and insights.
     }
 
     // Send to results channel
-    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    const response = await fetch(`${TELEGRAM_API_URL}/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3282,7 +3293,7 @@ async function handleBotStatus(chatId: number, userId: string): Promise<void> {
 
     // Test Telegram API
     const tgStart = Date.now();
-    const tgTest = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getMe`);
+    const tgTest = await fetch(`${TELEGRAM_API_URL}/bot${BOT_TOKEN}/getMe`);
     const tgTime = Date.now() - tgStart;
 
     // Get system info
@@ -6496,7 +6507,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
         }
 
         // Answer callback query to remove loading state
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+        await fetch(`${TELEGRAM_API_URL}/bot${BOT_TOKEN}/answerCallbackQuery`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ callback_query_id: update.callback_query.id })
@@ -6507,7 +6518,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
         await sendMessage(chatId, "❌ An error occurred. Please try again or contact support.");
         
         // Still answer the callback query
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+        await fetch(`${TELEGRAM_API_URL}/bot${BOT_TOKEN}/answerCallbackQuery`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 

@@ -75,7 +75,9 @@ export function parseBankSlip(ocrText: string): ParsedSlip {
 
   if (bank === "BML") {
     const statusMatch = joined.match(/Status\s*:?\s*(SUCCESS|PENDING|FAILED)/i);
-    if (statusMatch) status = statusMatch[1].toUpperCase() as any;
+    if (statusMatch) {
+      status = statusMatch[1].toUpperCase() as "SUCCESS" | "FAILED" | "PENDING";
+    }
 
     const refMatch = joined.match(/Reference\s*:?\s*([A-Z0-9-]{6,24})/i);
     if (refMatch) reference = refMatch[1];

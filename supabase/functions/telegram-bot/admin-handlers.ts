@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const TELEGRAM_API_URL =
+  Deno.env.get("TELEGRAM_API_URL") || "https://api.telegram.org";
 
 const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },
@@ -17,7 +19,7 @@ export async function sendMessage(
   replyMarkup?: Record<string, unknown>
 ) {
   const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  const url = `${TELEGRAM_API_URL}/bot${BOT_TOKEN}/sendMessage`;
   const payload = {
     chat_id: chatId,
     text: text,
