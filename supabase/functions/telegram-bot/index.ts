@@ -22,6 +22,10 @@ import {
 import { ocrTextFromBlob } from "./ocr.ts";
 import { parseBankSlip } from "./bank-parsers.ts";
 import { getApprovedBeneficiaryByAccountNumber, normalizeAccount } from "./helpers/beneficiary.ts";
+import { llmExtractReceiptFields } from "./llm-extract.ts";
+import { llmJudgeAutoApproval } from "./llm-judge.ts";
+import { llmAnswerFaq } from "./llm-faq.ts";
+import { llmModerateText } from "./llm-moderate.ts";
 
 const DEFAULT_BOT_SETTINGS: Record<string, string> = {
   session_timeout_minutes: "30",
@@ -439,6 +443,35 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const BOT_VERSION = Deno.env.get("BOT_VERSION") || "0.0.0";
 const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const OPENAI_ENABLED =
+  Deno.env.get("OPENAI_ENABLED") === "true" && !!OPENAI_API_KEY;
+const FAQ_ENABLED = Deno.env.get("FAQ_ENABLED") === "true";
+const OPENAI_TIMEOUT_MS = Number(
+  Deno.env.get("OPENAI_TIMEOUT_MS") ?? "6000",
+);
+const OPENAI_MODEL_EXTRACT =
+  Deno.env.get("OPENAI_MODEL_EXTRACT") ?? "gpt-4o-mini";
+const OPENAI_MODEL_JUDGE =
+  Deno.env.get("OPENAI_MODEL_JUDGE") ?? "gpt-4o-mini";
+const OPENAI_MODEL_FAQ =
+  Deno.env.get("OPENAI_MODEL_FAQ") ?? "gpt-4o-mini";
+const OPENAI_MAX_TOKENS_EXTRACT = Number(
+  Deno.env.get("OPENAI_MAX_TOKENS_EXTRACT") ?? "500",
+);
+const OPENAI_MAX_TOKENS_JUDGE = Number(
+  Deno.env.get("OPENAI_MAX_TOKENS_JUDGE") ?? "200",
+);
+const OPENAI_RECEIPT_CACHE = Deno.env.get("OPENAI_RECEIPT_CACHE") === "true";
+void OPENAI_MODEL_EXTRACT;
+void OPENAI_MODEL_JUDGE;
+void OPENAI_MODEL_FAQ;
+void OPENAI_MAX_TOKENS_EXTRACT;
+void OPENAI_MAX_TOKENS_JUDGE;
+
+if (!OPENAI_API_KEY) {
+  console.log("OPENAI_API_KEY not set; LLM features disabled");
+}
 
 console.log("🚀 Bot starting with environment check...");
 console.log("BOT_TOKEN exists:", !!BOT_TOKEN);
@@ -960,18 +993,75 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
     const fileUrl = storagePath; // private bucket path
 
     // 5. OCR
+    const ocrStart = Date.now();
     const text = await ocrTextFromBlob(blob);
+    const ocrMs = Date.now() - ocrStart;
 
     // 6. Parse bank slip
     const parsed = parseBankSlip(text);
 
+    // 6a. Parser confidence
+    const parserConfidence = [
+      parsed.amount != null,
+      parsed.ocrTxnDateIso || parsed.ocrValueDateIso,
+      parsed.successWord || parsed.status === "SUCCESS",
+      parsed.toAccount,
+      parsed.bank,
+      parsed.payCode,
+    ].filter(Boolean).length;
+
+    // 6b. Optional LLM extraction
+    let llmFields: any = null;
+    if (OPENAI_ENABLED && parserConfidence < 4) {
+      let useLLM = true;
+      if (OPENAI_RECEIPT_CACHE) {
+        const { data: cache } = await supabaseAdmin
+          .from("receipts")
+          .select("llm_fields_json")
+          .eq("image_sha256", hashHex)
+          .maybeSingle();
+        if (cache?.llm_fields_json) {
+          llmFields = cache.llm_fields_json;
+          useLLM = false;
+          console.log("🗃️ Receipt cache hit");
+        }
+      }
+      if (useLLM) {
+        try {
+          llmFields = await Promise.race([
+            llmExtractReceiptFields(text),
+            new Promise((resolve) =>
+              setTimeout(() => resolve(null), OPENAI_TIMEOUT_MS)
+            ),
+          ]);
+        } catch (err) {
+          console.log("llmExtractReceiptFields failed", err);
+        }
+      }
+    }
+
+    const normalizedLlm = llmFields
+      ? {
+          amount: llmFields.amount,
+          currency: llmFields.currency,
+          status: llmFields.status,
+          toName: llmFields.beneficiaryName,
+          toAccount: llmFields.account,
+          payCode: llmFields.pay_code,
+          bank: llmFields.bankGuess,
+          ocrTxnDateIso: llmFields.datetime,
+        }
+      : null;
+    const fields = normalizedLlm ? { ...normalizedLlm, ...parsed } : parsed;
+    const usedLLM = !!llmFields;
+
     // 7. Find intent
     let intent = null as any;
-    if (parsed.payCode) {
+    if (fields.payCode) {
       const { data } = await supabaseAdmin
         .from("payment_intents")
         .select("*")
-        .eq("pay_code", parsed.payCode)
+        .eq("pay_code", fields.payCode)
         .maybeSingle();
       intent = data;
     }
@@ -993,18 +1083,18 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
         user_id: userId,
         file_url: fileUrl,
         image_sha256: hashHex,
-        bank: parsed.bank,
+        bank: fields.bank,
         ocr_text: parsed.rawText,
-        ocr_amount: parsed.amount,
-        ocr_currency: parsed.currency,
-        ocr_status: parsed.status,
+        ocr_amount: fields.amount,
+        ocr_currency: fields.currency,
+        ocr_status: fields.status,
         ocr_success_word: parsed.successWord,
         ocr_reference: parsed.reference,
         ocr_from_name: parsed.fromName,
-        ocr_to_name: parsed.toName,
-        ocr_to_account: parsed.toAccount,
-        ocr_pay_code: parsed.payCode,
-        ocr_txn_date: parsed.ocrTxnDateIso,
+        ocr_to_name: fields.toName,
+        ocr_to_account: fields.toAccount,
+        ocr_pay_code: fields.payCode,
+        ocr_txn_date: fields.ocrTxnDateIso,
         ocr_value_date: parsed.ocrValueDateIso,
         verdict: "manual_review",
         reason: "no_intent_found",
@@ -1018,8 +1108,8 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
 
     // 8. Beneficiary check
     let beneficiaryOK = false;
-    const toAccount = parsed.toAccount ? normalizeAccount(parsed.toAccount) : null;
-    const toName = parsed.toName?.toLowerCase() || null;
+    const toAccount = fields.toAccount ? normalizeAccount(fields.toAccount) : null;
+    const toName = fields.toName?.toLowerCase() || null;
     if (intent.expected_beneficiary_account_last4 && toAccount) {
       beneficiaryOK = toAccount.endsWith(
         intent.expected_beneficiary_account_last4,
@@ -1040,42 +1130,91 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
     }
 
     // 9. Decision rules
-    const amountOK = parsed.amount != null &&
-      Math.abs(parsed.amount - intent.expected_amount) /
+    const amountOK = fields.amount != null &&
+      Math.abs(fields.amount - intent.expected_amount) /
           intent.expected_amount <= AMOUNT_TOLERANCE;
-    const slipTimeStr = parsed.ocrTxnDateIso ?? parsed.ocrValueDateIso;
+    const slipTimeStr = fields.ocrTxnDateIso ?? parsed.ocrValueDateIso;
     const timeOK = slipTimeStr
       ? Math.abs(new Date(slipTimeStr).getTime() -
           new Date(intent.created_at).getTime()) / 1000 <= WINDOW_SECONDS
       : false;
-    const statusOK = parsed.successWord || parsed.status === "SUCCESS";
+    const statusOK = parsed.successWord || fields.status === "SUCCESS";
     const payCodeOK = !REQUIRE_PAY_CODE || !intent.pay_code ||
-      parsed.payCode === intent.pay_code;
+      fields.payCode === intent.pay_code;
     const approved =
       amountOK && timeOK && statusOK && beneficiaryOK && payCodeOK;
+    let reason = approved ? null : "auto_rules_failed";
+
+    // 9a. LLM judge safety net
+    let judgeScore: number | null = null;
+    let judgeReasons: string[] | null = null;
+    if (approved && OPENAI_ENABLED) {
+      try {
+        const judge: any = await Promise.race([
+          llmJudgeAutoApproval(fields as any, intent),
+          new Promise((resolve) =>
+            setTimeout(() => resolve(null), OPENAI_TIMEOUT_MS)
+          ),
+        ]);
+        if (judge) {
+          judgeScore = judge.score;
+          judgeReasons = judge.reasons;
+          if (!judge.approve || judge.score < 0.7) {
+            approved = false;
+            reason = "llm_judge_low_confidence";
+          }
+        }
+      } catch (err) {
+        console.log("llmJudgeAutoApproval failed", err);
+      }
+    }
 
     // 10. Write receipt row
-    await supabaseAdmin.from("receipts").insert({
+    const receiptData: any = {
       payment_id: intent.id,
       user_id: userId,
       file_url: fileUrl,
       image_sha256: hashHex,
-      bank: parsed.bank,
+      bank: fields.bank,
       ocr_text: parsed.rawText,
-      ocr_amount: parsed.amount,
-      ocr_currency: parsed.currency,
-      ocr_status: parsed.status,
+      ocr_amount: fields.amount,
+      ocr_currency: fields.currency,
+      ocr_status: fields.status,
       ocr_success_word: parsed.successWord,
       ocr_reference: parsed.reference,
       ocr_from_name: parsed.fromName,
-      ocr_to_name: parsed.toName,
-      ocr_to_account: parsed.toAccount,
-      ocr_pay_code: parsed.payCode,
-      ocr_txn_date: parsed.ocrTxnDateIso,
+      ocr_to_name: fields.toName,
+      ocr_to_account: fields.toAccount,
+      ocr_pay_code: fields.payCode,
+      ocr_txn_date: fields.ocrTxnDateIso,
       ocr_value_date: parsed.ocrValueDateIso,
       verdict: approved ? "approved" : "manual_review",
-      reason: approved ? null : "auto_rules_failed",
-    });
+      reason,
+      parser_confidence: parserConfidence,
+    };
+    if (llmFields) receiptData.llm_fields_json = llmFields;
+    if (judgeScore !== null) receiptData.judge_score = judgeScore;
+    if (judgeReasons) receiptData.judge_reasons = judgeReasons;
+    let { error: receiptErr } = await supabaseAdmin.from("receipts").insert(
+      receiptData,
+    );
+    if (receiptErr) {
+      console.log("Receipt insert error", receiptErr);
+      const fallbackData = { ...receiptData };
+      delete fallbackData.llm_fields_json;
+      delete fallbackData.judge_score;
+      delete fallbackData.judge_reasons;
+      delete fallbackData.parser_confidence;
+      ({ error: receiptErr } = await supabaseAdmin
+        .from("receipts")
+        .insert(fallbackData));
+      if (receiptErr) {
+        console.log("Receipt fallback insert error", receiptErr);
+      } else {
+        console.log("Receipt inserted without LLM fields");
+      }
+      // TODO: add columns for llm_fields_json/judge_score/judge_reasons if missing
+    }
 
     // 11. Update intent
     if (approved) {
@@ -1083,22 +1222,27 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
         .from("payment_intents")
         .update({ status: "approved", approved_at: new Date().toISOString() })
         .eq("id", intent.id);
+      await sendMessage(chatId, "✅ Receipt verified. Access granted.");
     } else {
       await supabaseAdmin
         .from("payment_intents")
         .update({ status: "manual_review" })
         .eq("id", intent.id);
-    }
-
-    // 12. Reply
-    if (approved) {
-      await sendMessage(chatId, "✅ Receipt verified. Access granted.");
-    } else {
       await sendMessage(
         chatId,
-        "🔎 We couldn’t auto-match your receipt. Sent for review. Reason: auto_rules_failed",
+        `🔎 We couldn’t auto-match your receipt. Sent for review. Reason: ${reason}`,
       );
     }
+
+    console.log(
+      JSON.stringify({
+        event: "receipt.process",
+        ocrMs,
+        parserConfidence,
+        usedLLM,
+        judgeScore,
+      }),
+    );
   } catch (err) {
     console.error("🚨 Error processing receipt:", err);
     await sendMessage(chatId, "❌ An error occurred processing your receipt.");
@@ -5572,6 +5716,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const text = update.message.text;
       console.log(`📝 Processing text message: ${text} from user: ${userId}`);
 
+      // Moderation check
+      if (text && OPENAI_ENABLED) {
+        try {
+          const mod: any = await Promise.race([
+            llmModerateText(text),
+            new Promise((resolve) =>
+              setTimeout(
+                () => resolve({ flagged: false, categories: [] }),
+                OPENAI_TIMEOUT_MS,
+              ),
+            ),
+          ]);
+          if (mod?.flagged) {
+            await sendMessage(chatId, "⚠️ Please keep the chat respectful.");
+            console.log("Moderation flagged", mod.categories);
+          }
+        } catch (err) {
+          console.log("moderation check failed", err);
+        }
+      }
+
       // Update session activity
       await updateBotSession(userId, {
         message_type: 'text',
@@ -5668,7 +5833,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
       // Handle /help command
       if (text === '/help') {
-        await handleHelpCommand(chatId, userId, firstName);
+        if (OPENAI_ENABLED && FAQ_ENABLED) {
+          const kbSnippets: string[] = []; // TODO: fetch FAQ snippets
+          try {
+            const answer = await Promise.race([
+              llmAnswerFaq('help', kbSnippets),
+              new Promise<string>((resolve) =>
+                setTimeout(() => resolve(''), OPENAI_TIMEOUT_MS)
+              ),
+            ]);
+            if (answer) {
+              await sendMessage(chatId, answer);
+            } else {
+              await handleHelpCommand(chatId, userId, firstName);
+            }
+          } catch (_err) {
+            await handleHelpCommand(chatId, userId, firstName);
+          }
+        } else {
+          await handleHelpCommand(chatId, userId, firstName);
+        }
         return new Response("OK", { status: 200 });
       }
 
@@ -5749,11 +5933,32 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const isPrivateChat = chatType === 'private';
       const isBotMentioned = text?.includes('@') && text?.toLowerCase().includes('dynamic'); // Adjust based on your bot username
       
+      if (
+        FAQ_ENABLED && OPENAI_ENABLED && text && !text.startsWith('/') &&
+        text.trim().endsWith('?')
+      ) {
+        const kbSnippets: string[] = []; // TODO: fetch FAQ snippets
+        try {
+          const answer = await Promise.race([
+            llmAnswerFaq(text, kbSnippets),
+            new Promise<string>((resolve) =>
+              setTimeout(() => resolve(''), OPENAI_TIMEOUT_MS)
+            ),
+          ]);
+          if (answer) {
+            await sendMessage(chatId, answer);
+            return new Response("OK", { status: 200 });
+          }
+        } catch (err) {
+          console.log('FAQ answer error', err);
+        }
+      }
+
       // Only auto-reply if:
       // 1. It's a private chat (direct message)
       // 2. Bot is mentioned in group/channel
       if (isPrivateChat || isBotMentioned) {
-        const generalReply = await getAutoReply('auto_reply_general') || 
+        const generalReply = await getAutoReply('auto_reply_general') ||
           "🤖 Thanks for your message! Use /start to see the main menu or /help for assistance.";
         await sendMessage(chatId, generalReply);
       } else {
