@@ -2171,10 +2171,17 @@ async function handleShowPaymentMethods(chatId: number, userId: string, packageI
       return;
     }
 
+    // Check if a promo code was applied for this user and package
+    const session = userSessions.get(userId);
+    let priceLine = `💰 **Price:** $${pkg.price} USD`;
+    if (session && session.type === 'promo_applied' && session.packageId === packageId) {
+      priceLine = `💰 **Price after promo:** $${session.finalPrice.toFixed(2)} USD`;
+    }
+
     const message = `💳 **Payment Methods**
 
 📦 **Package:** ${pkg.name}
-💰 **Price:** $${pkg.price} USD
+${priceLine}
 
 🎯 **Choose your payment method:**`;
 
