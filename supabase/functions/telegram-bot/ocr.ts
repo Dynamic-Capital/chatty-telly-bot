@@ -1,5 +1,5 @@
-import { createWorker } from "npm:tesseract.js@5";
-import type { Worker as TesseractWorker } from "npm:tesseract.js@5";
+import { createWorker } from "https://esm.sh/tesseract.js@5?dts";
+import type { Worker as TesseractWorker } from "https://esm.sh/tesseract.js@5?dts";
 
 type OCRWorker = TesseractWorker & {
   loadLanguage: (lang: string) => Promise<unknown>;
