@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install Supabase CLI locally. Mirrors the setup used in
-# `.github/workflows/supabase-cli.yml`.
+# `.github/workflows/migrations.yml`.
 set -euo pipefail
 
 if command -v supabase >/dev/null 2>&1; then
