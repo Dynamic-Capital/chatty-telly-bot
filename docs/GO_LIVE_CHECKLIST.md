@@ -10,15 +10,13 @@
 ## Local webhook smoke test
 
 ```bash
-# 1) Start Supabase local stack (API on :54321)
+# Start local stack
 supabase start
 
-# 2) Serve the function in another terminal
+# Serve the function (new terminal)
 supabase functions serve telegram-bot --no-verify-jwt
 
-# 3) Ping it locally (replace SECRET as needed)
-curl -i -X POST \
-  "http://127.0.0.1:54321/functions/v1/telegram-bot?secret=$TELEGRAM_WEBHOOK_SECRET" \
-  -H "content-type: application/json" \
-  -d '{"test":"ping"}'
+# Ping (expects 200)
+curl -X POST "http://127.0.0.1:54321/functions/v1/telegram-bot?secret=$TELEGRAM_WEBHOOK_SECRET" \
+  -H "content-type: application/json" -d '{"test":"ping"}'
 ```
