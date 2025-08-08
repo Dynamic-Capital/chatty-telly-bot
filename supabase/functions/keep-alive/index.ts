@@ -23,7 +23,7 @@ function stopKeepAlive() {
   }
 }
 
-serve(async (req) => {
+serve((req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

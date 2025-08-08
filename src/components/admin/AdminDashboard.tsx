@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,15 +12,13 @@ import { ContactInfo } from '@/components/admin/ContactInfo';
 import { WelcomeMessageEditor } from '@/components/admin/WelcomeMessageEditor';
 import { SystemStatus } from '@/components/admin/SystemStatus';
 import { 
-  Users, 
-  CreditCard, 
-  GraduationCap, 
-  MessageSquare, 
-  TrendingUp, 
+  Users,
+  CreditCard,
+  GraduationCap,
+  MessageSquare,
+  TrendingUp,
   Download,
   Send,
-  Settings,
-  BarChart3,
   User,
   DollarSign
 } from 'lucide-react';

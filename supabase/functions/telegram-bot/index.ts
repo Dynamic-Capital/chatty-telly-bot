@@ -1,7 +1,7 @@
-/* eslint-disable no-case-declarations, @typescript-eslint/no-explicit-any */
+/* eslint-disable no-case-declarations */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getFormattedVipPackages, getBotContent } from "./database-utils.ts";
+import { getFormattedVipPackages, getBotContent, getBotSetting } from "./database-utils.ts";
 import {
   handleTableManagement,
   handleUserTableManagement,
@@ -30,6 +30,130 @@ interface SecurityStats {
   suspiciousUsers: Set<string>;
   lastCleanup: number;
 }
+
+// Basic types for frequently used structures
+interface VipPackage {
+  id: number;
+  name: string;
+  price: number;
+  duration_months: number;
+  is_lifetime: boolean;
+  features?: string[];
+  [key: string]: unknown;
+}
+
+interface TelegramMessage {
+  chat: { id: number; type?: string; title?: string };
+  photo?: Array<{ file_id: string }>;
+  document?: { file_id: string; file_name?: string };
+  caption?: string;
+  new_chat_members?: Array<{ username?: string; is_bot?: boolean }>;
+}
+
+interface SubscriptionRecord {
+  id: string;
+  subscription_plans?: { name?: string; price?: number };
+  payment_method?: string;
+  [key: string]: unknown;
+}
+
+interface PromoSession {
+  packageId: string;
+  price: number;
+  promoApplied?: boolean;
+  timestamp: number;
+  [key: string]: unknown;
+}
+
+interface UserRecord {
+  created_at: string;
+  [key: string]: unknown;
+}
+
+interface TopUser {
+  telegram_user_id: string;
+  count: number;
+}
+
+interface AnalyticsData {
+  timeRange: string;
+  totalUsers: number;
+  newUsers: number;
+  activeUsers: number;
+  vipUsers: number;
+  adminUsers: number;
+  growthData: { dailyGrowth: number; weeklyGrowth: number };
+  topUsers: TopUser[];
+}
+
+interface PaymentMethodStat {
+  payment_method?: string;
+  count: number;
+}
+
+interface PaymentReportData {
+  timeRange: string;
+  totalPayments: number;
+  pendingPayments: number;
+  completedPayments: number;
+  rejectedPayments: number;
+  totalRevenue: number;
+  avgPayment: number;
+  paymentMethods: PaymentMethodStat[];
+}
+
+interface CommandStat {
+  interaction_data?: string;
+  count: number;
+}
+
+interface SecurityEvent {
+  interaction_type: string;
+  count: number;
+}
+
+interface BotUsageData {
+  timeRange: string;
+  totalInteractions: number;
+  totalSessions: number;
+  avgSessionDuration: number;
+  totalActivities: number;
+  commandStats: CommandStat[];
+  securityEvents: SecurityEvent[];
+}
+
+interface UserAnalyticsCSVData {
+  timeRange: string;
+  totalUsers: number;
+  newUsers: number;
+  activeUsers: number;
+  vipUsers: number;
+  adminUsers: number;
+}
+
+interface PaymentCSV {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  payment_method: string;
+  created_at: string;
+}
+
+interface TradeData {
+  pair?: string;
+  entry?: number | string;
+  exit?: number | string;
+  profit?: number | string;
+  amount?: number | string;
+  duration?: string;
+  loss?: number | string;
+  [key: string]: unknown;
+}
+
+type InlineKeyboard = {
+  inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
+};
 
 // In-memory rate limiting store
 const rateLimitStore = new Map<string, RateLimitEntry>();
@@ -251,7 +375,11 @@ function cleanupRateLimit(): void {
   }
 }
 
-function logSecurityEvent(userId: string, event: string, details?: any): void {
+function logSecurityEvent(
+  userId: string,
+  event: string,
+  details?: Record<string, unknown>
+): void {
   const timestamp = new Date().toISOString();
   console.log(`🔒 SECURITY [${timestamp}] User: ${userId}, Event: ${event}`, details ? JSON.stringify(details) : '');
   
@@ -320,7 +448,10 @@ const BOT_START_TIME = new Date();
 console.log("🕐 Bot started at:", BOT_START_TIME.toISOString());
 
 // Session Management Functions
-async function startBotSession(telegramUserId: string, userInfo: any = {}): Promise<string> {
+async function startBotSession(
+  telegramUserId: string,
+  userInfo: Record<string, unknown> = {}
+): Promise<string> {
   try {
     console.log(`🔄 Starting session for user: ${telegramUserId}`);
     
@@ -359,7 +490,10 @@ async function startBotSession(telegramUserId: string, userInfo: any = {}): Prom
   }
 }
 
-async function updateBotSession(telegramUserId: string, activityData: any = {}): Promise<void> {
+async function updateBotSession(
+  telegramUserId: string,
+  activityData: Record<string, unknown> = {}
+): Promise<void> {
   try {
     const session = activeBotSessions.get(telegramUserId);
     if (!session) {
@@ -474,8 +608,8 @@ async function logAdminAction(
   description: string,
   affectedTable?: string,
   affectedRecordId?: string,
-  oldValues?: any,
-  newValues?: any
+  oldValues?: Record<string, unknown>,
+  newValues?: Record<string, unknown>
 ): Promise<void> {
   try {
     await supabaseAdmin
@@ -715,7 +849,11 @@ async function getChatType(chatId: number): Promise<string> {
 }
 
 // Receipt Upload Handler
-async function handleReceiptUpload(message: any, userId: string, firstName: string): Promise<void> {
+async function handleReceiptUpload(
+  message: TelegramMessage,
+  userId: string,
+  firstName: string
+): Promise<void> {
   try {
     console.log(`📄 Receipt upload from user: ${userId}`);
     
@@ -834,7 +972,13 @@ Thank you for choosing Dynamic Capital VIP! 🌟`);
 }
 
 // Admin Receipt Notification Function
-async function notifyAdminsReceiptSubmitted(userId: string, firstName: string, subscription: any, fileId: string, fileType: string): Promise<void> {
+async function notifyAdminsReceiptSubmitted(
+  userId: string,
+  firstName: string,
+  subscription: SubscriptionRecord,
+  fileId: string,
+  fileType: string
+): Promise<void> {
   try {
     const message = `🧾 **New Receipt Submitted!**
 
@@ -947,7 +1091,7 @@ async function getWelcomeMessage(firstName: string): Promise<string> {
   }
 }
 
-async function getVipPackages(): Promise<any[]> {
+async function getVipPackages(): Promise<VipPackage[]> {
   try {
     console.log("💎 Fetching VIP packages...");
     const { data, error } = await supabaseAdmin
@@ -961,18 +1105,18 @@ async function getVipPackages(): Promise<any[]> {
     }
 
     console.log(`✅ Fetched ${data?.length || 0} VIP packages`);
-    return data || [];
+    return (data as VipPackage[]) || [];
   } catch (error) {
     console.error('🚨 Exception fetching VIP packages:', error);
     return [];
   }
 }
 
-async function getVipPackagesKeyboard(): Promise<any> {
+async function getVipPackagesKeyboard(): Promise<InlineKeyboard> {
   const packages = await getVipPackages();
-  const buttons = [];
+  const buttons: InlineKeyboard['inline_keyboard'] = [];
 
-  packages.forEach(pkg => {
+  packages.forEach((pkg: VipPackage) => {
     const priceText = pkg.is_lifetime ? '$' + pkg.price + ' Lifetime' : '$' + pkg.price + '/' + pkg.duration_months + 'mo';
     const discount = pkg.duration_months >= 12 ? '🔥' : 
                     pkg.duration_months >= 6 ? '⭐' : 
@@ -996,7 +1140,7 @@ async function getVipPackagesKeyboard(): Promise<any> {
   return { inline_keyboard: buttons };
 }
 
-async function getMainMenuKeyboard(): Promise<any> {
+function getMainMenuKeyboard(): InlineKeyboard {
   return {
     inline_keyboard: [
       [
@@ -1042,7 +1186,7 @@ async function handleVipPackageSelection(chatId: number, userId: string, package
 ⏱️ **Duration:** ${pkg.is_lifetime ? 'Lifetime Access' : pkg.duration_months + ' months'}
 
 ✨ **Features:**
-${pkg.features?.map(f => `• ${f}`).join('\n') || '• Premium features included'}
+${pkg.features?.map((f: string) => `• ${f}`).join('\n') || '• Premium features included'}
 
 🎯 **Next steps:**`;
 
@@ -1077,7 +1221,6 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
     // Check if user has applied promo code
     const userSession = userSessions.get(userId);
     let finalPrice = 0;
-    let discount = 0;
     let promoCode = '';
 
     // Get package details
@@ -1095,7 +1238,6 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
 
     if (userSession && userSession.type === 'promo_applied' && userSession.packageId === packageId) {
       finalPrice = userSession.finalPrice;
-      discount = userSession.discount;
       promoCode = userSession.promoCode;
       console.log(`🎫 Using promo: ${promoCode}, final price: $${finalPrice}`);
     } else {
@@ -1133,26 +1275,28 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
     let paymentInstructions = '';
     
     switch (method) {
-      case 'binance':
+      case 'binance': {
         console.log('🟡 Processing Binance Pay instructions');
-        // Use final price (after promo) for payment instructions
         const binancePkg = { ...pkg, price: finalPrice };
         paymentInstructions = await getBinancePayInstructions(binancePkg, subscription.id);
         break;
-      case 'crypto':
+      }
+      case 'crypto': {
         console.log('₿ Processing Crypto instructions');
         const cryptoPkg = { ...pkg, price: finalPrice };
         paymentInstructions = await getCryptoPayInstructions(cryptoPkg, subscription.id);
         break;
-      case 'bank':
+      }
+      case 'bank': {
         console.log('🏦 Processing Bank Transfer instructions');
-        const bankPkg = { ...pkg, price: finalPrice };
-        paymentInstructions = await getBankTransferInstructions(pkg, subscription.id);
+        paymentInstructions = await getBankTransferInstructions({ ...pkg, price: finalPrice }, subscription.id);
         break;
-      default:
+      }
+      default: {
         console.error(`❌ Unknown payment method: ${method}`);
         await sendMessage(chatId, `❌ Unknown payment method: ${method}. Please try again.`);
         return;
+      }
     }
 
     console.log(`📝 Payment instructions generated for method: ${method}`);
@@ -1164,12 +1308,15 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
     
   } catch (error) {
     console.error('🚨 Error in payment method selection:', error);
-    await sendMessage(chatId, `❌ An error occurred: ${error.message}. Please try again.`);
+    await sendMessage(chatId, `❌ An error occurred: ${(error as Error).message}. Please try again.`);
   }
 }
 
 // Payment Instructions Functions
-async function getBinancePayInstructions(pkg: any, subscriptionId: string): Promise<string> {
+async function getBinancePayInstructions(
+  pkg: VipPackage,
+  subscriptionId: string
+): Promise<string> {
   try {
     console.log('💳 Processing Binance Pay checkout...');
     
@@ -1238,7 +1385,10 @@ ${checkoutUrl}
   }
 }
 
-async function getCryptoPayInstructions(pkg: any, subscriptionId: string): Promise<string> {
+async function getCryptoPayInstructions(
+  pkg: VipPackage,
+  subscriptionId: string
+): Promise<string> {
   try {
     console.log('₿ Fetching crypto wallet addresses...');
     
@@ -1304,7 +1454,10 @@ ${walletAddresses}
   }
 }
 
-async function getBankTransferInstructions(pkg: any, subscriptionId: string): Promise<string> {
+async function getBankTransferInstructions(
+  pkg: VipPackage,
+  subscriptionId: string
+): Promise<string> {
   try {
     console.log('🏦 Fetching bank accounts for transfer instructions...');
     
@@ -1432,7 +1585,7 @@ async function notifyAdminsNewPayment(userId: string, packageName: string, metho
 }
 
 // Other callback handlers
-async function handleAboutUs(chatId: number, userId: string): Promise<void> {
+async function handleAboutUs(chatId: number, _userId: string): Promise<void> {
   const content = await getBotContent('about_us') || `🏢 **About Dynamic Capital**
 
 We are a leading trading education and signal provider focused on helping traders achieve consistent profitability.
@@ -1506,7 +1659,7 @@ Our dedicated support team is here to help you 24/7!
   await sendMessage(chatId, content, keyboard);
 }
 
-async function handleViewPromotions(chatId: number, userId: string): Promise<void> {
+async function handleViewPromotions(chatId: number, _userId: string): Promise<void> {
   try {
     const { data: promos, error } = await supabaseAdmin
       .from('promotions')
@@ -1533,7 +1686,7 @@ Follow our announcements for upcoming deals and discounts.
 
 💡 **Tip:** VIP members get exclusive early access to all promotions!`;
     } else {
-      promos.forEach((promo, index) => {
+      promos.forEach((promo, _index) => {
         const validUntil = new Date(promo.valid_until).toLocaleDateString();
         const discountText = promo.discount_type === 'percentage' 
           ? `${promo.discount_value}% OFF` 
@@ -1679,7 +1832,10 @@ Select the type of result to post:`;
 }
 
 // Function to post trade result to the results channel
-async function postToResultsChannel(resultType: string, tradeData: any): Promise<boolean> {
+async function postToResultsChannel(
+  resultType: string,
+  tradeData: TradeData
+): Promise<boolean> {
   try {
     // Get results channel ID from bot content
     const channelContent = await getBotContent('trading_results_channel_id') || '';
@@ -1808,7 +1964,7 @@ Join our VIP community for detailed analysis and insights.
   }
 }
 
-async function handlePromoCodeApplication(chatId: number, userId: string, promoCode: string, packageId: string): Promise<{ valid: boolean; discount: number; finalPrice: number; message: string }> {
+async function handlePromoCodeApplication(_chatId: number, userId: string, promoCode: string, packageId: string): Promise<{ valid: boolean; discount: number; finalPrice: number; message: string }> {
   try {
     console.log(`🎫 Applying promo code ${promoCode} for user ${userId} on package ${packageId}`);
     
@@ -2002,7 +2158,12 @@ async function handleShowPaymentMethods(chatId: number, userId: string, packageI
   }
 }
 
-async function handlePromoCodeInput(chatId: number, userId: string, promoCode: string, userSession: any): Promise<void> {
+async function handlePromoCodeInput(
+  chatId: number,
+  userId: string,
+  promoCode: string,
+  userSession: PromoSession
+): Promise<void> {
   try {
     console.log(`🎫 Processing promo code input: ${promoCode} for user ${userId}`);
     
@@ -2022,7 +2183,7 @@ async function handlePromoCodeInput(chatId: number, userId: string, promoCode: s
       // Record promo usage
       const { data: promo } = await supabaseAdmin
         .from('promotions')
-        .select('id')
+        .select('id, current_uses')
         .eq('code', promoCode)
         .single();
 
@@ -2038,7 +2199,7 @@ async function handlePromoCodeInput(chatId: number, userId: string, promoCode: s
         await supabaseAdmin
           .from('promotions')
           .update({
-            current_uses: supabaseAdmin.raw('current_uses + 1')
+            current_uses: (promo.current_uses || 0) + 1
           })
           .eq('id', promo.id);
       }
@@ -2105,7 +2266,7 @@ async function handlePromoCodeInput(chatId: number, userId: string, promoCode: s
   }
 }
 
-async function handleFAQ(chatId: number, userId: string): Promise<void> {
+async function handleFAQ(chatId: number, _userId: string): Promise<void> {
   const content = await getBotContent('faq') || `❓ **Frequently Asked Questions**
 
 🔷 **Q: How do I join VIP?**
@@ -2141,7 +2302,7 @@ A: Yes! We offer comprehensive courses for beginners to advanced traders.
   await sendMessage(chatId, content, keyboard);
 }
 
-async function handleTerms(chatId: number, userId: string): Promise<void> {
+async function handleTerms(chatId: number, _userId: string): Promise<void> {
   const content = await getBotContent('terms') || `📋 **Terms of Service**
 
 **Last updated:** January 2025
@@ -2181,7 +2342,7 @@ Dynamic Capital is not liable for trading losses incurred using our services.
   await sendMessage(chatId, content, keyboard);
 }
 
-async function handleViewEducation(chatId: number, userId: string): Promise<void> {
+async function handleViewEducation(chatId: number, _userId: string): Promise<void> {
   try {
     console.log("🎓 Fetching education packages from database...");
     const { data: packages, error } = await supabaseAdmin
@@ -2211,9 +2372,9 @@ We're preparing amazing educational content for you.
 
 💡 **In the meantime:** Join VIP for access to daily market analysis and real-time learning opportunities!`;
     } else {
-      packages.forEach((pkg, index) => {
+      packages.forEach((pkg, _index) => {
         const features = pkg.features && Array.isArray(pkg.features) ? pkg.features.slice(0, 3) : [];
-        const featuresText = features.length > 0 ? features.map(f => `• ${f}`).join('\n   ') : '• Comprehensive trading education';
+        const featuresText = features.length > 0 ? features.map((f: string) => `• ${f}`).join('\n   ') : '• Comprehensive trading education';
         
         const studentInfo = pkg.max_students 
           ? `👥 ${pkg.current_students || 0}/${pkg.max_students} enrolled` 
@@ -2250,7 +2411,7 @@ ${studentInfo}
 
     // Create keyboard with package selection buttons
     const keyboard = {
-      inline_keyboard: [] as any[]
+      inline_keyboard: [] as InlineKeyboard['inline_keyboard']
     };
 
     // Add selection buttons for each package
@@ -2278,7 +2439,7 @@ ${studentInfo}
 }
 
 // Education Package Selection Handler
-async function handleEducationPackageSelection(chatId: number, userId: string, packageId: string, firstName: string): Promise<void> {
+async function handleEducationPackageSelection(chatId: number, userId: string, packageId: string, _firstName: string): Promise<void> {
   try {
     console.log(`🎓 User ${userId} selected education package: ${packageId}`);
     
@@ -2477,7 +2638,7 @@ async function handleViewUserProfile(chatId: number, adminUserId: string, target
 
   } catch (error) {
     console.error('🚨 Error viewing user profile:', error);
-    await sendMessage(chatId, `❌ Error loading user profile: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading user profile: ${(error as Error).message}`);
   }
 }
 
@@ -2546,7 +2707,7 @@ async function handleViewPendingPayments(chatId: number, adminUserId: string): P
 
   } catch (error) {
     console.error('🚨 Error viewing pending payments:', error);
-    await sendMessage(chatId, `❌ Error loading pending payments: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading pending payments: ${(error as Error).message}`);
   }
 }
 
@@ -2627,7 +2788,7 @@ User ${subscription.telegram_user_id} has been activated for ${subscription.subs
 
   } catch (error) {
     console.error('🚨 Error approving payment:', error);
-    await sendMessage(chatId, `❌ Error approving payment: ${error.message}`);
+    await sendMessage(chatId, `❌ Error approving payment: ${(error as Error).message}`);
   }
 }
 
@@ -2680,7 +2841,7 @@ User ${subscription.telegram_user_id} payment for ${subscription.subscription_pl
 
   } catch (error) {
     console.error('🚨 Error rejecting payment:', error);
-    await sendMessage(chatId, `❌ Error rejecting payment: ${error.message}`);
+    await sendMessage(chatId, `❌ Error rejecting payment: ${(error as Error).message}`);
   }
 }
 
@@ -2770,7 +2931,7 @@ async function handleAdminDashboard(chatId: number, userId: string): Promise<voi
     console.log(`✅ Admin dashboard sent to: ${userId}`);
   } catch (error) {
     console.error('🚨 Error in admin dashboard:', error);
-    await sendMessage(chatId, `❌ Error loading admin dashboard: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading admin dashboard: ${(error as Error).message}`);
   }
 }
 
@@ -2849,7 +3010,7 @@ async function handleViewSessions(chatId: number, userId: string): Promise<void>
     await sendMessage(chatId, sessionMessage, sessionKeyboard);
   } catch (error) {
     console.error('🚨 Error viewing sessions:', error);
-    await sendMessage(chatId, `❌ Error fetching sessions: ${error.message}`);
+    await sendMessage(chatId, `❌ Error fetching sessions: ${(error as Error).message}`);
   }
 }
 
@@ -2947,7 +3108,7 @@ async function handleBotStatus(chatId: number, userId: string): Promise<void> {
 • 📱 API Response: ${tgTime < 100 ? '🟢 Fast' : tgTime < 500 ? '🟡 Moderate' : '🔴 Slow'} (${tgTime}ms)
 • 💾 ${memoryInfo}
 
-${dbTest.error ? `❌ DB Error: ${dbTest.error.message}` : ''}
+${dbTest.error ? `❌ DB Error: ${(dbTest.error as Error).message}` : ''}
 ${!tgTest.ok ? '❌ Telegram API Error' : ''}`;
 
     const statusKeyboard = {
@@ -2969,7 +3130,7 @@ ${!tgTest.ok ? '❌ Telegram API Error' : ''}`;
     await sendMessage(chatId, statusMessage, statusKeyboard);
   } catch (error) {
     console.error('🚨 Error in bot status check:', error);
-    await sendMessage(chatId, `❌ Error checking bot status: ${error.message}`);
+    await sendMessage(chatId, `❌ Error checking bot status: ${(error as Error).message}`);
   }
 }
 
@@ -3008,7 +3169,7 @@ async function handleRefreshBot(chatId: number, userId: string): Promise<void> {
     await logAdminAction(userId, 'bot_refresh', 'Bot refresh completed successfully');
   } catch (error) {
     console.error('🚨 Error during bot refresh:', error);
-    await sendMessage(chatId, `❌ Error during refresh: ${error.message}`);
+    await sendMessage(chatId, `❌ Error during refresh: ${(error as Error).message}`);
   }
 }
 
@@ -3231,7 +3392,7 @@ async function handleCustomBroadcast(chatId: number, userId: string): Promise<vo
 📤 **Send your message now:**`);
 }
 
-async function handleNewChatMember(message: any): Promise<void> {
+async function handleNewChatMember(message: TelegramMessage): Promise<void> {
   const chatId = message.chat.id;
   const chatTitle = message.chat.title || 'Unknown Chat';
   const newMembers = message.new_chat_members || [];
@@ -3239,7 +3400,10 @@ async function handleNewChatMember(message: any): Promise<void> {
   console.log(`👥 New member(s) added to ${chatTitle} (${chatId})`);
 
   // Check if the bot itself was added
-  const botMember = newMembers.find((member: any) => member.username === 'Dynamic_VIP_BOT' || member.is_bot);
+  const botMember = newMembers.find(
+    (member: { username?: string; is_bot?: boolean }) =>
+      member.username === 'Dynamic_VIP_BOT' || member.is_bot
+  );
   
   if (botMember) {
     console.log(`🤖 Bot was added to new chat: ${chatTitle}`);
@@ -3520,7 +3684,7 @@ async function handleAdminSettings(chatId: number, userId: string): Promise<void
 
   } catch (error) {
     console.error('🚨 Error in admin settings:', error);
-    await sendMessage(chatId, `❌ Error loading settings: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading settings: ${(error as Error).message}`);
   }
 }
 
@@ -3551,7 +3715,7 @@ Settings updated successfully!`;
     setTimeout(() => handleAdminSettings(chatId, userId), 2000);
     
   } catch (error) {
-    await sendMessage(chatId, `❌ Error toggling auto-delete: ${error.message}`);
+    await sendMessage(chatId, `❌ Error toggling auto-delete: ${(error as Error).message}`);
   }
 }
 
@@ -3581,7 +3745,7 @@ Settings updated successfully!`;
     setTimeout(() => handleAdminSettings(chatId, userId), 2000);
     
   } catch (error) {
-    await sendMessage(chatId, `❌ Error toggling auto-intro: ${error.message}`);
+    await sendMessage(chatId, `❌ Error toggling auto-intro: ${(error as Error).message}`);
   }
 }
 
@@ -3611,7 +3775,7 @@ Settings updated successfully!`;
     setTimeout(() => handleAdminSettings(chatId, userId), 2000);
     
   } catch (error) {
-    await sendMessage(chatId, `❌ Error toggling maintenance: ${error.message}`);
+    await sendMessage(chatId, `❌ Error toggling maintenance: ${(error as Error).message}`);
   }
 }
 
@@ -3660,7 +3824,7 @@ async function handleViewAllSettings(chatId: number, userId: string): Promise<vo
     await sendMessage(chatId, settingsText, allSettingsKeyboard);
     
   } catch (error) {
-    await sendMessage(chatId, `❌ Error loading all settings: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading all settings: ${(error as Error).message}`);
   }
 }
 
@@ -3787,13 +3951,18 @@ async function handleUserAnalyticsReport(chatId: number, userId: string, timeRan
     const growthData = calculateGrowthMetrics(userGrowthQuery.data || []);
     
     // Get top active users
-    const topUsersQuery = await supabaseAdmin
+    const topUsersRaw = await supabaseAdmin
       .from('user_interactions')
-      .select('telegram_user_id, count(*)')
-      .gte('created_at', timeFilter)
-      .group('telegram_user_id')
-      .order('count', { ascending: false })
-      .limit(5);
+      .select('telegram_user_id')
+      .gte('created_at', timeFilter);
+
+    const topUsers = Object.entries((topUsersRaw.data || []).reduce((acc: Record<string, number>, row: { telegram_user_id: string }) => {
+      acc[row.telegram_user_id] = (acc[row.telegram_user_id] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>))
+      .map(([telegram_user_id, count]) => ({ telegram_user_id, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
 
     const report = generateUserAnalyticsReport({
       totalUsers: totalUsers.count || 0,
@@ -3802,7 +3971,7 @@ async function handleUserAnalyticsReport(chatId: number, userId: string, timeRan
       vipUsers: vipUsers.count || 0,
       adminUsers: adminUsers.count || 0,
       growthData,
-      topUsers: topUsersQuery.data || [],
+      topUsers,
       timeRange
     });
 
@@ -3823,7 +3992,7 @@ async function handleUserAnalyticsReport(chatId: number, userId: string, timeRan
 
   } catch (error) {
     console.error('❌ Error generating user analytics:', error);
-    await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+    await sendMessage(chatId, `❌ Error generating report: ${(error as Error).message}`);
   }
 }
 
@@ -3876,11 +4045,15 @@ async function handlePaymentReport(chatId: number, userId: string, timeRange: st
     const avgPayment = revenueData.data?.length ? totalRevenue / revenueData.data.length : 0;
 
     // Get payment method breakdown
-    const paymentMethodsQuery = await supabaseAdmin
+    const paymentMethodsRaw = await supabaseAdmin
       .from('payments')
-      .select('payment_method, count(*)')
-      .gte('created_at', timeFilter)
-      .group('payment_method');
+      .select('payment_method')
+      .gte('created_at', timeFilter);
+
+    const paymentMethods = Object.entries((paymentMethodsRaw.data || []).reduce((acc: Record<string, number>, row: { payment_method: string }) => {
+      acc[row.payment_method] = (acc[row.payment_method] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>)).map(([payment_method, count]) => ({ payment_method, count }));
 
     const report = generatePaymentReport({
       totalPayments: totalPayments.count || 0,
@@ -3889,12 +4062,12 @@ async function handlePaymentReport(chatId: number, userId: string, timeRange: st
       rejectedPayments: rejectedPayments.count || 0,
       totalRevenue,
       avgPayment,
-      paymentMethods: paymentMethodsQuery.data || [],
+      paymentMethods,
       timeRange
     });
 
     // Generate CSV export
-    const csvData = generatePaymentCSV(revenueData.data || []);
+    const csvData = generatePaymentCSV((revenueData.data as PaymentCSV[]) || []);
 
     await sendMessage(chatId, report);
     await sendMessage(chatId, `📄 **Payment Data CSV:**\n\`\`\`\n${csvData}\n\`\`\``);
@@ -3903,7 +4076,7 @@ async function handlePaymentReport(chatId: number, userId: string, timeRange: st
 
   } catch (error) {
     console.error('❌ Error generating payment report:', error);
-    await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+    await sendMessage(chatId, `❌ Error generating report: ${(error as Error).message}`);
   }
 }
 
@@ -4034,7 +4207,7 @@ Generated: ${new Date().toLocaleString()}`;
 
   } catch (error) {
     console.error('❌ Error generating package report:', error);
-    await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+    await sendMessage(chatId, `❌ Error generating report: ${(error as Error).message}`);
   }
 }
 
@@ -4161,7 +4334,7 @@ Generated: ${new Date().toLocaleString()}`;
 
     } catch (error) {
       console.error('❌ Error generating promotion report:', error);
-      await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+      await sendMessage(chatId, `❌ Error generating report: ${(error as Error).message}`);
     }
   }
 
@@ -4177,50 +4350,61 @@ Generated: ${new Date().toLocaleString()}`;
     const timeFilter = getTimeFilter(timeRange);
     
     // Fetch bot usage statistics
-    const [totalInteractions, commandStats, sessionStats, securityStats] = await Promise.all([
+    const [totalInteractions, commandStatsRaw, sessionStats, securityEventsRaw] = await Promise.all([
       // Total interactions
       supabaseAdmin
         .from('user_interactions')
         .select('count', { count: 'exact' })
         .gte('created_at', timeFilter),
-      
+
       // Command usage stats
       supabaseAdmin
         .from('user_interactions')
-        .select('interaction_type, count(*)')
+        .select('interaction_data')
         .gte('created_at', timeFilter)
-        .eq('interaction_type', 'command')
-        .group('interaction_data')
-        .limit(10),
-      
+        .eq('interaction_type', 'command'),
+
       // Session statistics
       supabaseAdmin
         .from('bot_sessions')
         .select('duration_minutes, activity_count, created_at')
         .gte('created_at', timeFilter),
-      
+
       // Error/security events
       supabaseAdmin
         .from('user_interactions')
-        .select('interaction_type, count(*)')
+        .select('interaction_type')
         .gte('created_at', timeFilter)
         .in('interaction_type', ['unknown_command', 'error', 'security_block'])
-        .group('interaction_type')
     ]);
 
+    const commandStats = Object.entries((commandStatsRaw.data || []).reduce((acc: Record<string, number>, row: { interaction_data: string }) => {
+      const key = row.interaction_data || 'unknown';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>))
+      .map(([interaction_data, count]) => ({ interaction_data, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const securityEvents = Object.entries((securityEventsRaw.data || []).reduce((acc: Record<string, number>, row: { interaction_type: string }) => {
+      acc[row.interaction_type] = (acc[row.interaction_type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>)).map(([interaction_type, count]) => ({ interaction_type, count }));
+
     // Calculate usage metrics
-    const avgSessionDuration = sessionStats.data?.length ? 
-      sessionStats.data.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) / sessionStats.data.length : 0;
-    
-    const totalActivities = sessionStats.data?.reduce((sum, s) => sum + (s.activity_count || 0), 0) || 0;
+    const avgSessionDuration = sessionStats.data?.length ?
+      sessionStats.data.reduce((sum: number, s: { duration_minutes?: number }) => sum + (s.duration_minutes || 0), 0) / sessionStats.data.length : 0;
+
+    const totalActivities = sessionStats.data?.reduce((sum: number, s: { activity_count?: number }) => sum + (s.activity_count || 0), 0) || 0;
 
     const report = generateBotUsageReport({
       totalInteractions: totalInteractions.count || 0,
       totalSessions: sessionStats.data?.length || 0,
       avgSessionDuration,
       totalActivities,
-      commandStats: commandStats.data || [],
-      securityEvents: securityStats.data || [],
+      commandStats,
+      securityEvents,
       timeRange
     });
 
@@ -4240,7 +4424,7 @@ Generated: ${new Date().toLocaleString()}`;
 
   } catch (error) {
     console.error('❌ Error generating bot usage report:', error);
-    await sendMessage(chatId, `❌ Error generating report: ${error.message}`);
+    await sendMessage(chatId, `❌ Error generating report: ${(error as Error).message}`);
   }
 }
 
@@ -4311,7 +4495,7 @@ async function handlePaymentsTableManagement(chatId: number, userId: string): Pr
 
   } catch (error) {
     console.error('❌ Error in payments table management:', error);
-    await sendMessage(chatId, `❌ Error loading payments data: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading payments data: ${(error as Error).message}`);
   }
 }
 
@@ -4368,7 +4552,7 @@ async function handleBroadcastTableManagement(chatId: number, userId: string): P
 
   } catch (error) {
     console.error('❌ Error in broadcast table management:', error);
-    await sendMessage(chatId, `❌ Error loading broadcast data: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading broadcast data: ${(error as Error).message}`);
   }
 }
 
@@ -4415,7 +4599,7 @@ async function handleBankAccountsTableManagement(chatId: number, userId: string)
 
   } catch (error) {
     console.error('❌ Error in bank accounts table management:', error);
-    await sendMessage(chatId, `❌ Error loading bank accounts data: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading bank accounts data: ${(error as Error).message}`);
   }
 }
 
@@ -4461,7 +4645,7 @@ async function handleAutoReplyTableManagement(chatId: number, userId: string): P
 
   } catch (error) {
     console.error('❌ Error in auto reply table management:', error);
-    await sendMessage(chatId, `❌ Error loading auto reply data: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading auto reply data: ${(error as Error).message}`);
   }
 }
 
@@ -4514,7 +4698,7 @@ async function handleEducationPackageStats(chatId: number, userId: string): Prom
 
   } catch (error) {
     console.error('❌ Error in education package stats:', error);
-    await sendMessage(chatId, `❌ Error loading education stats: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading education stats: ${(error as Error).message}`);
   }
 }
 
@@ -4559,7 +4743,7 @@ async function handleEducationCategoriesManagement(chatId: number, userId: strin
 
   } catch (error) {
     console.error('❌ Error in education categories management:', error);
-    await sendMessage(chatId, `❌ Error loading categories data: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading categories data: ${(error as Error).message}`);
   }
 }
 
@@ -4649,7 +4833,7 @@ async function handleEditContent(chatId: number, userId: string, contentKey: str
     );
   } catch (error) {
     console.error('❌ Error loading content:', error);
-    await sendMessage(chatId, `❌ Error loading content: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading content: ${(error as Error).message}`);
   }
 }
 
@@ -4718,7 +4902,7 @@ async function handlePreviewAllContent(chatId: number, userId: string): Promise<
 
   } catch (error) {
     console.error('❌ Error loading all content:', error);
-    await sendMessage(chatId, `❌ Error loading content: ${error.message}`);
+    await sendMessage(chatId, `❌ Error loading content: ${(error as Error).message}`);
   }
 
   try {
@@ -4765,7 +4949,7 @@ async function handlePreviewAllContent(chatId: number, userId: string): Promise<
 
     } catch (error) {
       console.error('❌ Error in education enrollments view:', error);
-      await sendMessage(chatId, `❌ Error loading enrollments data: ${error.message}`);
+      await sendMessage(chatId, `❌ Error loading enrollments data: ${(error as Error).message}`);
     }
   }
 
@@ -4834,7 +5018,7 @@ async function handlePreviewAllContent(chatId: number, userId: string): Promise<
 
   } catch (error) {
     console.error('❌ Error generating quick analytics:', error);
-    await sendMessage(chatId, `❌ Error generating analytics: ${error.message}`);
+    await sendMessage(chatId, `❌ Error generating analytics: ${(error as Error).message}`);
   }
 }
 
@@ -4855,20 +5039,22 @@ function getTimeFilter(timeRange: string): string {
   }
 }
 
-function calculateGrowthMetrics(userData: any[]): any {
+function calculateGrowthMetrics(
+  userData: UserRecord[]
+): { dailyGrowth: number; weeklyGrowth: number } {
   if (!userData.length) return { dailyGrowth: 0, weeklyGrowth: 0 };
-  
+
   const now = new Date();
   const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  
+
   const dailyUsers = userData.filter(u => new Date(u.created_at) >= oneDayAgo).length;
   const weeklyUsers = userData.filter(u => new Date(u.created_at) >= oneWeekAgo).length;
-  
+
   return { dailyGrowth: dailyUsers, weeklyGrowth: weeklyUsers };
 }
 
-function generateUserAnalyticsReport(data: any): string {
+function generateUserAnalyticsReport(data: AnalyticsData): string {
   return `👥 **User Analytics Report** (${data.timeRange})
 
 📊 **User Statistics:**
@@ -4884,7 +5070,7 @@ function generateUserAnalyticsReport(data: any): string {
 • 📊 Growth Rate: ${data.totalUsers > 0 ? ((data.newUsers / data.totalUsers) * 100).toFixed(1) : 0}%
 
 🏆 **Most Active Users:**
-${data.topUsers.slice(0, 3).map((user: any, index: number) => 
+${data.topUsers.slice(0, 3).map((user, index) =>
   `${index + 1}. User ${user.telegram_user_id}: ${user.count} interactions`
 ).join('\n') || 'No data available'}
 
@@ -4895,7 +5081,7 @@ ${data.topUsers.slice(0, 3).map((user: any, index: number) =>
 *Generated: ${new Date().toLocaleString()}*`;
 }
 
-function generatePaymentReport(data: any): string {
+function generatePaymentReport(data: PaymentReportData): string {
   return `💰 **Payment Report** (${data.timeRange})
 
 📊 **Payment Statistics:**
@@ -4910,7 +5096,7 @@ function generatePaymentReport(data: any): string {
 • 📈 Success Rate: ${data.totalPayments > 0 ? ((data.completedPayments / data.totalPayments) * 100).toFixed(1) : 0}%
 
 💳 **Payment Methods:**
-${data.paymentMethods.map((method: any) => 
+${data.paymentMethods.map(method =>
   `• ${method.payment_method || 'Unknown'}: ${method.count} payments`
 ).join('\n') || 'No data available'}
 
@@ -4921,7 +5107,7 @@ ${data.paymentMethods.map((method: any) =>
 *Generated: ${new Date().toLocaleString()}*`;
 }
 
-function generateBotUsageReport(data: any): string {
+function generateBotUsageReport(data: BotUsageData): string {
   return `📱 **Bot Usage Report** (${data.timeRange})
 
 📊 **Usage Statistics:**
@@ -4931,12 +5117,12 @@ function generateBotUsageReport(data: any): string {
 • 📱 Total Activities: ${data.totalActivities}
 
 🤖 **Popular Commands:**
-${data.commandStats.slice(0, 5).map((cmd: any, index: number) => 
+${data.commandStats.slice(0, 5).map((cmd, index) =>
   `${index + 1}. ${cmd.interaction_data || 'Unknown'}: ${cmd.count} uses`
 ).join('\n') || 'No command data available'}
 
 🚨 **Security Events:**
-${data.securityEvents.map((event: any) => 
+${data.securityEvents.map(event =>
   `• ${event.interaction_type}: ${event.count} occurrences`
 ).join('\n') || 'No security events'}
 
@@ -4947,21 +5133,66 @@ ${data.securityEvents.map((event: any) =>
 *Generated: ${new Date().toLocaleString()}*`;
 }
 
-function generateUserAnalyticsCSV(data: any): string {
+function generateUserAnalyticsCSV(data: UserAnalyticsCSVData): string {
   return `Date,Total Users,New Users,Active Users,VIP Users,Admin Users,Time Range
 ${new Date().toISOString().split('T')[0]},${data.totalUsers},${data.newUsers},${data.activeUsers},${data.vipUsers},${data.adminUsers},${data.timeRange}`;
 }
 
-function generatePaymentCSV(payments: any[]): string {
+function generatePaymentCSV(payments: PaymentCSV[]): string {
   let csv = 'ID,Amount,Currency,Status,Payment Method,Created At\n';
-  csv += payments.map(p => 
+  csv += payments.map(p =>
     `${p.id},${p.amount},${p.currency},${p.status},${p.payment_method},${p.created_at}`
   ).join('\n');
   return csv;
 }
 
+// Placeholder admin handlers for future implementation
+async function handleAddAdminUser(chatId: number, _userId: string): Promise<void> {
+  await sendMessage(chatId, '🚧 Admin user management coming soon.');
+}
+
+async function handleSearchUser(chatId: number, _userId: string): Promise<void> {
+  await sendMessage(chatId, '🔍 User search feature coming soon.');
+}
+
+async function handleManageVipUsers(chatId: number, _userId: string): Promise<void> {
+  await sendMessage(chatId, '👥 VIP user management coming soon.');
+}
+
+async function handleExportUsers(chatId: number, _userId: string): Promise<void> {
+  await sendMessage(chatId, '📤 User export feature coming soon.');
+}
+
+async function handleCreateVipPlan(chatId: number, _userId: string): Promise<void> {
+  await sendMessage(chatId, '🆕 VIP plan creation coming soon.');
+}
+
+async function handleEditVipPlan(chatId: number, _userId: string): Promise<void> {
+  await sendMessage(chatId, '✏️ VIP plan editing coming soon.');
+}
+
+async function handleDeleteVipPlan(chatId: number, _userId: string): Promise<void> {
+  await sendMessage(chatId, '🗑️ VIP plan deletion coming soon.');
+}
+
+async function handleVipPlanStats(chatId: number, _userId: string): Promise<void> {
+  await sendMessage(chatId, '📊 VIP plan statistics coming soon.');
+}
+
+async function handleUpdatePlanPricing(chatId: number, _userId: string): Promise<void> {
+  await sendMessage(chatId, '💰 Plan pricing update coming soon.');
+}
+
+async function handleManagePlanFeatures(chatId: number, _userId: string): Promise<void> {
+  await sendMessage(chatId, '✨ Plan feature management coming soon.');
+}
+
+async function handleMakeUserVip(chatId: number, _adminId: string, targetUserId: string): Promise<void> {
+  await sendMessage(chatId, `👑 Making user ${targetUserId} VIP is coming soon.`);
+}
+
 // Main serve function
-serve(async (req) => {
+serve(async (req: Request): Promise<Response> => {
   console.log(`📥 Request received: ${req.method} ${req.url}`);
 
   if (req.method === "OPTIONS") {
@@ -4992,7 +5223,7 @@ serve(async (req) => {
     const chatId = update.message?.chat?.id || update.callback_query?.message?.chat?.id;
     const userId = from.id.toString();
     const firstName = from.first_name || 'Friend';
-    const lastName = from.last_name;
+    const _lastName = from.last_name;
     const username = from.username;
 
     console.log(`👤 Processing update for user: ${userId} (${firstName})`);
@@ -5074,7 +5305,7 @@ serve(async (req) => {
         console.log(`🚀 Start command from: ${userId} (${firstName})`);
         
         // Add timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise: Promise<Response> = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Start command timeout')), 10000) // 10 second timeout
         );
         
@@ -5109,7 +5340,7 @@ serve(async (req) => {
         })();
         
         try {
-          return await Promise.race([startCommandPromise, timeoutPromise]);
+          return await Promise.race<Response>([startCommandPromise, timeoutPromise]);
         } catch (error) {
           console.error(`⏱️ Start command timeout or error for user ${userId}:`, error);
           await sendMessage(chatId, "⏱️ The request is taking longer than expected. Please try /start again.");
@@ -5225,12 +5456,13 @@ serve(async (req) => {
       try {
         console.log(`🔍 Processing callback switch for: ${callbackData}`);
         switch (callbackData) {
-          case 'view_vip_packages':
+          case 'view_vip_packages': {
             console.log("💎 Displaying VIP packages");
             const vipMessage = await getFormattedVipPackages();
             const vipKeyboard = await getVipPackagesKeyboard();
             await sendMessage(chatId, vipMessage, vipKeyboard);
             break;
+          }
 
           case 'view_education':
             console.log("🎓 Displaying education packages");
@@ -5322,7 +5554,7 @@ serve(async (req) => {
               try {
                 // End sessions older than 24 hours
                 const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-                const { data, error } = await supabaseAdmin
+                const { data, error: _error } = await supabaseAdmin
                   .from('bot_sessions')
                   .update({ 
                     session_end: new Date().toISOString(),
@@ -5330,12 +5562,12 @@ serve(async (req) => {
                   })
                   .is('session_end', null)
                   .lt('session_start', cutoffTime)
-                  .select('count', { count: 'exact' });
+                  .select();
 
                 await sendMessage(chatId, `🧹 *Old Sessions Cleaned!*\n\n✅ Cleaned ${data?.length || 0} old sessions\n🕐 Sessions older than 24h ended`);
                 await logAdminAction(userId, 'session_cleanup', `Cleaned ${data?.length || 0} old sessions`);
               } catch (error) {
-                await sendMessage(chatId, `❌ Error cleaning sessions: ${error.message}`);
+                await sendMessage(chatId, `❌ Error cleaning sessions: ${(error as Error).message}`);
               }
             }
             break;
@@ -5776,7 +6008,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
               
               if (!isAdmin(userId)) {
                 await sendAccessDeniedMessage(chatId);
-                return;
+                return new Response("OK", { status: 200 });
               }
               
               try {
@@ -5790,7 +6022,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
                 
                 if (!plan) {
                   await sendMessage(chatId, "❌ Plan not found.");
-                  return;
+                  return new Response("OK", { status: 200 });
                 }
                 
                 const editMessage = `✏️ **Edit Plan: ${plan.name}**
@@ -5827,7 +6059,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
                 
               } catch (error) {
                 console.error('🚨 Error loading plan for editing:', error);
-                await sendMessage(chatId, `❌ Error loading plan: ${error.message}`);
+                await sendMessage(chatId, `❌ Error loading plan: ${(error as Error).message}`);
               }
             } else if (callbackData === 'about_us') {
               await handleAboutUs(chatId, userId);

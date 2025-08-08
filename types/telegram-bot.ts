@@ -8,8 +8,6 @@
  * @version 1.0.0
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 // ============================================
 // Core Bot Interfaces
 // ============================================
@@ -36,7 +34,7 @@ export interface BotSession {
   telegram_user_id: string;
   session_start: string;
   session_end?: string;
-  session_data: Record<string, any>;
+  session_data: Record<string, unknown>;
   activity_count: number;
   duration_minutes?: number;
   user_agent?: string;
@@ -124,7 +122,7 @@ export interface Payment {
   payment_method: string;
   payment_provider_id?: string;
   status: 'pending' | 'completed' | 'failed' | 'cancelled';
-  webhook_data?: Record<string, any>;
+  webhook_data?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -217,7 +215,7 @@ export interface UserInteraction {
   id: string;
   telegram_user_id: string;
   interaction_type: string;
-  interaction_data?: Record<string, any>;
+  interaction_data?: Record<string, unknown>;
   session_id?: string;
   page_context?: string;
   created_at: string;
@@ -231,7 +229,7 @@ export interface DailyAnalytics {
   revenue: number;
   button_clicks: Record<string, number>;
   conversion_rates: Record<string, number>;
-  top_promo_codes: Record<string, any>;
+  top_promo_codes: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -275,7 +273,7 @@ export interface BroadcastMessage {
   media_file_id?: string;
   media_file_size?: number;
   media_mime_type?: string;
-  target_audience: Record<string, any>;
+  target_audience: Record<string, unknown>;
   scheduled_at?: string;
   sent_at?: string;
   delivery_status: 'draft' | 'scheduled' | 'sending' | 'completed' | 'failed';
@@ -297,8 +295,8 @@ export interface AdminLog {
   action_description: string;
   affected_table?: string;
   affected_record_id?: string;
-  old_values?: Record<string, any>;
-  new_values?: Record<string, any>;
+  old_values?: Record<string, unknown>;
+  new_values?: Record<string, unknown>;
   created_at: string;
 }
 
@@ -406,7 +404,7 @@ export interface TelegramMessageEntity {
 // Function Response Interfaces
 // ============================================
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -533,14 +531,14 @@ export interface AnswerCallbackQueryParams {
 
 export interface BotError extends Error {
   code?: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   userId?: string;
   chatId?: number;
 }
 
 export interface ValidationError extends BotError {
   field?: string;
-  value?: any;
+  value?: unknown;
 }
 
 export interface RateLimitError extends BotError {
@@ -568,7 +566,7 @@ export type CallbackHandler = (
 export type AdminHandler = (
   chatId: number,
   userId: string,
-  ...args: any[]
+  ...args: unknown[]
 ) => Promise<void>;
 
 // ============================================
