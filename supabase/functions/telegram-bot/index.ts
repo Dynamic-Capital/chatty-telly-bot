@@ -5174,14 +5174,21 @@ function generatePaymentCSV(payments: PaymentCSV[]): string {
 
 function convertToCSV(rows: Record<string, unknown>[]): string {
   if (!rows.length) return '';
-  const headers = Object.keys(rows[0]);
+
+  const headerSet = new Set<string>();
+  for (const row of rows) {
+    Object.keys(row).forEach((key) => headerSet.add(key));
+  }
+  const headers = Array.from(headerSet);
+
   const escape = (value: unknown) => {
     const str = String(value ?? '');
     return str.includes(',') || str.includes('"') || str.includes('\n')
       ? '"' + str.replace(/"/g, '""') + '"'
       : str;
   };
-  const lines = rows.map(row => headers.map(h => escape(row[h])).join(','));
+
+  const lines = rows.map((row) => headers.map((h) => escape(row[h])).join(','));
   return [headers.join(','), ...lines].join('\n');
 }
 
