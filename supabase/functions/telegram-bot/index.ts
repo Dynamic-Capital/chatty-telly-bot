@@ -3595,6 +3595,112 @@ Use the admin settings panel or contact support.
   await sendMessage(chatId, settingsMessage, settingsKeyboard);
 }
 
+async function handleEditChannels(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendAccessDeniedMessage(chatId);
+    return;
+  }
+
+  const channels = await getBroadcastChannels();
+  const channelsText = channels.length
+    ? `• ${channels.join('\n• ')}`
+    : '• No channels configured';
+
+  const message = `📡 *Broadcast Channels*\n\n${channelsText}`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: '➕ Add Channel', callback_data: 'add_channel' },
+        { text: '➖ Remove Channel', callback_data: 'remove_channel' }
+      ],
+      [
+        { text: '🗑️ Clear All', callback_data: 'clear_channels' }
+      ],
+      [
+        { text: '🔙 Back', callback_data: 'broadcast_settings' }
+      ]
+    ]
+  };
+
+  await sendMessage(chatId, message, keyboard);
+}
+
+async function promptAddChannel(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendAccessDeniedMessage(chatId);
+    return;
+  }
+
+  const session = getUserSession(userId);
+  session.awaitingInput = 'add_channel';
+  await sendMessage(chatId, '📡 Send the channel ID to add:');
+}
+
+async function promptRemoveChannel(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendAccessDeniedMessage(chatId);
+    return;
+  }
+
+  const session = getUserSession(userId);
+  session.awaitingInput = 'remove_channel';
+  await sendMessage(chatId, '➖ Send the channel ID to remove:');
+}
+
+async function handleClearChannels(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendAccessDeniedMessage(chatId);
+    return;
+  }
+
+  await setBotSetting('broadcast_channels', '', userId);
+  await logAdminAction(userId, 'broadcast_channels_clear', 'Cleared all broadcast channels');
+  await sendMessage(chatId, '🗑️ All broadcast channels cleared.');
+  await handleEditChannels(chatId, userId);
+}
+
+async function handleAutoSettings(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendAccessDeniedMessage(chatId);
+    return;
+  }
+
+  const [autoIntro, delay] = await Promise.all([
+    getBotSetting('auto_intro_enabled'),
+    getBotSetting('broadcast_delay_ms'),
+  ]);
+
+  const message = `🤖 *Auto-Broadcast Settings*\n\n` +
+    `• Auto Introduction: ${autoIntro === 'true' ? '✅ Enabled' : '❌ Disabled'}\n` +
+    `• Broadcast Delay: ${delay || '1500'}ms`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: autoIntro === 'true' ? 'Disable Auto Intro' : 'Enable Auto Intro', callback_data: 'toggle_auto_intro' },
+        { text: 'Set Delay', callback_data: 'set_broadcast_delay' }
+      ],
+      [
+        { text: '🔙 Back', callback_data: 'broadcast_settings' }
+      ]
+    ]
+  };
+
+  await sendMessage(chatId, message, keyboard);
+}
+
+async function handleSetBroadcastDelay(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendAccessDeniedMessage(chatId);
+    return;
+  }
+
+  const session = getUserSession(userId);
+  session.awaitingInput = 'set_broadcast_delay';
+  await sendMessage(chatId, '⏱️ Send new broadcast delay in milliseconds:');
+}
+
 async function handleTestBroadcast(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
     await sendAccessDeniedMessage(chatId);
@@ -3777,6 +3883,44 @@ Settings updated successfully!`;
   } catch (error) {
     await sendMessage(chatId, `❌ Error toggling maintenance: ${(error as Error).message}`);
   }
+}
+
+async function handleAddChannelInput(chatId: number, userId: string, channelId: string): Promise<void> {
+  const channels = await getBroadcastChannels();
+  if (channels.includes(channelId)) {
+    await sendMessage(chatId, '⚠️ Channel already exists.');
+    return;
+  }
+  channels.push(channelId);
+  await setBotSetting('broadcast_channels', channels.join(','), userId);
+  await logAdminAction(userId, 'broadcast_channel_add', `Added channel ${channelId}`);
+  await sendMessage(chatId, `✅ Channel ${channelId} added.`);
+  await handleEditChannels(chatId, userId);
+}
+
+async function handleRemoveChannelInput(chatId: number, userId: string, channelId: string): Promise<void> {
+  const channels = await getBroadcastChannels();
+  if (!channels.includes(channelId)) {
+    await sendMessage(chatId, '⚠️ Channel not found.');
+    return;
+  }
+  const updated = channels.filter(ch => ch !== channelId);
+  await setBotSetting('broadcast_channels', updated.join(','), userId);
+  await logAdminAction(userId, 'broadcast_channel_remove', `Removed channel ${channelId}`);
+  await sendMessage(chatId, `✅ Channel ${channelId} removed.`);
+  await handleEditChannels(chatId, userId);
+}
+
+async function handleBroadcastDelayInput(chatId: number, userId: string, delayStr: string): Promise<void> {
+  const delay = parseInt(delayStr);
+  if (isNaN(delay) || delay < 0) {
+    await sendMessage(chatId, '❌ Invalid delay value. Please send a positive number in milliseconds.');
+    return;
+  }
+  await setBotSetting('broadcast_delay_ms', delay.toString(), userId);
+  await logAdminAction(userId, 'broadcast_delay_set', `Set delay to ${delay}ms`);
+  await sendMessage(chatId, `✅ Broadcast delay set to ${delay}ms`);
+  await handleAutoSettings(chatId, userId);
 }
 
 async function handleViewAllSettings(chatId: number, userId: string): Promise<void> {
@@ -5392,6 +5536,21 @@ serve(async (req: Request): Promise<Response> => {
         await handleContentEditSave(chatId, userId, text, contentKey);
         return new Response("OK", { status: 200 });
       }
+      if (userSession.awaitingInput === 'add_channel') {
+        userSession.awaitingInput = null;
+        await handleAddChannelInput(chatId, userId, text.trim());
+        return new Response("OK", { status: 200 });
+      }
+      if (userSession.awaitingInput === 'remove_channel') {
+        userSession.awaitingInput = null;
+        await handleRemoveChannelInput(chatId, userId, text.trim());
+        return new Response("OK", { status: 200 });
+      }
+      if (userSession.awaitingInput === 'set_broadcast_delay') {
+        userSession.awaitingInput = null;
+        await handleBroadcastDelayInput(chatId, userId, text.trim());
+        return new Response("OK", { status: 200 });
+      }
 
       // Handle /broadcast command for admins
       if (text === '/broadcast' && isAdmin(userId)) {
@@ -5946,12 +6105,29 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
           case 'set_broadcast_delay':
           case 'advanced_settings':
           case 'export_settings':
-            await sendMessage(chatId, "🔧 Advanced configuration options coming soon!");
+            if (callbackData === 'set_broadcast_delay') {
+              await handleSetBroadcastDelay(chatId, userId);
+            } else {
+              await sendMessage(chatId, "🔧 Advanced configuration options coming soon!");
+            }
             break;
 
           // Broadcast Management Callbacks
           case 'edit_channels':
+            await handleEditChannels(chatId, userId);
+            break;
+          case 'add_channel':
+            await promptAddChannel(chatId, userId);
+            break;
+          case 'remove_channel':
+            await promptRemoveChannel(chatId, userId);
+            break;
+          case 'clear_channels':
+            await handleClearChannels(chatId, userId);
+            break;
           case 'auto_settings':
+            await handleAutoSettings(chatId, userId);
+            break;
           case 'broadcast_help':
             await sendMessage(chatId, "📢 Advanced broadcast features coming soon!");
             break;
