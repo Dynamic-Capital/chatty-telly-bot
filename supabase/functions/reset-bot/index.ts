@@ -11,6 +11,14 @@ serve(async (req) => {
   }
 
   try {
+    const { test } = await req.json().catch(() => ({}));
+    if (test) {
+      return new Response(
+        JSON.stringify({ success: true, message: "reset-bot OK" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
     if (!botToken) {
       throw new Error("TELEGRAM_BOT_TOKEN is not set");
