@@ -1,7 +1,7 @@
 /* eslint-disable no-case-declarations */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getFormattedVipPackages, getBotContent, getBotSetting } from "./database-utils.ts";
+import { getFormattedVipPackages, getBotContent, getBotSetting, setBotSetting as updateSetting, logAdminAction } from "./database-utils.ts";
 import {
   handleTableManagement,
   handleUserTableManagement,
@@ -574,58 +574,6 @@ async function setBotContent(contentKey: string, contentValue: string, adminId: 
   } catch (error) {
     console.error('🚨 Exception in setBotContent:', error);
     return false;
-  }
-}
-
-async function setBotSetting(settingKey: string, settingValue: string, adminId: string): Promise<boolean> {
-  try {
-    console.log(`⚙️ Setting bot setting: ${settingKey} = ${settingValue}`);
-    const { error } = await supabaseAdmin
-      .from('bot_settings')
-      .upsert({
-        setting_key: settingKey,
-        setting_value: settingValue,
-        updated_at: new Date().toISOString()
-      });
-
-    if (!error) {
-      await logAdminAction(adminId, 'setting_update', `Updated setting: ${settingKey}`, 'bot_settings');
-      console.log(`✅ Setting updated: ${settingKey}`);
-    } else {
-      console.error(`❌ Error setting: ${settingKey}`, error);
-    }
-
-    return !error;
-  } catch (error) {
-    console.error('🚨 Exception in setBotSetting:', error);
-    return false;
-  }
-}
-
-async function logAdminAction(
-  adminId: string,
-  actionType: string,
-  description: string,
-  affectedTable?: string,
-  affectedRecordId?: string,
-  oldValues?: Record<string, unknown>,
-  newValues?: Record<string, unknown>
-): Promise<void> {
-  try {
-    await supabaseAdmin
-      .from('admin_logs')
-      .insert({
-        admin_telegram_id: adminId,
-        action_type: actionType,
-        action_description: description,
-        affected_table: affectedTable,
-        affected_record_id: affectedRecordId,
-        old_values: oldValues,
-        new_values: newValues
-      });
-    console.log(`📋 Admin action logged: ${actionType} by ${adminId}`);
-  } catch (error) {
-    console.error('🚨 Error logging admin action:', error);
   }
 }
 
@@ -3699,7 +3647,7 @@ async function handleToggleAutoDelete(chatId: number, userId: string): Promise<v
     const currentValue = await getBotSetting('auto_delete_enabled');
     const newValue = currentValue === 'true' ? 'false' : 'true';
     
-    await setBotSetting('auto_delete_enabled', newValue, userId);
+    await updateSetting('auto_delete_enabled', newValue, userId);
     
     const statusMessage = `🗑️ **Auto-Delete ${newValue === 'true' ? 'Enabled' : 'Disabled'}**
 
@@ -3729,7 +3677,7 @@ async function handleToggleAutoIntro(chatId: number, userId: string): Promise<vo
     const currentValue = await getBotSetting('auto_intro_enabled');
     const newValue = currentValue === 'true' ? 'false' : 'true';
     
-    await setBotSetting('auto_intro_enabled', newValue, userId);
+    await updateSetting('auto_intro_enabled', newValue, userId);
     
     const statusMessage = `🤖 **Auto-Introduction ${newValue === 'true' ? 'Enabled' : 'Disabled'}**
 
@@ -3759,7 +3707,7 @@ async function handleToggleMaintenance(chatId: number, userId: string): Promise<
     const currentValue = await getBotSetting('maintenance_mode');
     const newValue = currentValue === 'true' ? 'false' : 'true';
     
-    await setBotSetting('maintenance_mode', newValue, userId);
+    await updateSetting('maintenance_mode', newValue, userId);
     
     const statusMessage = `🔧 **Maintenance Mode ${newValue === 'true' ? 'Enabled' : 'Disabled'}**
 
@@ -3777,6 +3725,46 @@ Settings updated successfully!`;
   } catch (error) {
     await sendMessage(chatId, `❌ Error toggling maintenance: ${(error as Error).message}`);
   }
+}
+
+async function handleSetDeleteDelay(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendAccessDeniedMessage(chatId);
+    return;
+  }
+
+  const currentValue = await getBotSetting('auto_delete_delay_seconds');
+  const userSession = getUserSession(userId);
+  userSession.awaitingInput = 'set_delete_delay';
+
+  await sendMessage(
+    chatId,
+    `⏱️ *Auto-Delete Delay*
+
+Current delay: ${currentValue || '30'} seconds
+
+Send new delay in seconds (5-3600):`
+  );
+}
+
+async function handleSetBroadcastDelay(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    await sendAccessDeniedMessage(chatId);
+    return;
+  }
+
+  const currentValue = await getBotSetting('broadcast_delay_ms');
+  const userSession = getUserSession(userId);
+  userSession.awaitingInput = 'set_broadcast_delay';
+
+  await sendMessage(
+    chatId,
+    `📢 *Broadcast Delay*
+
+Current delay: ${currentValue || '1500'} ms
+
+Send new delay in milliseconds (500-10000):`
+  );
 }
 
 async function handleViewAllSettings(chatId: number, userId: string): Promise<void> {
@@ -5392,6 +5380,30 @@ serve(async (req: Request): Promise<Response> => {
         await handleContentEditSave(chatId, userId, text, contentKey);
         return new Response("OK", { status: 200 });
       }
+      if (userSession.awaitingInput === 'set_delete_delay') {
+        userSession.awaitingInput = null;
+        const seconds = parseInt(text.trim());
+        if (isNaN(seconds) || seconds < 5 || seconds > 3600) {
+          await sendMessage(chatId, '❌ Please enter a number between 5 and 3600.');
+        } else {
+          await updateSetting('auto_delete_delay_seconds', seconds.toString(), userId);
+          await sendMessage(chatId, `✅ Auto-delete delay updated to ${seconds}s.`);
+          setTimeout(() => handleAdminSettings(chatId, userId), 2000);
+        }
+        return new Response("OK", { status: 200 });
+      }
+      if (userSession.awaitingInput === 'set_broadcast_delay') {
+        userSession.awaitingInput = null;
+        const delay = parseInt(text.trim());
+        if (isNaN(delay) || delay < 500 || delay > 10000) {
+          await sendMessage(chatId, '❌ Please enter a number between 500 and 10000.');
+        } else {
+          await updateSetting('broadcast_delay_ms', delay.toString(), userId);
+          await sendMessage(chatId, `✅ Broadcast delay updated to ${delay}ms.`);
+          setTimeout(() => handleAdminSettings(chatId, userId), 2000);
+        }
+        return new Response("OK", { status: 200 });
+      }
 
       // Handle /broadcast command for admins
       if (text === '/broadcast' && isAdmin(userId)) {
@@ -5943,7 +5955,11 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
 
           // Additional Settings Toggles
           case 'set_delete_delay':
+            await handleSetDeleteDelay(chatId, userId);
+            break;
           case 'set_broadcast_delay':
+            await handleSetBroadcastDelay(chatId, userId);
+            break;
           case 'advanced_settings':
           case 'export_settings':
             await sendMessage(chatId, "🔧 Advanced configuration options coming soon!");
