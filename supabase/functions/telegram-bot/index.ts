@@ -430,6 +430,7 @@ function getSecurityResponse(reason: string, blockDuration?: number): string {
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const BOT_VERSION = Deno.env.get("BOT_VERSION") || "dev";
 
 console.log("🚀 Bot starting with environment check...");
 console.log("BOT_TOKEN exists:", !!BOT_TOKEN);
@@ -451,6 +452,7 @@ const ADMIN_USER_IDS = new Set(["225513686"]);
 // User sessions for features
 const userSessions = new Map();
 const activeBotSessions = new Map(); // Track bot sessions
+let botPrompt = "";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -728,8 +730,42 @@ async function refreshAdminIds() {
   }
 }
 
+async function refreshBotPrompt(): Promise<void> {
+  try {
+    const prompt = await getBotContent("bot_prompt");
+    if (prompt) {
+      botPrompt = prompt;
+      console.log("🧠 Bot prompt refreshed");
+    }
+  } catch (error) {
+    console.error("🚨 Error refreshing bot prompt:", error);
+  }
+}
+
+async function checkAndNotifyVersion(): Promise<void> {
+  try {
+    const storedVersion = await getBotSetting("bot_version");
+    if (storedVersion !== BOT_VERSION) {
+      console.log(`🔄 Detected bot version change: ${storedVersion} -> ${BOT_VERSION}`);
+      await refreshBotPrompt();
+      await setBotSetting("bot_version", BOT_VERSION, "system");
+      const notifyMessage = `🤖 Bot updated to version ${BOT_VERSION}\n\n🧠 Prompt refreshed`;
+      for (const adminId of ADMIN_USER_IDS) {
+        try {
+          await sendMessage(parseInt(adminId), notifyMessage);
+        } catch (error) {
+          console.error(`❌ Failed to notify admin ${adminId}:`, error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("🚨 Error checking bot version:", error);
+  }
+}
+
 // Initialize admin IDs
 await refreshAdminIds();
+await checkAndNotifyVersion();
 
 function isAdmin(userId: string): boolean {
   const result = ADMIN_USER_IDS.has(userId);
