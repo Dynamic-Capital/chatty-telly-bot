@@ -130,6 +130,7 @@ CREATE TABLE bot_content (
 - `payments` → `subscription_plans` (many-to-one)
 - `education_enrollments` → `education_packages` (many-to-one)
 - `promotion_usage` → `promotions` (many-to-one)
+  - Unique usage enforced: each `telegram_user_id` can apply a given promotion only once
 
 ---
 

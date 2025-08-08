@@ -208,7 +208,7 @@ const relationships = {
   // Activity tracking
   'user_interactions.telegram_user_id': 'bot_users.telegram_id',
   'bot_sessions.telegram_user_id': 'bot_users.telegram_id',
-  'promotion_usage.telegram_user_id': 'bot_users.telegram_id',
+  'promotion_usage.telegram_user_id': 'bot_users.telegram_id', // one use per promotion enforced
 };
 ```
 
