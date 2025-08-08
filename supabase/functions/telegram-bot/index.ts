@@ -853,6 +853,21 @@ async function promptSettingUpdate(
   );
 }
 
+async function showAdvancedSettings(chatId: number, userId: string) {
+  if (!isAdmin(userId)) {
+    await sendAccessDeniedMessage(chatId);
+    return;
+  }
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: '🗑️ Auto-delete Delay', callback_data: 'set_delete_delay' }],
+      [{ text: '⏱️ Broadcast Delay', callback_data: 'set_broadcast_delay' }],
+      [{ text: '📤 Export Settings', callback_data: 'export_settings' }]
+    ]
+  };
+  await sendMessage(chatId, '⚙️ *Advanced Settings*', keyboard);
+}
+
 // Function to delete a specific message
 async function deleteMessage(chatId: number, messageId: number): Promise<boolean> {
   try {
@@ -6138,11 +6153,39 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
 
           // Additional Settings Toggles
           case 'set_delete_delay':
-          case 'set_broadcast_delay':
-          case 'advanced_settings':
-          case 'export_settings':
-            await sendMessage(chatId, "🔧 Advanced configuration options coming soon!");
+            await promptSettingUpdate(
+              chatId,
+              userId,
+              'auto_delete_delay_seconds',
+              'Enter auto-delete delay in seconds.'
+            );
             break;
+          case 'set_broadcast_delay':
+            await promptSettingUpdate(
+              chatId,
+              userId,
+              'broadcast_delay_ms',
+              'Enter broadcast delay in milliseconds.'
+            );
+            break;
+          case 'advanced_settings':
+            await showAdvancedSettings(chatId, userId);
+            break;
+          case 'export_settings': {
+            if (!isAdmin(userId)) {
+              await sendAccessDeniedMessage(chatId);
+              break;
+            }
+            const settings = await getAllBotSettings();
+            const formatted = Object.entries(settings)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join('\n');
+            await sendMessage(
+              chatId,
+              `📤 *Bot Settings Export*\n\n${formatted || 'No settings found.'}`
+            );
+            break;
+          }
 
           // Broadcast Management Callbacks
           case 'edit_channels':

@@ -143,20 +143,49 @@ serve(async (req) => {
 
     console.log('Payment record created:', payment);
 
-    // For now, return a mock checkout URL for testing
-    // TODO: Implement real Binance Pay API when credentials are ready
-    const mockCheckoutData = {
-      success: true,
-      paymentId: payment.id,
-      checkoutUrl: `https://pay.binance.com/checkout/${payment.id}`,
-      qrCodeUrl: `https://pay.binance.com/qr/${payment.id}`,
-      deeplink: `binance://pay?orderId=${payment.id}&amount=${plan.price}&currency=USDT`,
-      universalUrl: `https://app.binance.com/payment/${payment.id}`
+    const orderPayload = {
+      merchantId: _BINANCE_PAY_MERCHANT_ID,
+      merchantTradeNo: payment.id.toString(),
+      tradeType: 'WEB',
+      totalFee: Math.round(Number(plan.price) * 100),
+      currency: 'USDT',
+      productDetail: plan.name
     };
 
-    console.log('Returning checkout data:', mockCheckoutData);
+    const timestamp = Date.now().toString();
+    const nonce = _generateNonce();
+    const body = JSON.stringify(orderPayload);
+    const signature = await _generateSignature(timestamp, nonce, body, _BINANCE_PAY_SECRET_KEY);
 
-    return new Response(JSON.stringify(mockCheckoutData), {
+    const orderResponse = await fetch(`${_BINANCE_PAY_BASE_URL}/binancepay/openapi/v3/order`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'BinancePay-Timestamp': timestamp,
+        'BinancePay-Nonce': nonce,
+        'BinancePay-Certificate-SN': _BINANCE_PAY_API_KEY,
+        'BinancePay-Signature': signature
+      },
+      body
+    });
+
+    const orderResult = await orderResponse.json();
+    console.log('Binance Pay order result:', orderResult);
+
+    if (orderResult.status !== 'SUCCESS') {
+      throw new Error(orderResult.errorMessage || 'Binance Pay order creation failed');
+    }
+
+    const checkoutData = {
+      success: true,
+      paymentId: payment.id,
+      checkoutUrl: orderResult.data.checkoutUrl,
+      qrCodeUrl: orderResult.data.qrCode,
+      deeplink: orderResult.data.deeplink,
+      universalUrl: orderResult.data.universalUrl
+    };
+
+    return new Response(JSON.stringify(checkoutData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 

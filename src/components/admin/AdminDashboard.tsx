@@ -11,6 +11,7 @@ import { BotDebugger } from '@/components/admin/BotDebugger';
 import { ContactInfo } from '@/components/admin/ContactInfo';
 import { WelcomeMessageEditor } from '@/components/admin/WelcomeMessageEditor';
 import { SystemStatus } from '@/components/admin/SystemStatus';
+import { VipPlansManager } from '@/components/admin/VipPlansManager';
 import { 
   Users,
   CreditCard,
@@ -335,15 +336,7 @@ export const AdminDashboard = () => {
         </TabsContent>
 
         <TabsContent value="vip-plans" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>VIP Plans</CardTitle>
-              <CardDescription>Manage subscription plans (UI coming soon)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">Configure plans in the subscription_plans table.</p>
-            </CardContent>
-          </Card>
+          <VipPlansManager />
         </TabsContent>
 
         <TabsContent value="users" className="space-y-4">
