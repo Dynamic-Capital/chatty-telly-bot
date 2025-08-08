@@ -20,6 +20,7 @@ import {
   handleBotSettingsManagement,
   handleTableStatsOverview
 } from "./admin-handlers.ts";
+import { verifyTronTx } from "./verify-tron.ts";
 
 const DEFAULT_BOT_SETTINGS: Record<string, string> = {
   session_timeout_minutes: "30",
@@ -1086,6 +1087,88 @@ Review the receipt and approve or reject the payment.`;
     
   } catch (error) {
     console.error('🚨 Error notifying admins about receipt:', error);
+  }
+}
+
+// Handle TRON USDT transaction hash verification
+async function handleTronTxid(chatId: number, userId: string, txid: string) {
+  try {
+    const { data: intent, error } = await supabaseAdmin
+      .from('payment_intents')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .eq('method', 'crypto')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !intent) {
+      await sendMessage(chatId, '❌ No pending crypto payment found. Please start a new deposit.');
+      return;
+    }
+
+    const result = await verifyTronTx(txid, intent);
+    const contract = Deno.env.get('TRON_USDT_CONTRACT')!;
+
+    if (result.ok) {
+      await supabaseAdmin.from('crypto_deposits').insert({
+        payment_id: intent.id,
+        network: 'tron',
+        token_contract: contract,
+        txid,
+        from_address: result.details?.from,
+        to_address: result.details?.to,
+        amount: result.details?.amount,
+        decimals: 6,
+        confirmations: result.details?.confirmations,
+        status: 'confirmed',
+        raw: { tx: result.details?.rawTx, event: result.details?.rawEvent }
+      });
+
+      await supabaseAdmin
+        .from('payment_intents')
+        .update({ status: 'approved', approved_at: new Date().toISOString() })
+        .eq('id', intent.id);
+
+      await sendMessage(chatId, `✅ Confirmed: ${result.details?.amount} USDT received.`);
+      return;
+    }
+
+    if (result.awaiting) {
+      await supabaseAdmin.from('crypto_deposits').upsert({
+        payment_id: intent.id,
+        network: 'tron',
+        token_contract: contract,
+        txid,
+        from_address: result.details?.from,
+        to_address: result.details?.to ?? intent.deposit_address ?? Deno.env.get('CRYPTO_TRON_ADDRESS'),
+        amount: result.details?.amount ?? intent.expected_amount,
+        decimals: 6,
+        confirmations: result.details?.confirmations ?? 0,
+        status: 'seen',
+        raw: { tx: result.details?.rawTx, event: result.details?.rawEvent }
+      }, { onConflict: 'txid' });
+
+      await supabaseAdmin
+        .from('payment_intents')
+        .update({ status: 'awaiting_confirmations' })
+        .eq('id', intent.id);
+
+      const needed = intent.min_confirmations ?? Number(Deno.env.get('TRON_MIN_CONFIRMATIONS') ?? 20);
+      await sendMessage(chatId, `🧩 Seen on-chain. Waiting for ${needed} confirmations (now ${result.details?.confirmations ?? 0}/${needed}). I'll notify you.`);
+      return;
+    }
+
+    await supabaseAdmin
+      .from('payment_intents')
+      .update({ status: 'manual_review', failure_reason: result.reason })
+      .eq('id', intent.id);
+
+    await sendMessage(chatId, `❌ Verification failed: ${result.reason}. Our team will review it.`);
+  } catch (err) {
+    console.error('🚨 Error verifying TRON TX:', err);
+    await sendMessage(chatId, '❌ Error verifying transaction. Please try again later.');
   }
 }
 
@@ -5673,6 +5756,13 @@ serve(async (req: Request): Promise<Response> => {
         } else {
           await handlePromoCodeInput(chatId, userId, text.trim().toUpperCase(), promoSession);
         }
+        return new Response("OK", { status: 200 });
+      }
+
+      // Detect TRON transaction hashes
+      const txid = text?.trim();
+      if (txid && /^[A-Fa-f0-9]{64}$/.test(txid)) {
+        await handleTronTxid(chatId, userId, txid);
         return new Response("OK", { status: 200 });
       }
 
