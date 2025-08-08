@@ -10,8 +10,6 @@ if (typeof Deno !== "undefined") {
   assertEquals = (a, b, msg) => assert.equal(a, b, msg);
 }
 
-import { getCached, clearCache, cacheStats } from "../src/utils/cache.ts";
-
 const localStorageMock = (() => {
   let store = {};
   return {
@@ -34,6 +32,8 @@ const localStorageMock = (() => {
 
 (globalThis as unknown as { localStorage: typeof localStorageMock }).localStorage = localStorageMock;
 
+const { getCached, clearCache, cacheStats } = await import("../src/utils/cache.ts");
+
 registerTest("clearCache only removes cached entries", async () => {
   localStorage.setItem("external", "keep");
 
@@ -46,4 +46,24 @@ registerTest("clearCache only removes cached entries", async () => {
   assertEquals(localStorage.getItem("foo"), null);
   assertEquals(localStorage.getItem("bar"), null);
   assertEquals(cacheStats().size, 0);
+});
+
+registerTest("getCached removes invalid localStorage entries", async () => {
+  clearCache();
+  localStorage.clear();
+  // expired entry should be replaced
+  const key = "temp";
+  localStorage.setItem(key, JSON.stringify({ value: "old", expiry: Date.now() - 1 }));
+  const fresh = await getCached(key, 1000, async () => "new");
+  assertEquals(fresh, "new");
+  const stored = JSON.parse(localStorage.getItem(key)!);
+  assertEquals(stored.value, "new");
+
+  // malformed entry should be ignored and replaced
+  clearCache(key);
+  localStorage.setItem(key, "not-json");
+  const newer = await getCached(key, 1000, async () => "newer");
+  assertEquals(newer, "newer");
+  const stored2 = JSON.parse(localStorage.getItem(key)!);
+  assertEquals(stored2.value, "newer");
 });
