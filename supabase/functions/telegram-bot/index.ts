@@ -64,6 +64,11 @@ interface TelegramMessage {
   new_chat_members?: Array<{ username?: string; is_bot?: boolean }>;
 }
 
+interface FormattedMessage {
+  text: string;
+  parseMode?: string;
+}
+
 interface SubscriptionRecord {
   id: string;
   subscription_plans?: { name?: string; price?: number };
@@ -767,14 +772,18 @@ async function sendMessage(
   chatId: number,
   text: string,
   replyMarkup?: Record<string, unknown>,
-  options?: { autoDelete?: boolean; deleteAfterSeconds?: number }
+  options?: {
+    autoDelete?: boolean;
+    deleteAfterSeconds?: number;
+    parseMode?: string;
+  }
 ) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const payload = {
     chat_id: chatId,
     text: text,
     reply_markup: replyMarkup,
-    parse_mode: "Markdown"
+    parse_mode: options?.parseMode || "Markdown",
   };
 
   try {
@@ -1116,21 +1125,36 @@ async function addUserToVipChannel(telegramUserId: string): Promise<void> {
     console.error('🚨 Error adding user to VIP channels:', error);
   }
 }
-async function getWelcomeMessage(firstName: string): Promise<string> {
+function escapeMarkdownV2(text: string): string {
+  const specialChars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!', '\\'];
+  return text
+    .split('')
+    .map((char) => (specialChars.includes(char) ? `\\${char}` : char))
+    .join('');
+}
+
+async function getWelcomeMessage(firstName: string): Promise<FormattedMessage> {
   console.log(`📄 [getWelcomeMessage] Starting for user: ${firstName}`);
   try {
     const template = await getBotContent('welcome_message');
     console.log(`📄 [getWelcomeMessage] Template fetched: ${template ? 'found' : 'not found'}`);
     if (!template) {
-      const defaultMessage = `🚀 *Welcome to Dynamic Capital VIP, ${firstName}!*\n\nWe're here to help you level up your trading with:\n\n• 🔔 Quick market updates\n• 📈 Beginner-friendly tips\n• 🎓 Easy learning resources\n\nReady to get started? Pick an option below 👇`;
+      const escapedName = escapeMarkdownV2(firstName);
+      // eslint-disable-next-line no-useless-escape
+      const defaultMessage = `*Welcome to* __Dynamic Capital VIP__, ${escapedName}\!\n\nWe're here to help you level up your trading with:\n\n• \`Quick market updates\`\n• _Beginner-friendly tips_\n• ||Exclusive learning resources||\n\nReady to get started? Pick an option below 👇`;
       console.log(`📄 [getWelcomeMessage] Using default message for: ${firstName}`);
-      return defaultMessage;
+      return { text: defaultMessage, parseMode: 'MarkdownV2' };
     }
     console.log(`📄 [getWelcomeMessage] Formatting content for: ${firstName}`);
-    return formatContent(template, { firstName });
+    return { text: formatContent(template, { firstName }), parseMode: 'Markdown' };
   } catch (error) {
     console.error(`❌ [getWelcomeMessage] Error for ${firstName}:`, error);
-    return `🚀 *Welcome to Dynamic Capital VIP, ${firstName}!*\n\n⚠️ Please try again in a moment.`;
+    const escapedName = escapeMarkdownV2(firstName);
+    return {
+      // eslint-disable-next-line no-useless-escape
+      text: `*Welcome to* __Dynamic Capital VIP__, ${escapedName}\!\n\n⚠️ Please try again in a moment.`,
+      parseMode: 'MarkdownV2',
+    };
   }
 }
 
@@ -5537,15 +5561,19 @@ serve(async (req: Request): Promise<Response> => {
             console.log(`📄 Auto reply result: ${autoReply ? 'found' : 'not found'}`);
             
             console.log(`📄 Getting welcome message for user: ${userId}`);
-            const welcomeMessage = autoReply || await getWelcomeMessage(firstName);
-            console.log(`📄 Welcome message length: ${welcomeMessage?.length || 0}`);
+            const welcomeMessage: FormattedMessage = autoReply
+              ? { text: autoReply, parseMode: 'Markdown' }
+              : await getWelcomeMessage(firstName);
+            console.log(`📄 Welcome message length: ${welcomeMessage?.text.length || 0}`);
             
             console.log(`⌨️ Getting main menu keyboard for user: ${userId}`);
             const keyboard = await getMainMenuKeyboard();
             console.log(`⌨️ Keyboard generated: ${keyboard ? 'yes' : 'no'}`);
             
             console.log(`📤 Sending welcome message to user: ${userId}`);
-            await sendMessage(chatId, welcomeMessage, keyboard);
+            await sendMessage(chatId, welcomeMessage.text, keyboard, {
+              parseMode: welcomeMessage.parseMode,
+            });
             console.log(`✅ Welcome message sent successfully to user: ${userId}`);
             if (isAdmin(userId)) {
               await handleBotStatus(chatId, userId);
@@ -5712,9 +5740,13 @@ serve(async (req: Request): Promise<Response> => {
 
           case 'back_main': {
             const autoReply = await getAutoReply('auto_reply_welcome', { firstName });
-            const mainMessage = autoReply || await getWelcomeMessage(firstName);
+            const mainMessage: FormattedMessage = autoReply
+              ? { text: autoReply, parseMode: 'Markdown' }
+              : await getWelcomeMessage(firstName);
             const mainKeyboard = await getMainMenuKeyboard();
-            await sendMessage(chatId, mainMessage, mainKeyboard);
+            await sendMessage(chatId, mainMessage.text, mainKeyboard, {
+              parseMode: mainMessage.parseMode,
+            });
             break;
           }
 
