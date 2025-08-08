@@ -1,5 +1,4 @@
-/// <reference path="../../types/tesseract.d.ts" />
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   getFormattedVipPackages,
   getBotContent,
@@ -169,6 +168,19 @@ interface TradeData {
   amount?: number | string;
   duration?: string;
   loss?: number | string;
+  [key: string]: unknown;
+}
+
+interface PaymentIntent {
+  id: string;
+  user_id: string;
+  method: string;
+  status: string;
+  expected_amount: number;
+  expected_beneficiary_account_last4?: string | null;
+  expected_beneficiary_name?: string | null;
+  pay_code?: string | null;
+  created_at: string;
   [key: string]: unknown;
 }
 
@@ -447,12 +459,13 @@ console.log("SUPABASE_SERVICE_ROLE_KEY exists:", !!SUPABASE_SERVICE_ROLE_KEY);
 
 if (!BOT_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error("❌ Missing required environment variables");
-  throw new Error("Missing required environment variables");
 }
 
-const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
-  auth: { persistSession: false },
-});
+const supabaseAdmin = createClient(
+  SUPABASE_URL ?? "",
+  SUPABASE_SERVICE_ROLE_KEY ?? "",
+  { auth: { persistSession: false } },
+);
 
 // Admin user IDs - including the user who's testing
 const ADMIN_USER_IDS = new Set(["225513686"]);
@@ -911,6 +924,7 @@ async function deleteMessage(chatId: number, messageId: number): Promise<boolean
 // New auto-approval handler for bank slip uploads
 async function handleReceiptUpload(message: TelegramMessage, userId: string): Promise<void> {
   const chatId = message.chat.id;
+  const start = Date.now();
   try {
     // 2. Identify file
     const fileId = message.photo
@@ -961,12 +975,14 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
 
     // 5. OCR
     const text = await ocrTextFromBlob(blob);
+    const ocrMs = Date.now() - start;
+    console.log("🖼️ OCR completed", { userId, ocrMs });
 
     // 6. Parse bank slip
     const parsed = parseBankSlip(text);
 
     // 7. Find intent
-    let intent = null as any;
+    let intent: PaymentIntent | null = null;
     if (parsed.payCode) {
       const { data } = await supabaseAdmin
         .from("payment_intents")
@@ -1031,9 +1047,9 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
     }
     if (!beneficiaryOK && toAccount) {
       const ben = await getApprovedBeneficiaryByAccountNumber(
-        supabaseAdmin as any,
+        supabaseAdmin,
         toAccount,
-      ) as any;
+      );
       if (ben && ben.account_name && toName) {
         beneficiaryOK = ben.account_name.toLowerCase() === toName;
       }
@@ -1053,6 +1069,8 @@ async function handleReceiptUpload(message: TelegramMessage, userId: string): Pr
       parsed.payCode === intent.pay_code;
     const approved =
       amountOK && timeOK && statusOK && beneficiaryOK && payCodeOK;
+
+    console.log("📑 Receipt processed", { userId, approved });
 
     // 10. Write receipt row
     await supabaseAdmin.from("receipts").insert({
@@ -5485,8 +5503,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   console.log(`📥 Request received: ${req.method} ${req.url}`);
 
   const url = new URL(req.url);
-  if (url.searchParams.get("secret") !== WEBHOOK_SECRET) {
-    return new Response("Forbidden", { status: 403 });
+  if (!WEBHOOK_SECRET || url.searchParams.get("secret") !== WEBHOOK_SECRET) {
+    console.warn("Invalid or missing webhook secret");
+    return new Response("OK", { status: 200 });
   }
 
   // Check for new deployments on each request to notify admins
@@ -5508,7 +5527,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const body = await req.text();
     const update = JSON.parse(body);
 
-    console.log("📨 Update received:", JSON.stringify(update, null, 2));
+    const meta = {
+      from: update.message?.from?.id || update.callback_query?.from?.id,
+      hasPhoto: Boolean(update.message?.photo),
+      hasDocument: Boolean(update.message?.document),
+      hasCallback: Boolean(update.callback_query),
+    };
+    console.log("📨 Update meta:", meta);
 
     // Extract user info
     const from = update.message?.from || update.callback_query?.from;
@@ -5734,7 +5759,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
       // Handle photo/document uploads (receipts)
       if (update.message.photo || update.message.document) {
-        await handleReceiptUpload(update.message, userId);
+        (async () => {
+          try {
+            await handleReceiptUpload(update.message, userId);
+          } catch (err) {
+            console.error("Receipt processing failed", err);
+          }
+        })();
         return new Response("OK", { status: 200 });
       }
 
