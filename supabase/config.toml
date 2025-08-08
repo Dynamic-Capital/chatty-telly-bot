@@ -1,4 +1,4 @@
-project_id = "your-project-ref"
+project_id = "qeejuomcapbdlhnjqjcc"
 
 [functions.telegram-bot]
 verify_jwt = false
@@ -12,12 +12,6 @@ verify_jwt = false
 [functions.test-webhook]
 verify_jwt = false
 
-[functions.create-checkout]
-verify_jwt = false
-
-[functions.payment-webhook]
-verify_jwt = false
-
 [functions.binance-pay-checkout]
 verify_jwt = false
 
@@ -28,4 +22,22 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.cleanup-old-sessions]
+verify_jwt = false
+
+[functions.cleanup-old-receipts]
+verify_jwt = false
+
+[functions.analytics-data]
+verify_jwt = false
+
+[functions.reset-bot]
+verify_jwt = false
+
+[functions.test-bot-status]
+verify_jwt = false
+
+[functions.ai-faq-assistant]
+verify_jwt = false
+
+[functions.trade-helper]
 verify_jwt = false

@@ -165,14 +165,15 @@ export const SystemStatus = () => {
             } as TableInfo;
           }
 
+          // Get last updated using created_at as a universal field
           const { data: latestRecord } = await (supabasePublic as any)
             .from(tableName as any)
-            .select('updated_at, created_at' as any)
-            .order('updated_at', { ascending: false })
+            .select('created_at' as any)
+            .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
 
-          const lastUpdated = latestRecord?.updated_at || latestRecord?.created_at;
+          const lastUpdated = latestRecord?.created_at;
 
           return {
             name: tableName,
