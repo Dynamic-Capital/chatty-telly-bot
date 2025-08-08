@@ -1,7 +1,7 @@
 import { createWorker } from "npm:tesseract.js@5";
 
 export async function ocrTextFromBlob(blob: Blob): Promise<string> {
-  const worker: any = await createWorker();
+  const worker = await createWorker();
   await worker.loadLanguage("eng");
   await worker.initialize("eng");
   await worker.setParameters({
