@@ -1016,13 +1016,13 @@ async function handleBankReceipt(message: TelegramMessage, userId: string): Prom
     if (approve) {
       await supabaseAdmin
         .from('payment_intents')
-        .update({ status: 'approved', approved_at: new Date().toISOString() })
+        .update({ status: 'approved', approved_at: new Date().toISOString(), pay_code: null })
         .eq('id', intent.id);
       await sendMessage(chatId, "✅ Payment verified successfully!");
     } else {
       await supabaseAdmin
         .from('payment_intents')
-        .update({ status: 'manual_review' })
+        .update({ status: 'manual_review', pay_code: null })
         .eq('id', intent.id);
       await sendMessage(chatId, "📥 Receipt received. It will be reviewed shortly.");
     }
@@ -1237,10 +1237,22 @@ ${pkg.features?.map((f: string) => `• ${f}`).join('\n') || '• Premium featur
     
     // Log the selection
     await logAdminAction(userId, 'package_selection', `User selected package: ${pkg.name}`, 'subscription_plans', packageId);
-    
+
   } catch (error) {
     console.error('🚨 Error in package selection:', error);
     await sendMessage(chatId, "❌ An error occurred. Please try again.");
+  }
+}
+
+async function generatePayCode(): Promise<string> {
+  while (true) {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const { data } = await supabaseAdmin
+      .from('payment_intents')
+      .select('id')
+      .eq('pay_code', code)
+      .maybeSingle();
+    if (!data) return code;
   }
 }
 
@@ -1329,7 +1341,26 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
       }
       case 'bank': {
         console.log('🏦 Processing Bank Transfer instructions');
-        paymentInstructions = await getBankTransferInstructions({ ...pkg, price: finalPrice }, subscription.id);
+        const payCode = await generatePayCode();
+        const { error: intentError } = await supabaseAdmin
+          .from('payment_intents')
+          .insert({
+            user_id: userId,
+            method: 'bank',
+            expected_amount: finalPrice,
+            currency: 'USD',
+            pay_code: payCode,
+          });
+        if (intentError) {
+          console.error('❌ Error creating payment intent:', intentError);
+          await sendMessage(chatId, '❌ Error generating payment details. Please try again.');
+          return;
+        }
+        paymentInstructions = await getBankTransferInstructions(
+          { ...pkg, price: finalPrice },
+          subscription.id,
+          payCode,
+        );
         break;
       }
       default: {
@@ -1509,7 +1540,8 @@ ${walletAddresses}
 
 async function getBankTransferInstructions(
   pkg: VipPackage,
-  subscriptionId: string
+  subscriptionId: string,
+  payCode: string,
 ): Promise<string> {
   try {
     console.log('🏦 Fetching bank accounts for transfer instructions...');
@@ -1576,23 +1608,26 @@ async function getBankTransferInstructions(
 ${bankDetails}
 
 📝 **Reference ID:** \`SUB_${subscriptionId.substring(0, 8)}\`
+🔐 **Pay Code:** \`${payCode}\`
 
 📱 **Step-by-Step Instructions:**
 1️⃣ Log into your banking app/website
 2️⃣ Create new transfer with exact amount: **$${pkg.price}**
 3️⃣ Use account details above
-4️⃣ **MUST include reference ID in transfer description**
+4️⃣ Include pay code \`${payCode}\` and reference \`SUB_${subscriptionId.substring(0, 8)}\` in transfer description
 5️⃣ Complete the transfer
 6️⃣ Take clear photo of transfer confirmation
 7️⃣ Send the receipt photo to this chat
 
 ⚠️ **Critical Requirements:**
 • Transfer exact amount: $${pkg.price}
+• Include pay code: ${payCode}
 • Include reference: SUB_${subscriptionId.substring(0, 8)}
 • Send clear receipt photo showing:
   - Transfer amount
   - Destination account
-  - Reference ID
+  - Pay code (${payCode})
+  - Reference ID (SUB_${subscriptionId.substring(0, 8)})
   - Date & time
 
 ⏰ **Processing Time:** 2-24 hours after receipt verification
@@ -1607,7 +1642,8 @@ ${bankDetails}
 
 ⚠️ Error loading bank details. Please contact @DynamicCapital_Support for transfer instructions.
 
-📝 **Reference:** \`SUB_${subscriptionId.substring(0, 8)}\``;
+📝 **Reference:** \`SUB_${subscriptionId.substring(0, 8)}\`
+🔐 **Pay Code:** \`${payCode}\``;
   }
 }
 
