@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,9 +34,10 @@ export const RefreshBot = () => {
   };
 
   // Auto-refresh on component mount
-  useState(() => {
+  useEffect(() => {
     handleRefreshBot();
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="container mx-auto p-6">
