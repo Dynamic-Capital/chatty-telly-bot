@@ -1,0 +1,144 @@
+{
+  "modules": {
+    "https://esm.sh/@supabase/auth-js@2.71.1/dist/module/AuthAdminApi.d.ts": {},
+    "https://esm.sh/@supabase/auth-js@2.71.1/dist/module/AuthClient.d.ts": {},
+    "https://esm.sh/@supabase/auth-js@2.71.1/dist/module/GoTrueAdminApi.d.ts": {},
+    "https://esm.sh/@supabase/auth-js@2.71.1/dist/module/GoTrueClient.d.ts": {},
+    "https://esm.sh/@supabase/functions-js@2.4.5/dist/module/FunctionsClient.d.ts": {},
+    "https://esm.sh/@supabase/node-fetch@2.6.15?target=denonext": {
+      "headers": {
+        "content-type": "application/javascript; charset=utf-8"
+      }
+    },
+    "https://esm.sh/@supabase/node-fetch@^2.6.13?target=denonext": {
+      "headers": {
+        "location": "https://esm.sh/@supabase/node-fetch@2.6.15?target=denonext"
+      }
+    },
+    "https://esm.sh/@supabase/node-fetch@^2.6.14?target=denonext": {
+      "headers": {
+        "location": "https://esm.sh/@supabase/node-fetch@2.6.15?target=denonext"
+      }
+    },
+    "https://esm.sh/@supabase/postgrest-js@1.19.4/dist/cjs/PostgrestBuilder.d.ts": {},
+    "https://esm.sh/@supabase/postgrest-js@1.19.4/dist/cjs/PostgrestClient.d.ts": {},
+    "https://esm.sh/@supabase/postgrest-js@1.19.4/dist/cjs/PostgrestError.d.ts": {},
+    "https://esm.sh/@supabase/postgrest-js@1.19.4/dist/cjs/PostgrestFilterBuilder.d.ts": {},
+    "https://esm.sh/@supabase/postgrest-js@1.19.4/dist/cjs/PostgrestQueryBuilder.d.ts": {},
+    "https://esm.sh/@supabase/postgrest-js@1.19.4/dist/cjs/PostgrestTransformBuilder.d.ts": {},
+    "https://esm.sh/@supabase/realtime-js@2.15.0/dist/module/RealtimeChannel.d.ts": {},
+    "https://esm.sh/@supabase/realtime-js@2.15.0/dist/module/RealtimeClient.d.ts": {},
+    "https://esm.sh/@supabase/realtime-js@2.15.0/dist/module/RealtimePresence.d.ts": {},
+    "https://esm.sh/@supabase/storage-js@2.10.4/dist/module/StorageClient.d.ts": {},
+    "https://esm.sh/@supabase/storage-js@2.10.4/dist/module/packages/StorageBucketApi.d.ts": {},
+    "https://esm.sh/@supabase/storage-js@2.10.4/dist/module/packages/StorageFileApi.d.ts": {},
+    "https://esm.sh/@supabase/storage-js@2.10.4?target=denonext": {
+      "headers": {
+        "content-type": "application/javascript; charset=utf-8",
+        "x-typescript-types": "https://esm.sh/@supabase/storage-js@2.10.4/dist/module/index.d.ts"
+      }
+    },
+    "https://esm.sh/@supabase/storage-js@^2.10.4?target=denonext": {
+      "headers": {
+        "location": "https://esm.sh/@supabase/storage-js@2.10.4?target=denonext"
+      }
+    },
+    "https://esm.sh/@supabase/supabase-js@2.54.0/dist/module/SupabaseClient.d.ts": {},
+    "https://esm.sh/@supabase/supabase-js@2.54.0/dist/module/lib/SupabaseAuthClient.d.ts": {},
+    "https://esm.sh/@supabase/supabase-js@2.54.0?dts": {
+      "headers": {
+        "content-type": "application/javascript; charset=utf-8",
+        "x-typescript-types": "https://esm.sh/@supabase/supabase-js@2.54.0/dist/module/index.d.ts"
+      }
+    },
+    "https://esm.sh/@supabase/supabase-js@2?dts": {
+      "headers": {
+        "location": "https://esm.sh/@supabase/supabase-js@2.54.0?dts"
+      }
+    },
+    "https://esm.sh/@types/is-url@~1.2.32/index.d.ts": {
+      "headers": {
+        "location": "https://esm.sh/@types/is-url@1.2.32/index.d.ts"
+      }
+    },
+    "https://esm.sh/@types/regenerator-runtime@~0.13.8/index.d.ts": {
+      "headers": {
+        "location": "https://esm.sh/@types/regenerator-runtime@0.13.8/index.d.ts"
+      }
+    },
+    "https://esm.sh/is-electron@2.2.2?target=denonext": {
+      "headers": {
+        "content-type": "application/javascript; charset=utf-8",
+        "x-typescript-types": "https://esm.sh/is-electron@2.2.2/index.d.ts"
+      }
+    },
+    "https://esm.sh/is-electron@^2.2.2?target=denonext": {
+      "headers": {
+        "location": "https://esm.sh/is-electron@2.2.2?target=denonext"
+      }
+    },
+    "https://esm.sh/is-url@1.2.4?target=denonext": {
+      "headers": {
+        "content-type": "application/javascript; charset=utf-8",
+        "x-typescript-types": "https://esm.sh/@types/is-url@~1.2.32/index.d.ts"
+      }
+    },
+    "https://esm.sh/is-url@^1.2.4?target=denonext": {
+      "headers": {
+        "location": "https://esm.sh/is-url@1.2.4?target=denonext"
+      }
+    },
+    "https://esm.sh/regenerator-runtime@0.13.11/runtime?target=denonext": {
+      "headers": {
+        "content-type": "application/javascript; charset=utf-8",
+        "x-typescript-types": "https://esm.sh/@types/regenerator-runtime@~0.13.8/index.d.ts"
+      }
+    },
+    "https://esm.sh/regenerator-runtime@^0.13.3/runtime?target=denonext": {
+      "headers": {
+        "location": "https://esm.sh/regenerator-runtime@0.13.11/runtime?target=denonext"
+      }
+    },
+    "https://esm.sh/tesseract.js@5.1.1?dts": {
+      "headers": {
+        "content-type": "application/javascript; charset=utf-8",
+        "x-typescript-types": "https://esm.sh/tesseract.js@5.1.1/src/index.d.ts"
+      }
+    },
+    "https://esm.sh/tesseract.js@5?dts": {
+      "headers": {
+        "location": "https://esm.sh/tesseract.js@5.1.1?dts"
+      }
+    },
+    "https://esm.sh/tr46@0.0.3?target=denonext": {
+      "headers": {
+        "content-type": "application/javascript; charset=utf-8"
+      }
+    },
+    "https://esm.sh/tr46@~0.0.3?target=denonext": {
+      "headers": {
+        "location": "https://esm.sh/tr46@0.0.3?target=denonext"
+      }
+    },
+    "https://esm.sh/webidl-conversions@3.0.1?target=denonext": {
+      "headers": {
+        "content-type": "application/javascript; charset=utf-8"
+      }
+    },
+    "https://esm.sh/webidl-conversions@^3.0.0?target=denonext": {
+      "headers": {
+        "location": "https://esm.sh/webidl-conversions@3.0.1?target=denonext"
+      }
+    },
+    "https://esm.sh/whatwg-url@5.0.0?target=denonext": {
+      "headers": {
+        "content-type": "application/javascript; charset=utf-8"
+      }
+    },
+    "https://esm.sh/whatwg-url@^5.0.0?target=denonext": {
+      "headers": {
+        "location": "https://esm.sh/whatwg-url@5.0.0?target=denonext"
+      }
+    }
+  }
+}

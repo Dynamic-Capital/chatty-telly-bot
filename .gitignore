@@ -34,3 +34,7 @@ supabase/functions/**/.edge/
 
 # Mini app build & deps
 apps/mini/dist/
+
+# Keep the telegram-bot vendor snapshot in Git
+!supabase/functions/telegram-bot/vendor/
+!supabase/functions/telegram-bot/vendor/**
