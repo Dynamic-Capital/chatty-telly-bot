@@ -681,10 +681,10 @@ async function handleUnknownCommand(chatId: number, userId: string, command: str
 
 async function handleHelpCommand(chatId: number, userId: string, firstName: string): Promise<void> {
   console.log(`❓ Help command from ${userId}`);
-  
-  const autoReply = await getAutoReply('auto_reply_help', { firstName });
+
+  const autoReply = await getAutoReply('help_message', { firstName });
   const message = autoReply || `❓ **Need Help?**\n\n🤖 Use /start for the main menu\n🔑 Admins can use /admin\n\n🛟 Contact: @DynamicCapital_Support`;
-  
+
   await sendMessage(chatId, message);
 }
 
@@ -1199,9 +1199,9 @@ async function getVipPackagesKeyboard(): Promise<InlineKeyboard> {
     { text: "🎁 View Promotions", callback_data: "view_promotions" },
     { text: "🎓 Education Packages", callback_data: "view_education" }
   ]);
-  
+
   buttons.push([
-    { text: "❓ Have Questions?", callback_data: "contact_support" },
+    { text: "❓ Have Questions?", callback_data: "support" },
     { text: "🔙 Back to Main Menu", callback_data: "back_main" }
   ]);
 
@@ -1688,7 +1688,7 @@ To democratize access to professional trading education and real-time market ins
 
 async function handleSupport(chatId: number, userId: string): Promise<void> {
   const baseMessage =
-    (await getBotContent('support')) ||
+    (await getBotContent('support_message')) ||
     `🛟 **Customer Support**\n\nOur dedicated team is here to help you!\n\nInclude your user ID \`${userId}\` when contacting us.\n\n`;
 
   const links = await getContactLinks();
@@ -2334,7 +2334,7 @@ async function handlePromoCodeInput(
 }
 
 async function handleFAQ(chatId: number, _userId: string): Promise<void> {
-  const content = await getBotContent('faq') || `❓ **Frequently Asked Questions**
+  const content = await getBotContent('faq_general') || `❓ **Frequently Asked Questions**
 
 🔷 **Q: How do I join VIP?**
 A: Select a VIP package, complete payment, and you'll be added automatically after verification.
@@ -2367,6 +2367,11 @@ A: Yes! We offer comprehensive courses for beginners to advanced traders.
   };
 
   await sendMessage(chatId, content, keyboard);
+}
+
+async function handleHelpAndFAQ(chatId: number, userId: string, firstName: string): Promise<void> {
+  await handleHelpCommand(chatId, userId, firstName);
+  await handleFAQ(chatId, userId);
 }
 
 async function handleTerms(chatId: number, _userId: string): Promise<void> {
@@ -6320,8 +6325,8 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
               await handleViewPromotions(chatId, userId);
             } else if (callbackData === 'trading_results') {
               await handleTradingResults(chatId, userId);
-            } else if (callbackData === 'faq') {
-              await handleFAQ(chatId, userId);
+            } else if (callbackData === 'help_faq') {
+              await handleHelpAndFAQ(chatId, userId, firstName);
             } else if (callbackData === 'terms') {
               await handleTerms(chatId, userId);
             } else if (callbackData === 'view_education') {
