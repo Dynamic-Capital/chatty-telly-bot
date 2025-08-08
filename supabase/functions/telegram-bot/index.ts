@@ -20,13 +20,16 @@ import {
   handleBotSettingsManagement,
   handleTableStatsOverview
 } from "./admin-handlers.ts";
-import { ocrTextFromBlob, parseReceipt } from "./ocr.ts";
-
+// OCR utilities are loaded dynamically when enabled to avoid
+// startup failures if the external dependency is unavailable.
 const DEFAULT_BOT_SETTINGS: Record<string, string> = {
   session_timeout_minutes: "30",
   payment_timeout_minutes: "60",
   admin_notifications: "true",
-  max_login_attempts: "5"
+  max_login_attempts: "5",
+  // Enable or disable OCR-based receipt verification.
+  // When disabled, receipts are stored for manual review without OCR.
+  ocr_enabled: "true",
 };
 
 // Rate limiting and anti-spam protection
@@ -905,6 +908,7 @@ async function deleteMessage(chatId: number, messageId: number): Promise<boolean
 async function handleBankReceipt(message: TelegramMessage, userId: string): Promise<void> {
   try {
     const chatId = message.chat.id;
+    const ocrEnabled = (await getBotSetting('ocr_enabled')) !== 'false';
     const fileId = message.photo
       ? message.photo[message.photo.length - 1].file_id
       : message.document?.file_id;
@@ -947,11 +951,22 @@ async function handleBankReceipt(message: TelegramMessage, userId: string): Prom
       .getPublicUrl(storagePath);
     const fileUrl = urlData.publicUrl;
 
-    const text = await ocrTextFromBlob(blob);
-    const ocr = parseReceipt(text);
+    let ocr = {
+      text: null as string | null,
+      total: null as number | null,
+      dateText: null as string | null,
+      success: false,
+      beneficiary: null as string | null,
+      payCode: null as string | null,
+    };
+    if (ocrEnabled) {
+      const { ocrTextFromBlob, parseReceipt } = await import('./ocr.ts');
+      const text = await ocrTextFromBlob(blob);
+      ocr = parseReceipt(text);
+    }
 
     let intent = null;
-    if (ocr.payCode) {
+    if (ocrEnabled && ocr.payCode) {
       const { data } = await supabaseAdmin
         .from('payment_intents')
         .select('*')
@@ -977,49 +992,69 @@ async function handleBankReceipt(message: TelegramMessage, userId: string): Prom
         user_id: userId,
         file_url: fileUrl,
         image_sha256: hashHex,
-        ocr_text: ocr.text,
-        ocr_amount: ocr.total,
-        ocr_timestamp: ocr.dateText ? new Date(ocr.dateText).toISOString() : null,
-        ocr_beneficiary: ocr.beneficiary,
-        ocr_pay_code: ocr.payCode,
+        ...(ocrEnabled ? {
+          ocr_text: ocr.text,
+          ocr_amount: ocr.total,
+          ocr_timestamp: ocr.dateText ? new Date(ocr.dateText).toISOString() : null,
+          ocr_beneficiary: ocr.beneficiary,
+          ocr_pay_code: ocr.payCode,
+        } : {}),
         reason: 'no_intent_found',
       });
-      await sendMessage(chatId, "❓ Receipt received but no matching payment found. Our team will review it.");
+      await sendMessage(chatId, ocrEnabled
+        ? "❓ Receipt received but no matching payment found. Our team will review it."
+        : "📥 Receipt received. Our team will review it shortly.");
       return;
     }
 
-    const windowSeconds = 180;
-    const amtOK = ocr.total != null &&
-      Math.abs(ocr.total - intent.expected_amount) / intent.expected_amount <= 0.02;
-    const ocrDate = ocr.dateText ? new Date(ocr.dateText) : undefined;
-    const timeOK = ocrDate
-      ? Math.abs(ocrDate.getTime() - new Date(intent.created_at).getTime()) / 1000 <= windowSeconds
-      : false;
-    const beneficiaryOK = (ocr.beneficiary ?? "").toLowerCase().includes("dynamic");
-    const payCodeOK = intent.pay_code && ocr.payCode === intent.pay_code;
-    const approve = (amtOK && timeOK && beneficiaryOK) && (ocr.success || payCodeOK);
+    if (ocrEnabled) {
+      const windowSeconds = 180;
+      const amtOK = ocr.total != null &&
+        Math.abs(ocr.total - intent.expected_amount) / intent.expected_amount <= 0.02;
+      const ocrDate = ocr.dateText ? new Date(ocr.dateText) : undefined;
+      const timeOK = ocrDate
+        ? Math.abs(ocrDate.getTime() - new Date(intent.created_at).getTime()) / 1000 <= windowSeconds
+        : false;
+      const beneficiaryOK = (ocr.beneficiary ?? "").toLowerCase().includes("dynamic");
+      const payCodeOK = intent.pay_code && ocr.payCode === intent.pay_code;
+      const approve = (amtOK && timeOK && beneficiaryOK) && (ocr.success || payCodeOK);
 
-    await supabaseAdmin.from('receipts').insert({
-      payment_id: intent.id,
-      user_id: userId,
-      file_url: fileUrl,
-      image_sha256: hashHex,
-      ocr_text: ocr.text,
-      ocr_amount: ocr.total,
-      ocr_timestamp: ocrDate?.toISOString(),
-      ocr_beneficiary: ocr.beneficiary,
-      ocr_pay_code: ocr.payCode,
-      verdict: approve ? 'approved' : 'manual_review',
-      reason: approve ? null : 'auto_rules_failed',
-    });
+      await supabaseAdmin.from('receipts').insert({
+        payment_id: intent.id,
+        user_id: userId,
+        file_url: fileUrl,
+        image_sha256: hashHex,
+        ocr_text: ocr.text,
+        ocr_amount: ocr.total,
+        ocr_timestamp: ocrDate?.toISOString(),
+        ocr_beneficiary: ocr.beneficiary,
+        ocr_pay_code: ocr.payCode,
+        verdict: approve ? 'approved' : 'manual_review',
+        reason: approve ? null : 'auto_rules_failed',
+      });
 
-    if (approve) {
-      await supabaseAdmin
-        .from('payment_intents')
-        .update({ status: 'approved', approved_at: new Date().toISOString(), pay_code: null })
-        .eq('id', intent.id);
-      await sendMessage(chatId, "✅ Payment verified successfully!");
+      if (approve) {
+        await supabaseAdmin
+          .from('payment_intents')
+          .update({ status: 'approved', approved_at: new Date().toISOString(), pay_code: null })
+          .eq('id', intent.id);
+        await sendMessage(chatId, "✅ Payment verified successfully!");
+      } else {
+        await supabaseAdmin
+          .from('payment_intents')
+          .update({ status: 'manual_review', pay_code: null })
+          .eq('id', intent.id);
+        await sendMessage(chatId, "📥 Receipt received. It will be reviewed shortly.");
+      }
     } else {
+      await supabaseAdmin.from('receipts').insert({
+        payment_id: intent.id,
+        user_id: userId,
+        file_url: fileUrl,
+        image_sha256: hashHex,
+        verdict: 'manual_review',
+        reason: 'ocr_disabled',
+      });
       await supabaseAdmin
         .from('payment_intents')
         .update({ status: 'manual_review', pay_code: null })
@@ -5609,6 +5644,18 @@ serve(async (req: Request): Promise<Response> => {
       // Handle /refresh command for admins
       if (text === '/refresh' && isAdmin(userId)) {
         await handleRefreshBot(chatId, userId);
+        return new Response("OK", { status: 200 });
+      }
+
+      // Admin commands to toggle OCR processing
+      if (text === '/enable_ocr' && isAdmin(userId)) {
+        await setBotSetting('ocr_enabled', 'true', userId);
+        await sendMessage(chatId, '🖼️ OCR processing enabled.');
+        return new Response("OK", { status: 200 });
+      }
+      if (text === '/disable_ocr' && isAdmin(userId)) {
+        await setBotSetting('ocr_enabled', 'false', userId);
+        await sendMessage(chatId, '🖼️ OCR processing disabled.');
         return new Response("OK", { status: 200 });
       }
 
