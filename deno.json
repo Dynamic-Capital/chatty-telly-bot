@@ -1,9 +1,13 @@
+// Explicit booleans for Supabase Edge Functions
 {
   "tasks": {
     "check": "deno check supabase/functions/telegram-bot/*.ts supabase/functions/telegram-bot/**/*.ts",
     "serve": "supabase functions serve"
   },
-  "nodeModulesDir": "auto",
+  "nodeModulesDir": false,
+  "vendor": true,
+  "unstable": [],
+  "lock": false,
   "compilerOptions": {
     "types": ["./types/tesseract.d.ts"]
   }

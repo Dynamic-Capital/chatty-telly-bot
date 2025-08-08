@@ -31,6 +31,7 @@ serve(async (req) => {
     }
 
     // Set webhook URL to our edge function
+    // Append ?forceFunctionRegion=<project-region> for latency pinning
     const webhookUrl = `${SUPABASE_URL}/functions/v1/telegram-bot`;
     
     console.log(`🔗 Setting webhook to: ${webhookUrl}`);

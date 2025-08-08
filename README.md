@@ -70,6 +70,11 @@ npm run dev
 - Edge functions (e.g., `telegram-bot`) handle callbacks from Telegram and read/write to Supabase.
 - Admins can edit or delete bot content directly from Telegram; changes are persisted to the database.
 
+## Monitoring
+
+Enable Log Drains (Datadog or HTTP) and set alerts for 5xx spikes and wall-clock limits to keep the bot healthy.
+When configuring the Telegram `setWebhook`, include `forceFunctionRegion=<project-region>` in the URL to pin it to your region.
+
 ## Branch protection
 
 The `main` branch contains the core, production-ready code and should be protected. Use the `work` branch for day‑to‑day development and merge through pull requests to avoid accidental overwrites.
