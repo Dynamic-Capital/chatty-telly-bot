@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
 });
 
 // Import utility functions
-import { logAdminAction, getBotContent, setBotContent, getBotSetting, setBotSetting } from "./database-utils.ts";
+import { logAdminAction, getBotContent } from "./database-utils.ts";
 
 export async function sendMessage(
   chatId: number,
@@ -68,7 +68,7 @@ function buildMessage(title: string, sections: MessageSection[]): string {
 }
 
 // Enhanced table management handlers
-export async function handleTableManagement(chatId: number, userId: string): Promise<void> {
+export async function handleTableManagement(chatId: number, _userId: string): Promise<void> {
   const defaultTableMessage = `🗃️ *Database Table Management*
 
 📊 *Available Tables:*
@@ -136,7 +136,7 @@ View, Create, Edit, Delete, Export data for any table.`;
 }
 
 // Individual table management handlers
-export async function handleUserTableManagement(chatId: number, userId: string): Promise<void> {
+export async function handleUserTableManagement(chatId: number, _userId: string): Promise<void> {
   try {
     const { data: users, error: _error } = await supabaseAdmin
       .from('bot_users')
@@ -201,7 +201,7 @@ export async function handleUserTableManagement(chatId: number, userId: string):
   }
 }
 
-export async function handleSubscriptionPlansManagement(chatId: number, userId: string): Promise<void> {
+export async function handleSubscriptionPlansManagement(chatId: number, _userId: string): Promise<void> {
   try {
     const { data: plans, error } = await supabaseAdmin
       .from('subscription_plans')
@@ -253,7 +253,7 @@ export async function handleSubscriptionPlansManagement(chatId: number, userId: 
   }
 }
 
-export async function handlePlanChannelsManagement(chatId: number, userId: string): Promise<void> {
+export async function handlePlanChannelsManagement(chatId: number, _userId: string): Promise<void> {
   try {
     const { data: channels, error } = await supabaseAdmin
       .from('plan_channels')
@@ -291,7 +291,7 @@ export async function handlePlanChannelsManagement(chatId: number, userId: strin
 }
 
 // Handle VIP plan editing workflow
-export async function handleEditVipPlan(chatId: number, userId: string): Promise<void> {
+export async function handleEditVipPlan(chatId: number, _userId: string): Promise<void> {
   try {
     const { data: plans, error } = await supabaseAdmin
       .from('subscription_plans')
@@ -330,7 +330,7 @@ export async function handleEditVipPlan(chatId: number, userId: string): Promise
 }
 
 // Handle specific plan editing
-export async function handleEditSpecificPlan(chatId: number, userId: string, planId: string): Promise<void> {
+export async function handleEditSpecificPlan(chatId: number, _userId: string, planId: string): Promise<void> {
   try {
     const { data: plan, error } = await supabaseAdmin
       .from('subscription_plans')
@@ -526,7 +526,7 @@ export async function handleEditPlanDuration(chatId: number, userId: string, pla
 }
 
 // Handle plan features editing
-export async function handleEditPlanFeatures(chatId: number, userId: string, planId: string): Promise<void> {
+export async function handleEditPlanFeatures(chatId: number, _userId: string, planId: string): Promise<void> {
   try {
     const { data: plan, error } = await supabaseAdmin
       .from('subscription_plans')
@@ -656,7 +656,7 @@ export async function handleCreateVipPlan(chatId: number, userId: string): Promi
 }
 
 // Handle plan deletion confirmation
-export async function handleDeleteVipPlan(chatId: number, userId: string): Promise<void> {
+export async function handleDeleteVipPlan(chatId: number, _userId: string): Promise<void> {
   try {
     const { data: plans, error } = await supabaseAdmin
       .from('subscription_plans')
@@ -696,7 +696,7 @@ export async function handleDeleteVipPlan(chatId: number, userId: string): Promi
 }
 
 // Handle plan deletion confirmation
-export async function handleConfirmDeletePlan(chatId: number, userId: string, planId: string): Promise<void> {
+export async function handleConfirmDeletePlan(chatId: number, _userId: string, planId: string): Promise<void> {
   try {
     const { data: plan, error } = await supabaseAdmin
       .from('subscription_plans')
@@ -863,7 +863,7 @@ export async function handleTogglePlanLifetime(chatId: number, userId: string, p
     await sendMessage(chatId, "❌ Error toggling plan lifetime status. Please try again.");
   }
 }
-export async function handleEducationPackagesManagement(chatId: number, userId: string): Promise<void> {
+export async function handleEducationPackagesManagement(chatId: number, _userId: string): Promise<void> {
   try {
     const { data: packages, error: _error } = await supabaseAdmin
       .from('education_packages')
@@ -911,7 +911,7 @@ export async function handleEducationPackagesManagement(chatId: number, userId: 
   }
 }
 
-export async function handlePromotionsManagement(chatId: number, userId: string): Promise<void> {
+export async function handlePromotionsManagement(chatId: number, _userId: string): Promise<void> {
   try {
     const { data: promos, error: _error } = await supabaseAdmin
       .from('promotions')
@@ -967,7 +967,7 @@ export async function handlePromotionsManagement(chatId: number, userId: string)
   }
 }
 
-export async function handleContentManagement(chatId: number, userId: string): Promise<void> {
+export async function handleContentManagement(chatId: number, _userId: string): Promise<void> {
   try {
     const { data: content, error } = await supabaseAdmin
       .from('bot_content')
@@ -1041,7 +1041,7 @@ export async function handleContentManagement(chatId: number, userId: string): P
   }
 }
 
-export async function handleBotSettingsManagement(chatId: number, userId: string): Promise<void> {
+export async function handleBotSettingsManagement(chatId: number, _userId: string): Promise<void> {
   try {
     const { data: settings, error: _error } = await supabaseAdmin
       .from('bot_settings')
@@ -1102,7 +1102,7 @@ export async function handleBotSettingsManagement(chatId: number, userId: string
 }
 
 // Quick stats overview for all tables
-export async function handleTableStatsOverview(chatId: number, userId: string): Promise<void> {
+export async function handleTableStatsOverview(chatId: number, _userId: string): Promise<void> {
   try {
     const tables = [
       'bot_users', 'subscription_plans', 'education_packages', 'promotions',

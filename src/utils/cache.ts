@@ -9,8 +9,8 @@ const cache = new Map<string, CacheEntry<unknown>>();
 
 function getStorage() {
   try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      return window.localStorage;
+    if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
+      return (globalThis as { localStorage: Storage }).localStorage;
     }
   } catch {
     // accessing localStorage can throw in some environments

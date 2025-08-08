@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,7 +42,6 @@ interface TableInfo {
 export const SystemStatus = () => {
   const [functions, setFunctions] = useState<FunctionStatus[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
-  const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const { toast } = useToast();
   const supabasePublic = supabase.schema('public');
@@ -53,7 +52,7 @@ export const SystemStatus = () => {
     supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] ?? '';
   const openSupabase = (path: string) => {
     if (!supabaseProjectId) return;
-    window.open(
+    globalThis.open(
       `https://supabase.com/dashboard/project/${supabaseProjectId}${path}`,
       '_blank'
     );
@@ -115,74 +114,47 @@ export const SystemStatus = () => {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
       setChecking(false);
     }
   };
 
-    const checkEdgeFunctions = async (): Promise<FunctionStatus[]> => {
-      const checks = edgeFunctions.map(async (functionName) => {
-        try {
-          const startTime = Date.now();
-          const { data: _data, error } = await supabase.functions.invoke(functionName, {
-            body: { test: true }
-          });
-          const responseTime = Date.now() - startTime;
+  const checkEdgeFunctions = (): Promise<FunctionStatus[]> => {
+    const checks = edgeFunctions.map(async (functionName) => {
+      try {
+        const startTime = Date.now();
+        const { data: _data, error } = await supabase.functions.invoke(functionName, {
+          body: { test: true }
+        });
+        const responseTime = Date.now() - startTime;
 
-          return {
-            name: functionName,
-            status: error ? 'error' : 'active',
-            lastChecked: new Date().toISOString(),
-            responseTime,
-            error: error?.message
-          } as FunctionStatus;
-        } catch (error) {
-          return {
-            name: functionName,
-            status: 'error',
-            lastChecked: new Date().toISOString(),
-            error: (error as Error).message
-          } as FunctionStatus;
-        }
-      });
+        return {
+          name: functionName,
+          status: error ? 'error' : 'active',
+          lastChecked: new Date().toISOString(),
+          responseTime,
+          error: error?.message
+        } as FunctionStatus;
+      } catch (error) {
+        return {
+          name: functionName,
+          status: 'error',
+          lastChecked: new Date().toISOString(),
+          error: (error as Error).message
+        } as FunctionStatus;
+      }
+    });
 
-      return Promise.all(checks);
-    };
+    return Promise.all(checks);
+  };
 
-    const checkDatabaseTables = async (): Promise<TableInfo[]> => {
-      const checks = coreTables.map(async (tableName) => {
-        try {
-          const { count, error: countError } = await supabasePublic
-            .from(tableName as any)
-            .select('*', { count: 'exact', head: true });
+  const checkDatabaseTables = (): Promise<TableInfo[]> => {
+    const checks = coreTables.map(async (tableName) => {
+      try {
+        const { count, error: countError } = await supabasePublic
+          .from(tableName as never)
+          .select('*', { count: 'exact', head: true });
 
-          if (countError) {
-            return {
-              name: tableName,
-              recordCount: 0,
-              hasRLS: false,
-              status: 'error'
-            } as TableInfo;
-          }
-
-          // Get last updated using created_at as a universal field
-          const { data: latestRecord } = await (supabasePublic as any)
-            .from(tableName as any)
-            .select('created_at' as any)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          const lastUpdated = latestRecord?.created_at;
-
-          return {
-            name: tableName,
-            recordCount: count || 0,
-            lastUpdated,
-            hasRLS: true,
-            status: 'healthy'
-          } as TableInfo;
-        } catch (error) {
+        if (countError) {
           return {
             name: tableName,
             recordCount: 0,
@@ -190,10 +162,36 @@ export const SystemStatus = () => {
             status: 'error'
           } as TableInfo;
         }
-      });
 
-      return Promise.all(checks);
-    };
+        // Get last updated using created_at as a universal field
+        const { data: latestRecord } = await supabasePublic
+          .from(tableName as never)
+          .select('created_at')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const lastUpdated = latestRecord?.created_at;
+
+        return {
+          name: tableName,
+          recordCount: count || 0,
+          lastUpdated,
+          hasRLS: true,
+          status: 'healthy'
+        } as TableInfo;
+      } catch (_error) {
+        return {
+          name: tableName,
+          recordCount: 0,
+          hasRLS: false,
+          status: 'error'
+        } as TableInfo;
+      }
+    });
+
+    return Promise.all(checks);
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {

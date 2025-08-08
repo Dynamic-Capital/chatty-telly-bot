@@ -1140,7 +1140,7 @@ async function getVipPackagesKeyboard(): Promise<InlineKeyboard> {
   return { inline_keyboard: buttons };
 }
 
-async function getMainMenuKeyboard(): Promise<InlineKeyboard> {
+function getMainMenuKeyboard(): InlineKeyboard {
   return {
     inline_keyboard: [
       [
@@ -1221,7 +1221,6 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
     // Check if user has applied promo code
     const userSession = userSessions.get(userId);
     let finalPrice = 0;
-    let discount = 0;
     let promoCode = '';
 
     // Get package details
@@ -1239,7 +1238,6 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
 
     if (userSession && userSession.type === 'promo_applied' && userSession.packageId === packageId) {
       finalPrice = userSession.finalPrice;
-      discount = userSession.discount;
       promoCode = userSession.promoCode;
       console.log(`🎫 Using promo: ${promoCode}, final price: $${finalPrice}`);
     } else {
@@ -1277,26 +1275,28 @@ async function handlePaymentMethodSelection(chatId: number, userId: string, pack
     let paymentInstructions = '';
     
     switch (method) {
-      case 'binance':
+      case 'binance': {
         console.log('🟡 Processing Binance Pay instructions');
-        // Use final price (after promo) for payment instructions
         const binancePkg = { ...pkg, price: finalPrice };
         paymentInstructions = await getBinancePayInstructions(binancePkg, subscription.id);
         break;
-      case 'crypto':
+      }
+      case 'crypto': {
         console.log('₿ Processing Crypto instructions');
         const cryptoPkg = { ...pkg, price: finalPrice };
         paymentInstructions = await getCryptoPayInstructions(cryptoPkg, subscription.id);
         break;
-      case 'bank':
+      }
+      case 'bank': {
         console.log('🏦 Processing Bank Transfer instructions');
-        const bankPkg = { ...pkg, price: finalPrice };
-        paymentInstructions = await getBankTransferInstructions(pkg, subscription.id);
+        paymentInstructions = await getBankTransferInstructions({ ...pkg, price: finalPrice }, subscription.id);
         break;
-      default:
+      }
+      default: {
         console.error(`❌ Unknown payment method: ${method}`);
         await sendMessage(chatId, `❌ Unknown payment method: ${method}. Please try again.`);
         return;
+      }
     }
 
     console.log(`📝 Payment instructions generated for method: ${method}`);
@@ -1585,7 +1585,7 @@ async function notifyAdminsNewPayment(userId: string, packageName: string, metho
 }
 
 // Other callback handlers
-async function handleAboutUs(chatId: number, userId: string): Promise<void> {
+async function handleAboutUs(chatId: number, _userId: string): Promise<void> {
   const content = await getBotContent('about_us') || `🏢 **About Dynamic Capital**
 
 We are a leading trading education and signal provider focused on helping traders achieve consistent profitability.
@@ -1659,7 +1659,7 @@ Our dedicated support team is here to help you 24/7!
   await sendMessage(chatId, content, keyboard);
 }
 
-async function handleViewPromotions(chatId: number, userId: string): Promise<void> {
+async function handleViewPromotions(chatId: number, _userId: string): Promise<void> {
   try {
     const { data: promos, error } = await supabaseAdmin
       .from('promotions')
@@ -1686,7 +1686,7 @@ Follow our announcements for upcoming deals and discounts.
 
 💡 **Tip:** VIP members get exclusive early access to all promotions!`;
     } else {
-      promos.forEach((promo, index) => {
+      promos.forEach((promo, _index) => {
         const validUntil = new Date(promo.valid_until).toLocaleDateString();
         const discountText = promo.discount_type === 'percentage' 
           ? `${promo.discount_value}% OFF` 
@@ -1964,7 +1964,7 @@ Join our VIP community for detailed analysis and insights.
   }
 }
 
-async function handlePromoCodeApplication(chatId: number, userId: string, promoCode: string, packageId: string): Promise<{ valid: boolean; discount: number; finalPrice: number; message: string }> {
+async function handlePromoCodeApplication(_chatId: number, userId: string, promoCode: string, packageId: string): Promise<{ valid: boolean; discount: number; finalPrice: number; message: string }> {
   try {
     console.log(`🎫 Applying promo code ${promoCode} for user ${userId} on package ${packageId}`);
     
@@ -2266,7 +2266,7 @@ async function handlePromoCodeInput(
   }
 }
 
-async function handleFAQ(chatId: number, userId: string): Promise<void> {
+async function handleFAQ(chatId: number, _userId: string): Promise<void> {
   const content = await getBotContent('faq') || `❓ **Frequently Asked Questions**
 
 🔷 **Q: How do I join VIP?**
@@ -2302,7 +2302,7 @@ A: Yes! We offer comprehensive courses for beginners to advanced traders.
   await sendMessage(chatId, content, keyboard);
 }
 
-async function handleTerms(chatId: number, userId: string): Promise<void> {
+async function handleTerms(chatId: number, _userId: string): Promise<void> {
   const content = await getBotContent('terms') || `📋 **Terms of Service**
 
 **Last updated:** January 2025
@@ -2342,7 +2342,7 @@ Dynamic Capital is not liable for trading losses incurred using our services.
   await sendMessage(chatId, content, keyboard);
 }
 
-async function handleViewEducation(chatId: number, userId: string): Promise<void> {
+async function handleViewEducation(chatId: number, _userId: string): Promise<void> {
   try {
     console.log("🎓 Fetching education packages from database...");
     const { data: packages, error } = await supabaseAdmin
@@ -2372,7 +2372,7 @@ We're preparing amazing educational content for you.
 
 💡 **In the meantime:** Join VIP for access to daily market analysis and real-time learning opportunities!`;
     } else {
-      packages.forEach((pkg, index) => {
+      packages.forEach((pkg, _index) => {
         const features = pkg.features && Array.isArray(pkg.features) ? pkg.features.slice(0, 3) : [];
         const featuresText = features.length > 0 ? features.map((f: string) => `• ${f}`).join('\n   ') : '• Comprehensive trading education';
         
@@ -2439,7 +2439,7 @@ ${studentInfo}
 }
 
 // Education Package Selection Handler
-async function handleEducationPackageSelection(chatId: number, userId: string, packageId: string, firstName: string): Promise<void> {
+async function handleEducationPackageSelection(chatId: number, userId: string, packageId: string, _firstName: string): Promise<void> {
   try {
     console.log(`🎓 User ${userId} selected education package: ${packageId}`);
     
@@ -5147,47 +5147,47 @@ function generatePaymentCSV(payments: PaymentCSV[]): string {
 }
 
 // Placeholder admin handlers for future implementation
-async function handleAddAdminUser(chatId: number, userId: string): Promise<void> {
+async function handleAddAdminUser(chatId: number, _userId: string): Promise<void> {
   await sendMessage(chatId, '🚧 Admin user management coming soon.');
 }
 
-async function handleSearchUser(chatId: number, userId: string): Promise<void> {
+async function handleSearchUser(chatId: number, _userId: string): Promise<void> {
   await sendMessage(chatId, '🔍 User search feature coming soon.');
 }
 
-async function handleManageVipUsers(chatId: number, userId: string): Promise<void> {
+async function handleManageVipUsers(chatId: number, _userId: string): Promise<void> {
   await sendMessage(chatId, '👥 VIP user management coming soon.');
 }
 
-async function handleExportUsers(chatId: number, userId: string): Promise<void> {
+async function handleExportUsers(chatId: number, _userId: string): Promise<void> {
   await sendMessage(chatId, '📤 User export feature coming soon.');
 }
 
-async function handleCreateVipPlan(chatId: number, userId: string): Promise<void> {
+async function handleCreateVipPlan(chatId: number, _userId: string): Promise<void> {
   await sendMessage(chatId, '🆕 VIP plan creation coming soon.');
 }
 
-async function handleEditVipPlan(chatId: number, userId: string): Promise<void> {
+async function handleEditVipPlan(chatId: number, _userId: string): Promise<void> {
   await sendMessage(chatId, '✏️ VIP plan editing coming soon.');
 }
 
-async function handleDeleteVipPlan(chatId: number, userId: string): Promise<void> {
+async function handleDeleteVipPlan(chatId: number, _userId: string): Promise<void> {
   await sendMessage(chatId, '🗑️ VIP plan deletion coming soon.');
 }
 
-async function handleVipPlanStats(chatId: number, userId: string): Promise<void> {
+async function handleVipPlanStats(chatId: number, _userId: string): Promise<void> {
   await sendMessage(chatId, '📊 VIP plan statistics coming soon.');
 }
 
-async function handleUpdatePlanPricing(chatId: number, userId: string): Promise<void> {
+async function handleUpdatePlanPricing(chatId: number, _userId: string): Promise<void> {
   await sendMessage(chatId, '💰 Plan pricing update coming soon.');
 }
 
-async function handleManagePlanFeatures(chatId: number, userId: string): Promise<void> {
+async function handleManagePlanFeatures(chatId: number, _userId: string): Promise<void> {
   await sendMessage(chatId, '✨ Plan feature management coming soon.');
 }
 
-async function handleMakeUserVip(chatId: number, adminId: string, targetUserId: string): Promise<void> {
+async function handleMakeUserVip(chatId: number, _adminId: string, targetUserId: string): Promise<void> {
   await sendMessage(chatId, `👑 Making user ${targetUserId} VIP is coming soon.`);
 }
 
@@ -5223,7 +5223,7 @@ serve(async (req: Request): Promise<Response> => {
     const chatId = update.message?.chat?.id || update.callback_query?.message?.chat?.id;
     const userId = from.id.toString();
     const firstName = from.first_name || 'Friend';
-    const lastName = from.last_name;
+    const _lastName = from.last_name;
     const username = from.username;
 
     console.log(`👤 Processing update for user: ${userId} (${firstName})`);
@@ -5456,12 +5456,13 @@ serve(async (req: Request): Promise<Response> => {
       try {
         console.log(`🔍 Processing callback switch for: ${callbackData}`);
         switch (callbackData) {
-          case 'view_vip_packages':
+          case 'view_vip_packages': {
             console.log("💎 Displaying VIP packages");
             const vipMessage = await getFormattedVipPackages();
             const vipKeyboard = await getVipPackagesKeyboard();
             await sendMessage(chatId, vipMessage, vipKeyboard);
             break;
+          }
 
           case 'view_education':
             console.log("🎓 Displaying education packages");
@@ -5553,7 +5554,7 @@ serve(async (req: Request): Promise<Response> => {
               try {
                 // End sessions older than 24 hours
                 const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-                const { data, error } = await supabaseAdmin
+                const { data, error: _error } = await supabaseAdmin
                   .from('bot_sessions')
                   .update({ 
                     session_end: new Date().toISOString(),

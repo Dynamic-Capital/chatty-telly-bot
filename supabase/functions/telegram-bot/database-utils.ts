@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, no-prototype-builtins */
+/* eslint-disable no-prototype-builtins */
 // Database utility functions for the Telegram bot
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -8,6 +8,16 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },
 });
+
+interface VipPackage {
+  id: string;
+  name: string;
+  price: number;
+  currency: string;
+  duration_months: number;
+  is_lifetime: boolean;
+  features: string[];
+}
 
 // Content management functions
 export async function getBotContent(contentKey: string): Promise<string | null> {
@@ -186,7 +196,7 @@ export async function setBotSetting(settingKey: string, settingValue: string, ad
 }
 
 // VIP package management functions
-export async function getVipPackages(): Promise<any[]> {
+export async function getVipPackages(): Promise<VipPackage[]> {
   try {
     const { data, error } = await supabaseAdmin
       .from('subscription_plans')
@@ -264,14 +274,14 @@ export async function getFormattedVipPackages(): Promise<string> {
   return message;
 }
 
-export async function createVipPackage(packageData: any, adminId: string): Promise<boolean> {
+export async function createVipPackage(packageData: VipPackage, adminId: string): Promise<boolean> {
   try {
     const { error } = await supabaseAdmin
       .from('subscription_plans')
       .insert(packageData);
 
     if (!error) {
-      await logAdminAction(adminId, 'package_create', `Created VIP package: ${packageData.name}`, 'subscription_plans', undefined, {}, packageData);
+      await logAdminAction(adminId, 'package_create', `Created VIP package: ${packageData.name}`, 'subscription_plans', undefined, {}, packageData as unknown as Record<string, unknown>);
     }
 
     return !error;
@@ -281,7 +291,7 @@ export async function createVipPackage(packageData: any, adminId: string): Promi
   }
 }
 
-export async function updateVipPackage(packageId: string, packageData: any, adminId: string): Promise<boolean> {
+export async function updateVipPackage(packageId: string, packageData: Partial<VipPackage>, adminId: string): Promise<boolean> {
   try {
     console.log('Updating VIP package:', { packageId, packageData, adminId });
     
@@ -307,10 +317,15 @@ export async function updateVipPackage(packageId: string, packageData: any, admi
 }
 
 // Process text input for plan editing
+interface PlanEditSession {
+  plan_id?: string;
+  awaiting_input?: string;
+}
+
 export async function processPlaneEditInput(
-  userId: string, 
-  inputText: string, 
-  sessionData: any
+  userId: string,
+  inputText: string,
+  sessionData: PlanEditSession
 ): Promise<{ success: boolean; message: string; planId?: string }> {
   try {
     const { plan_id: planId, awaiting_input } = sessionData;
@@ -471,7 +486,8 @@ export async function processPlaneEditInput(
 async function processCreatePlanInput(userId: string, inputText: string): Promise<{ success: boolean; message: string }> {
   try {
     const lines = inputText.split('\n').map(line => line.trim()).filter(line => line);
-    const planData: any = {};
+    interface PlanData { features?: string[]; [key: string]: unknown }
+    const planData: PlanData = {};
 
     for (const line of lines) {
       const [key, ...valueParts] = line.split(':');
@@ -579,7 +595,7 @@ export async function deleteVipPackage(packageId: string, adminId: string): Prom
 }
 
 // Education package management functions
-export async function getEducationPackages(): Promise<any[]> {
+export async function getEducationPackages(): Promise<Record<string, unknown>[]> {
   try {
     const { data, error: _error } = await supabaseAdmin
       .from('education_packages')
@@ -594,7 +610,7 @@ export async function getEducationPackages(): Promise<any[]> {
   }
 }
 
-export async function createEducationPackage(packageData: any, adminId: string): Promise<boolean> {
+export async function createEducationPackage(packageData: Record<string, unknown>, adminId: string): Promise<boolean> {
   try {
     const { error } = await supabaseAdmin
       .from('education_packages')
@@ -612,7 +628,7 @@ export async function createEducationPackage(packageData: any, adminId: string):
 }
 
 // Promotion management functions
-export async function getActivePromotions(): Promise<any[]> {
+export async function getActivePromotions(): Promise<Record<string, unknown>[]> {
   try {
     const { data, error: _error } = await supabaseAdmin
       .from('promotions')
@@ -628,7 +644,7 @@ export async function getActivePromotions(): Promise<any[]> {
   }
 }
 
-export async function createPromotion(promoData: any, adminId: string): Promise<boolean> {
+export async function createPromotion(promoData: Record<string, unknown>, adminId: string): Promise<boolean> {
   try {
     const { error } = await supabaseAdmin
       .from('promotions')
@@ -652,8 +668,8 @@ export async function logAdminAction(
   description: string,
   affectedTable?: string,
   affectedRecordId?: string,
-  oldValues?: any,
-  newValues?: any
+  oldValues?: Record<string, unknown>,
+  newValues?: Record<string, unknown>
 ): Promise<void> {
   try {
     await supabaseAdmin
@@ -673,7 +689,7 @@ export async function logAdminAction(
 }
 
 // User activity functions
-export async function updateUserActivity(telegramUserId: string, activityData: any = {}): Promise<void> {
+export async function updateUserActivity(telegramUserId: string, activityData: Record<string, unknown> = {}): Promise<void> {
   try {
     // Update user's last activity
     await supabaseAdmin
