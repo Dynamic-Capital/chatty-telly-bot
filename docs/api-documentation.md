@@ -244,7 +244,7 @@ async function handleAdminCommand(chatId: number, userId: string): Promise<void>
 ## 👨‍💼 Admin Functions
 
 ### Version Notifications
-The bot tracks its code version using the `BOT_VERSION` environment variable. When a new version is deployed, all admins receive a message with the updated version and the bot automatically refreshes its configuration and prompts.
+The bot tracks its code version (bot number) using the `BOT_VERSION` environment variable. When a new version is deployed, all admins receive a message with the updated version and the bot automatically refreshes its configuration and prompts. Admins also receive the current bot number and a status report whenever they start a new session with `/start`, ensuring the bot number stays current with each development.
 
 ### Dashboard Management
 ```typescript

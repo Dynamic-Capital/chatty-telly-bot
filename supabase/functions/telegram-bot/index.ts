@@ -2998,6 +2998,7 @@ async function handleAdminDashboard(chatId: number, userId: string): Promise<voi
     const adminMessage = `🔐 *Enhanced Admin Dashboard*
 
 📊 *System Status:* ${botStatus}
+🆔 *Bot Version:* ${BOT_VERSION}
 👤 *Admin:* ${userId}
 🕐 *Uptime:* ${uptime} minutes
 🕐 *Last Updated:* ${new Date().toLocaleString()}
@@ -3216,6 +3217,7 @@ async function handleBotStatus(chatId: number, userId: string): Promise<void> {
 
     const statusMessage = `📊 *Bot Status Report*
 
+🆔 *Bot Version:* ${BOT_VERSION}
 🕐 *Uptime:* ${hours}h ${minutes}m ${seconds}s
 📅 *Started:* ${BOT_START_TIME.toLocaleString()}
 
@@ -5542,7 +5544,10 @@ serve(async (req: Request): Promise<Response> => {
             console.log(`📤 Sending welcome message to user: ${userId}`);
             await sendMessage(chatId, welcomeMessage, keyboard);
             console.log(`✅ Welcome message sent successfully to user: ${userId}`);
-            
+            if (isAdmin(userId)) {
+              await handleBotStatus(chatId, userId);
+            }
+
             return new Response("OK", { status: 200 });
           } catch (error) {
             console.error(`❌ Error in /start command for user ${userId}:`, error);
