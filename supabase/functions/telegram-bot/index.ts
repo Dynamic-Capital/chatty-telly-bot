@@ -5070,7 +5070,9 @@ serve(async (req) => {
       }
 
       // Handle /start command with dynamic welcome message
-      if (text === '/start') {
+      // Telegram's deep linking can include parameters after the command,
+      // so we only check that the message *starts* with "/start".
+      if (text.startsWith('/start')) {
         console.log(`🚀 Start command from: ${userId} (${firstName})`);
         
         // Add timeout to prevent hanging
