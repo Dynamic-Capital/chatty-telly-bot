@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2?dts";
 import { ocrTextFromBlob } from "./ocr.ts";
 import { parseBankSlip } from "./bank-parsers.ts";
 import {
