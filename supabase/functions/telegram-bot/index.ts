@@ -2138,27 +2138,30 @@ async function handlePromoCodePrompt(chatId: number, userId: string, packageId: 
         last_activity: new Date().toISOString()
       }, { onConflict: 'telegram_user_id' });
 
+    // Load active promotions to show as quick-select buttons
+    const { data: promos } = await supabaseAdmin
+      .from('promotions')
+      .select('code')
+      .eq('is_active', true);
+
+    const promoButtons = promos?.map((p) => [
+      { text: p.code, callback_data: `use_promo_${packageId}_${p.code}` }
+    ]) ?? [];
+
+    // Always include cancel option
+    promoButtons.push([
+      { text: "❌ Cancel", callback_data: `select_vip_${packageId}` }
+    ]);
+
     const message = `🎫 **Apply Promo Code**
 
 📦 **Package:** ${pkg.name}
 💰 **Original Price:** $${pkg.price} USD
 
-🔤 **Please send your promo code:**
-Simply type the promo code in your next message.
+✅ **Select a promo code below or type your own.**
+⏰ **You have 5 minutes to enter the code.**`;
 
-⏰ **You have 5 minutes to enter the code.**
-
-Example: SAVE20, WELCOME50, etc.`;
-
-    const keyboard = {
-      inline_keyboard: [
-        [
-          { text: "❌ Cancel", callback_data: `select_vip_${packageId}` }
-        ]
-      ]
-    };
-
-    await sendMessage(chatId, message, keyboard);
+    await sendMessage(chatId, message, { inline_keyboard: promoButtons });
     
   } catch (error) {
     console.error('🚨 Error in promo code prompt:', error);
@@ -6213,6 +6216,23 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
             } else if (callbackData.startsWith('apply_promo_')) {
               const packageId = callbackData.replace('apply_promo_', '');
               await handlePromoCodePrompt(chatId, userId, packageId);
+            } else if (callbackData.startsWith('use_promo_')) {
+              const [, , packageId, promoCode] = callbackData.split('_');
+              let promoSession = userSessions.get(userId);
+              if (!promoSession || promoSession.packageId !== packageId) {
+                const { data: pkg } = await supabaseAdmin
+                  .from('subscription_plans')
+                  .select('price')
+                  .eq('id', packageId)
+                  .single();
+                promoSession = {
+                  type: 'waiting_promo_code',
+                  packageId,
+                  originalPrice: pkg?.price || 0,
+                  timestamp: Date.now()
+                } as PromoSession;
+              }
+              await handlePromoCodeInput(chatId, userId, promoCode.toUpperCase(), promoSession);
             } else if (callbackData.startsWith('show_payment_')) {
               const packageId = callbackData.replace('show_payment_', '');
               await handleShowPaymentMethods(chatId, userId, packageId);
