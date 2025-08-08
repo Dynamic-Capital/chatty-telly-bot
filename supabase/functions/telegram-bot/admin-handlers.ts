@@ -1473,15 +1473,15 @@ export async function handleTableStatsOverview(
 }
 
 // Basic admin utilities
-export async function handlePing() {
+export function handlePing() {
   return { pong: true };
 }
 
-export async function handleVersion() {
+export function handleVersion() {
   return { version: Deno.env.get("BOT_VERSION") || "unknown" };
 }
 
-export async function handleEnvStatus() {
+export function handleEnvStatus() {
   return requireEnv([
     "SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
@@ -1501,7 +1501,7 @@ export async function handleReviewList() {
   return data || [];
 }
 
-export async function handleReplay(receiptId: string) {
+export function handleReplay(receiptId: string) {
   // Placeholder for reprocessing a receipt
   return { ok: true, receiptId };
 }

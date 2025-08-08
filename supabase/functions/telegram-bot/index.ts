@@ -12,6 +12,31 @@ import {
   markIntentManualReview,
 } from "./database-utils.ts";
 
+interface TelegramMessage {
+  chat: { id: number };
+  from?: { id?: number };
+  photo?: { file_id: string }[];
+  document?: { file_id: string; mime_type?: string };
+  [key: string]: unknown;
+}
+
+interface TelegramUpdate {
+  message?: TelegramMessage;
+  [key: string]: unknown;
+}
+
+interface PaymentIntent {
+  id: string;
+  user_id: string;
+  method: string;
+  status: string;
+  expected_amount: number;
+  expected_beneficiary_account_last4?: string;
+  expected_beneficiary_name?: string;
+  created_at: string;
+  pay_code?: string | null;
+}
+
 const REQUIRED_ENV_KEYS = [
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
@@ -25,8 +50,9 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
 const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
 
-const OPENAI_ENABLED = Deno.env.get("OPENAI_ENABLED") === "true";
-const FAQ_ENABLED = Deno.env.get("FAQ_ENABLED") === "true";
+// Optional feature flags (currently unused)
+const _OPENAI_ENABLED = Deno.env.get("OPENAI_ENABLED") === "true";
+const _FAQ_ENABLED = Deno.env.get("FAQ_ENABLED") === "true";
 const WINDOW_SECONDS = Number(Deno.env.get("WINDOW_SECONDS") || "180");
 const AMOUNT_TOLERANCE = Number(Deno.env.get("AMOUNT_TOLERANCE") || "0.02");
 const REQUIRE_PAY_CODE = Deno.env.get("REQUIRE_PAY_CODE") === "true";
@@ -57,25 +83,28 @@ async function notifyUser(chatId: number, text: string): Promise<void> {
   });
 }
 
-async function extractTelegramUpdate(req: Request): Promise<any> {
+async function extractTelegramUpdate(
+  req: Request,
+): Promise<TelegramUpdate | null> {
   try {
-    return await req.json();
+    return await req.json() as TelegramUpdate;
   } catch {
     return null;
   }
 }
 
-function getFileIdFromUpdate(update: any): string | null {
+function getFileIdFromUpdate(update: TelegramUpdate | null): string | null {
   const msg = update?.message;
   if (!msg) return null;
-  if (msg.photo && Array.isArray(msg.photo) && msg.photo.length > 0) {
+  if (Array.isArray(msg.photo) && msg.photo.length > 0) {
     return msg.photo[msg.photo.length - 1].file_id;
   }
+  const doc = msg.document;
   if (
-    msg.document &&
-    (!msg.document.mime_type || msg.document.mime_type.startsWith("image/"))
+    doc &&
+    (!doc.mime_type || doc.mime_type.startsWith("image/"))
   ) {
-    return msg.document.file_id;
+    return doc.file_id;
   }
   return null;
 }
@@ -129,9 +158,9 @@ async function storeReceiptImage(
   return storagePath;
 }
 
-async function startReceiptPipeline(update: any): Promise<void> {
+async function startReceiptPipeline(update: TelegramUpdate): Promise<void> {
   try {
-    const message = update.message;
+    const message = update.message!;
     const chatId = message.chat.id;
     const userId = String(message.from?.id ?? "");
     if (!rateLimitGuard(chatId)) return;
@@ -171,14 +200,14 @@ async function startReceiptPipeline(update: any): Promise<void> {
     const parsed = parseBankSlip(text);
     const supa = getSupabase();
 
-    let intent: any = null;
+    let intent: PaymentIntent | null = null;
     if (parsed.payCode) {
       const { data } = await supa
         .from("payment_intents")
         .select("*")
         .eq("pay_code", parsed.payCode)
         .maybeSingle();
-      intent = data;
+      intent = data as PaymentIntent | null;
     }
     if (!intent) {
       const { data } = await supa
@@ -190,7 +219,7 @@ async function startReceiptPipeline(update: any): Promise<void> {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      intent = data;
+      intent = data as PaymentIntent | null;
     }
 
     let verdict = "manual_review";
@@ -302,7 +331,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
 
   const update = await extractTelegramUpdate(req);
   const fileId = getFileIdFromUpdate(update);
-  if (!fileId) return okJSON();
+  if (!fileId || !update) return okJSON();
 
   startReceiptPipeline(update);
 
