@@ -4788,7 +4788,65 @@ async function handleEducationCategoriesManagement(chatId: number, userId: strin
       return;
     }
 
-    await sendMessage(chatId, "📚 Enrollment view coming soon.");
+    try {
+      const { data: enrollments, error } = await supabaseAdmin
+        .from('education_enrollments')
+        .select(`
+          *,
+          education_packages(name, price)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+
+      let message = `🎓 **Education Enrollments** (Last 20)
+
+📊 **Recent Enrollments:**
+
+`;
+
+      enrollments?.forEach((enrollment, index) => {
+        const pkg = enrollment.education_packages;
+        const statusEmoji =
+          enrollment.enrollment_status === 'completed'
+            ? '✅'
+            : enrollment.enrollment_status === 'pending'
+            ? '⏳'
+            : '📚';
+        const paymentEmoji =
+          enrollment.payment_status === 'approved' ? '💰' : '⏳';
+
+        message += `${index + 1}. ${statusEmoji} ${enrollment.student_first_name || 'Unknown'}
+   📚 ${pkg?.name || 'Unknown Package'}
+   💰 $${pkg?.price || 0} ${paymentEmoji}
+   📧 ${enrollment.student_email || 'N/A'}
+
+`;
+      });
+
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: '🔙 Back to Education', callback_data: 'manage_table_education_packages' }
+          ]
+        ]
+      };
+
+      await sendMessage(chatId, message, keyboard);
+      await logAdminAction(
+        userId,
+        'view_education_enrollments',
+        'Viewed recent education enrollments',
+        'education_enrollments'
+      );
+    } catch (error) {
+      console.error('❌ Error in education enrollments view:', error);
+      await sendMessage(
+        chatId,
+        `❌ Error loading enrollments data: ${(error as Error).message}`
+      );
+    }
   }
 
   async function handleCreatePromotion(chatId: number, userId: string): Promise<void> {
@@ -4939,54 +4997,7 @@ async function handlePreviewAllContent(chatId: number, userId: string): Promise<
     console.error('❌ Error loading all content:', error);
     await sendMessage(chatId, `❌ Error loading content: ${(error as Error).message}`);
   }
-
-  try {
-    const { data: enrollments, error } = await supabaseAdmin
-      .from('education_enrollments')
-      .select(`
-        *,
-        education_packages(name, price)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (error) throw error;
-
-    let message = `🎓 **Education Enrollments** (Last 20)
-
-📊 **Recent Enrollments:**
-
-`;
-
-    enrollments?.forEach((enrollment, index) => {
-      const package_info = enrollment.education_packages;
-      const statusEmoji = enrollment.enrollment_status === 'completed' ? '✅' : 
-                         enrollment.enrollment_status === 'pending' ? '⏳' : '📚';
-      const paymentEmoji = enrollment.payment_status === 'approved' ? '💰' : '⏳';
-      
-      message += `${index + 1}. ${statusEmoji} ${enrollment.student_first_name || 'Unknown'}
-   📚 ${package_info?.name || 'Unknown Package'}
-   💰 $${package_info?.price || 0} ${paymentEmoji}
-   📧 ${enrollment.student_email || 'N/A'}
-
-`;
-    });
-
-    const keyboard = {
-      inline_keyboard: [
-        [
-          { text: "🔙 Back to Education", callback_data: "manage_table_education_packages" }
-        ]
-      ]
-    };
-
-    await sendMessage(chatId, message, keyboard);
-
-    } catch (error) {
-      console.error('❌ Error in education enrollments view:', error);
-      await sendMessage(chatId, `❌ Error loading enrollments data: ${(error as Error).message}`);
-    }
-  }
+}
 
   async function handleQuickAnalytics(chatId: number, userId: string): Promise<void> {
   if (!isAdmin(userId)) {
@@ -5222,8 +5233,81 @@ async function handleManagePlanFeatures(chatId: number, _userId: string): Promis
   await sendMessage(chatId, '✨ Plan feature management coming soon.');
 }
 
-async function handleMakeUserVip(chatId: number, _adminId: string, targetUserId: string): Promise<void> {
-  await sendMessage(chatId, `👑 Making user ${targetUserId} VIP is coming soon.`);
+async function handleMakeUserVip(
+  chatId: number,
+  adminId: string,
+  targetUserId: string
+): Promise<void> {
+  if (!isAdmin(adminId)) {
+    await sendAccessDeniedMessage(chatId);
+    return;
+  }
+
+  try {
+    const { error, data: user } = await supabaseAdmin
+      .from('bot_users')
+      .update({ is_vip: true })
+      .eq('telegram_id', targetUserId)
+      .select('id, username')
+      .single();
+
+    if (error) throw error;
+
+    await sendMessage(chatId, `👑 User ${targetUserId} is now a VIP member.`);
+    await sendMessage(
+      Number(targetUserId),
+      '🎉 You have been granted VIP access by the administrators!'
+    );
+
+    await logAdminAction(
+      adminId,
+      'make_user_vip',
+      `Made user ${targetUserId} VIP`,
+      'bot_users',
+      user?.id
+    );
+  } catch (error) {
+    console.error('❌ Error making user VIP:', error);
+    await sendMessage(chatId, `❌ Failed to make user ${targetUserId} VIP.`);
+  }
+}
+
+async function handleMessageUser(
+  chatId: number,
+  adminId: string,
+  targetUserId: string
+): Promise<void> {
+  if (!isAdmin(adminId)) {
+    await sendAccessDeniedMessage(chatId);
+    return;
+  }
+
+  try {
+    const { data: user, error } = await supabaseAdmin
+      .from('bot_users')
+      .select('username')
+      .eq('telegram_id', targetUserId)
+      .single();
+
+    if (error) throw error;
+
+    const link = user?.username
+      ? `https://t.me/${user.username}`
+      : `tg://user?id=${targetUserId}`;
+    await sendMessage(
+      chatId,
+      `📨 Use the link below to message the user:\n${link}`
+    );
+    await logAdminAction(
+      adminId,
+      'message_user',
+      `Retrieved contact link for user ${targetUserId}`,
+      'bot_users'
+    );
+  } catch (error) {
+    console.error('❌ Error retrieving user message link:', error);
+    await sendMessage(chatId, `❌ Unable to get contact info for user ${targetUserId}.`);
+  }
 }
 
 // Main serve function
@@ -6095,7 +6179,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
               await handleMakeUserVip(chatId, userId, targetUserId);
             } else if (callbackData.startsWith('message_user_')) {
               const targetUserId = callbackData.replace('message_user_', '');
-              await sendMessage(chatId, `📧 Direct messaging to user ${targetUserId}. Feature coming soon!`);
+              await handleMessageUser(chatId, userId, targetUserId);
             } else if (
               callbackData.startsWith('edit_plan_') ||
               callbackData.startsWith('editplan')
