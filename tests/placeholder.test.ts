@@ -1,4 +1,3 @@
-// @ts-nocheck: cross-runtime test uses dynamic imports
 let registerTest;
 if (typeof Deno !== "undefined") {
   registerTest = Deno.test;

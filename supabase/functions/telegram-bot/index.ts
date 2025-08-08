@@ -5187,6 +5187,39 @@ async function handleManagePlanFeatures(chatId: number, _userId: string): Promis
   await sendMessage(chatId, '✨ Plan feature management coming soon.');
 }
 
+async function handleSendUserMessage(
+  adminChatId: number,
+  adminUserId: string,
+  targetUserId: string,
+  message: string
+): Promise<void> {
+  if (!isAdmin(adminUserId)) {
+    await sendAccessDeniedMessage(adminChatId);
+    return;
+  }
+
+  const userSession = getUserSession(adminUserId);
+  userSession.awaitingInput = null;
+
+  const targetChatId = parseInt(targetUserId, 10);
+  const result = await sendMessage(targetChatId, message);
+
+  if (result?.ok) {
+    await sendMessage(adminChatId, `✅ Message sent to user ${targetUserId}.`);
+    await logAdminAction(
+      adminUserId,
+      'direct_message',
+      `Sent message to user ${targetUserId}`,
+      'bot_users',
+      targetUserId,
+      undefined,
+      { message }
+    );
+  } else {
+    await sendMessage(adminChatId, `❌ Failed to send message to user ${targetUserId}.`);
+  }
+}
+
 async function handleMakeUserVip(chatId: number, _adminId: string, targetUserId: string): Promise<void> {
   await sendMessage(chatId, `👑 Making user ${targetUserId} VIP is coming soon.`);
 }
@@ -5384,6 +5417,11 @@ serve(async (req: Request): Promise<Response> => {
       const userSession = getUserSession(userId);
       if (userSession.awaitingInput === 'custom_broadcast_message') {
         await handleCustomBroadcastSend(chatId, userId, text);
+        return new Response("OK", { status: 200 });
+      }
+      if (userSession.awaitingInput?.startsWith('message_user:')) {
+        const targetUserId = userSession.awaitingInput.split(':')[1];
+        await handleSendUserMessage(chatId, userId, targetUserId, text);
         return new Response("OK", { status: 200 });
       }
       if (userSession.awaitingInput?.startsWith('edit_content:')) {
@@ -5995,7 +6033,9 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
               await handleMakeUserVip(chatId, userId, targetUserId);
             } else if (callbackData.startsWith('message_user_')) {
               const targetUserId = callbackData.replace('message_user_', '');
-              await sendMessage(chatId, `📧 Direct messaging to user ${targetUserId}. Feature coming soon!`);
+              const userSession = getUserSession(userId);
+              userSession.awaitingInput = `message_user:${targetUserId}`;
+              await sendMessage(chatId, `✉️ Send a message to forward to user ${targetUserId}.`);
             } else if (
               callbackData.startsWith('edit_plan_') ||
               callbackData.startsWith('editplan')
