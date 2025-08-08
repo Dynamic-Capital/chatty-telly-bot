@@ -2127,6 +2127,17 @@ async function handlePromoCodePrompt(chatId: number, userId: string, packageId: 
       timestamp: Date.now()
     });
 
+    // Persist session to database to handle cold starts
+    await supabaseAdmin
+      .from('user_sessions')
+      .upsert({
+        telegram_user_id: userId,
+        is_active: true,
+        awaiting_input: 'promo_code',
+        package_data: { packageId, price: pkg.price },
+        last_activity: new Date().toISOString()
+      }, { onConflict: 'telegram_user_id' });
+
     const message = `🎫 **Apply Promo Code**
 
 📦 **Package:** ${pkg.name}
@@ -2283,7 +2294,7 @@ async function handlePromoCodeInput(
       };
 
       await sendMessage(chatId, message, keyboard);
-      
+
       // Store the applied promo for the payment flow
       userSessions.set(userId, {
         type: 'promo_applied',
@@ -2294,6 +2305,21 @@ async function handlePromoCodeInput(
         finalPrice: result.finalPrice,
         timestamp: Date.now()
       });
+
+      // Persist applied promo to user session
+      await supabaseAdmin
+        .from('user_sessions')
+        .update({
+          awaiting_input: null,
+          promo_data: {
+            code: promoCode,
+            discount: result.discount,
+            finalPrice: result.finalPrice
+          },
+          last_activity: new Date().toISOString()
+        })
+        .eq('telegram_user_id', userId)
+        .eq('is_active', true);
 
     } else {
       await sendMessage(chatId, result.message + "\n\n🔄 Try another code or continue without discount:", {
@@ -5560,7 +5586,24 @@ serve(async (req: Request): Promise<Response> => {
       }
 
       // Check if user is waiting for promo code input
-      const promoSession = userSessions.get(userId);
+      let promoSession = userSessions.get(userId);
+      if (!promoSession) {
+        const { data: dbSession } = await supabaseAdmin
+          .from('user_sessions')
+          .select('awaiting_input, package_data')
+          .eq('telegram_user_id', userId)
+          .eq('is_active', true)
+          .single();
+        if (dbSession?.awaiting_input === 'promo_code' && dbSession.package_data) {
+          promoSession = {
+            type: 'waiting_promo_code',
+            packageId: dbSession.package_data.packageId,
+            originalPrice: dbSession.package_data.price,
+            timestamp: Date.now()
+          } as any;
+          userSessions.set(userId, promoSession);
+        }
+      }
       if (promoSession && promoSession.type === 'waiting_promo_code') {
         await handlePromoCodeInput(chatId, userId, text.trim().toUpperCase(), promoSession);
         return new Response("OK", { status: 200 });
