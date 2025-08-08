@@ -21,6 +21,7 @@ import {
 import { ocrTextFromBlob } from "./ocr.ts";
 import { parseBankSlip } from "./bank-parsers.ts";
 import { getApprovedBeneficiaryByAccountNumber, normalizeAccount } from "./helpers/beneficiary.ts";
+import { requireEnv } from "./helpers/require-env.ts";
 
 const DEFAULT_BOT_SETTINGS: Record<string, string> = {
   session_timeout_minutes: "30",
@@ -452,14 +453,13 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const BOT_VERSION = Deno.env.get("BOT_VERSION") || "0.0.0";
 const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
 
-console.log("🚀 Bot starting with environment check...");
-console.log("BOT_TOKEN exists:", !!BOT_TOKEN);
-console.log("SUPABASE_URL exists:", !!SUPABASE_URL);
-console.log("SUPABASE_SERVICE_ROLE_KEY exists:", !!SUPABASE_SERVICE_ROLE_KEY);
-
-if (!BOT_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error("❌ Missing required environment variables");
-}
+const REQUIRED_ENV_KEYS = [
+  "TELEGRAM_BOT_TOKEN",
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "TELEGRAM_WEBHOOK_SECRET",
+  "BENEFICIARY_TABLE",
+];
 
 const supabaseAdmin = createClient(
   SUPABASE_URL ?? "",
@@ -484,8 +484,8 @@ const BOT_START_TIME = new Date();
 console.log("🕐 Bot started at:", BOT_START_TIME.toISOString());
 
 // Receipt auto-approval constants
-const AMOUNT_TOLERANCE = 0.02; // ±2%
-const WINDOW_SECONDS = 180; // time gap between intent.created_at and slip time
+const AMOUNT_TOLERANCE = Number(Deno.env.get("AMOUNT_TOLERANCE") ?? 0.02); // ±2%
+const WINDOW_SECONDS = Number(Deno.env.get("WINDOW_SECONDS") ?? 180); // time gap between intent.created_at and slip time
 const REQUIRE_PAY_CODE = false; // can be flipped to true later
 
 // Session Management Functions
@@ -5500,6 +5500,12 @@ async function handleMessageUser(
 }
 // Main serve function
 Deno.serve(async (req: Request): Promise<Response> => {
+  const { ok, missing } = requireEnv(REQUIRED_ENV_KEYS);
+  if (!ok) {
+    console.error("Missing env vars:", missing.join(", "));
+    return new Response("Missing environment variables", { status: 200 });
+  }
+
   console.log(`📥 Request received: ${req.method} ${req.url}`);
 
   const url = new URL(req.url);
