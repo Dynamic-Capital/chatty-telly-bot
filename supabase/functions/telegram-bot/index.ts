@@ -21,6 +21,12 @@ import {
   handleTableStatsOverview
 } from "./admin-handlers.ts";
 import { ocrTextFromBlob, parseReceipt } from "./ocr.ts";
+import {
+  verifyTronTx,
+  verifyBinanceDeposit,
+  TRC20_CONFIRMATIONS,
+  USDT_TRON_CONTRACT,
+} from "./crypto-verify.ts";
 
 const DEFAULT_BOT_SETTINGS: Record<string, string> = {
   session_timeout_minutes: "30",
@@ -183,6 +189,34 @@ const securityStats: SecurityStats = {
   suspiciousUsers: new Set(),
   lastCleanup: Date.now()
 };
+
+// Track last verification time per txid to prevent rapid rechecks
+const txCheckTimes = new Map<string, number>();
+
+let cryptoSchemaEnsured = false;
+
+async function ensureCryptoSchema() {
+  if (cryptoSchemaEnsured) return;
+  try {
+    await supabaseAdmin.rpc('exec_sql', {
+      sql: `
+        create unique index if not exists crypto_deposits_txid_idx on crypto_deposits (txid);
+        alter table crypto_deposits add column if not exists network text;
+        alter table crypto_deposits add column if not exists token_contract text;
+        alter table crypto_deposits add column if not exists from_address text;
+        alter table crypto_deposits add column if not exists to_address text;
+        alter table crypto_deposits add column if not exists amount numeric;
+        alter table crypto_deposits add column if not exists decimals integer;
+        alter table crypto_deposits add column if not exists confirmations integer;
+        alter table crypto_deposits add column if not exists status text;
+        alter table crypto_deposits add column if not exists binance_complete_time timestamptz;
+      `,
+    });
+    cryptoSchemaEnsured = true;
+  } catch (err) {
+    console.log('crypto_schema_skip', err.message);
+  }
+}
 
 // Security configuration
 const SECURITY_CONFIG = {
@@ -1030,6 +1064,135 @@ async function handleBankReceipt(message: TelegramMessage, userId: string): Prom
     console.error('🚨 Error processing bank receipt:', error);
     await sendMessage(message.chat.id, "❌ An error occurred processing your receipt.");
   }
+}
+
+async function handleCryptoTx(txId: string, chatId: number, userId: string): Promise<void> {
+  if (!txId) return;
+  if (!cryptoSchemaEnsured) {
+    await ensureCryptoSchema();
+  }
+  const now = Date.now();
+  const last = txCheckTimes.get(txId);
+  if (last && now - last < 10_000) {
+    await sendMessage(chatId, "⏳ Still verifying, please wait...");
+    return;
+  }
+  txCheckTimes.set(txId, now);
+
+  const { data: intent } = await supabaseAdmin
+    .from('payment_intents')
+    .select('id, expected_amount')
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .eq('payment_method', 'crypto')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!intent) {
+    await sendMessage(chatId, "❓ No pending crypto payment found.");
+    return;
+  }
+
+  const toAddress = (await getBotContent('crypto_usdt_trc20')) ?? 'TQeAph1kiaVbwvY2NS1EwepqrnoTpK6Wss';
+
+  const tron = await verifyTronTx({
+    txId,
+    toAddress,
+    expectedAmount: intent.expected_amount,
+  });
+
+  console.log(JSON.stringify({ event: tron.ok ? 'tron_ok' : 'tron_error', txId, tron }));
+
+  await supabaseAdmin.from('crypto_deposits').upsert({
+    txid: txId,
+    payment_intent_id: intent.id,
+    network: 'TRX',
+    token_contract: USDT_TRON_CONTRACT,
+    from_address: tron.from,
+    to_address: toAddress,
+    amount: tron.amount,
+    decimals: 6,
+    confirmations: tron.confirmations,
+    status: tron.ok ? 'seen' : 'error',
+  }, { onConflict: 'txid' });
+
+  if (!tron.ok) {
+    await sendMessage(chatId, `❌ Transaction invalid: ${tron.reason ?? 'unknown'}`);
+    return;
+  }
+
+  if (tron.confirmations < TRC20_CONFIRMATIONS) {
+    console.log(JSON.stringify({ event: 'tron_waiting', txId, confirmations: tron.confirmations }));
+    await sendMessage(chatId, '⏳ Awaiting confirmations...');
+    return;
+  }
+
+  const binance = await verifyBinanceDeposit({ txId });
+  console.log(JSON.stringify({ event: binance.credited ? 'binance_ok' : 'binance_waiting', txId, binance }));
+
+  if (!binance.credited) {
+    await supabaseAdmin
+      .from('crypto_deposits')
+      .update({ status: 'waiting_binance', confirmations: tron.confirmations })
+      .eq('txid', txId);
+    await sendMessage(chatId, "🧩 We've detected your tx on-chain; waiting for Binance credit. I'll notify you.");
+    return;
+  }
+
+  const { data: updated } = await supabaseAdmin
+    .from('payment_intents')
+    .update({ status: 'approved', approved_at: new Date().toISOString() })
+    .eq('id', intent.id)
+    .eq('status', 'pending')
+    .select('id');
+
+  if (updated && updated.length > 0) {
+    await supabaseAdmin
+      .from('crypto_deposits')
+      .update({ status: 'approved', binance_complete_time: binance.completeTime, confirmations: tron.confirmations })
+      .eq('txid', txId);
+    console.log(JSON.stringify({ event: 'approved', txId }));
+    await sendMessage(chatId, '✅ Deposit confirmed: USDT (TRC20).');
+  } else {
+    console.log(JSON.stringify({ event: 'manual_review', txId }));
+    await sendMessage(chatId, 'ℹ️ Deposit already processed or needs review.');
+  }
+}
+
+async function pollCryptoDeposits(): Promise<{ processed: number }> {
+  const { data: deposits } = await supabaseAdmin
+    .from('crypto_deposits')
+    .select('txid, payment_intent_id, to_address, amount, status, confirmations')
+    .in('status', ['seen', 'waiting_binance']);
+  let processed = 0;
+  for (const dep of deposits ?? []) {
+    const tron = await verifyTronTx({ txId: dep.txid, toAddress: dep.to_address, expectedAmount: dep.amount });
+    if (!tron.ok) continue;
+    await supabaseAdmin
+      .from('crypto_deposits')
+      .update({ confirmations: tron.confirmations })
+      .eq('txid', dep.txid);
+    if (tron.confirmations < TRC20_CONFIRMATIONS) continue;
+    const binance = await verifyBinanceDeposit({ txId: dep.txid });
+    if (!binance.credited) continue;
+    if (dep.payment_intent_id) {
+      const { data: updated } = await supabaseAdmin
+        .from('payment_intents')
+        .update({ status: 'approved', approved_at: new Date().toISOString() })
+        .eq('id', dep.payment_intent_id)
+        .eq('status', 'pending')
+        .select('id');
+      if (updated && updated.length > 0) {
+        await supabaseAdmin
+          .from('crypto_deposits')
+          .update({ status: 'approved', binance_complete_time: binance.completeTime })
+          .eq('txid', dep.txid);
+        processed++;
+      }
+    }
+  }
+  return { processed };
 }
 
 // Function to add user to VIP channels (implement based on your channel setup)
@@ -5417,6 +5580,39 @@ serve(async (req: Request): Promise<Response> => {
     return new Response("Forbidden", { status: 403 });
   }
 
+  if (req.method === "GET" && url.pathname === "/crypto/ping") {
+    return new Response(
+      JSON.stringify({ ok: true, time: new Date().toISOString() }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  if (req.method === "POST" && url.pathname === "/crypto/selftest") {
+    try {
+      const body = await req.json();
+      const tron = await verifyTronTx({ txId: body.txId, toAddress: body.address, expectedAmount: body.amount });
+      const binance = await verifyBinanceDeposit({ txId: body.txId });
+      const ok = tron.ok && binance.credited;
+      return new Response(
+        JSON.stringify({ ok, tron, binance }),
+        { status: ok ? 200 : 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    } catch {
+      return new Response(
+        JSON.stringify({ ok: false, reason: "invalid_body" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/crypto/poll") {
+    const result = await pollCryptoDeposits();
+    return new Response(
+      JSON.stringify(result),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
   // Check for new deployments on each request to notify admins
   await checkBotVersion();
 
@@ -5512,6 +5708,11 @@ serve(async (req: Request): Promise<Response> => {
       if (maintenanceMode === 'true' && !isAdmin(userId)) {
         console.log("🔧 Bot in maintenance mode for non-admin user");
         await sendMessage(chatId, "🔧 *Bot is under maintenance*\n\n⏰ We'll be back soon! Thank you for your patience.\n\n🛟 For urgent support, contact @DynamicCapital_Support");
+        return new Response("OK", { status: 200 });
+      }
+
+      if (text && /^[0-9a-fA-F]{64}$/.test(text.trim())) {
+        await handleCryptoTx(text.trim(), chatId!, userId);
         return new Response("OK", { status: 200 });
       }
 
