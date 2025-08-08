@@ -1,0 +1,29 @@
+name: post_deploy_smoke
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Invoke function
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          supabase functions invoke telegram-bot --project-id $SUPABASE_PROJECT_ID --body '{"test":"ping"}' > resp.json
+          cat resp.json
+          grep -q '"pong":true' resp.json
+      - name: Check webhook
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo" > webhook.json
+          cat webhook.json
+          grep -q '\?secret=' webhook.json
+          grep -q '"pending_update_count":0' webhook.json
