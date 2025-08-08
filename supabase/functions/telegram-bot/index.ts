@@ -11,10 +11,19 @@ import {
   markIntentApproved,
   markIntentManualReview,
 } from "./database-utils.ts";
+import {
+  handleEnvStatus,
+  handlePing,
+  handleReviewList,
+  handleReplay,
+  handleVersion,
+  handleWebhookInfo,
+} from "./admin-handlers.ts";
 
 interface TelegramMessage {
   chat: { id: number };
   from?: { id?: number };
+  text?: string;
   photo?: { file_id: string }[];
   document?: { file_id: string; mime_type?: string };
   [key: string]: unknown;
@@ -156,6 +165,36 @@ async function storeReceiptImage(
     contentType: blob.type || undefined,
   });
   return storagePath;
+}
+
+async function handleCommand(update: TelegramUpdate): Promise<void> {
+  const msg = update.message;
+  if (!msg) return;
+  const text = msg.text?.trim();
+  if (!text) return;
+  const chatId = msg.chat.id;
+  try {
+    if (text === "/ping") {
+      await notifyUser(chatId, JSON.stringify(handlePing()));
+    } else if (text === "/version") {
+      await notifyUser(chatId, JSON.stringify(handleVersion()));
+    } else if (text === "/env") {
+      await notifyUser(chatId, JSON.stringify(handleEnvStatus()));
+    } else if (text === "/reviewlist") {
+      const list = await handleReviewList();
+      await notifyUser(chatId, JSON.stringify(list));
+    } else if (text.startsWith("/replay")) {
+      const id = text.split(/\s+/)[1];
+      if (id) {
+        await notifyUser(chatId, JSON.stringify(handleReplay(id)));
+      }
+    } else if (text === "/webhookinfo") {
+      const info = await handleWebhookInfo();
+      await notifyUser(chatId, JSON.stringify(info));
+    }
+  } catch (err) {
+    console.error("handleCommand error", err);
+  }
 }
 
 async function startReceiptPipeline(update: TelegramUpdate): Promise<void> {
@@ -330,10 +369,12 @@ export async function serveWebhook(req: Request): Promise<Response> {
   }
 
   const update = await extractTelegramUpdate(req);
-  const fileId = getFileIdFromUpdate(update);
-  if (!fileId || !update) return okJSON();
+  if (!update) return okJSON();
 
-  startReceiptPipeline(update);
+  handleCommand(update);
+
+  const fileId = getFileIdFromUpdate(update);
+  if (fileId) startReceiptPipeline(update);
 
   return okJSON();
 }
