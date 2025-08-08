@@ -1,107 +1,77 @@
-# Chatty Telly Bot
+# Dynamic Capital — Telegram Bot & Mini App
 
-This repository hosts the source code for **Chatty Telly Bot**, a Telegram bot whose codebase is collaboratively managed with [Lovable](https://lovable.dev) and Codex. The project is synchronized in both directions:
+**Fast deposits for traders. Bank & crypto, verified.**
 
-- **Lovable ↔ GitHub** – edits made in Lovable are committed back to this repository and GitHub changes are pulled into Lovable.
-- **Codex ↔ GitHub** – Codex keeps the repository in sync with your local development environment.
-- **Supabase ↔ Bot** – bot content and settings are stored in Supabase tables and referenced from the Telegram bot via edge functions.
+## What this is
+Telegram-first bot with optional Mini App (Web App) for deposit workflows (bank OCR + crypto TXID). Personal project; not accepting contributions.
 
-## Project info
+## Features
+- Telegram webhook (200-fast), OCR on images only
+- Bank receipts (BML/MIB) auto-verification
+- Crypto TXID submissions (no image approvals)
+- Optional Mini App (glass theme, 1:1 assets)
+- Admin commands for maintenance
 
-**Lovable Project URL**: https://lovable.dev/projects/4e724637-b932-47ad-a2c1-d134b3febb47
+## Privacy & security
+No secrets in this repo; uses environment variables.
+Service role keys used only in Edge Functions.
+Code and assets may be encrypted/obfuscated later.
+Logs avoid PII; rate limits enabled.
 
-## How can I edit this code?
+## Environment variables
+- SUPABASE_URL
+- SUPABASE_SERVICE_ROLE_KEY
+- TELEGRAM_BOT_TOKEN
+- TELEGRAM_WEBHOOK_SECRET
+- MINI_APP_URL *(optional)*
+- AMOUNT_TOLERANCE *(optional)*
+- WINDOW_SECONDS *(optional)*
+- OPENAI_API_KEY *(optional)*
+- OPENAI_ENABLED *(optional)*
+- BENEFICIARY_TABLE *(optional)*
 
-There are several ways of editing your application.
+Values are set in Supabase function secrets, GitHub Environments, or Codex project settings. Do not commit them.
 
-**Use Lovable**
+## Quick start
+```bash
+# Start local stack
+supabase start
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/4e724637-b932-47ad-a2c1-d134b3febb47) and start prompting.
+# Serve the function (new terminal)
+supabase functions serve telegram-bot --no-verify-jwt
 
-Changes made via Lovable will be committed automatically to this repo. Use Lovable for quick prompts or UI‑driven edits.
+# Ping (expects 200)
+curl -X POST "http://127.0.0.1:54321/functions/v1/telegram-bot?secret=$TELEGRAM_WEBHOOK_SECRET" \
+  -H "content-type: application/json" -d '{"test":"ping"}'
+```
+Note: for OCR parsing, send an actual Telegram image to the bot; OCR runs only on images.
 
-**Use your preferred IDE**
+## Mini App
+- Set `MINI_APP_URL` in env (example domain only, do not hardcode).
+- Launch via Web App button inside Telegram.
+- All UI images should be 1:1 (square).
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable and Codex.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-### Supabase CLI
-
-Some development tasks require the [Supabase CLI](https://supabase.com/docs/guides/cli). Install it locally with:
-
-```sh
-npm run setup:supabase
+## CI / checks
+Type check:
+```bash
+deno check supabase/functions/telegram-bot/*.ts supabase/functions/telegram-bot/**/*.ts
+```
+If tests present:
+```bash
+deno test -A
 ```
 
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+## Deployment
+Deploy function:
+```bash
+supabase functions deploy telegram-bot --project-ref <PROJECT_REF>
 ```
+Set Telegram webhook (with secret): use BotFather or API; do not paste secrets in README.
 
-**Edit a file directly in GitHub**
+## License / contributions
+Proprietary / All rights reserved. Personal project; external PRs/issues are closed by default.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Notes
+Repo keeps source only. No caches (.cas), dist/, or node_modules/ are committed.
 
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## Bot features
-
-- Content, announcements, and settings are stored in Supabase tables so updates can be made without redeploying code.
-- Edge functions (e.g., `telegram-bot`) handle callbacks from Telegram and read/write to Supabase.
-- Admins can edit or delete bot content directly from Telegram; changes are persisted to the database.
-
-## Branch protection
-
-The `main` branch contains the core, production-ready code and should be protected. Use the `work` branch for day‑to‑day development and merge through pull requests to avoid accidental overwrites.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-- Supabase (Database & Edge Functions)
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/4e724637-b932-47ad-a2c1-d134b3febb47) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
-
-## Dev tip
-
-If local TLS interception causes Deno to fail fetching remote modules, this function uses built-in `Deno.serve` to avoid std/http imports. For other dependencies, set:
-
-```
-macOS/Linux: export DENO_TLS_CA_STORE=system
-Windows PS:  $env:DENO_TLS_CA_STORE="system"
-```
+Future changes may encrypt code and increase env usage; see /docs/agent.md for behavior spec (if present).
