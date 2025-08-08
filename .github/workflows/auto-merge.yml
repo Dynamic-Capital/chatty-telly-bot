@@ -1,0 +1,29 @@
+name: Auto Merge
+
+on:
+  workflow_run:
+    workflows: ["Deno"]
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge:
+    if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge pull request
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.workflow_run.pull_requests[0];
+            await github.rest.pulls.merge({
+              owner: pr.base.repo.owner.login,
+              repo: pr.base.repo.name,
+              pull_number: pr.number,
+              merge_method: 'squash'
+            });
