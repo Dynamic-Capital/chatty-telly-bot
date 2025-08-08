@@ -96,3 +96,12 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Dev tip
+
+If local TLS interception causes Deno to fail fetching remote modules, this function uses built-in `Deno.serve` to avoid std/http imports. For other dependencies, set:
+
+```
+macOS/Linux: export DENO_TLS_CA_STORE=system
+Windows PS:  $env:DENO_TLS_CA_STORE="system"
+```

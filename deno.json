@@ -1,0 +1,9 @@
+{
+  "tasks": {
+    "check": "deno check supabase/functions/telegram-bot/index.ts",
+    "serve": "supabase functions serve"
+  },
+  "compilerOptions": {
+    "types": ["./types/tesseract.d.ts"]
+  }
+}
