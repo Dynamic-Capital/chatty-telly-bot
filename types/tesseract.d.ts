@@ -17,3 +17,8 @@ declare module "tesseract.js" {
   export function createWorker(): Promise<BaseWorker>;
   export type Worker = BaseWorker;
 }
+
+declare module "https://esm.sh/tesseract.js@5?dts" {
+  export function createWorker(): Promise<BaseWorker>;
+  export type Worker = BaseWorker;
+}

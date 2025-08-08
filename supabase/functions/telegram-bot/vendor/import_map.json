@@ -1,0 +1,17 @@
+{
+  "imports": {
+    "https://esm.sh/tesseract.js@5?dts": "./esm.sh/tesseract.js@5.1.1.js",
+    "https://esm.sh/": "./esm.sh/"
+  },
+  "scopes": {
+    "./esm.sh/": {
+      "/is-electron@2.2.2/denonext/is-electron.mjs": "./esm.sh/is-electron@2.2.2/denonext/is-electron.mjs",
+      "/is-url@1.2.4/denonext/is-url.mjs": "./esm.sh/is-url@1.2.4/denonext/is-url.mjs",
+      "/regenerator-runtime@0.13.11/denonext/regenerator-runtime.mjs": "./esm.sh/regenerator-runtime@0.13.11/denonext/regenerator-runtime.mjs",
+      "/regenerator-runtime@^0.13.3/runtime?target=denonext": "./esm.sh/regenerator-runtime@0.13.11/runtime.js",
+      "/is-electron@^2.2.2?target=denonext": "./esm.sh/is-electron@2.2.2.js",
+      "/is-url@^1.2.4?target=denonext": "./esm.sh/is-url@1.2.4.js",
+      "/tesseract.js@5.1.1/denonext/tesseract.mjs": "./esm.sh/tesseract.js@5.1.1/denonext/tesseract.mjs"
+    }
+  }
+}
