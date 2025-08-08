@@ -5061,7 +5061,7 @@ serve(async (req) => {
 
       // Check for command spam before processing commands
       if (text && text.startsWith('/')) {
-        const command = text.split(' ')[0];
+        const command = text.split(' ')[0].split('@')[0];
         if (isCommandSpam(userId, command) && !isUserAdmin) {
           const response = getSecurityResponse('command_spam');
           await sendMessage(chatId, response);
@@ -5070,7 +5070,7 @@ serve(async (req) => {
       }
 
       // Handle /start command with dynamic welcome message
-      if (text === '/start') {
+      if (text?.split(' ')[0]?.startsWith('/start')) {
         console.log(`🚀 Start command from: ${userId} (${firstName})`);
         
         // Add timeout to prevent hanging
