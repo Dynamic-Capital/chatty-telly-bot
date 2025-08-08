@@ -58,6 +58,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
   "";
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
 const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
+const MINI_APP_URL = Deno.env.get("MINI_APP_URL");
 
 // Optional feature flags (currently unused)
 const _OPENAI_ENABLED = Deno.env.get("OPENAI_ENABLED") === "true";
@@ -89,6 +90,28 @@ async function notifyUser(chatId: number, text: string): Promise<void> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, text }),
+  });
+}
+
+async function sendMiniAppLink(chatId: number): Promise<void> {
+  if (!BOT_TOKEN) return;
+  if (!MINI_APP_URL) {
+    console.warn("MINI_APP_URL missing; skipping Mini App button");
+    await notifyUser(chatId, "Mini App URL not configured");
+    return;
+  }
+  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: "Open the Dynamic Capital mini app",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Open Mini App", web_app: { url: MINI_APP_URL } }],
+        ],
+      },
+    }),
   });
 }
 
@@ -174,7 +197,9 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
   if (!text) return;
   const chatId = msg.chat.id;
   try {
-    if (text === "/ping") {
+    if (text === "/start") {
+      await sendMiniAppLink(chatId);
+    } else if (text === "/ping") {
       await notifyUser(chatId, JSON.stringify(handlePing()));
     } else if (text === "/version") {
       await notifyUser(chatId, JSON.stringify(handleVersion()));

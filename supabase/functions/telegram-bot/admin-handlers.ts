@@ -1482,12 +1482,16 @@ export function handleVersion() {
 }
 
 export function handleEnvStatus() {
-  return requireEnv([
+  const base = requireEnv([
     "SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
     "TELEGRAM_BOT_TOKEN",
     "TELEGRAM_WEBHOOK_SECRET",
   ]);
+  return {
+    ...base,
+    MINI_APP_URL: Deno.env.get("MINI_APP_URL") ? "present" : "missing",
+  };
 }
 
 export async function handleReviewList() {
