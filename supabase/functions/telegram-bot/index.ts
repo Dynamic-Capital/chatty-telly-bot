@@ -792,6 +792,32 @@ async function sendMessage(
   }
 }
 
+async function sendDocument(
+  chatId: number,
+  content: string,
+  filename: string
+) {
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`;
+  const formData = new FormData();
+  formData.append('chat_id', String(chatId));
+  formData.append('document', new Blob([content], { type: 'text/csv' }), filename);
+
+  try {
+    console.log(`📤 Sending document ${filename} to ${chatId}`);
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('❌ Telegram document error:', errorData);
+    }
+  } catch (error) {
+    console.error('🚨 Error sending document:', error);
+  }
+}
+
 async function sendAccessDeniedMessage(chatId: number, details = "") {
   const baseMessage =
     (await getBotContent('access_denied_message')) || '❌ Access denied.';
@@ -5146,6 +5172,57 @@ function generatePaymentCSV(payments: PaymentCSV[]): string {
   return csv;
 }
 
+function convertToCSV(rows: Record<string, unknown>[]): string {
+  if (!rows.length) return '';
+  const headers = Object.keys(rows[0]);
+  const escape = (value: unknown) => {
+    const str = String(value ?? '');
+    return str.includes(',') || str.includes('"') || str.includes('\n')
+      ? '"' + str.replace(/"/g, '""') + '"'
+      : str;
+  };
+  const lines = rows.map(row => headers.map(h => escape(row[h])).join(','));
+  return [headers.join(','), ...lines].join('\n');
+}
+
+async function exportTable(table: string, chatId: number): Promise<void> {
+  try {
+    const { data, error } = await supabaseAdmin.from(table).select('*');
+    if (error) {
+      await sendMessage(chatId, `❌ Error exporting ${table}: ${error.message}`);
+      return;
+    }
+    const csv = convertToCSV((data as Record<string, unknown>[]) || []);
+    await sendDocument(chatId, csv, `${table}.csv`);
+  } catch (err) {
+    console.error('Export error for', table, err);
+    await sendMessage(chatId, `❌ Error exporting ${table}.`);
+  }
+}
+
+async function handleExportAllTables(chatId: number, userId: string): Promise<void> {
+  if (!isAdmin(userId)) {
+    return;
+  }
+  const tables = [
+    'bot_users',
+    'subscription_plans',
+    'plan_channels',
+    'education_packages',
+    'promotions',
+    'bot_content',
+    'bot_settings',
+    'payments',
+    'broadcast_messages',
+    'bank_accounts',
+    'auto_reply_templates'
+  ];
+  for (const table of tables) {
+    await exportTable(table, chatId);
+  }
+  await sendMessage(chatId, '✅ Export completed for all tables.');
+}
+
 // Placeholder admin handlers for future implementation
 async function handleAddAdminUser(chatId: number, _userId: string): Promise<void> {
   await sendMessage(chatId, '🚧 Admin user management coming soon.');
@@ -5160,7 +5237,7 @@ async function handleManageVipUsers(chatId: number, _userId: string): Promise<vo
 }
 
 async function handleExportUsers(chatId: number, _userId: string): Promise<void> {
-  await sendMessage(chatId, '📤 User export feature coming soon.');
+  await exportTable('bot_users', chatId);
 }
 
 async function handleCreateVipPlan(chatId: number, _userId: string): Promise<void> {
@@ -5827,7 +5904,7 @@ ${Array.from(securityStats.suspiciousUsers).slice(-5).map(u => `• User ${u}`).
 
           case 'export_all_tables':
             if (isAdmin(userId)) {
-              await sendMessage(chatId, "📊 Exporting all table data...\n\n📋 This feature will generate CSV exports of all database tables.\n\n⏳ Coming soon!");
+              await handleExportAllTables(chatId, userId);
             }
             break;
 
