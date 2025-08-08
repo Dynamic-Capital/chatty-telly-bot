@@ -83,6 +83,30 @@ Available commands:
 /about - About us
 
 Need assistance? Contact @DynamicCapital_Support`,
+    'faq_general': `❓ **Frequently Asked Questions**
+
+🔷 **Q: How do I join VIP?**
+A: Select a VIP package, complete payment, and you'll be added automatically after verification.
+
+🔷 **Q: What payment methods do you accept?**
+A: We accept Binance Pay, cryptocurrency (BTC, ETH, USDT), and bank transfers.
+
+🔷 **Q: How quickly are signals sent?**
+A: VIP signals are sent in real-time as market opportunities arise, typically 5-10 per day.
+
+🔷 **Q: Do you offer refunds?**
+A: We offer a 7-day satisfaction guarantee for new VIP members.
+
+🔷 **Q: What's included in VIP membership?**
+A: Real-time signals, market analysis, educational content, priority support, and access to VIP community.
+
+🔷 **Q: Can I cancel my subscription?**
+A: Yes, you can cancel anytime. Access continues until your current period ends.
+
+🔷 **Q: Do you provide trading education?**
+A: Yes! We offer comprehensive courses for beginners to advanced traders.
+
+💡 **Still have questions?** Contact our support team!`,
     'vip_benefits': `💎 VIP Membership Benefits
 
 🚀 Premium Trading Signals
