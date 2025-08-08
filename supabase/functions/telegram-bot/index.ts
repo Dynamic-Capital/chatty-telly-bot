@@ -5070,7 +5070,9 @@ serve(async (req) => {
       }
 
       // Handle /start command with dynamic welcome message
-      if (text === '/start') {
+      // Allow additional parameters (e.g. deep-linking) by checking prefix
+      // and trimming potential whitespace
+      if (text?.trim().startsWith('/start')) {
         console.log(`🚀 Start command from: ${userId} (${firstName})`);
         
         // Add timeout to prevent hanging
