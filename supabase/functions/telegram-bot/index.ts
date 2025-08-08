@@ -20,7 +20,9 @@ import {
   handleBotSettingsManagement,
   handleTableStatsOverview
 } from "./admin-handlers.ts";
-import { ocrTextFromBlob, parseReceipt } from "./ocr.ts";
+import { ocrTextFromBlob } from "./ocr.ts";
+import { parseBankSlip } from "./bank-parsers.ts";
+import { getApprovedBeneficiaryByAccountNumber } from "./helpers/beneficiary.ts";
 
 const DEFAULT_BOT_SETTINGS: Record<string, string> = {
   session_timeout_minutes: "30",
@@ -452,6 +454,11 @@ if (!BOT_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },
 });
+
+// Auto-approval tuning
+const AMOUNT_TOLERANCE = 0.02;   // ±2%
+const WINDOW_SECONDS = 180;      // time gap between intent.created_at and slip time
+const REQUIRE_PAY_CODE = false;  // can set true later
 
 // Admin user IDs - including the user who's testing
 const ADMIN_USER_IDS = new Set(["225513686"]);
@@ -929,9 +936,9 @@ async function handleBankReceipt(message: TelegramMessage, userId: string): Prom
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
     const { data: dup } = await supabaseAdmin
-      .from('receipts')
-      .select('id')
-      .eq('image_sha256', hashHex)
+      .from("receipts")
+      .select("id")
+      .eq("image_sha256", hashHex)
       .maybeSingle();
     if (dup) {
       await sendMessage(chatId, "⚠️ This receipt was already submitted.");
@@ -939,91 +946,137 @@ async function handleBankReceipt(message: TelegramMessage, userId: string): Prom
     }
 
     const storagePath = `${userId}/${hashHex}`;
-    await supabaseAdmin.storage.from('receipts').upload(storagePath, blob, {
-      contentType: fileRes.headers.get('content-type') || undefined,
+    await supabaseAdmin.storage.from("receipts").upload(storagePath, blob, {
+      contentType: fileRes.headers.get("content-type") || undefined,
     });
     const { data: urlData } = supabaseAdmin.storage
-      .from('receipts')
+      .from("receipts")
       .getPublicUrl(storagePath);
     const fileUrl = urlData.publicUrl;
 
     const text = await ocrTextFromBlob(blob);
-    const ocr = parseReceipt(text);
+    const parsed = parseBankSlip(text);
 
     let intent = null;
-    if (ocr.payCode) {
+    if (parsed.payCode) {
       const { data } = await supabaseAdmin
-        .from('payment_intents')
-        .select('*')
-        .eq('pay_code', ocr.payCode)
+        .from("payment_intents")
+        .select("*")
+        .eq("pay_code", parsed.payCode)
         .maybeSingle();
       intent = data;
     }
     if (!intent) {
       const { data } = await supabaseAdmin
-        .from('payment_intents')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('method', 'bank')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
+        .from("payment_intents")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("method", "bank")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       intent = data;
     }
 
     if (!intent) {
-      await supabaseAdmin.from('receipts').insert({
+      await supabaseAdmin.from("receipts").insert({
         user_id: userId,
         file_url: fileUrl,
         image_sha256: hashHex,
-        ocr_text: ocr.text,
-        ocr_amount: ocr.total,
-        ocr_timestamp: ocr.dateText ? new Date(ocr.dateText).toISOString() : null,
-        ocr_beneficiary: ocr.beneficiary,
-        ocr_pay_code: ocr.payCode,
-        reason: 'no_intent_found',
+        ocr_text: parsed.rawText,
+        ocr_bank: parsed.bank,
+        ocr_amount: parsed.amount,
+        ocr_currency: parsed.currency,
+        ocr_status: parsed.status,
+        ocr_success_word: parsed.successWord,
+        ocr_reference: parsed.reference,
+        ocr_from_name: parsed.fromName,
+        ocr_beneficiary: parsed.toName,
+        ocr_to_account: parsed.toAccount,
+        ocr_pay_code: parsed.payCode,
+        ocr_txn_date: parsed.ocrTxnDateIso,
+        ocr_value_date: parsed.ocrValueDateIso,
+        ocr_timestamp: parsed.ocrTxnDateIso ?? parsed.ocrValueDateIso,
+        reason: "no_intent_found",
       });
       await sendMessage(chatId, "❓ Receipt received but no matching payment found. Our team will review it.");
       return;
     }
 
-    const windowSeconds = 180;
-    const amtOK = ocr.total != null &&
-      Math.abs(ocr.total - intent.expected_amount) / intent.expected_amount <= 0.02;
-    const ocrDate = ocr.dateText ? new Date(ocr.dateText) : undefined;
-    const timeOK = ocrDate
-      ? Math.abs(ocrDate.getTime() - new Date(intent.created_at).getTime()) / 1000 <= windowSeconds
+    const receiptTimeStr = parsed.ocrTxnDateIso || parsed.ocrValueDateIso;
+    const receiptDate = receiptTimeStr ? new Date(receiptTimeStr) : null;
+    const amtOK = parsed.amount != null &&
+      Math.abs(parsed.amount - intent.expected_amount) / intent.expected_amount <= AMOUNT_TOLERANCE;
+    const timeOK = receiptDate
+      ? Math.abs(receiptDate.getTime() - new Date(intent.created_at).getTime()) / 1000 <= WINDOW_SECONDS
       : false;
-    const beneficiaryOK = (ocr.beneficiary ?? "").toLowerCase().includes("dynamic");
-    const payCodeOK = intent.pay_code && ocr.payCode === intent.pay_code;
-    const approve = (amtOK && timeOK && beneficiaryOK) && (ocr.success || payCodeOK);
+    const statusOK = parsed.status === "SUCCESS" || parsed.successWord;
 
-    await supabaseAdmin.from('receipts').insert({
+    let beneficiaryOK = false;
+    if (intent.beneficiary_account && intent.beneficiary_name) {
+      beneficiaryOK =
+        parsed.toAccount === intent.beneficiary_account &&
+        parsed.toName &&
+        intent.beneficiary_name &&
+        parsed.toName.toLowerCase() === intent.beneficiary_name.toLowerCase();
+    } else if (parsed.toAccount) {
+      try {
+        const ben = await getApprovedBeneficiaryByAccountNumber(supabaseAdmin, parsed.toAccount);
+        beneficiaryOK = !!ben && parsed.toName && ben.name && parsed.toName.toLowerCase() === String(ben.name).toLowerCase();
+      } catch {
+        beneficiaryOK = false;
+      }
+    }
+
+    let payCodeOK = true;
+    if (REQUIRE_PAY_CODE && intent.pay_code) {
+      payCodeOK = parsed.payCode === intent.pay_code;
+    }
+
+    let reason: string | null = null;
+    if (!amtOK) reason = "amount_mismatch";
+    else if (!timeOK) reason = "time_mismatch";
+    else if (!statusOK) reason = "status_not_success";
+    else if (!beneficiaryOK) reason = "beneficiary_mismatch";
+    else if (!payCodeOK) reason = "pay_code_mismatch";
+
+    const approve = !reason;
+
+    await supabaseAdmin.from("receipts").insert({
       payment_id: intent.id,
       user_id: userId,
       file_url: fileUrl,
       image_sha256: hashHex,
-      ocr_text: ocr.text,
-      ocr_amount: ocr.total,
-      ocr_timestamp: ocrDate?.toISOString(),
-      ocr_beneficiary: ocr.beneficiary,
-      ocr_pay_code: ocr.payCode,
-      verdict: approve ? 'approved' : 'manual_review',
-      reason: approve ? null : 'auto_rules_failed',
+      ocr_text: parsed.rawText,
+      ocr_bank: parsed.bank,
+      ocr_amount: parsed.amount,
+      ocr_currency: parsed.currency,
+      ocr_status: parsed.status,
+      ocr_success_word: parsed.successWord,
+      ocr_reference: parsed.reference,
+      ocr_from_name: parsed.fromName,
+      ocr_beneficiary: parsed.toName,
+      ocr_to_account: parsed.toAccount,
+      ocr_pay_code: parsed.payCode,
+      ocr_txn_date: parsed.ocrTxnDateIso,
+      ocr_value_date: parsed.ocrValueDateIso,
+      ocr_timestamp: receiptTimeStr,
+      verdict: approve ? "approved" : "manual_review",
+      reason: reason,
     });
 
     if (approve) {
       await supabaseAdmin
-        .from('payment_intents')
-        .update({ status: 'approved', approved_at: new Date().toISOString(), pay_code: null })
-        .eq('id', intent.id);
+        .from("payment_intents")
+        .update({ status: "approved", approved_at: new Date().toISOString() })
+        .eq("id", intent.id);
       await sendMessage(chatId, "✅ Payment verified successfully!");
     } else {
       await supabaseAdmin
-        .from('payment_intents')
-        .update({ status: 'manual_review', pay_code: null })
-        .eq('id', intent.id);
+        .from("payment_intents")
+        .update({ status: "manual_review", notes: reason })
+        .eq("id", intent.id);
       await sendMessage(chatId, "📥 Receipt received. It will be reviewed shortly.");
     }
   } catch (error) {
