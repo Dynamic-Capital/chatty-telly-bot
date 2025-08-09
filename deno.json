@@ -1,11 +1,18 @@
 {
   "tasks": {
     "check": "deno check supabase/functions/telegram-bot/*.ts supabase/functions/telegram-bot/**/*.ts",
-    "serve": "supabase functions serve"
+    "serve": "supabase functions serve",
+    "fmt": "deno fmt --check .",
+    "lint": "deno lint",
+    "typecheck": "bash scripts/typecheck.sh",
+    "ci": "bash scripts/ci.sh"
   },
   "nodeModulesDir": true,
   "compilerOptions": {
-    "types": ["./types/tesseract.d.ts"]
+    "types": ["./types/tesseract.d.ts"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "lib": ["deno.ns", "deno.window", "dom", "es2022"]
   },
   "importMap": "./supabase/functions/telegram-bot/vendor/import_map.json"
 }
