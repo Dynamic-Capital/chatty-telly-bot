@@ -417,7 +417,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
     const update = body as TelegramUpdate | null;
     if (!update) return okJSON();
 
-    handleCommand(update);
+    await handleCommand(update);
 
     const fileId = getFileIdFromUpdate(update);
     if (fileId) startReceiptPipeline(update);

@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.trade-helper]
 verify_jwt = false
+
+[functions.verify-telegram]
+verify_jwt = false

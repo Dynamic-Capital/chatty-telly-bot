@@ -171,7 +171,7 @@ export const SystemStatus = () => {
           .limit(1)
           .maybeSingle();
 
-        const lastUpdated = latestRecord?.created_at;
+        const lastUpdated = latestRecord ? (latestRecord as { created_at?: string }).created_at : undefined;
 
         return {
           name: tableName,

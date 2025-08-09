@@ -30,3 +30,18 @@ supabase functions serve telegram-bot --no-verify-jwt
 curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setChatMenuButton" \
   -H "content-type: application/json" \
   -d '{"menu_button":{"type":"web_app","text":"Dynamic Pay","web_app":{"short_name":"dynamic_pay"}}}'
+
+## Telegram connect (Webhook quick cmds)
+
+```bash
+# Delete existing webhook
+curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/deleteWebhook"
+
+# Set webhook with secret gate (replace <PROJECT_REF>)
+curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook?url=https://<PROJECT_REF>.functions.supabase.co/telegram-bot?secret=$TELEGRAM_WEBHOOK_SECRET"
+
+# Inspect current webhook
+curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
+```
+
+Note: /start shows Mini App button (short_name preferred, URL fallback).
