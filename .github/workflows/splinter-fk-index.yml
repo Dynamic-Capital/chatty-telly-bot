@@ -1,0 +1,35 @@
+name: DB Lint + Auto FK Index PR
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 1'   # Mondays at 03:00 UTC
+jobs:
+  splinter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Postgres client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Run Splinter + generate migration
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}   # Session pooler string
+        run: |
+          bash scripts/splinter_run.sh
+          bash scripts/gen_fk_indexes.sh || true
+          if [ -s .out/fk_indexes_file.txt ]; then
+            FILE=$(cat .out/fk_indexes_file.txt)
+            echo "Generated $FILE"
+          else
+            echo "No FK indexes to add."
+          fi
+      - name: Commit & PR if changes
+        if: ${{ hashFiles('supabase/migrations/**_add_fk_indexes.sql') != '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BR="chore/add-fk-indexes-$(date +%Y%m%d%H%M%S)"
+          git checkout -b "$BR"
+          git add supabase/migrations/**_add_fk_indexes.sql .out/splinter_report.csv
+          git commit -m "chore(db): add indexes for unindexed foreign keys (Splinter)"
+          git push -u origin "$BR"
+          gh pr create --fill --title "Add FK indexes (Splinter)" --body "Auto-generated from Splinter report." || true
