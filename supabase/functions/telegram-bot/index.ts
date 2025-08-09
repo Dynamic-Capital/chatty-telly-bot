@@ -5,7 +5,7 @@ import {
   getApprovedBeneficiaryByAccountNumber,
   normalizeAccount,
 } from "./helpers/beneficiary.ts";
-import { requireEnv } from "./helpers/require-env.ts";
+import { ENV, getEnv, requireEnv } from "../_shared/env.ts";
 import {
   insertReceiptRecord,
   markIntentApproved,
@@ -53,25 +53,24 @@ const REQUIRED_ENV_KEYS = [
   "TELEGRAM_WEBHOOK_SECRET",
 ];
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-  "";
-const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
-const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
+const SUPABASE_URL = ENV.SUPABASE_URL() || "";
+const SUPABASE_SERVICE_ROLE_KEY = ENV.SUPABASE_SERVICE_ROLE_KEY() || "";
+const BOT_TOKEN = ENV.TELEGRAM_BOT_TOKEN() || "";
+const WEBHOOK_SECRET = ENV.TELEGRAM_WEBHOOK_SECRET() || "";
 // Ensure MINI_APP_URL always includes a trailing slash to avoid redirects
 const MINI_APP_URL = (() => {
-  const url = Deno.env.get("MINI_APP_URL");
+  const url = ENV.MINI_APP_URL();
   if (!url) return null;
   return url.endsWith("/") ? url : `${url}/`;
 })();
-const MINI_APP_SHORT_NAME = Deno.env.get("MINI_APP_SHORT_NAME") || null;
+const MINI_APP_SHORT_NAME = ENV.MINI_APP_SHORT_NAME() || null;
 
 // Optional feature flags (currently unused)
-const _OPENAI_ENABLED = Deno.env.get("OPENAI_ENABLED") === "true";
-const _FAQ_ENABLED = Deno.env.get("FAQ_ENABLED") === "true";
-const WINDOW_SECONDS = Number(Deno.env.get("WINDOW_SECONDS") || "180");
-const AMOUNT_TOLERANCE = Number(Deno.env.get("AMOUNT_TOLERANCE") || "0.02");
-const REQUIRE_PAY_CODE = Deno.env.get("REQUIRE_PAY_CODE") === "true";
+const _OPENAI_ENABLED = getEnv("OPENAI_ENABLED") === "true";
+const _FAQ_ENABLED = getEnv("FAQ_ENABLED") === "true";
+const WINDOW_SECONDS = Number(getEnv("WINDOW_SECONDS") || "180");
+const AMOUNT_TOLERANCE = Number(getEnv("AMOUNT_TOLERANCE") || "0.02");
+const REQUIRE_PAY_CODE = getEnv("REQUIRE_PAY_CODE") === "true";
 
 let supabaseAdmin: SupabaseClient | null = null;
 function getSupabase(): SupabaseClient {
@@ -163,7 +162,7 @@ function rateLimitGuard(chatId: number): boolean {
 }
 
 function logEvent(event: string, data: Record<string, unknown>): void {
-  const sb_request_id = Deno.env.get("SB_REQUEST_ID");
+  const sb_request_id = getEnv("SB_REQUEST_ID");
   console.log(JSON.stringify({ event, sb_request_id, ...data }));
 }
 
