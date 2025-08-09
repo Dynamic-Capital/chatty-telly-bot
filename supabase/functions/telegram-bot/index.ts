@@ -36,8 +36,6 @@ interface PaymentIntent {
 }
 
 const REQUIRED_ENV_KEYS = [
-  "SUPABASE_URL",
-  "SUPABASE_SERVICE_ROLE_KEY",
   "TELEGRAM_BOT_TOKEN",
   "TELEGRAM_WEBHOOK_SECRET",
 ];
