@@ -4,8 +4,5 @@
     "serve": "supabase functions serve"
   },
   "nodeModulesDir": true,
-  "compilerOptions": {
-    "types": ["./types/tesseract.d.ts"]
-  },
-  "importMap": "./supabase/functions/telegram-bot/vendor/import_map.json"
+  "compilerOptions": {}
 }
