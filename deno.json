@@ -5,10 +5,10 @@
     "fmt": "bash -lc '$(bash scripts/deno_bin.sh) fmt --check .'",
     "fmt:write": "bash -lc '$(bash scripts/deno_bin.sh) fmt .'",
     "lint": "bash -lc '$(bash scripts/deno_bin.sh) lint'",
-    "lint:fix": "bash scripts/fix_all.sh",
+    "lint:fix": "bash -lc '$(bash scripts/deno_bin.sh) lint --fix'",
     "typecheck": "bash scripts/typecheck.sh",
     "ci": "bash scripts/ci.sh",
-    "fix:repo": "bash scripts/fix_and_check.sh"
+    "fix:repo": "bash scripts/fix_all.sh"
   },
   "nodeModulesDir": "auto",
   "fmt": {
