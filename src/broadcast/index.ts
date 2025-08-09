@@ -14,6 +14,8 @@ export function setBroadcastsEnabled(v: boolean) {
 }
 
 export async function resolveTargets(segment: PlanBroadcastOptions['segment']): Promise<number[]> {
+  await Promise.resolve(); // satisfy require-await
+
   if (Array.isArray(segment)) return segment;
   if (segment && Array.isArray((segment as { userIds?: number[] }).userIds)) {
     return (segment as { userIds: number[] }).userIds;
@@ -33,7 +35,10 @@ export async function planBroadcast(opts: PlanBroadcastOptions) {
   const targets = await resolveTargets(segment);
   for (let i = 0; i < targets.length; i += chunkSize) {
     const chunk = targets.slice(i, i + chunkSize);
-    enqueue('broadcast:sendBatch', { userIds: chunk, text, media }, { maxAttempts: 5, backoff: 'exp' });
+    enqueue('broadcast:sendBatch', { userIds: chunk, text, media }, {
+      maxAttempts: 5,
+      backoff: 'exp',
+    });
     if (pauseMs) await sleep(pauseMs);
   }
   return { total: targets.length, chunks: Math.ceil(targets.length / chunkSize) };

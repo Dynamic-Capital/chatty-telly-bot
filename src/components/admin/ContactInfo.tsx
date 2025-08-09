@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,17 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Link, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  ExternalLink,
-  Save,
-  X,
-  ArrowUp,
-  ArrowDown
-} from 'lucide-react';
+import { ArrowDown, ArrowUp, Edit, ExternalLink, Link, Plus, Save, Trash2, X } from 'lucide-react';
 
 interface ContactLink {
   id: string;
@@ -39,7 +29,7 @@ export const ContactInfo = () => {
     platform: '',
     display_name: '',
     url: '',
-    icon_emoji: ''
+    icon_emoji: '',
   });
   const { toast } = useToast();
 
@@ -56,9 +46,9 @@ export const ContactInfo = () => {
     } catch (error) {
       console.error('Error fetching contacts:', error);
       toast({
-        title: "Error",
-        description: "Failed to load contact information",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to load contact information',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -73,9 +63,9 @@ export const ContactInfo = () => {
     try {
       if (!formData.platform || !formData.display_name || !formData.url) {
         toast({
-          title: "Validation Error",
-          description: "Please fill in all required fields",
-          variant: "destructive"
+          title: 'Validation Error',
+          description: 'Please fill in all required fields',
+          variant: 'destructive',
         });
         return;
       }
@@ -86,7 +76,7 @@ export const ContactInfo = () => {
         url: formData.url,
         icon_emoji: formData.icon_emoji || '🔗',
         is_active: true,
-        display_order: contactId ? undefined : contacts.length + 1
+        display_order: contactId ? undefined : contacts.length + 1,
       };
 
       let result;
@@ -106,8 +96,8 @@ export const ContactInfo = () => {
       if (result.error) throw result.error;
 
       toast({
-        title: "Success",
-        description: contactId ? "Contact updated successfully" : "Contact created successfully"
+        title: 'Success',
+        description: contactId ? 'Contact updated successfully' : 'Contact created successfully',
       });
 
       setEditingId(null);
@@ -117,9 +107,9 @@ export const ContactInfo = () => {
     } catch (error) {
       console.error('Error saving contact:', error);
       toast({
-        title: "Error",
-        description: "Failed to save contact information",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to save contact information',
+        variant: 'destructive',
       });
     }
   };
@@ -136,17 +126,17 @@ export const ContactInfo = () => {
       if (error) throw error;
 
       toast({
-        title: "Success",
-        description: "Contact deleted successfully"
+        title: 'Success',
+        description: 'Contact deleted successfully',
       });
 
       fetchContacts();
     } catch (error) {
       console.error('Error deleting contact:', error);
       toast({
-        title: "Error",
-        description: "Failed to delete contact",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to delete contact',
+        variant: 'destructive',
       });
     }
   };
@@ -161,33 +151,36 @@ export const ContactInfo = () => {
       if (error) throw error;
 
       toast({
-        title: "Success",
-        description: `Contact ${!currentStatus ? 'activated' : 'deactivated'} successfully`
+        title: 'Success',
+        description: `Contact ${!currentStatus ? 'activated' : 'deactivated'} successfully`,
       });
 
       fetchContacts();
     } catch (error) {
       console.error('Error toggling contact status:', error);
       toast({
-        title: "Error",
-        description: "Failed to update contact status",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to update contact status',
+        variant: 'destructive',
       });
     }
   };
 
   const handleReorder = async (contactId: string, direction: 'up' | 'down') => {
-    const currentIndex = contacts.findIndex(c => c.id === contactId);
+    const currentIndex = contacts.findIndex((c) => c.id === contactId);
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
     if (targetIndex < 0 || targetIndex >= contacts.length) return;
 
     const newContacts = [...contacts];
-    [newContacts[currentIndex], newContacts[targetIndex]] = [newContacts[targetIndex], newContacts[currentIndex]];
+    [newContacts[currentIndex], newContacts[targetIndex]] = [
+      newContacts[targetIndex],
+      newContacts[currentIndex],
+    ];
 
     try {
       // Update display_order for both contacts
-      const updates = newContacts.map((contact, index) => 
+      const updates = newContacts.map((contact, index) =>
         supabase
           .from('contact_links')
           .update({ display_order: index + 1 })
@@ -199,9 +192,9 @@ export const ContactInfo = () => {
     } catch (error) {
       console.error('Error reordering contacts:', error);
       toast({
-        title: "Error",
-        description: "Failed to reorder contacts",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to reorder contacts',
+        variant: 'destructive',
       });
     }
   };
@@ -212,7 +205,7 @@ export const ContactInfo = () => {
       platform: contact.platform,
       display_name: contact.display_name,
       url: contact.url,
-      icon_emoji: contact.icon_emoji
+      icon_emoji: contact.icon_emoji,
     });
   };
 
@@ -224,24 +217,24 @@ export const ContactInfo = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className='flex items-center justify-center h-64'>
+        <div className='animate-spin rounded-full h-32 w-32 border-b-2 border-primary'></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className='space-y-6'>
+      <div className='flex items-center justify-between'>
         <div>
-          <h2 className="text-2xl font-bold">Contact Information</h2>
-          <p className="text-muted-foreground">Manage bot contact links and social media</p>
+          <h2 className='text-2xl font-bold'>Contact Information</h2>
+          <p className='text-muted-foreground'>Manage bot contact links and social media</p>
         </div>
-        <Button 
-          onClick={() => setIsCreating(true)} 
+        <Button
+          onClick={() => setIsCreating(true)}
           disabled={isCreating || editingId !== null}
         >
-          <Plus className="w-4 h-4 mr-2" />
+          <Plus className='w-4 h-4 mr-2' />
           Add Contact
         </Button>
       </div>
@@ -253,48 +246,48 @@ export const ContactInfo = () => {
             <CardTitle>Add New Contact</CardTitle>
             <CardDescription>Create a new contact link for the bot</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <CardContent className='space-y-4'>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
               <div>
-                <label className="text-sm font-medium">Platform</label>
+                <label className='text-sm font-medium'>Platform</label>
                 <Input
-                  placeholder="e.g., telegram, instagram, facebook"
+                  placeholder='e.g., telegram, instagram, facebook'
                   value={formData.platform}
                   onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Display Name</label>
+                <label className='text-sm font-medium'>Display Name</label>
                 <Input
-                  placeholder="e.g., Dynamic Capital Instagram"
+                  placeholder='e.g., Dynamic Capital Instagram'
                   value={formData.display_name}
                   onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">URL</label>
+                <label className='text-sm font-medium'>URL</label>
                 <Input
-                  placeholder="https://..."
+                  placeholder='https://...'
                   value={formData.url}
                   onChange={(e) => setFormData({ ...formData, url: e.target.value })}
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Icon Emoji</label>
+                <label className='text-sm font-medium'>Icon Emoji</label>
                 <Input
-                  placeholder="📸"
+                  placeholder='📸'
                   value={formData.icon_emoji}
                   onChange={(e) => setFormData({ ...formData, icon_emoji: e.target.value })}
                 />
               </div>
             </div>
-            <div className="flex space-x-2">
+            <div className='flex space-x-2'>
               <Button onClick={() => handleSave()}>
-                <Save className="w-4 h-4 mr-2" />
+                <Save className='w-4 h-4 mr-2' />
                 Save Contact
               </Button>
-              <Button variant="outline" onClick={cancelEdit}>
-                <X className="w-4 h-4 mr-2" />
+              <Button variant='outline' onClick={cancelEdit}>
+                <X className='w-4 h-4 mr-2' />
                 Cancel
               </Button>
             </div>
@@ -309,128 +302,136 @@ export const ContactInfo = () => {
           <CardDescription>Active contact information displayed to users</CardDescription>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-96">
-            <div className="space-y-2">
+          <ScrollArea className='h-96'>
+            <div className='space-y-2'>
               {contacts.map((contact, index) => (
-                <div key={contact.id} className="border rounded-lg p-4">
-                  {editingId === contact.id ? (
-                    /* Edit Form */
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm font-medium">Platform</label>
-                          <Input
-                            value={formData.platform}
-                            onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
-                          />
+                <div key={contact.id} className='border rounded-lg p-4'>
+                  {editingId === contact.id
+                    ? (
+                      /* Edit Form */
+                      <div className='space-y-4'>
+                        <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                          <div>
+                            <label className='text-sm font-medium'>Platform</label>
+                            <Input
+                              value={formData.platform}
+                              onChange={(e) =>
+                                setFormData({ ...formData, platform: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className='text-sm font-medium'>Display Name</label>
+                            <Input
+                              value={formData.display_name}
+                              onChange={(e) =>
+                                setFormData({ ...formData, display_name: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className='text-sm font-medium'>URL</label>
+                            <Input
+                              value={formData.url}
+                              onChange={(e) =>
+                                setFormData({ ...formData, url: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className='text-sm font-medium'>Icon Emoji</label>
+                            <Input
+                              value={formData.icon_emoji}
+                              onChange={(e) =>
+                                setFormData({ ...formData, icon_emoji: e.target.value })}
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <label className="text-sm font-medium">Display Name</label>
-                          <Input
-                            value={formData.display_name}
-                            onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">URL</label>
-                          <Input
-                            value={formData.url}
-                            onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">Icon Emoji</label>
-                          <Input
-                            value={formData.icon_emoji}
-                            onChange={(e) => setFormData({ ...formData, icon_emoji: e.target.value })}
-                          />
+                        <div className='flex space-x-2'>
+                          <Button size='sm' onClick={() => handleSave(contact.id)}>
+                            <Save className='w-4 h-4 mr-2' />
+                            Save
+                          </Button>
+                          <Button size='sm' variant='outline' onClick={cancelEdit}>
+                            <X className='w-4 h-4 mr-2' />
+                            Cancel
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex space-x-2">
-                        <Button size="sm" onClick={() => handleSave(contact.id)}>
-                          <Save className="w-4 h-4 mr-2" />
-                          Save
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={cancelEdit}>
-                          <X className="w-4 h-4 mr-2" />
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    /* Display Mode */
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-2xl">{contact.icon_emoji}</span>
-                        <div>
-                          <h3 className="font-medium">{contact.display_name}</h3>
-                          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                            <span>{contact.platform}</span>
-                            <span>•</span>
-                            <a 
-                              href={contact.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="flex items-center hover:text-primary"
+                    )
+                    : (
+                      /* Display Mode */
+                      <div className='flex items-center justify-between'>
+                        <div className='flex items-center space-x-3'>
+                          <span className='text-2xl'>{contact.icon_emoji}</span>
+                          <div>
+                            <h3 className='font-medium'>{contact.display_name}</h3>
+                            <div className='flex items-center space-x-2 text-sm text-muted-foreground'>
+                              <span>{contact.platform}</span>
+                              <span>•</span>
+                              <a
+                                href={contact.url}
+                                target='_blank'
+                                rel='noopener noreferrer'
+                                className='flex items-center hover:text-primary'
+                              >
+                                Visit <ExternalLink className='w-3 h-3 ml-1' />
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                        <div className='flex items-center space-x-2'>
+                          <Badge variant={contact.is_active ? 'default' : 'secondary'}>
+                            {contact.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                          <div className='flex space-x-1'>
+                            <Button
+                              size='sm'
+                              variant='outline'
+                              onClick={() => handleReorder(contact.id, 'up')}
+                              disabled={index === 0}
                             >
-                              Visit <ExternalLink className="w-3 h-3 ml-1" />
-                            </a>
+                              <ArrowUp className='w-4 h-4' />
+                            </Button>
+                            <Button
+                              size='sm'
+                              variant='outline'
+                              onClick={() => handleReorder(contact.id, 'down')}
+                              disabled={index === contacts.length - 1}
+                            >
+                              <ArrowDown className='w-4 h-4' />
+                            </Button>
+                            <Button
+                              size='sm'
+                              variant='outline'
+                              onClick={() => handleToggleActive(contact.id, contact.is_active)}
+                            >
+                              {contact.is_active ? 'Hide' : 'Show'}
+                            </Button>
+                            <Button
+                              size='sm'
+                              variant='outline'
+                              onClick={() => startEdit(contact)}
+                            >
+                              <Edit className='w-4 h-4' />
+                            </Button>
+                            <Button
+                              size='sm'
+                              variant='destructive'
+                              onClick={() => handleDelete(contact.id)}
+                            >
+                              <Trash2 className='w-4 h-4' />
+                            </Button>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant={contact.is_active ? "default" : "secondary"}>
-                          {contact.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                        <div className="flex space-x-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleReorder(contact.id, 'up')}
-                            disabled={index === 0}
-                          >
-                            <ArrowUp className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleReorder(contact.id, 'down')}
-                            disabled={index === contacts.length - 1}
-                          >
-                            <ArrowDown className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleToggleActive(contact.id, contact.is_active)}
-                          >
-                            {contact.is_active ? "Hide" : "Show"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => startEdit(contact)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleDelete(contact.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                    )}
                 </div>
               ))}
               {contacts.length === 0 && (
-                <div className="text-center py-8">
-                  <Link className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">No contact links found</p>
-                  <p className="text-sm text-muted-foreground">Add your first contact link to get started</p>
+                <div className='text-center py-8'>
+                  <Link className='w-12 h-12 mx-auto text-muted-foreground mb-4' />
+                  <p className='text-muted-foreground'>No contact links found</p>
+                  <p className='text-sm text-muted-foreground'>
+                    Add your first contact link to get started
+                  </p>
                 </div>
               )}
             </div>

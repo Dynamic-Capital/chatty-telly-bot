@@ -1,14 +1,14 @@
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { requireEnv } from "./helpers/require-env.ts";
+import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { requireEnv } from './helpers/require-env.ts';
 import {
   handleEnvStatus,
   handlePing,
-  handleReviewList,
   handleReplay,
+  handleReviewList,
   handleVersion,
   handleWebhookInfo,
-} from "./admin-handlers.ts";
-import { getFlag } from "../../../src/utils/config.ts";
+} from './admin-handlers.ts';
+import { getFlag } from '../../../src/utils/config.ts';
 
 interface TelegramMessage {
   chat: { id: number };
@@ -37,31 +37,31 @@ interface PaymentIntent {
 }
 
 const REQUIRED_ENV_KEYS = [
-  "SUPABASE_URL",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "TELEGRAM_BOT_TOKEN",
-  "TELEGRAM_WEBHOOK_SECRET",
+  'SUPABASE_URL',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'TELEGRAM_BOT_TOKEN',
+  'TELEGRAM_WEBHOOK_SECRET',
 ];
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-  "";
-const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
-const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
+  '';
+const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') || '';
+const WEBHOOK_SECRET = Deno.env.get('TELEGRAM_WEBHOOK_SECRET') || '';
 // Ensure MINI_APP_URL always includes a trailing slash to avoid redirects
 const MINI_APP_URL = (() => {
-  const url = Deno.env.get("MINI_APP_URL");
+  const url = Deno.env.get('MINI_APP_URL');
   if (!url) return null;
-  return url.endsWith("/") ? url : `${url}/`;
+  return url.endsWith('/') ? url : `${url}/`;
 })();
-const MINI_APP_SHORT_NAME = Deno.env.get("MINI_APP_SHORT_NAME") || null;
+const MINI_APP_SHORT_NAME = Deno.env.get('MINI_APP_SHORT_NAME') || null;
 
 // Optional feature flags (currently unused)
-const _OPENAI_ENABLED = Deno.env.get("OPENAI_ENABLED") === "true";
-const _FAQ_ENABLED = Deno.env.get("FAQ_ENABLED") === "true";
-const WINDOW_SECONDS = Number(Deno.env.get("WINDOW_SECONDS") || "180");
-const AMOUNT_TOLERANCE = Number(Deno.env.get("AMOUNT_TOLERANCE") || "0.02");
-const REQUIRE_PAY_CODE = Deno.env.get("REQUIRE_PAY_CODE") === "true";
+const _OPENAI_ENABLED = Deno.env.get('OPENAI_ENABLED') === 'true';
+const _FAQ_ENABLED = Deno.env.get('FAQ_ENABLED') === 'true';
+const _WINDOW_SECONDS = Number(Deno.env.get('WINDOW_SECONDS') || '180');
+const _AMOUNT_TOLERANCE = Number(Deno.env.get('AMOUNT_TOLERANCE') || '0.02');
+const _REQUIRE_PAY_CODE = Deno.env.get('REQUIRE_PAY_CODE') === 'true';
 
 let supabaseAdmin: SupabaseClient | null = null;
 function getSupabase(): SupabaseClient {
@@ -76,20 +76,20 @@ function getSupabase(): SupabaseClient {
 function okJSON(body: unknown = { ok: true }): Response {
   return new Response(JSON.stringify(body), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: { 'Content-Type': 'application/json' },
   });
 }
 
 async function notifyUser(chatId: number, text: string): Promise<void> {
   if (!BOT_TOKEN) return;
   await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: chatId, text }),
   });
 }
 
-function buildWebAppButton(label = "Open Mini App") {
+function buildWebAppButton(label = 'Open Mini App') {
   if (MINI_APP_SHORT_NAME) {
     return { text: label, web_app: { short_name: MINI_APP_SHORT_NAME } };
   }
@@ -101,19 +101,17 @@ function buildWebAppButton(label = "Open Mini App") {
 
 async function sendMiniAppLink(chatId: number): Promise<void> {
   if (!BOT_TOKEN) return;
-  const enabled = await getFlag("mini_app_enabled", false);
+  const enabled = await getFlag('mini_app_enabled', false);
   if (!enabled) return;
-  const button = buildWebAppButton("Open Mini App");
+  const button = buildWebAppButton('Open Mini App');
   const reply_markup = button ? { inline_keyboard: [[button]] } : undefined;
 
   await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: chatId,
-      text: button
-        ? "Open the Dynamic Capital mini app"
-        : "Mini app not configured yet.",
+      text: button ? 'Open the Dynamic Capital mini app' : 'Mini app not configured yet.',
       reply_markup,
     }),
   });
@@ -138,7 +136,7 @@ function getFileIdFromUpdate(update: TelegramUpdate | null): string | null {
   const doc = msg.document;
   if (
     doc &&
-    (!doc.mime_type || doc.mime_type.startsWith("image/"))
+    (!doc.mime_type || doc.mime_type.startsWith('image/'))
   ) {
     return doc.file_id;
   }
@@ -146,7 +144,7 @@ function getFileIdFromUpdate(update: TelegramUpdate | null): string | null {
 }
 
 const rateLimitMap = new Map<number, number>();
-function rateLimitGuard(chatId: number): boolean {
+function _rateLimitGuard(chatId: number): boolean {
   const now = Date.now();
   const last = rateLimitMap.get(chatId) || 0;
   if (now - last < 5000) return false;
@@ -154,12 +152,12 @@ function rateLimitGuard(chatId: number): boolean {
   return true;
 }
 
-function logEvent(event: string, data: Record<string, unknown>): void {
-  const sb_request_id = Deno.env.get("SB_REQUEST_ID");
+function _logEvent(event: string, data: Record<string, unknown>): void {
+  const sb_request_id = Deno.env.get('SB_REQUEST_ID');
   console.log(JSON.stringify({ event, sb_request_id, ...data }));
 }
 
-async function downloadTelegramFile(
+async function _downloadTelegramFile(
   fileId: string,
 ): Promise<{ blob: Blob; filePath: string } | null> {
   const infoRes = await fetch(
@@ -175,20 +173,20 @@ async function downloadTelegramFile(
   return { blob, filePath };
 }
 
-async function hashBytesToSha256(blob: Blob): Promise<string> {
+async function _hashBytesToSha256(blob: Blob): Promise<string> {
   const arrayBuffer = await blob.arrayBuffer();
-  const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
-  return Array.from(new Uint8Array(hashBuffer)).map((b) =>
-    b.toString(16).padStart(2, "0")
-  ).join("");
+  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+  return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, '0')).join(
+    '',
+  );
 }
 
-async function storeReceiptImage(
+async function _storeReceiptImage(
   blob: Blob,
   storagePath: string,
 ): Promise<string> {
   const supabase = getSupabase();
-  await supabase.storage.from("receipts").upload(storagePath, blob, {
+  await supabase.storage.from('receipts').upload(storagePath, blob, {
     contentType: blob.type || undefined,
   });
   return storagePath;
@@ -203,36 +201,36 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
 
   // Extract the command without bot mentions and gather arguments
   const [firstToken, ...args] = text.split(/\s+/);
-  const command = firstToken.split("@")[0];
+  const command = firstToken.split('@')[0];
 
   try {
     switch (command) {
-      case "/start":
-      case "/app":
+      case '/start':
+      case '/app':
         await sendMiniAppLink(chatId);
         break;
-      case "/ping":
+      case '/ping':
         await notifyUser(chatId, JSON.stringify(handlePing()));
         break;
-      case "/version":
+      case '/version':
         await notifyUser(chatId, JSON.stringify(handleVersion()));
         break;
-      case "/env":
+      case '/env':
         await notifyUser(chatId, JSON.stringify(handleEnvStatus()));
         break;
-      case "/reviewlist": {
+      case '/reviewlist': {
         const list = await handleReviewList();
         await notifyUser(chatId, JSON.stringify(list));
         break;
       }
-      case "/replay": {
+      case '/replay': {
         const id = args[0];
         if (id) {
           await notifyUser(chatId, JSON.stringify(handleReplay(id)));
         }
         break;
       }
-      case "/webhookinfo": {
+      case '/webhookinfo': {
         const info = await handleWebhookInfo();
         await notifyUser(chatId, JSON.stringify(info));
         break;
@@ -242,16 +240,16 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
         break;
     }
   } catch (err) {
-    console.error("handleCommand error", err);
+    console.error('handleCommand error', err);
   }
 }
 
 async function startReceiptPipeline(update: TelegramUpdate): Promise<void> {
   try {
     const chatId = update.message!.chat.id;
-    await notifyUser(chatId, "Receipt processing is temporarily disabled.");
+    await notifyUser(chatId, 'Receipt processing is temporarily disabled.');
   } catch (err) {
-    console.error("startReceiptPipeline error", err);
+    console.error('startReceiptPipeline error', err);
   }
 }
 
@@ -259,19 +257,21 @@ export async function serveWebhook(req: Request): Promise<Response> {
   try {
     const { ok, missing } = requireEnv(REQUIRED_ENV_KEYS);
     if (!ok) {
-      console.error("Missing env vars", missing);
+      console.error('Missing env vars', missing);
       return okJSON();
     }
 
     const url = new URL(req.url);
-    if (url.searchParams.get("secret") !== WEBHOOK_SECRET) {
+    if (url.searchParams.get('secret') !== WEBHOOK_SECRET) {
       return okJSON();
     }
 
     const body = await extractTelegramUpdate(req);
-    if (body && typeof body === "object" &&
-      (body as { test?: string }).test === "ping" &&
-      Object.keys(body).length === 1) {
+    if (
+      body && typeof body === 'object' &&
+      (body as { test?: string }).test === 'ping' &&
+      Object.keys(body).length === 1
+    ) {
       return okJSON({ pong: true });
     }
     const update = body as TelegramUpdate | null;
@@ -284,7 +284,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
 
     return okJSON();
   } catch (err) {
-    console.error("serveWebhook error", err);
+    console.error('serveWebhook error', err);
     return okJSON();
   }
 }

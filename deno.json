@@ -2,13 +2,29 @@
   "tasks": {
     "check": "deno check supabase/functions/telegram-bot/*.ts supabase/functions/telegram-bot/**/*.ts",
     "serve": "supabase functions serve",
-    "fmt": "deno fmt --check supabase/functions src",
-    "fmt:write": "deno fmt supabase/functions src",
+    "fmt": "deno fmt --check .",
+    "fmt:write": "deno fmt .",
     "lint": "deno lint",
+    "lint:fix": "deno lint --fix",
+    "fix:repo": "bash scripts/fix_all.sh",
     "typecheck": "bash scripts/typecheck.sh",
     "ci": "bash scripts/ci.sh"
   },
-  "nodeModulesDir": true,
+  "nodeModulesDir": "auto",
+  "fmt": {
+    "options": {
+      "lineWidth": 100,
+      "singleQuote": true
+    },
+    "exclude": [
+      "supabase/functions/telegram-bot/vendor"
+    ]
+  },
+  "lint": {
+    "exclude": [
+      "supabase/functions/telegram-bot/vendor"
+    ]
+  },
   "compilerOptions": {
     "types": [
       "./types/tesseract.d.ts"

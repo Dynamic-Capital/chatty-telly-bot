@@ -8,17 +8,17 @@ interface BaseWorker {
   terminate(): Promise<void>;
 }
 
-declare module "npm:tesseract.js@5" {
+declare module 'npm:tesseract.js@5' {
   export function createWorker(): Promise<BaseWorker>;
   export type Worker = BaseWorker;
 }
 
-declare module "tesseract.js" {
+declare module 'tesseract.js' {
   export function createWorker(): Promise<BaseWorker>;
   export type Worker = BaseWorker;
 }
 
-declare module "https://esm.sh/tesseract.js@5?dts" {
+declare module 'https://esm.sh/tesseract.js@5?dts' {
   export function createWorker(): Promise<BaseWorker>;
   export type Worker = BaseWorker;
 }

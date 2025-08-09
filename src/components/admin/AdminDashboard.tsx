@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,16 +12,16 @@ import { ContactInfo } from '@/components/admin/ContactInfo';
 import { WelcomeMessageEditor } from '@/components/admin/WelcomeMessageEditor';
 import { SystemStatus } from '@/components/admin/SystemStatus';
 import { VipPlansManager } from '@/components/admin/VipPlansManager';
-import { 
-  Users,
+import {
   CreditCard,
+  DollarSign,
+  Download,
   GraduationCap,
   MessageSquare,
-  TrendingUp,
-  Download,
   Send,
+  TrendingUp,
   User,
-  DollarSign
+  Users,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -63,9 +63,9 @@ export const AdminDashboard = () => {
     activeSubscriptions: 0,
     totalEnrollments: 0,
     totalRevenue: 0,
-    todayUsers: 0
+    todayUsers: 0,
   });
-  
+
   const [users, setUsers] = useState<User[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,22 +79,24 @@ export const AdminDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch stats
-      const [usersResponse, paymentsResponse, subscriptionsResponse, enrollmentsResponse] = await Promise.all([
-        supabase.from('bot_users').select('*', { count: 'exact' }),
-        supabase.from('payments').select('*', { count: 'exact' }),
-        supabase.from('user_subscriptions').select('*').eq('is_active', true),
-        supabase.from('education_enrollments').select('*', { count: 'exact' })
-      ]);
+      const [usersResponse, paymentsResponse, subscriptionsResponse, enrollmentsResponse] =
+        await Promise.all([
+          supabase.from('bot_users').select('*', { count: 'exact' }),
+          supabase.from('payments').select('*', { count: 'exact' }),
+          supabase.from('user_subscriptions').select('*').eq('is_active', true),
+          supabase.from('education_enrollments').select('*', { count: 'exact' }),
+        ]);
 
       // Calculate revenue
       const { data: paymentsData } = await supabase
         .from('payments')
         .select('amount')
         .eq('status', 'completed');
-      
-      const totalRevenue = paymentsData?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0;
+
+      const totalRevenue = paymentsData?.reduce((sum, payment) =>
+        sum + Number(payment.amount), 0) || 0;
 
       // Get today's users
       const today = new Date().toISOString().split('T')[0];
@@ -109,7 +111,7 @@ export const AdminDashboard = () => {
         activeSubscriptions: subscriptionsResponse.data?.length || 0,
         totalEnrollments: enrollmentsResponse.count || 0,
         totalRevenue,
-        todayUsers: todayUsersData?.length || 0
+        todayUsers: todayUsersData?.length || 0,
       });
 
       // Fetch detailed data
@@ -130,7 +132,6 @@ export const AdminDashboard = () => {
 
       setUsers(usersData || []);
       setPayments(paymentsData2 || []);
-      
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -141,7 +142,7 @@ export const AdminDashboard = () => {
   const exportData = async (tableName: string) => {
     try {
       let data: unknown[] = [];
-      
+
       // Type-safe table queries
       switch (tableName) {
         case 'bot_users': {
@@ -186,8 +187,8 @@ export const AdminDashboard = () => {
       // Convert to CSV
       if (data && data.length > 0) {
         const headers = Object.keys(data[0]).join(',');
-        const rows = data.map(row => 
-          Object.values(row).map(val => 
+        const rows = data.map((row) =>
+          Object.values(row).map((val) =>
             typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val
           ).join(',')
         );
@@ -209,7 +210,7 @@ export const AdminDashboard = () => {
 
   const sendBroadcast = async () => {
     if (!broadcastMessage.trim()) return;
-    
+
     setBroadcasting(true);
     try {
       // Call the actual Telegram bot broadcast function
@@ -217,8 +218,8 @@ export const AdminDashboard = () => {
         body: {
           action: 'broadcast',
           message: broadcastMessage,
-          target_audience: 'all'
-        }
+          target_audience: 'all',
+        },
       });
 
       if (error) {
@@ -237,71 +238,71 @@ export const AdminDashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className='flex items-center justify-center h-64'>
+        <div className='animate-spin rounded-full h-32 w-32 border-b-2 border-primary'></div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <Button onClick={fetchDashboardData} variant="outline">
-          <TrendingUp className="w-4 h-4 mr-2" />
+    <div className='container mx-auto p-6 space-y-6'>
+      <div className='flex items-center justify-between'>
+        <h1 className='text-3xl font-bold'>Admin Dashboard</h1>
+        <Button onClick={fetchDashboardData} variant='outline'>
+          <TrendingUp className='w-4 h-4 mr-2' />
           Refresh Data
         </Button>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+            <CardTitle className='text-sm font-medium'>Total Users</CardTitle>
+            <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalUsers}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className='text-2xl font-bold'>{stats.totalUsers}</div>
+            <p className='text-xs text-muted-foreground'>
               +{stats.todayUsers} today
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+            <CardTitle className='text-sm font-medium'>Total Revenue</CardTitle>
+            <DollarSign className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.totalRevenue}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className='text-2xl font-bold'>${stats.totalRevenue}</div>
+            <p className='text-xs text-muted-foreground'>
               {stats.totalPayments} payments
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+            <CardTitle className='text-sm font-medium'>Active Subscriptions</CardTitle>
+            <CreditCard className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.activeSubscriptions}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className='text-2xl font-bold'>{stats.activeSubscriptions}</div>
+            <p className='text-xs text-muted-foreground'>
               VIP members
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Education Enrollments</CardTitle>
-            <GraduationCap className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+            <CardTitle className='text-sm font-medium'>Education Enrollments</CardTitle>
+            <GraduationCap className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalEnrollments}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className='text-2xl font-bold'>{stats.totalEnrollments}</div>
+            <p className='text-xs text-muted-foreground'>
               Total enrollments
             </p>
           </CardContent>
@@ -309,61 +310,64 @@ export const AdminDashboard = () => {
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="bot-debug" className="space-y-4">
+      <Tabs defaultValue='bot-debug' className='space-y-4'>
         <TabsList>
-          <TabsTrigger value="bot-debug">🔧 Bot Debug</TabsTrigger>
-          <TabsTrigger value="system-status">📊 System Status</TabsTrigger>
-          <TabsTrigger value="welcome-editor">💬 Welcome Message</TabsTrigger>
-          <TabsTrigger value="vip-plans">💎 VIP Plans</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="settings">Bot Settings</TabsTrigger>
-          <TabsTrigger value="broadcast">Broadcast</TabsTrigger>
-          <TabsTrigger value="contact">Contact Info</TabsTrigger>
-          <TabsTrigger value="export">Export Data</TabsTrigger>
+          <TabsTrigger value='bot-debug'>🔧 Bot Debug</TabsTrigger>
+          <TabsTrigger value='system-status'>📊 System Status</TabsTrigger>
+          <TabsTrigger value='welcome-editor'>💬 Welcome Message</TabsTrigger>
+          <TabsTrigger value='vip-plans'>💎 VIP Plans</TabsTrigger>
+          <TabsTrigger value='users'>Users</TabsTrigger>
+          <TabsTrigger value='payments'>Payments</TabsTrigger>
+          <TabsTrigger value='settings'>Bot Settings</TabsTrigger>
+          <TabsTrigger value='broadcast'>Broadcast</TabsTrigger>
+          <TabsTrigger value='contact'>Contact Info</TabsTrigger>
+          <TabsTrigger value='export'>Export Data</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="bot-debug" className="space-y-4">
+        <TabsContent value='bot-debug' className='space-y-4'>
           <BotDebugger />
         </TabsContent>
 
-        <TabsContent value="system-status" className="space-y-4">
+        <TabsContent value='system-status' className='space-y-4'>
           <SystemStatus />
         </TabsContent>
 
-        <TabsContent value="welcome-editor" className="space-y-4">
+        <TabsContent value='welcome-editor' className='space-y-4'>
           <WelcomeMessageEditor />
         </TabsContent>
 
-        <TabsContent value="vip-plans" className="space-y-4">
+        <TabsContent value='vip-plans' className='space-y-4'>
           <VipPlansManager />
         </TabsContent>
 
-        <TabsContent value="users" className="space-y-4">
+        <TabsContent value='users' className='space-y-4'>
           <Card>
             <CardHeader>
               <CardTitle>Recent Users</CardTitle>
               <CardDescription>Latest registered bot users</CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-96">
-                <div className="space-y-2">
+              <ScrollArea className='h-96'>
+                <div className='space-y-2'>
                   {users.map((user) => (
-                    <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <User className="h-8 w-8 text-muted-foreground" />
+                    <div
+                      key={user.id}
+                      className='flex items-center justify-between p-3 border rounded-lg'
+                    >
+                      <div className='flex items-center space-x-3'>
+                        <User className='h-8 w-8 text-muted-foreground' />
                         <div>
-                          <p className="font-medium">
+                          <p className='font-medium'>
                             {user.first_name} {user.last_name}
                           </p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className='text-sm text-muted-foreground'>
                             @{user.username || 'no_username'} • ID: {user.telegram_id}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        {user.is_vip && <Badge variant="secondary">VIP</Badge>}
-                        <Badge variant="outline">
+                      <div className='flex items-center space-x-2'>
+                        {user.is_vip && <Badge variant='secondary'>VIP</Badge>}
+                        <Badge variant='outline'>
                           {new Date(user.created_at).toLocaleDateString()}
                         </Badge>
                       </div>
@@ -375,32 +379,35 @@ export const AdminDashboard = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="payments" className="space-y-4">
+        <TabsContent value='payments' className='space-y-4'>
           <Card>
             <CardHeader>
               <CardTitle>Recent Payments</CardTitle>
               <CardDescription>Latest payment transactions</CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-96">
-                <div className="space-y-2">
+              <ScrollArea className='h-96'>
+                <div className='space-y-2'>
                   {payments.map((payment) => (
-                    <div key={payment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div
+                      key={payment.id}
+                      className='flex items-center justify-between p-3 border rounded-lg'
+                    >
                       <div>
-                        <p className="font-medium">
+                        <p className='font-medium'>
                           ${payment.amount} {payment.currency}
                         </p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className='text-sm text-muted-foreground'>
                           {payment.subscription_plans?.name} • {payment.payment_method}
                         </p>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge 
+                      <div className='flex items-center space-x-2'>
+                        <Badge
                           variant={payment.status === 'completed' ? 'default' : 'secondary'}
                         >
                           {payment.status}
                         </Badge>
-                        <Badge variant="outline">
+                        <Badge variant='outline'>
                           {new Date(payment.created_at).toLocaleDateString()}
                         </Badge>
                       </div>
@@ -412,36 +419,36 @@ export const AdminDashboard = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="broadcast" className="space-y-4">
+        <TabsContent value='broadcast' className='space-y-4'>
           <Card>
             <CardHeader>
               <CardTitle>Broadcast Message</CardTitle>
               <CardDescription>Send messages to all bot users</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className='space-y-4'>
               <textarea
-                className="w-full h-32 p-3 border rounded-lg resize-none"
-                placeholder="Enter your broadcast message..."
+                className='w-full h-32 p-3 border rounded-lg resize-none'
+                placeholder='Enter your broadcast message...'
                 value={broadcastMessage}
                 onChange={(e) => setBroadcastMessage(e.target.value)}
               />
-              <div className="flex space-x-2">
-                <Button 
-                  onClick={sendBroadcast} 
+              <div className='flex space-x-2'>
+                <Button
+                  onClick={sendBroadcast}
                   disabled={!broadcastMessage.trim() || broadcasting}
                 >
-                  <Send className="w-4 h-4 mr-2" />
+                  <Send className='w-4 h-4 mr-2' />
                   {broadcasting ? 'Sending...' : 'Send Broadcast'}
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant='outline'
                   onClick={() => setBroadcastMessage('')}
                 >
                   Clear
                 </Button>
               </div>
               <Alert>
-                <MessageSquare className="h-4 w-4" />
+                <MessageSquare className='h-4 w-4' />
                 <AlertDescription>
                   This will send the message to all {stats.totalUsers} registered users.
                 </AlertDescription>
@@ -450,37 +457,49 @@ export const AdminDashboard = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="settings" className="space-y-4">
+        <TabsContent value='settings' className='space-y-4'>
           <BotSettings />
         </TabsContent>
 
-        <TabsContent value="contact" className="space-y-4">
+        <TabsContent value='contact' className='space-y-4'>
           <ContactInfo />
         </TabsContent>
 
-        <TabsContent value="export" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <TabsContent value='export' className='space-y-4'>
+          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
             {[
               { name: 'bot_users', title: 'Bot Users', description: 'All registered users' },
               { name: 'payments', title: 'Payments', description: 'Payment transactions' },
-              { name: 'user_subscriptions', title: 'Subscriptions', description: 'User subscriptions' },
-              { name: 'education_enrollments', title: 'Enrollments', description: 'Education enrollments' },
+              {
+                name: 'user_subscriptions',
+                title: 'Subscriptions',
+                description: 'User subscriptions',
+              },
+              {
+                name: 'education_enrollments',
+                title: 'Enrollments',
+                description: 'Education enrollments',
+              },
               { name: 'promotions', title: 'Promotions', description: 'Promotion codes' },
               { name: 'daily_analytics', title: 'Analytics', description: 'Daily analytics data' },
-              { name: 'contact_links', title: 'Contact Links', description: 'Bot contact information' }
+              {
+                name: 'contact_links',
+                title: 'Contact Links',
+                description: 'Bot contact information',
+              },
             ].map((table) => (
               <Card key={table.name}>
                 <CardHeader>
-                  <CardTitle className="text-lg">{table.title}</CardTitle>
+                  <CardTitle className='text-lg'>{table.title}</CardTitle>
                   <CardDescription>{table.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button 
+                  <Button
                     onClick={() => exportData(table.name)}
-                    className="w-full"
-                    variant="outline"
+                    className='w-full'
+                    variant='outline'
                   >
-                    <Download className="w-4 h-4 mr-2" />
+                    <Download className='w-4 h-4 mr-2' />
                     Export CSV
                   </Button>
                 </CardContent>
