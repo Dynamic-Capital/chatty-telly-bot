@@ -32,9 +32,5 @@ supabase/functions/**/vendor/
 supabase/functions/**/.edge/
 **/*.cas
 
-# keep telegram-bot vendor in git
-!supabase/functions/telegram-bot/vendor/
-!supabase/functions/telegram-bot/vendor/**
-
 # Mini app build & deps
 apps/mini/dist/
