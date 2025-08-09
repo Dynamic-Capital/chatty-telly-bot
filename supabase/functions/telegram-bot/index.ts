@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { requireEnv } from "./helpers/require-env.ts";
+import { getSecret } from "./helpers/get-secret.ts";
 import {
   handleEnvStatus,
   handlePing,
@@ -38,15 +39,14 @@ interface PaymentIntent {
 const REQUIRED_ENV_KEYS = [
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
-  "TELEGRAM_BOT_TOKEN",
-  "TELEGRAM_WEBHOOK_SECRET",
 ];
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
   "";
-const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
-const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
+let BOT_TOKEN: string | null = Deno.env.get("TELEGRAM_BOT_TOKEN") || null;
+let WEBHOOK_SECRET: string | null = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ||
+  null;
 // Ensure MINI_APP_URL always includes a trailing slash to avoid redirects
 const MINI_APP_URL = (() => {
   const url = Deno.env.get("MINI_APP_URL");
@@ -72,6 +72,18 @@ function getSupabase(): SupabaseClient {
   return supabaseAdmin;
 }
 
+async function getBotToken(): Promise<string | null> {
+  if (BOT_TOKEN) return BOT_TOKEN;
+  BOT_TOKEN = await getSecret("TELEGRAM_BOT_TOKEN");
+  return BOT_TOKEN;
+}
+
+async function getWebhookSecret(): Promise<string | null> {
+  if (WEBHOOK_SECRET) return WEBHOOK_SECRET;
+  WEBHOOK_SECRET = await getSecret("TELEGRAM_WEBHOOK_SECRET");
+  return WEBHOOK_SECRET;
+}
+
 function okJSON(body: unknown = { ok: true }): Response {
   return new Response(JSON.stringify(body), {
     status: 200,
@@ -80,12 +92,27 @@ function okJSON(body: unknown = { ok: true }): Response {
 }
 
 async function notifyUser(chatId: number, text: string): Promise<void> {
-  if (!BOT_TOKEN) return;
-  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
-  });
+  const token = await getBotToken();
+  if (!token) {
+    console.error("notifyUser called without TELEGRAM_BOT_TOKEN");
+    return;
+  }
+  try {
+    const res = await fetch(
+      `https://api.telegram.org/bot${token}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text }),
+      },
+    );
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("notifyUser error", errText);
+    }
+  } catch (err) {
+    console.error("notifyUser error", err);
+  }
 }
 
 function buildWebAppButton(label = "Open Mini App") {
@@ -99,21 +126,29 @@ function buildWebAppButton(label = "Open Mini App") {
 }
 
 async function sendMiniAppLink(chatId: number): Promise<void> {
-  if (!BOT_TOKEN) return;
+  const token = await getBotToken();
+  if (!token) {
+    console.error("sendMiniAppLink called without TELEGRAM_BOT_TOKEN");
+    return;
+  }
   const button = buildWebAppButton("Open Mini App");
   const reply_markup = button ? { inline_keyboard: [[button]] } : undefined;
 
-  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: button
-        ? "Open the Dynamic Capital mini app"
-        : "Mini app not configured yet.",
-      reply_markup,
-    }),
-  });
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: button
+          ? "Open the Dynamic Capital mini app"
+          : "Mini app not configured yet.",
+        reply_markup,
+      }),
+    });
+  } catch (err) {
+    console.error("sendMiniAppLink error", err);
+  }
 }
 
 async function extractTelegramUpdate(
@@ -159,14 +194,19 @@ function logEvent(event: string, data: Record<string, unknown>): void {
 async function downloadTelegramFile(
   fileId: string,
 ): Promise<{ blob: Blob; filePath: string } | null> {
+  const token = await getBotToken();
+  if (!token) {
+    console.error("downloadTelegramFile called without TELEGRAM_BOT_TOKEN");
+    return null;
+  }
   const infoRes = await fetch(
-    `https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`,
+    `https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`,
   );
   const info = await infoRes.json();
   const filePath = info.result?.file_path;
   if (!filePath) return null;
   const fileRes = await fetch(
-    `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`,
+    `https://api.telegram.org/file/bot${token}/${filePath}`,
   );
   const blob = await fileRes.blob();
   return { blob, filePath };
@@ -197,28 +237,46 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
   const text = msg.text?.trim();
   if (!text) return;
   const chatId = msg.chat.id;
+
+  // Extract the command without bot mentions and gather arguments
+  const [firstToken, ...args] = text.split(/\s+/);
+  const command = firstToken.split("@")[0];
+
   try {
-    if (text.startsWith("/start")) {
-      await sendMiniAppLink(chatId);
-    } else if (text === "/app") {
-      await sendMiniAppLink(chatId);
-    } else if (text === "/ping") {
-      await notifyUser(chatId, JSON.stringify(handlePing()));
-    } else if (text === "/version") {
-      await notifyUser(chatId, JSON.stringify(handleVersion()));
-    } else if (text === "/env") {
-      await notifyUser(chatId, JSON.stringify(handleEnvStatus()));
-    } else if (text === "/reviewlist") {
-      const list = await handleReviewList();
-      await notifyUser(chatId, JSON.stringify(list));
-    } else if (text.startsWith("/replay")) {
-      const id = text.split(/\s+/)[1];
-      if (id) {
-        await notifyUser(chatId, JSON.stringify(handleReplay(id)));
+    switch (command) {
+      case "/start":
+      case "/app":
+        await sendMiniAppLink(chatId);
+        break;
+      case "/ping":
+        await notifyUser(chatId, JSON.stringify(handlePing()));
+        break;
+      case "/version":
+        await notifyUser(chatId, JSON.stringify(handleVersion()));
+        break;
+      case "/env":
+        await notifyUser(chatId, JSON.stringify(await handleEnvStatus()));
+        break;
+      case "/reviewlist": {
+        const list = await handleReviewList();
+        await notifyUser(chatId, JSON.stringify(list));
+        break;
       }
-    } else if (text === "/webhookinfo") {
-      const info = await handleWebhookInfo();
-      await notifyUser(chatId, JSON.stringify(info));
+      case "/replay": {
+        const id = args[0];
+        if (id) {
+          await notifyUser(chatId, JSON.stringify(handleReplay(id)));
+        }
+        break;
+      }
+      case "/webhookinfo": {
+        const info = await handleWebhookInfo();
+        await notifyUser(chatId, JSON.stringify(info));
+        break;
+      }
+      default:
+        await notifyUser(chatId, "Unsupported command");
+        break;
     }
   } catch (err) {
     console.error("handleCommand error", err);
@@ -239,12 +297,17 @@ export async function serveWebhook(req: Request): Promise<Response> {
     const { ok, missing } = requireEnv(REQUIRED_ENV_KEYS);
     if (!ok) {
       console.error("Missing env vars", missing);
-      return okJSON();
+      return new Response("Missing env vars", { status: 500 });
     }
 
     const url = new URL(req.url);
-    if (url.searchParams.get("secret") !== WEBHOOK_SECRET) {
-      return okJSON();
+    const webhookSecret = await getWebhookSecret();
+    if (!webhookSecret) {
+      console.error("WEBHOOK_SECRET missing");
+      return new Response("Missing webhook secret", { status: 500 });
+    }
+    if (url.searchParams.get("secret") !== webhookSecret) {
+      return new Response("Unauthorized", { status: 401 });
     }
 
     const body = await extractTelegramUpdate(req);
