@@ -8,7 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "test": "deno check supabase/functions/telegram-bot/*.ts supabase/functions/telegram-bot/**/*.ts && deno test -A",
+    "test": "deno check --unsafely-ignore-certificate-errors=registry.npmjs.org,deno.land supabase/functions/telegram-bot/*.ts supabase/functions/telegram-bot/**/*.ts && deno test --unsafely-ignore-certificate-errors=registry.npmjs.org,deno.land -A",
     "preview": "vite preview",
     "setup:supabase": "bash scripts/setup-supabase-cli.sh"
   },
