@@ -1,0 +1,13 @@
+#audit and outputs
+.audit/
+.out/
+coverage/
+dist/
+build/
+certs/
+sql/
+node_modules/
+# allow code
+!src/
+!supabase/functions/
+
