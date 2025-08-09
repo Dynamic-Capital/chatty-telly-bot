@@ -15,7 +15,14 @@ if (typeof Deno !== 'undefined') {
   assertRejects = assert.rejects;
 }
 
-import { enqueue, startWorker, stopWorker, setBackoffBase, clearQueue, pendingJobs } from '../src/queue/index.ts';
+import {
+  clearQueue,
+  enqueue,
+  pendingJobs,
+  setBackoffBase,
+  startWorker,
+  stopWorker,
+} from '../src/queue/index.ts';
 import { planBroadcast, setBroadcastsEnabled } from '../src/broadcast/index.ts';
 
 function sleep(ms: number) {
@@ -28,6 +35,7 @@ registerTest('retries until success', async () => {
   let attempt = 0;
   startWorker({
     'broadcast:sendBatch': async () => {
+      await Promise.resolve();
       attempt++;
       if (attempt < 4) throw new Error('fail');
     },
@@ -44,6 +52,7 @@ registerTest('chunking creates 8 jobs for 200 recipients', async () => {
   await planBroadcast({ segment: ids, text: 'hello', chunkSize: 25, pauseMs: 0 });
   const jobs = pendingJobs();
   assertEquals(jobs.length, 8);
+  // deno-lint-ignore no-explicit-any
   const total = jobs.reduce((sum, j) => sum + (j.payload as any).userIds.length, 0);
   assertEquals(total, 200);
 });

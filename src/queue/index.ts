@@ -49,7 +49,7 @@ function sortQueue() {
 async function persist(job: JobRecord) {
   if (!supabaseClient) return;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // deno-lint-ignore no-explicit-any
     await (supabaseClient as any).from('jobs').upsert({
       id: job.id,
       type: job.type,
@@ -91,6 +91,8 @@ function calculateBackoff(attempt: number): number {
 }
 
 async function sleep(ms: number) {
+  await Promise.resolve(); // satisfy require-await
+
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 

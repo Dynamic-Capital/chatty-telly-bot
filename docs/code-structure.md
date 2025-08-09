@@ -1,6 +1,7 @@
 # Code Structure Guide for AI Tools
 
-> **AI Development Companion** - This guide helps AI coding tools understand and modify the Dynamic Capital VIP Bot codebase effectively.
+> **AI Development Companion** - This guide helps AI coding tools understand and modify the Dynamic
+> Capital VIP Bot codebase effectively.
 
 ## 📁 Project Structure
 
@@ -31,12 +32,13 @@ dynamic-capital-bot/
 ### Core Files Breakdown
 
 #### `supabase/functions/telegram-bot/index.ts`
+
 **Main bot entry point - 5,963 lines of comprehensive functionality**
 
 ```typescript
 /**
  * 🎯 MAIN SECTIONS (for AI reference):
- * 
+ *
  * Lines 1-286:    Security & Rate Limiting System
  * Lines 287-500:  Environment Setup & Database Utils
  * Lines 501-1000: Session Management & Core Functions
@@ -48,33 +50,34 @@ dynamic-capital-bot/
  */
 
 // 🔒 Security Layer (Lines 16-286)
-interface RateLimitEntry { /* ... */ }
-function isRateLimited(userId: string): boolean { /* ... */ }
-function validateMessage(text: string): boolean { /* ... */ }
+interface RateLimitEntry {/* ... */}
+function isRateLimited(userId: string): boolean {/* ... */}
+function validateMessage(text: string): boolean {/* ... */}
 
 // 💾 Database Layer (Lines 418-600)
-async function getBotContentBatch(keys: string[]): Promise<Map<string, string>> { /* ... */ }
-async function setBotContent(key: string, value: string): Promise<boolean> { /* ... */ }
-async function getUserCompleteData(userId: string): Promise<any> { /* ... */ }
+async function getBotContentBatch(keys: string[]): Promise<Map<string, string>> {/* ... */}
+async function setBotContent(key: string, value: string): Promise<boolean> {/* ... */}
+async function getUserCompleteData(userId: string): Promise<any> {/* ... */}
 
 // 🎭 Session Layer (Lines 323-415)
-async function startBotSession(userId: string): Promise<string> { /* ... */ }
-async function updateBotSession(userId: string): Promise<void> { /* ... */ }
-async function endBotSession(userId: string): Promise<void> { /* ... */ }
+async function startBotSession(userId: string): Promise<string> {/* ... */}
+async function updateBotSession(userId: string): Promise<void> {/* ... */}
+async function endBotSession(userId: string): Promise<void> {/* ... */}
 
 // 💬 Message Layer (Lines 700-1200)
-async function sendMessage(chatId: number, text: string, keyboard?: any): Promise<void> { /* ... */ }
-async function handleTextMessage(message: TelegramMessage): Promise<void> { /* ... */ }
-async function handleCallbackQuery(query: TelegramCallbackQuery): Promise<void> { /* ... */ }
+async function sendMessage(chatId: number, text: string, keyboard?: any): Promise<void> {/* ... */}
+async function handleTextMessage(message: TelegramMessage): Promise<void> {/* ... */}
+async function handleCallbackQuery(query: TelegramCallbackQuery): Promise<void> {/* ... */}
 ```
 
 #### `supabase/functions/telegram-bot/database-utils.ts`
+
 **Database operations utility - Clean, focused functions**
 
 ```typescript
 /**
  * 🎯 UTILITY SECTIONS:
- * 
+ *
  * Content Management:    getBotContent(), setBotContent()
  * Settings Management:   getBotSetting(), setBotSetting()
  * VIP Package Ops:      getVipPackages(), createVipPackage()
@@ -92,18 +95,19 @@ export async function getBotContent(contentKey: string): Promise<string | null> 
     .eq('content_key', contentKey)
     .eq('is_active', true)
     .single();
-    
+
   return error ? null : data?.content_value;
 }
 ```
 
 #### `supabase/functions/telegram-bot/admin-handlers.ts`
+
 **Admin interface handlers - Well-structured management functions**
 
 ```typescript
 /**
  * 🎯 ADMIN SECTIONS:
- * 
+ *
  * Dashboard:           handleTableManagement()
  * User Management:     handleUserTableManagement()
  * Content Editing:     handleContentManagement()
@@ -115,14 +119,14 @@ export async function getBotContent(contentKey: string): Promise<string | null> 
 export async function handleUserTableManagement(chatId: number, userId: string): Promise<void> {
   // 1. Permission check
   if (!isAdmin(userId)) return;
-  
+
   // 2. Fetch data
   const users = await getBotUsers();
-  
+
   // 3. Format response
   const message = formatUserList(users);
   const keyboard = createUserManagementKeyboard();
-  
+
   // 4. Send to admin
   await sendMessage(chatId, message, keyboard);
 }
@@ -135,57 +139,57 @@ export async function handleUserTableManagement(chatId: number, userId: string):
 ```typescript
 // 👤 Users & Authentication
 interface BotUser {
-  id: string;                    // UUID primary key
-  telegram_id: string;          // Unique Telegram user ID
-  username?: string;             // @username
-  first_name?: string;           // Display name
-  is_admin: boolean;             // Admin privileges
-  is_vip: boolean;               // VIP status
-  current_plan_id?: string;      // Active subscription
+  id: string; // UUID primary key
+  telegram_id: string; // Unique Telegram user ID
+  username?: string; // @username
+  first_name?: string; // Display name
+  is_admin: boolean; // Admin privileges
+  is_vip: boolean; // VIP status
+  current_plan_id?: string; // Active subscription
   subscription_expires_at?: string; // Expiry date
 }
 
 // 💳 Subscriptions & Payments
 interface SubscriptionPlan {
-  id: string;                    // UUID primary key
-  name: string;                  // Plan name (e.g., "VIP Monthly")
-  price: number;                 // Price in currency
-  currency: string;              // "USD", "EUR", etc.
-  duration_months: number;       // Subscription length
-  features: string[];            // Array of features
+  id: string; // UUID primary key
+  name: string; // Plan name (e.g., "VIP Monthly")
+  price: number; // Price in currency
+  currency: string; // "USD", "EUR", etc.
+  duration_months: number; // Subscription length
+  features: string[]; // Array of features
 }
 
 interface Payment {
-  id: string;                    // UUID primary key
-  user_id: string;               // Links to bot_users
-  plan_id: string;               // Links to subscription_plans
-  amount: number;                // Payment amount
+  id: string; // UUID primary key
+  user_id: string; // Links to bot_users
+  plan_id: string; // Links to subscription_plans
+  amount: number; // Payment amount
   status: 'pending' | 'completed' | 'failed'; // Payment status
-  payment_method: string;        // "binance_pay", "manual", etc.
+  payment_method: string; // "binance_pay", "manual", etc.
 }
 
 // 📚 Education System
 interface EducationPackage {
-  id: string;                    // UUID primary key
-  name: string;                  // Course name
-  price: number;                 // Course price
-  duration_weeks: number;        // Course length
-  max_students?: number;         // Enrollment limit
-  current_students: number;      // Current enrollments
-  is_featured: boolean;          // Featured on main menu
+  id: string; // UUID primary key
+  name: string; // Course name
+  price: number; // Course price
+  duration_weeks: number; // Course length
+  max_students?: number; // Enrollment limit
+  current_students: number; // Current enrollments
+  is_featured: boolean; // Featured on main menu
 }
 
 // 📊 Content & Settings
 interface BotContent {
-  content_key: string;           // Unique identifier (e.g., "welcome_message")
-  content_value: string;         // The actual content/message
+  content_key: string; // Unique identifier (e.g., "welcome_message")
+  content_value: string; // The actual content/message
   content_type: 'text' | 'html'; // Format type
-  is_active: boolean;            // Whether to use this content
+  is_active: boolean; // Whether to use this content
 }
 
 interface BotSettings {
-  setting_key: string;           // Unique identifier (e.g., "auto_delete_enabled")
-  setting_value: string;         // Setting value (stored as string)
+  setting_key: string; // Unique identifier (e.g., "auto_delete_enabled")
+  setting_value: string; // Setting value (stored as string)
   setting_type: 'string' | 'number' | 'boolean'; // Type hint
 }
 ```
@@ -199,12 +203,12 @@ const relationships = {
   'user_subscriptions.telegram_user_id': 'bot_users.telegram_id',
   'payments.user_id': 'bot_users.id',
   'education_enrollments.student_telegram_id': 'bot_users.telegram_id',
-  
+
   // Plan relationships
   'user_subscriptions.plan_id': 'subscription_plans.id',
   'payments.plan_id': 'subscription_plans.id',
   'education_enrollments.package_id': 'education_packages.id',
-  
+
   // Activity tracking
   'user_interactions.telegram_user_id': 'bot_users.telegram_id',
   'bot_sessions.telegram_user_id': 'bot_users.telegram_id',
@@ -222,12 +226,11 @@ const relationships = {
  * This pattern ensures consistency across the codebase
  */
 async function handleNewFeature(
-  chatId: number,           // Telegram chat ID
-  userId: string,           // Telegram user ID
-  data?: string,            // Optional callback data
-  context?: any             // Optional additional context
+  chatId: number, // Telegram chat ID
+  userId: string, // Telegram user ID
+  data?: string, // Optional callback data
+  context?: any, // Optional additional context
 ): Promise<void> {
-  
   try {
     // 🔒 Step 1: Security & Validation
     const rateLimitCheck = isRateLimited(userId);
@@ -235,38 +238,38 @@ async function handleNewFeature(
       await sendMessage(chatId, getSecurityResponse(rateLimitCheck.reason));
       return;
     }
-    
+
     // 👤 Step 2: User Authentication & Authorization
     const isAuthorized = await checkUserPermissions(userId, 'feature_access');
     if (!isAuthorized) {
-      await sendMessage(chatId, "❌ Access denied.");
+      await sendMessage(chatId, '❌ Access denied.');
       return;
     }
-    
+
     // 📊 Step 3: Data Retrieval
     const userData = await getUserCompleteData(userId);
     const settings = await getBotSettingsBatch(['feature_enabled', 'max_usage']);
     const content = await getBotContentBatch(['feature_message', 'feature_help']);
-    
+
     // ⚙️ Step 4: Business Logic
     const processedData = await processFeatureLogic(userData, data, context);
-    
+
     // 💾 Step 5: Database Updates
     if (processedData.shouldUpdate) {
       await updateUserActivity(userId, {
         feature_used: 'new_feature',
         timestamp: new Date().toISOString(),
-        context: processedData.context
+        context: processedData.context,
       });
     }
-    
+
     // 📱 Step 6: Response Generation
     const responseMessage = formatFeatureResponse(processedData, content);
     const responseKeyboard = createFeatureKeyboard(processedData);
-    
+
     // 📤 Step 7: Send Response
     await sendMessage(chatId, responseMessage, responseKeyboard);
-    
+
     // 📝 Step 8: Logging (if admin action)
     if (isAdmin(userId)) {
       await logAdminAction(
@@ -274,25 +277,24 @@ async function handleNewFeature(
         'feature_access',
         `Used feature: ${data || 'default'}`,
         'feature_table',
-        processedData.id
+        processedData.id,
       );
     }
-    
+
     // 🔄 Step 9: Session Update
     await updateBotSession(userId, {
       lastAction: 'new_feature',
-      featureData: processedData
+      featureData: processedData,
     });
-    
   } catch (error) {
     // 🚨 Error Handling
     console.error(`🚨 Error in handleNewFeature for user ${userId}:`, error);
-    
+
     // User-friendly error message
-    const errorContent = await getBotContent('error_message') || 
-                        '❌ Something went wrong. Please try again.';
+    const errorContent = await getBotContent('error_message') ||
+      '❌ Something went wrong. Please try again.';
     await sendMessage(chatId, errorContent);
-    
+
     // Log error for admin review
     await logAdminAction(
       'system',
@@ -301,7 +303,7 @@ async function handleNewFeature(
       'error_logs',
       null,
       null,
-      { error: error.message, userId, chatId }
+      { error: error.message, userId, chatId },
     );
   }
 }
@@ -320,30 +322,32 @@ function formatSuccessMessage(title: string, details: string[], actions?: string
   return `✅ ${title}
 
 📋 Details:
-${details.map(detail => `• ${detail}`).join('\n')}
+${details.map((detail) => `• ${detail}`).join('\n')}
 
-${actions ? `\n🎯 Next Steps:\n${actions.map(action => `• ${action}`).join('\n')}` : ''}`;
+${actions ? `\n🎯 Next Steps:\n${actions.map((action) => `• ${action}`).join('\n')}` : ''}`;
 }
 
 // 📊 Data Display Format
-function formatTableData(title: string, data: Array<{label: string, value: string}>): string {
+function formatTableData(title: string, data: Array<{ label: string; value: string }>): string {
   return `📊 ${title}
 
-${data.map(item => `• ${item.label}: ${item.value}`).join('\n')}`;
+${data.map((item) => `• ${item.label}: ${item.value}`).join('\n')}`;
 }
 
 // 🎹 Keyboard Creation Pattern
-function createActionKeyboard(actions: Array<{text: string, data: string}>): TelegramInlineKeyboardMarkup {
+function createActionKeyboard(
+  actions: Array<{ text: string; data: string }>,
+): TelegramInlineKeyboardMarkup {
   return {
     inline_keyboard: [
       // Group related actions in rows
-      ...actions.map(action => ([{
+      ...actions.map((action) => [{
         text: action.text,
-        callback_data: action.data
-      }])),
+        callback_data: action.data,
+      }]),
       // Always include back button
-      [{ text: "🔙 Back", callback_data: "back_main" }]
-    ]
+      [{ text: '🔙 Back', callback_data: 'back_main' }],
+    ],
   };
 }
 ```
@@ -359,21 +363,21 @@ function createActionKeyboard(actions: Array<{text: string, data: string}>): Tel
  */
 interface BotEnvironment {
   // 🤖 Required - Telegram Bot Configuration
-  TELEGRAM_BOT_TOKEN: string;      // Get from @BotFather on Telegram
-  
+  TELEGRAM_BOT_TOKEN: string; // Get from @BotFather on Telegram
+
   // 🗄️ Required - Supabase Configuration
-  SUPABASE_URL: string;            // Your Supabase project URL
+  SUPABASE_URL: string; // Your Supabase project URL
   SUPABASE_SERVICE_ROLE_KEY: string; // Service role key (not anon key!)
-  
+
   // 🧠 Optional - AI Features
-  OPENAI_API_KEY?: string;         // For AI-powered FAQ responses
-  
+  OPENAI_API_KEY?: string; // For AI-powered FAQ responses
+
   // 💳 Optional - Payment Processing
-  BINANCE_API_KEY?: string;        // For Binance Pay integration
-  BINANCE_SECRET_KEY?: string;     // Binance API secret
-  
+  BINANCE_API_KEY?: string; // For Binance Pay integration
+  BINANCE_SECRET_KEY?: string; // Binance API secret
+
   // 🔐 Optional - Additional Services
-  VOLET_API_KEY?: string;          // Alternative payment processor
+  VOLET_API_KEY?: string; // Alternative payment processor
 }
 
 // ⚙️ Runtime Configuration
@@ -384,7 +388,7 @@ const CONFIG = {
     COMMANDS_PER_MINUTE: 8,
     IDENTICAL_MESSAGES: 3,
   },
-  
+
   // Feature toggles
   FEATURES: {
     AI_RESPONSES: true,
@@ -392,13 +396,13 @@ const CONFIG = {
     BROADCASTING: true,
     EDUCATION_PACKAGES: true,
   },
-  
+
   // Admin settings
   ADMIN_CONFIG: {
     AUTO_DELETE_DELAY: 300, // seconds
-    SESSION_TIMEOUT: 1800,  // seconds
+    SESSION_TIMEOUT: 1800, // seconds
     MAX_BROADCAST_SIZE: 1000, // users
-  }
+  },
 };
 ```
 
@@ -416,9 +420,8 @@ const CONFIG = {
 async function processWithAI(
   prompt: string,
   userId: string,
-  context?: any
-): Promise<{response: string, confidence: number}> {
-  
+  context?: any,
+): Promise<{ response: string; confidence: number }> {
   const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -426,26 +429,26 @@ async function processWithAI(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',  // Use latest supported model
+      model: 'gpt-4o-mini', // Use latest supported model
       messages: [
         {
           role: 'system',
-          content: 'You are a helpful trading assistant for Dynamic Capital VIP Bot.'
+          content: 'You are a helpful trading assistant for Dynamic Capital VIP Bot.',
         },
         {
           role: 'user',
-          content: prompt
-        }
+          content: prompt,
+        },
       ],
       max_tokens: 500,
       temperature: 0.7,
     }),
   });
-  
+
   const data = await openAIResponse.json();
   return {
     response: data.choices[0].message.content,
-    confidence: 0.9 // Add confidence scoring logic
+    confidence: 0.9, // Add confidence scoring logic
   };
 }
 
@@ -454,10 +457,10 @@ async function handleAIQuery(chatId: number, userId: string, query: string): Pro
   try {
     // Show typing indicator
     await sendChatAction(chatId, 'typing');
-    
+
     // Process with AI
     const aiResult = await processWithAI(query, userId);
-    
+
     // Format response
     const response = `🤖 AI Assistant:
 
@@ -466,14 +469,13 @@ ${aiResult.response}
 💡 Confidence: ${Math.round(aiResult.confidence * 100)}%`;
 
     await sendMessage(chatId, response);
-    
+
     // Log AI usage
     await updateUserActivity(userId, {
       ai_query: query,
       ai_response_length: aiResult.response.length,
-      ai_confidence: aiResult.confidence
+      ai_confidence: aiResult.confidence,
     });
-    
   } catch (error) {
     await sendMessage(chatId, '🤖 AI is temporarily unavailable. Please try again later.');
   }
@@ -497,9 +499,9 @@ async function efficientDataRetrieval(userIds: string[]): Promise<Map<string, an
     .from('bot_users')
     .select('telegram_id, is_vip, subscription_expires_at')
     .in('telegram_id', userIds);
-    
+
   // Convert to Map for O(1) lookups
-  return new Map(data?.map(user => [user.telegram_id, user]) || []);
+  return new Map(data?.map((user) => [user.telegram_id, user]) || []);
 }
 
 // ❌ Bad: Individual queries in loop
@@ -517,26 +519,26 @@ async function inefficientDataRetrieval(userIds: string[]): Promise<any[]> {
 }
 
 // ⚡ Caching Pattern
-const contentCache = new Map<string, {value: string, expiry: number}>();
+const contentCache = new Map<string, { value: string; expiry: number }>();
 
 async function getCachedBotContent(key: string): Promise<string | null> {
   const cached = contentCache.get(key);
   const now = Date.now();
-  
+
   // Return cached if valid
   if (cached && cached.expiry > now) {
     return cached.value;
   }
-  
+
   // Fetch fresh data
   const fresh = await getBotContent(key);
   if (fresh) {
     contentCache.set(key, {
       value: fresh,
-      expiry: now + (5 * 60 * 1000) // 5 minutes
+      expiry: now + (5 * 60 * 1000), // 5 minutes
     });
   }
-  
+
   return fresh;
 }
 ```
@@ -557,17 +559,17 @@ const mockTelegramUpdate: TelegramUpdate = {
     from: {
       id: 987654321,
       is_bot: false,
-      first_name: "Test",
-      username: "testuser"
+      first_name: 'Test',
+      username: 'testuser',
     },
     chat: {
       id: 987654321,
-      type: "private",
-      first_name: "Test"
+      type: 'private',
+      first_name: 'Test',
     },
     date: Math.floor(Date.now() / 1000),
-    text: "/start"
-  }
+    text: '/start',
+  },
 };
 
 // Test Helper Functions
@@ -579,7 +581,7 @@ async function setupTestUser(userId: string, options: Partial<BotUser> = {}): Pr
       first_name: 'Test User',
       is_admin: false,
       is_vip: false,
-      ...options
+      ...options,
     })
     .select()
     .single();
@@ -622,4 +624,5 @@ async function cleanupTestData(userId: string): Promise<void> {
 - ✅ Testing patterns
 - ✅ Performance optimization examples
 
-This structure makes the codebase highly compatible with AI coding tools like Codex, ChatGPT, and Bolt. All patterns are consistent, well-documented, and easy to extend or modify.
+This structure makes the codebase highly compatible with AI coding tools like Codex, ChatGPT, and
+Bolt. All patterns are consistent, well-documented, and easy to extend or modify.

@@ -2,9 +2,9 @@ name: CI Deploy DC
 
 on:
   push:
-    branches: ["main"]
+    branches: ['main']
   pull_request:
-    branches: ["main"]
+    branches: ['main']
 
 jobs:
   check:
@@ -22,7 +22,7 @@ jobs:
       - name: Auto-fix formatting on PR
         if: ${{ github.event_name == 'pull_request' }}
         env:
-          AUTO_FMT: "1"
+          AUTO_FMT: '1'
           DENO_TLS_CA_STORE: system
         run: |
           chmod +x scripts/ci.sh || true

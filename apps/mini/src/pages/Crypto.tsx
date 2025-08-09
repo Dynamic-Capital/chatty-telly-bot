@@ -24,41 +24,41 @@ export default function Crypto() {
   useTelegramMainButton(!!txid, 'Submit TXID', handleSubmit);
 
   return (
-    <div className="dc-screen">
-      <TopBar title="Crypto Deposit" />
-      <p className="mb-2 text-sm">Network</p>
+    <div className='dc-screen'>
+      <TopBar title='Crypto Deposit' />
+      <p className='mb-2 text-sm'>Network</p>
       <NetworkPicker
         options={[{ id: 'TRON', label: 'TRON/USDT' }]}
         value={network}
         onChange={setNetwork}
       />
       {address && (
-        <GlassPanel className="mt-4 text-center">
+        <GlassPanel className='mt-4 text-center'>
           <p>Your deposit address</p>
-          <p className="break-all font-mono text-sm">{address}</p>
-          <div className="mt-2">
+          <p className='break-all font-mono text-sm'>{address}</p>
+          <div className='mt-2'>
             <SecondaryButton
-              label="Copy address"
+              label='Copy address'
               onClick={() => navigator.clipboard.writeText(address)}
             />
           </div>
-          <img src="/qr-frame.svg" alt="QR code" className="mx-auto mt-2 w-32 h-32" />
+          <img src='/qr-frame.svg' alt='QR code' className='mx-auto mt-2 w-32 h-32' />
         </GlassPanel>
       )}
-      <div className="mt-4">
+      <div className='mt-4'>
         <input
-          type="text"
-          placeholder="Paste TXID"
+          type='text'
+          placeholder='Paste TXID'
           value={txid}
           onChange={(e) => setTxid(e.target.value)}
-          className="dc-input"
-          aria-label="Paste TXID"
+          className='dc-input'
+          aria-label='Paste TXID'
         />
       </div>
       <PrimaryButton
-        label="Submit TXID"
+        label='Submit TXID'
         onClick={handleSubmit}
-        className="fixed bottom-4 left-4 right-4"
+        className='fixed bottom-4 left-4 right-4'
         disabled={!txid}
       />
     </div>

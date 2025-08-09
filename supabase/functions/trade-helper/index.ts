@@ -1,5 +1,5 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
@@ -22,7 +22,7 @@ serve(async (req) => {
     if (test) {
       return new Response(
         JSON.stringify({ success: true, message: 'trade-helper OK' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -33,7 +33,8 @@ serve(async (req) => {
       });
     }
 
-    const systemPrompt = `You are a professional trading analyst providing educational market analysis for Dynamic Capital.
+    const systemPrompt =
+      `You are a professional trading analyst providing educational market analysis for Dynamic Capital.
 
 CRITICAL DISCLAIMERS:
 - This is EDUCATIONAL content only, NOT financial advice
@@ -88,7 +89,7 @@ Remember to keep this educational and include proper risk disclaimers.`;
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+          { role: 'user', content: userPrompt },
         ],
         max_tokens: 600,
         temperature: 0.6,
@@ -96,7 +97,7 @@ Remember to keep this educational and include proper risk disclaimers.`;
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       throw new Error(data.error?.message || 'AI service error');
     }
@@ -108,12 +109,15 @@ Remember to keep this educational and include proper risk disclaimers.`;
     });
   } catch (error) {
     console.error('Error in trade-helper function:', error);
-    return new Response(JSON.stringify({ 
-      error: 'Failed to get trading analysis',
-      details: error.message 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to get trading analysis',
+        details: error.message,
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
   }
 });
