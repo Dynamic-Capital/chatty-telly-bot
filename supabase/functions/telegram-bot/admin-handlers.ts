@@ -14,15 +14,27 @@ const supabaseAdmin = createClient(
 // Import utility functions
 import { getBotContent, logAdminAction } from "./database-utils.ts";
 import { requireEnv } from "./helpers/require-env.ts";
+import { getSecret } from "./helpers/get-secret.ts";
 
-const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
+let BOT_TOKEN: string | null = Deno.env.get("TELEGRAM_BOT_TOKEN") || null;
+
+async function getBotToken(): Promise<string | null> {
+  if (BOT_TOKEN) return BOT_TOKEN;
+  BOT_TOKEN = await getSecret("TELEGRAM_BOT_TOKEN");
+  return BOT_TOKEN;
+}
 
 export async function sendMessage(
   chatId: number,
   text: string,
   replyMarkup?: Record<string, unknown>,
 ) {
-  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  const token = await getBotToken();
+  if (!token) {
+    console.error("sendMessage called without TELEGRAM_BOT_TOKEN");
+    return null;
+  }
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
   const payload = {
     chat_id: chatId,
     text: text,
@@ -1481,14 +1493,21 @@ export function handleVersion() {
   return { version: Deno.env.get("BOT_VERSION") || "unknown" };
 }
 
-export function handleEnvStatus() {
+export async function handleEnvStatus() {
   const base = requireEnv([
     "SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
-    "TELEGRAM_BOT_TOKEN",
-    "TELEGRAM_WEBHOOK_SECRET",
   ]);
-  return base;
+  const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ||
+    await getSecret("TELEGRAM_BOT_TOKEN");
+  const webhookSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ||
+    await getSecret("TELEGRAM_WEBHOOK_SECRET");
+  const missing = [
+    ...base.missing,
+    ...(botToken ? [] : ["TELEGRAM_BOT_TOKEN"]),
+    ...(webhookSecret ? [] : ["TELEGRAM_WEBHOOK_SECRET"]),
+  ];
+  return { ok: missing.length === 0, missing };
 }
 
 export async function handleReviewList() {
@@ -1508,9 +1527,10 @@ export function handleReplay(receiptId: string) {
 }
 
 export async function handleWebhookInfo() {
-  if (!BOT_TOKEN) return {};
+  const token = await getBotToken();
+  if (!token) return {};
   const res = await fetch(
-    `https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo`,
+    `https://api.telegram.org/bot${token}/getWebhookInfo`,
   );
   return await res.json();
 }
