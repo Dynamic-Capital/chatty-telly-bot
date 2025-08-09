@@ -8,6 +8,10 @@ import {
   handleVersion,
   handleWebhookInfo,
 } from "./admin-handlers.ts";
+import {
+  wrapHandler,
+} from "../../../src/telemetry/events.ts";
+import { getStats } from "../../../src/telemetry/alerts.ts";
 
 interface TelegramMessage {
   chat: { id: number };
@@ -234,6 +238,18 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
         await notifyUser(chatId, JSON.stringify(info));
         break;
       }
+      case "/admin": {
+        const stats = getStats();
+        const lines = [
+          "\uD83E\uDDEA Health & Alerts",
+          `Errors last 5m: ${stats.errors5m}`,
+          `Errors last 1h: ${stats.errors1h}`,
+          `Last webhook error: ${stats.lastWebhookError ? new Date(stats.lastWebhookError).toISOString() : "none"}`,
+          `Avg latency (5m): ${stats.avgLatency5m.toFixed(1)}ms`,
+        ];
+        await notifyUser(chatId, lines.join("\n"));
+        break;
+      }
       default:
         // Unsupported command; ignore silently
         break;
@@ -242,6 +258,12 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
     console.error("handleCommand error", err);
   }
 }
+
+const trackedHandleCommand = wrapHandler(
+  "command",
+  handleCommand,
+  (u: TelegramUpdate) => u.message?.from?.id,
+);
 
 async function startReceiptPipeline(update: TelegramUpdate): Promise<void> {
   try {
@@ -274,7 +296,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
     const update = body as TelegramUpdate | null;
     if (!update) return okJSON();
 
-    await handleCommand(update);
+    await trackedHandleCommand(update);
 
     const fileId = getFileIdFromUpdate(update);
     if (fileId) startReceiptPipeline(update);
