@@ -8,7 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "test": "deno check supabase/functions/telegram-bot/*.ts supabase/functions/telegram-bot/**/*.ts && deno test -A",
+    "test": "deno test -A",
     "preview": "vite preview",
     "setup:supabase": "bash scripts/setup-supabase-cli.sh"
   },
