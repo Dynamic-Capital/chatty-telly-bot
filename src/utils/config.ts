@@ -1,15 +1,23 @@
 // In-memory fallback map when kv_config table is unavailable
 const memStore = new Map<string, any>();
 
+function clone<T>(val: T): T {
+  if (val && typeof val === "object") {
+    if (typeof structuredClone === "function") {
+      return structuredClone(val);
+    }
+    return JSON.parse(JSON.stringify(val));
+  }
+  return val;
+}
+
 let supabase: any = undefined;
 async function getClient(): Promise<any | null> {
   if (supabase !== undefined) return supabase;
-  const url =
-    Deno?.env?.get?.("SUPABASE_URL") ??
+  const url = Deno?.env?.get?.("SUPABASE_URL") ??
     (globalThis as any).process?.env?.SUPABASE_URL ??
     "";
-  const key =
-    Deno?.env?.get?.("SUPABASE_SERVICE_ROLE_KEY") ??
+  const key = Deno?.env?.get?.("SUPABASE_SERVICE_ROLE_KEY") ??
     (globalThis as any).process?.env?.SUPABASE_SERVICE_ROLE_KEY ??
     "";
   if (!url || !key) {
@@ -29,31 +37,37 @@ async function getConfig(key: string, def?: any): Promise<any> {
   const client = await getClient();
   if (client) {
     try {
-      const { data, error } = await client.from("kv_config").select("value").eq("key", key).maybeSingle();
+      const { data, error } = await client.from("kv_config").select("value").eq(
+        "key",
+        key,
+      ).maybeSingle();
       if (!error && data && typeof data.value !== "undefined") {
-        return data.value;
+        return clone(data.value);
       }
     } catch (_e) {
       // fall back to memory store
     }
   }
-  return memStore.has(key) ? memStore.get(key) : def;
+  return memStore.has(key) ? clone(memStore.get(key)) : clone(def);
 }
 
 async function setConfig(key: string, val: any): Promise<void> {
   const client = await getClient();
   if (client) {
     try {
-      const { error } = await client.from("kv_config").upsert({ key, value: val });
+      const { error } = await client.from("kv_config").upsert({
+        key,
+        value: val,
+      });
       if (!error) {
-        memStore.set(key, val);
+        memStore.set(key, clone(val));
         return;
       }
     } catch (_e) {
       // ignore and fall back
     }
   }
-  memStore.set(key, val);
+  memStore.set(key, clone(val));
 }
 
 async function getFlag(name: string, def = false): Promise<boolean> {
@@ -68,19 +82,26 @@ async function setFlag(name: string, val: boolean): Promise<void> {
   await setConfig("features:draft", snap);
 }
 
-async function snapshot(_area: "FEATURES"): Promise<{ ts: number; data: Record<string, boolean> }> {
+async function snapshot(
+  _area: "FEATURES",
+): Promise<{ ts: number; data: Record<string, boolean> }> {
   const snap = await getConfig("features:draft", { ts: Date.now(), data: {} });
   return { ts: Date.now(), data: { ...snap.data } };
 }
 
-async function pushSnapshot(label: "DRAFT" | "PUBLISHED" | "ROLLBACK"): Promise<void> {
+async function pushSnapshot(
+  label: "DRAFT" | "PUBLISHED" | "ROLLBACK",
+): Promise<void> {
   const snap = await snapshot("FEATURES");
   await setConfig(`features:${label.toLowerCase()}`, snap);
 }
 
 async function publish(adminId?: string): Promise<void> {
   const draft = await getConfig("features:draft", { ts: Date.now(), data: {} });
-  const current = await getConfig("features:published", { ts: Date.now(), data: {} });
+  const current = await getConfig("features:published", {
+    ts: Date.now(),
+    data: {},
+  });
   await setConfig("features:rollback", current);
   await setConfig("features:published", draft);
   console.log("publish", { from: current, to: draft });
@@ -101,8 +122,14 @@ async function publish(adminId?: string): Promise<void> {
 }
 
 async function rollback(adminId?: string): Promise<void> {
-  const published = await getConfig("features:published", { ts: Date.now(), data: {} });
-  const previous = await getConfig("features:rollback", { ts: Date.now(), data: {} });
+  const published = await getConfig("features:published", {
+    ts: Date.now(),
+    data: {},
+  });
+  const previous = await getConfig("features:rollback", {
+    ts: Date.now(),
+    data: {},
+  });
   await setConfig("features:published", previous);
   await setConfig("features:rollback", published);
   console.log("rollback", { from: published, to: previous });
@@ -122,19 +149,20 @@ async function rollback(adminId?: string): Promise<void> {
   }
 }
 
-async function preview(): Promise<{ ts: number; data: Record<string, boolean> }> {
+async function preview(): Promise<
+  { ts: number; data: Record<string, boolean> }
+> {
   return await getConfig("features:draft", { ts: Date.now(), data: {} });
 }
 
 export {
   getConfig,
-  setConfig,
   getFlag,
+  preview,
+  publish,
+  pushSnapshot,
+  rollback,
+  setConfig,
   setFlag,
   snapshot,
-  pushSnapshot,
-  publish,
-  rollback,
-  preview,
 };
-
