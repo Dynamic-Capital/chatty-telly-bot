@@ -7,9 +7,9 @@ interface Props {
 
 export default function TopBar({ title, onLogout }: Props) {
   return (
-    <div className="mb-4 flex items-center justify-between">
-      <h1 className="text-lg font-semibold">{title}</h1>
-      <SecondaryButton label="Log out" onClick={onLogout} />
+    <div className='mb-4 flex items-center justify-between'>
+      <h1 className='text-lg font-semibold'>{title}</h1>
+      <SecondaryButton label='Log out' onClick={onLogout} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0'
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,28 +10,33 @@ const corsHeaders = {
 // Binance Pay API configuration
 const _BINANCE_PAY_API_KEY = Deno.env.get('BINANCE_API_KEY')!;
 const _BINANCE_PAY_SECRET_KEY = Deno.env.get('BINANCE_SECRET_KEY')!;
-const _BINANCE_PAY_MERCHANT_ID = "59586072";
-const _BINANCE_PAY_BASE_URL = "https://bpay.binanceapi.com";
+const _BINANCE_PAY_MERCHANT_ID = '59586072';
+const _BINANCE_PAY_BASE_URL = 'https://bpay.binanceapi.com';
 
-async function _generateSignature(timestamp: string, nonce: string, body: string, secretKey: string): Promise<string> {
+async function _generateSignature(
+  timestamp: string,
+  nonce: string,
+  body: string,
+  secretKey: string,
+): Promise<string> {
   const payload = timestamp + '\n' + nonce + '\n' + body + '\n';
-  
+
   const encoder = new TextEncoder();
   const keyData = encoder.encode(secretKey);
   const messageData = encoder.encode(payload);
-  
+
   const key = await crypto.subtle.importKey(
     'raw',
     keyData,
     { name: 'HMAC', hash: 'SHA-512' },
     false,
-    ['sign']
+    ['sign'],
   );
-  
+
   const signature = await crypto.subtle.sign('HMAC', key, messageData);
-  
+
   return Array.from(new Uint8Array(signature))
-    .map(b => b.toString(16).padStart(2, '0'))
+    .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
     .toUpperCase();
 }
@@ -60,7 +65,7 @@ serve(async (req) => {
     if (test) {
       return new Response(
         JSON.stringify({ success: true, message: 'binance-pay-checkout OK' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -71,11 +76,11 @@ serve(async (req) => {
     // Check if API keys are available
     const binanceApiKey = Deno.env.get('BINANCE_API_KEY');
     const binanceSecretKey = Deno.env.get('BINANCE_SECRET_KEY');
-    
-    console.log('API Keys check:', { 
-      hasApiKey: !!binanceApiKey, 
+
+    console.log('API Keys check:', {
+      hasApiKey: !!binanceApiKey,
       hasSecretKey: !!binanceSecretKey,
-      apiKeyLength: binanceApiKey ? binanceApiKey.length : 0
+      apiKeyLength: binanceApiKey ? binanceApiKey.length : 0,
     });
 
     if (!binanceApiKey || !binanceSecretKey) {
@@ -86,11 +91,11 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     if (!supabaseUrl || !supabaseKey) {
       throw new Error('Supabase configuration missing');
     }
-    
+
     const supabase = createClient(supabaseUrl, supabaseKey);
     console.log('Supabase client initialized');
 
@@ -106,7 +111,7 @@ serve(async (req) => {
       console.error('Plan fetch error:', planError);
       throw new Error(`Plan fetch error: ${planError.message}`);
     }
-    
+
     if (!plan) {
       console.error('Plan not found for ID:', planId);
       throw new Error('Plan not found');
@@ -121,9 +126,9 @@ serve(async (req) => {
       amount: plan.price,
       currency: 'USDT',
       payment_method: 'binance_pay',
-      status: 'pending'
+      status: 'pending',
     };
-    
+
     console.log('Creating payment with data:', paymentData);
 
     const { data: payment, error: paymentError } = await supabase
@@ -149,7 +154,7 @@ serve(async (req) => {
       tradeType: 'WEB',
       totalFee: Math.round(Number(plan.price) * 100),
       currency: 'USDT',
-      productDetail: plan.name
+      productDetail: plan.name,
     };
 
     const timestamp = Date.now().toString();
@@ -164,9 +169,9 @@ serve(async (req) => {
         'BinancePay-Timestamp': timestamp,
         'BinancePay-Nonce': nonce,
         'BinancePay-Certificate-SN': _BINANCE_PAY_API_KEY,
-        'BinancePay-Signature': signature
+        'BinancePay-Signature': signature,
       },
-      body
+      body,
     });
 
     const orderResult = await orderResponse.json();
@@ -182,21 +187,23 @@ serve(async (req) => {
       checkoutUrl: orderResult.data.checkoutUrl,
       qrCodeUrl: orderResult.data.qrCode,
       deeplink: orderResult.data.deeplink,
-      universalUrl: orderResult.data.universalUrl
+      universalUrl: orderResult.data.universalUrl,
     };
 
     return new Response(JSON.stringify(checkoutData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
   } catch (error) {
     console.error('Error in binance-pay-checkout:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      success: false 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        error: error.message,
+        success: false,
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
   }
 });

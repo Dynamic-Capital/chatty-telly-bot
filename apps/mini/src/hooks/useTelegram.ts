@@ -33,12 +33,13 @@ export function useTelegram() {
 
     // Verify Telegram initData with secure edge function
     try {
-      const initData = (globalThis as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData;
+      const initData = (globalThis as unknown as { Telegram?: { WebApp?: { initData?: string } } })
+        .Telegram?.WebApp?.initData;
       if (initData) {
         fetch('https://qeejuomcapbdlhnjqjcc.functions.supabase.co/verify-telegram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData })
+          body: JSON.stringify({ initData }),
         })
           .then(async (res) => {
             const json = await res.json().catch(() => null);
@@ -71,7 +72,8 @@ export function useTelegramMainButton(
     if (!webApp) return;
     const btn = webApp.MainButton;
     btn.setText(text);
-    if (enabled) btn.enable(); else btn.disable();
+    if (enabled) btn.enable();
+    else btn.disable();
     btn.onClick(onClick);
     btn.show();
     return () => btn.offClick(onClick);

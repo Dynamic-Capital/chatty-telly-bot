@@ -20,13 +20,18 @@ export default function Me() {
   }, [api]);
 
   return (
-    <div className="dc-screen">
-      <TopBar title="My Receipts" />
+    <div className='dc-screen'>
+      <TopBar title='My Receipts' />
       {receipts.map((r) => (
         <GlassRow
           key={r.id}
-          left={<span className="text-sm">{r.id.slice(0, 6)}…</span>}
-          right={<><span className="mr-2 text-sm">{r.amount}</span><StatusPill status={r.status} /></>}
+          left={<span className='text-sm'>{r.id.slice(0, 6)}…</span>}
+          right={
+            <>
+              <span className='mr-2 text-sm'>{r.amount}</span>
+              <StatusPill status={r.status} />
+            </>
+          }
         />
       ))}
     </div>

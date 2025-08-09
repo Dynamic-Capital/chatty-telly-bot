@@ -2,7 +2,7 @@ name: Supabase Project Audit
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 3 * * 1"  # Mondays 03:00 UTC
+    - cron: '0 3 * * 1' # Mondays 03:00 UTC
 jobs:
   audit:
     runs-on: ubuntu-latest

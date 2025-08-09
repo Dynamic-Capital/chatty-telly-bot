@@ -1,4 +1,4 @@
-import { useState, ChangeEvent } from 'react';
+import { ChangeEvent, useState } from 'react';
 
 interface Props {
   onChange: (file: File | null) => void;
@@ -16,15 +16,13 @@ export default function ReceiptUploader({ onChange }: Props) {
 
   return (
     <div>
-      {preview && (
-        <img src={preview} alt="Receipt preview" className="mb-2 w-full rounded-lg" />
-      )}
+      {preview && <img src={preview} alt='Receipt preview' className='mb-2 w-full rounded-lg' />}
       <input
-        type="file"
-        accept="image/*"
+        type='file'
+        accept='image/*'
         onChange={handle}
-        className="dc-input"
-        aria-label="Upload receipt"
+        className='dc-input'
+        aria-label='Upload receipt'
       />
     </div>
   );

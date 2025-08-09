@@ -5,6 +5,6 @@ interface Props {
   className?: string;
 }
 
-export default function GlassPanel({ children, className = "" }: Props) {
+export default function GlassPanel({ children, className = '' }: Props) {
   return <div className={`dc-panel ${className}`}>{children}</div>;
 }

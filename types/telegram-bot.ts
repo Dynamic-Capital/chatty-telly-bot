@@ -462,7 +462,7 @@ export interface BotConfig {
 // Utility Types
 // ============================================
 
-export type DatabaseTable = 
+export type DatabaseTable =
   | 'bot_users'
   | 'bot_sessions'
   | 'bot_content'
@@ -553,14 +553,14 @@ export interface RateLimitError extends BotError {
 export type MessageHandler = (
   message: TelegramMessage,
   userId: string,
-  chatId: number
+  chatId: number,
 ) => Promise<void>;
 
 export type CallbackHandler = (
   callbackQuery: TelegramCallbackQuery,
   userId: string,
   chatId: number,
-  data: string
+  data: string,
 ) => Promise<void>;
 
 export type AdminHandler = (
@@ -573,7 +573,7 @@ export type AdminHandler = (
 // Database Function Types
 // ============================================
 
-export type DatabaseFunction = 
+export type DatabaseFunction =
   | 'get_bot_content_batch'
   | 'get_bot_settings_batch'
   | 'get_user_complete_data'
@@ -592,50 +592,50 @@ export default {
   BotSession,
   BotContent,
   BotSettings,
-  
+
   // Subscription interfaces
   SubscriptionPlan,
   UserSubscription,
   Payment,
-  
+
   // Education interfaces
   EducationPackage,
   EducationEnrollment,
-  
+
   // Analytics interfaces
   Promotion,
   PromotionUsage,
   UserInteraction,
   DailyAnalytics,
-  
+
   // Media interfaces
   ContactLink,
   MediaFile,
   BroadcastMessage,
-  
+
   // Admin interfaces
   AdminLog,
   RateLimitEntry,
   SecurityStats,
-  
+
   // Telegram interfaces
   TelegramUpdate,
   TelegramMessage,
   TelegramUser,
   TelegramChat,
   TelegramCallbackQuery,
-  
+
   // Response interfaces
   ApiResponse,
   BotStats,
   UserCompleteData,
-  
+
   // Configuration
   SecurityConfig,
   BotConfig,
-  
+
   // Function types
   MessageHandler,
   CallbackHandler,
-  AdminHandler
+  AdminHandler,
 };

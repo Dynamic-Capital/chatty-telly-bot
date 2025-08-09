@@ -1,5 +1,5 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
@@ -22,7 +22,7 @@ serve(async (req) => {
     if (test) {
       return new Response(
         JSON.stringify({ success: true, message: 'ai-faq-assistant OK' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -33,7 +33,8 @@ serve(async (req) => {
       });
     }
 
-    const systemPrompt = `You are a knowledgeable trading assistant for Dynamic Capital, a premium trading signals and education service. 
+    const systemPrompt =
+      `You are a knowledgeable trading assistant for Dynamic Capital, a premium trading signals and education service. 
 
 IMPORTANT GUIDELINES:
 - Provide helpful, educational trading information
@@ -72,7 +73,7 @@ Always end responses with: "💡 Need more help? Contact @DynamicCapital_Support
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: question }
+          { role: 'user', content: question },
         ],
         max_tokens: 500,
         temperature: 0.7,
@@ -80,7 +81,7 @@ Always end responses with: "💡 Need more help? Contact @DynamicCapital_Support
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       throw new Error(data.error?.message || 'AI service error');
     }
@@ -92,12 +93,15 @@ Always end responses with: "💡 Need more help? Contact @DynamicCapital_Support
     });
   } catch (error) {
     console.error('Error in ai-faq-assistant function:', error);
-    return new Response(JSON.stringify({ 
-      error: 'Failed to get AI response',
-      details: error.message 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to get AI response',
+        details: error.message,
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
   }
 });
