@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -108,7 +108,7 @@ async function sendFollowUpMessages() {
     // Send follow-up messages
     for (const user of inactiveUsers || []) {
       const messageIndex = Math.min(user.follow_up_count || 0, followUpMessages.length - 1);
-      const message = followUpMessages[messageIndex];
+      const message = followUpMessages[messageIndex]!;
 
       const result = await sendTelegramMessage(parseInt(user.telegram_id), message);
       

@@ -4,8 +4,14 @@ const memStore = new Map<string, any>();
 let supabase: any = undefined;
 async function getClient(): Promise<any | null> {
   if (supabase !== undefined) return supabase;
-  const url = (typeof Deno !== "undefined" ? Deno.env.get("SUPABASE_URL") : process.env.SUPABASE_URL) || "";
-  const key = (typeof Deno !== "undefined" ? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") : process.env.SUPABASE_SERVICE_ROLE_KEY) || "";
+  const url =
+    Deno?.env?.get?.("SUPABASE_URL") ??
+    (globalThis as any).process?.env?.SUPABASE_URL ??
+    "";
+  const key =
+    Deno?.env?.get?.("SUPABASE_SERVICE_ROLE_KEY") ??
+    (globalThis as any).process?.env?.SUPABASE_SERVICE_ROLE_KEY ??
+    "";
   if (!url || !key) {
     supabase = null;
     return null;

@@ -1,11 +1,10 @@
 {
-  "tasks": {
-    "check": "deno check supabase/functions/telegram-bot/*.ts supabase/functions/telegram-bot/**/*.ts",
-    "serve": "supabase functions serve"
-  },
-  "nodeModulesDir": true,
   "compilerOptions": {
-    "types": ["./types/tesseract.d.ts"]
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "lib": ["deno.ns", "dom", "es2022"]
   },
-  "importMap": "./supabase/functions/telegram-bot/vendor/import_map.json"
+  "tasks": {
+    "typecheck": "bash scripts/typecheck.sh"
+  }
 }

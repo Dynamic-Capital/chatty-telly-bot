@@ -1,11 +1,11 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 
 serve(async (req) => {
   console.log("🔧 WEBHOOK TEST FUNCTION CALLED!");
   console.log("Method:", req.method);
-  console.log("Headers:", Object.fromEntries(req.headers.entries()));
+  console.log("Headers:", Object.fromEntries((req.headers as any).entries()));
   
   try {
     const body = await req.text();
