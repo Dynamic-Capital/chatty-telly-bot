@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.verify-telegram]
 verify_jwt = false
+
+[functions.telegram-start-sim]
+verify_jwt = false
