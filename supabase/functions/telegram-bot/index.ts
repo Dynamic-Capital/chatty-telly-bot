@@ -8,6 +8,7 @@ import {
   handleVersion,
   handleWebhookInfo,
 } from "./admin-handlers.ts";
+import { getFlag } from "../../../src/utils/config.ts";
 
 interface TelegramMessage {
   chat: { id: number };
@@ -100,6 +101,8 @@ function buildWebAppButton(label = "Open Mini App") {
 
 async function sendMiniAppLink(chatId: number): Promise<void> {
   if (!BOT_TOKEN) return;
+  const enabled = await getFlag("mini_app_enabled", false);
+  if (!enabled) return;
   const button = buildWebAppButton("Open Mini App");
   const reply_markup = button ? { inline_keyboard: [[button]] } : undefined;
 

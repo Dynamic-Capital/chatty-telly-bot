@@ -14,6 +14,13 @@ const supabaseAdmin = createClient(
 // Import utility functions
 import { getBotContent, logAdminAction } from "./database-utils.ts";
 import { requireEnv } from "./helpers/require-env.ts";
+import {
+  getFlag,
+  setFlag,
+  preview,
+  publish as publishFlags,
+  rollback as rollbackFlags,
+} from "../../../src/utils/config.ts";
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
 
@@ -1373,6 +1380,9 @@ export async function handleBotSettingsManagement(
           { text: "🔄 Refresh", callback_data: "manage_table_bot_settings" },
           { text: "🔙 Back", callback_data: "manage_tables" },
         ],
+        [
+          { text: "🚦 Feature Flags", callback_data: "feature_flags" },
+        ],
       ],
     };
 
@@ -1513,4 +1523,89 @@ export async function handleWebhookInfo() {
     `https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo`,
   );
   return await res.json();
+}
+
+// --- Feature Flag Management ---
+const FLAG_LABELS: Record<string, string> = {
+  payments_enabled: "Payments",
+  vip_sync_enabled: "VIP Sync",
+  broadcasts_enabled: "Broadcasts",
+  mini_app_enabled: "Mini App",
+};
+
+function buildFlagMessage(flags: Record<string, boolean>): string {
+  let msg = "🚦 *Feature Flags*\n\n";
+  for (const [key, label] of Object.entries(FLAG_LABELS)) {
+    const state = flags[key] ? "🟢 ON" : "🔴 OFF";
+    msg += `${state} - ${label}\n`;
+  }
+  return msg;
+}
+
+export async function handleFeatureFlags(chatId: number, _userId: string): Promise<void> {
+  const draft = await preview();
+  const flags: Record<string, boolean> = { ...draft.data };
+  const keyboardRows = Object.keys(FLAG_LABELS).map((name) => [{
+    text: (flags[name] ? "ON " : "OFF ") + FLAG_LABELS[name],
+    callback_data: `toggle_flag_${name}`,
+  }]);
+  keyboardRows.push([
+    { text: "👁 PREVIEW", callback_data: "preview_flags" },
+    { text: "🚀 PUBLISH", callback_data: "publish_flags" },
+  ]);
+  keyboardRows.push([
+    { text: "↩️ ROLLBACK", callback_data: "rollback_flags" },
+    { text: "🔄 Refresh", callback_data: "feature_flags" },
+  ]);
+  keyboardRows.push([
+    { text: "⬅️ Home", callback_data: "manage_table_bot_settings" },
+  ]);
+  await sendMessage(chatId, buildFlagMessage(flags), { inline_keyboard: keyboardRows });
+}
+
+export async function handleToggleFeatureFlag(
+  chatId: number,
+  _userId: string,
+  flag: string,
+): Promise<void> {
+  const draft = await preview();
+  const current = !!draft.data[flag];
+  await setFlag(flag, !current);
+  await handleFeatureFlags(chatId, _userId);
+}
+
+export async function handlePublishFlagsRequest(chatId: number): Promise<void> {
+  const keyboard = {
+    inline_keyboard: [[
+      { text: "✅ Confirm", callback_data: "publish_flags_confirm" },
+      { text: "❌ Cancel", callback_data: "feature_flags" },
+    ]],
+  };
+  await sendMessage(chatId, "Publish feature flags?", keyboard);
+}
+
+export async function handlePublishFlagsConfirm(
+  chatId: number,
+  userId: string,
+): Promise<void> {
+  await publishFlags(userId);
+  await handleFeatureFlags(chatId, userId);
+}
+
+export async function handleRollbackFlagsRequest(chatId: number): Promise<void> {
+  const keyboard = {
+    inline_keyboard: [[
+      { text: "✅ Confirm", callback_data: "rollback_flags_confirm" },
+      { text: "❌ Cancel", callback_data: "feature_flags" },
+    ]],
+  };
+  await sendMessage(chatId, "Rollback to previous publish?", keyboard);
+}
+
+export async function handleRollbackFlagsConfirm(
+  chatId: number,
+  userId: string,
+): Promise<void> {
+  await rollbackFlags(userId);
+  await handleFeatureFlags(chatId, userId);
 }
