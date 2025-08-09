@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 serve(async (req) => {
   const headers = {
@@ -31,15 +31,15 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    if (!supabaseUrl) {
+    const base = (Deno.env.get("SUPABASE_URL") || "").replace(/\/$/, "");
+    if (!base) {
       return new Response(
         JSON.stringify({ ok: false, error: "SUPABASE_URL not set" }),
         { status: 500, headers },
       );
     }
 
-    const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook`;
+    const webhookUrl = `${base}/functions/v1/telegram-webhook`;
 
     const update = {
       update_id: Date.now(),
@@ -64,6 +64,7 @@ serve(async (req) => {
       method: "POST",
       headers: fetchHeaders,
       body: JSON.stringify(update),
+      signal: AbortSignal.timeout(8000),
     });
 
     const text = await resp.text();
