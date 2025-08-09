@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,58 +15,90 @@ import {
   BarChart3,
   Shield,
   Bell,
-  FileText
+  FileText,
+  AlertTriangle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+interface DashboardStats {
+  totalUsers: number;
+  vipMembers: number;
+  totalRevenue: number;
+  pendingPayments: number;
+  lastUpdated: string;
+}
 
 const BotDashboard = () => {
   const [currentView, setCurrentView] = useState<'welcome' | 'config' | 'packages' | 'support' | 'analytics' | 'promos'>('welcome');
-  const [botToken, _setBotToken] = useState("");
   const [isConnected, setIsConnected] = useState(false);
-  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalUsers: 0,
+    vipMembers: 0,
+    totalRevenue: 0,
+    pendingPayments: 0,
+    lastUpdated: ''
+  });
   const { toast } = useToast();
 
-  const _handleConnect = () => {
-    if (!botToken.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid bot token",
-        variant: "destructive",
+  useEffect(() => {
+    fetchBotStats();
+    checkBotStatus();
+  }, []);
+
+  const fetchBotStats = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.functions.invoke('analytics-data');
+      
+      if (error) throw error;
+      
+      setStats({
+        totalUsers: data?.total_users || 0,
+        vipMembers: data?.vip_users || 0,
+        totalRevenue: data?.total_revenue || 0,
+        pendingPayments: data?.pending_payments || 0,
+        lastUpdated: new Date().toISOString()
       });
-      return;
+    } catch (error) {
+      console.error('Error fetching bot stats:', error);
+    } finally {
+      setLoading(false);
     }
-    setIsConnected(true);
-    toast({
-      title: "Bot Connected",
-      description: "Your Telegram bot is now active!",
-    });
   };
 
-  const _handleSendMessage = () => {
-    if (!message.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a message to send",
-        variant: "destructive",
-      });
-      return;
+  const checkBotStatus = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('test-bot-status');
+      setIsConnected(!error && data?.bot_status?.includes('✅'));
+    } catch (error) {
+      console.error('Error checking bot status:', error);
+      setIsConnected(false);
     }
-    toast({
-      title: "Message Sent",
-      description: "Your message has been sent to all subscribers",
-    });
-    setMessage("");
   };
+
 
   const renderWelcomeScreen = () => (
     <div className="space-y-8">
+      {/* Webhook Secret Missing Alert */}
+      {!isConnected && (
+        <Alert className="border-orange-200 bg-orange-50">
+          <AlertTriangle className="h-4 w-4 text-orange-600" />
+          <AlertDescription>
+            Bot appears to be offline. Please ensure TELEGRAM_WEBHOOK_SECRET is configured in your Supabase secrets.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Welcome Header */}
       <div className="text-center space-y-4">
-        <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-telegram rounded-3xl shadow-telegram">
+        <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl shadow-lg">
           <BotIcon className="w-10 h-10 text-white" />
         </div>
         <div>
-          <h1 className="text-5xl font-bold bg-gradient-telegram bg-clip-text text-transparent mb-2">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
             Welcome to VIP Bot
           </h1>
           <p className="text-muted-foreground text-xl max-w-2xl mx-auto">
@@ -77,15 +109,17 @@ const BotDashboard = () => {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-6 bg-gradient-card border-0 shadow-lg hover:shadow-xl transition-shadow">
+        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-shadow">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-telegram/10 rounded-lg">
-              <Activity className="w-5 h-5 text-telegram" />
+            <div className="p-2 bg-blue-500/10 rounded-lg">
+              <Activity className="w-5 h-5 text-blue-500" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Bot Status</p>
               <div className="font-semibold">
-                {isConnected ? (
+                {loading ? (
+                  <Badge variant="outline" className="border-gray-500 text-gray-600">Loading...</Badge>
+                ) : isConnected ? (
                   <Badge variant="outline" className="border-green-500 text-green-600">Online</Badge>
                 ) : (
                   <Badge variant="outline" className="border-orange-500 text-orange-600">Offline</Badge>
@@ -95,38 +129,38 @@ const BotDashboard = () => {
           </div>
         </Card>
 
-        <Card className="p-6 bg-gradient-card border-0 shadow-lg hover:shadow-xl transition-shadow">
+        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-shadow">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-500/10 rounded-lg">
               <Users className="w-5 h-5 text-blue-500" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total Users</p>
-              <p className="font-semibold text-2xl">1,247</p>
+              <p className="font-semibold text-2xl">{loading ? '...' : stats.totalUsers.toLocaleString()}</p>
             </div>
           </div>
         </Card>
 
-        <Card className="p-6 bg-gradient-card border-0 shadow-lg hover:shadow-xl transition-shadow">
+        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-shadow">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-500/10 rounded-lg">
               <CreditCard className="w-5 h-5 text-green-500" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">VIP Members</p>
-              <p className="font-semibold text-2xl">298</p>
+              <p className="font-semibold text-2xl">{loading ? '...' : stats.vipMembers.toLocaleString()}</p>
             </div>
           </div>
         </Card>
 
-        <Card className="p-6 bg-gradient-card border-0 shadow-lg hover:shadow-xl transition-shadow">
+        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-shadow">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-500/10 rounded-lg">
               <BarChart3 className="w-5 h-5 text-purple-500" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Revenue</p>
-              <p className="font-semibold text-2xl">$12.4K</p>
+              <p className="font-semibold text-2xl">${loading ? '...' : stats.totalRevenue.toLocaleString()}</p>
             </div>
           </div>
         </Card>
@@ -135,7 +169,7 @@ const BotDashboard = () => {
       {/* Main Menu */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card 
-          className="p-8 bg-gradient-card border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
+          className="p-8 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
           onClick={() => setCurrentView('packages')}
         >
           <div className="text-center space-y-4">
@@ -152,7 +186,7 @@ const BotDashboard = () => {
         </Card>
 
         <Card 
-          className="p-8 bg-gradient-card border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
+          className="p-8 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
           onClick={() => setCurrentView('support')}
         >
           <div className="text-center space-y-4">
@@ -169,12 +203,12 @@ const BotDashboard = () => {
         </Card>
 
         <Card 
-          className="p-8 bg-gradient-card border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
+          className="p-8 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
           onClick={() => setCurrentView('config')}
         >
           <div className="text-center space-y-4">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-telegram/10 rounded-2xl group-hover:bg-telegram/20 transition-colors">
-              <Settings className="w-8 h-8 text-telegram" />
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600/10 rounded-2xl group-hover:bg-blue-600/20 transition-colors">
+              <Settings className="w-8 h-8 text-blue-600" />
             </div>
             <div>
               <h3 className="text-xl font-semibold mb-2">Bot Configuration</h3>
@@ -186,7 +220,7 @@ const BotDashboard = () => {
         </Card>
 
         <Card 
-          className="p-8 bg-gradient-card border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
+          className="p-8 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
           onClick={() => setCurrentView('analytics')}
         >
           <div className="text-center space-y-4">
@@ -203,7 +237,7 @@ const BotDashboard = () => {
         </Card>
 
         <Card 
-          className="p-8 bg-gradient-card border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
+          className="p-8 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
           onClick={() => setCurrentView('promos')}
         >
           <div className="text-center space-y-4">
@@ -219,7 +253,7 @@ const BotDashboard = () => {
           </div>
         </Card>
 
-        <Card className="p-8 bg-gradient-card border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group">
+        <Card className="p-8 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group">
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-red-500/10 rounded-2xl group-hover:bg-red-500/20 transition-colors">
               <Bell className="w-8 h-8 text-red-500" />
@@ -235,20 +269,20 @@ const BotDashboard = () => {
       </div>
 
       {/* Quick Actions */}
-      <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+      <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
         <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => window.open('/admin', '_blank')}>
             <FileText className="w-4 h-4" />
-            View Logs
+            View Admin Panel
           </Button>
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={checkBotStatus}>
             <Shield className="w-4 h-4" />
-            Security Settings
+            Check Bot Status
           </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <MessageSquare className="w-4 h-4" />
-            Broadcast Message
+          <Button variant="outline" size="sm" className="gap-2" onClick={fetchBotStats}>
+            <Activity className="w-4 h-4" />
+            Refresh Stats
           </Button>
           <Button variant="outline" size="sm" className="gap-2">
             <Users className="w-4 h-4" />
@@ -296,16 +330,16 @@ const BotDashboard = () => {
           { name: "6 Month VIP", price: "$44.99", duration: "6 months", popular: false },
           { name: "Lifetime VIP", price: "$99.99", duration: "Lifetime", popular: false },
         ].map((plan, index) => (
-          <Card key={index} className="p-6 bg-gradient-card border-0 shadow-lg relative">
+          <Card key={index} className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg relative">
             {plan.popular && (
               <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                <Badge className="bg-telegram text-white">Most Popular</Badge>
+                <Badge className="bg-blue-600 text-white">Most Popular</Badge>
               </div>
             )}
             <div className="text-center space-y-4">
               <div>
                 <h3 className="text-xl font-semibold">{plan.name}</h3>
-                <p className="text-3xl font-bold text-telegram">{plan.price}</p>
+                <p className="text-3xl font-bold text-blue-600">{plan.price}</p>
                 <p className="text-muted-foreground">{plan.duration}</p>
               </div>
               <div className="space-y-2 text-sm text-muted-foreground">
@@ -314,7 +348,7 @@ const BotDashboard = () => {
                 <p>✓ Priority support</p>
                 <p>✓ Market analysis</p>
               </div>
-              <Button variant="telegram" className="w-full">
+              <Button variant="default" className="w-full">
                 Edit Plan
               </Button>
             </div>
@@ -338,7 +372,7 @@ const BotDashboard = () => {
 
       {/* Revenue Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
           <div className="text-center space-y-2">
             <p className="text-sm text-muted-foreground">Today</p>
             <p className="text-2xl font-bold text-green-500">$1,240</p>
@@ -346,7 +380,7 @@ const BotDashboard = () => {
           </div>
         </Card>
         
-        <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
           <div className="text-center space-y-2">
             <p className="text-sm text-muted-foreground">This Week</p>
             <p className="text-2xl font-bold text-blue-500">$8,650</p>
@@ -354,7 +388,7 @@ const BotDashboard = () => {
           </div>
         </Card>
         
-        <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
           <div className="text-center space-y-2">
             <p className="text-sm text-muted-foreground">14 Days</p>
             <p className="text-2xl font-bold text-purple-500">$18,420</p>
@@ -362,17 +396,17 @@ const BotDashboard = () => {
           </div>
         </Card>
         
-        <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
           <div className="text-center space-y-2">
             <p className="text-sm text-muted-foreground">This Month</p>
-            <p className="text-2xl font-bold text-telegram">$34,890</p>
+            <p className="text-2xl font-bold text-blue-600">$34,890</p>
             <p className="text-xs text-muted-foreground">+23% vs last month</p>
           </div>
         </Card>
       </div>
 
       {/* Package Performance */}
-      <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+      <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
         <h3 className="text-lg font-semibold mb-4">Package Performance</h3>
         <div className="space-y-4">
           {[
@@ -383,7 +417,7 @@ const BotDashboard = () => {
           ].map((pkg, index) => (
             <div key={index} className="flex items-center justify-between p-4 bg-background/50 rounded-lg">
               <div className="flex items-center gap-4">
-                <div className="w-3 h-3 bg-telegram rounded-full"></div>
+                <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
                 <div>
                   <p className="font-medium">{pkg.name}</p>
                   <p className="text-sm text-muted-foreground">{pkg.sales} sales</p>
@@ -395,7 +429,7 @@ const BotDashboard = () => {
               </div>
               <div className="w-24 bg-muted rounded-full h-2">
                 <div 
-                  className="bg-telegram h-2 rounded-full" 
+                  className="bg-blue-600 h-2 rounded-full" 
                   style={{ width: `${pkg.percentage}%` }}
                 ></div>
               </div>
@@ -405,7 +439,7 @@ const BotDashboard = () => {
       </Card>
 
       {/* Revenue Chart Placeholder */}
-      <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+      <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
         <h3 className="text-lg font-semibold mb-4">Revenue Trend (Last 30 Days)</h3>
         <div className="h-64 bg-background/30 rounded-lg flex items-center justify-center">
           <p className="text-muted-foreground">Chart visualization would go here</p>
@@ -413,7 +447,7 @@ const BotDashboard = () => {
       </Card>
 
       {/* Quick Analytics Actions */}
-      <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+      <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
         <h3 className="text-lg font-semibold mb-4">Analytics Actions</h3>
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" size="sm" className="gap-2">
@@ -428,7 +462,7 @@ const BotDashboard = () => {
             <Users className="w-4 h-4" />
             User Analytics
           </Button>
-          <Button variant="telegram" size="sm" className="gap-2">
+          <Button variant="default" size="sm" className="gap-2">
             <MessageSquare className="w-4 h-4" />
             Edit via Telegram
           </Button>
@@ -450,7 +484,7 @@ const BotDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-12 h-12 bg-red-500/10 rounded-lg">
               <MessageSquare className="w-6 h-6 text-red-500" />
@@ -462,7 +496,7 @@ const BotDashboard = () => {
           </div>
         </Card>
 
-        <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-12 h-12 bg-yellow-500/10 rounded-lg">
               <MessageSquare className="w-6 h-6 text-yellow-500" />
@@ -474,7 +508,7 @@ const BotDashboard = () => {
           </div>
         </Card>
 
-        <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-12 h-12 bg-green-500/10 rounded-lg">
               <MessageSquare className="w-6 h-6 text-green-500" />
@@ -487,7 +521,7 @@ const BotDashboard = () => {
         </Card>
       </div>
 
-      <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+      <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
         <h3 className="text-lg font-semibold mb-4">Recent Support Requests</h3>
         <div className="space-y-4">
           {[
@@ -497,7 +531,7 @@ const BotDashboard = () => {
           ].map((ticket, index) => (
             <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-telegram rounded-full flex items-center justify-center text-white text-sm font-medium">
+                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
                   {ticket.user.split(' ').map(n => n[0]).join('')}
                 </div>
                 <div>
@@ -538,7 +572,7 @@ const BotDashboard = () => {
       </div>
 
       {/* Active Launch Promo */}
-      <Card className="p-6 bg-gradient-card border-0 shadow-lg border-l-4 border-l-green-500">
+      <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg border-l-4 border-l-green-500">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-green-500/10 rounded-lg">
@@ -565,10 +599,10 @@ const BotDashboard = () => {
       </Card>
 
       {/* Promo Codes List */}
-      <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+      <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold">All Promo Codes</h3>
-          <Button variant="telegram" className="gap-2">
+          <Button variant="default" className="gap-2">
             <Gift className="w-4 h-4" />
             Create New Promo
           </Button>
@@ -648,7 +682,7 @@ const BotDashboard = () => {
       </Card>
 
       {/* Promo Performance */}
-      <Card className="p-6 bg-gradient-card border-0 shadow-lg">
+      <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
         <h3 className="text-lg font-semibold mb-4">Promo Performance</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="text-center p-4 bg-background/50 rounded-lg">
