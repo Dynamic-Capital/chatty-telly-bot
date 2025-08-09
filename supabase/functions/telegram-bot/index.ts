@@ -81,11 +81,15 @@ function okJSON(body: unknown = { ok: true }): Response {
 
 async function notifyUser(chatId: number, text: string): Promise<void> {
   if (!BOT_TOKEN) return;
-  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
-  });
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    });
+  } catch (err) {
+    console.error("notifyUser error", err);
+  }
 }
 
 function buildWebAppButton(label = "Open Mini App") {
@@ -103,17 +107,21 @@ async function sendMiniAppLink(chatId: number): Promise<void> {
   const button = buildWebAppButton("Open Mini App");
   const reply_markup = button ? { inline_keyboard: [[button]] } : undefined;
 
-  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: button
-        ? "Open the Dynamic Capital mini app"
-        : "Mini app not configured yet.",
-      reply_markup,
-    }),
-  });
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: button
+          ? "Open the Dynamic Capital mini app"
+          : "Mini app not configured yet.",
+        reply_markup,
+      }),
+    });
+  } catch (err) {
+    console.error("sendMiniAppLink error", err);
+  }
 }
 
 async function extractTelegramUpdate(
@@ -257,12 +265,12 @@ export async function serveWebhook(req: Request): Promise<Response> {
     const { ok, missing } = requireEnv(REQUIRED_ENV_KEYS);
     if (!ok) {
       console.error("Missing env vars", missing);
-      return okJSON();
+      return new Response("Missing env vars", { status: 500 });
     }
 
     const url = new URL(req.url);
     if (url.searchParams.get("secret") !== WEBHOOK_SECRET) {
-      return okJSON();
+      return new Response("Unauthorized", { status: 401 });
     }
 
     const body = await extractTelegramUpdate(req);
