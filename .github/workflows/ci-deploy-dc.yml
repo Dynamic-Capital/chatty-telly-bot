@@ -1,0 +1,74 @@
+name: CI & Deploy (DC)
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "supabase/functions/**"
+      - "deno.json"
+      - "scripts/**"
+  push:
+    branches: ["main"]
+    paths:
+      - "src/**"
+      - "supabase/functions/**"
+      - "deno.json"
+      - "scripts/**"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: denoland/setup-deno@v1
+        with: { deno-version: v1.x }
+      - name: Cache Deno deps
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/deno
+          key: ${{ runner.os }}-deno-${{ hashFiles('**/*.ts', 'deno.json') }}
+      - name: CI (fmt/lint/typecheck/test)
+        env:
+          DENO_TLS_CA_STORE: system
+          # DENO_CERT_FILE: ${{ secrets.DENO_CERT_FILE }}   # optional custom CA
+        run: |
+          chmod +x scripts/ci.sh scripts/typecheck.sh || true
+          deno task ci
+      - name: Detect changed functions
+        run: |
+          chmod +x scripts/changed_functions.sh || true
+          ./scripts/changed_functions.sh
+      - name: Upload function list
+        uses: actions/upload-artifact@v4
+        with:
+          name: changed-functions
+          path: .out/functions.txt
+
+  deploy:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Download function list
+        uses: actions/download-artifact@v4
+        with:
+          name: changed-functions
+          path: .out
+      - name: Install Node (for Supabase CLI via npx)
+        uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Deploy changed functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          chmod +x scripts/deploy_functions.sh || true
+          scripts/deploy_functions.sh .out/functions.txt
