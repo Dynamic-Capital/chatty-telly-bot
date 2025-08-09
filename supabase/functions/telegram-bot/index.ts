@@ -14,8 +14,8 @@ import {
 import {
   handleEnvStatus,
   handlePing,
-  handleReviewList,
   handleReplay,
+  handleReviewList,
   handleVersion,
   handleWebhookInfo,
 } from "./admin-handlers.ts";
@@ -101,29 +101,29 @@ async function notifyUser(chatId: number, text: string): Promise<void> {
 
 function buildWebAppButton(label = "Open Mini App") {
   if (MINI_APP_SHORT_NAME) {
-    return { text: label, web_app: { short_name: MINI_APP_SHORT_NAME } };
+    return {
+      button: { text: label, web_app: { short_name: MINI_APP_SHORT_NAME } },
+      text: "Open the Dynamic Capital mini app",
+    };
   }
   if (MINI_APP_URL) {
-    return { text: label, web_app: { url: MINI_APP_URL } };
+    return {
+      button: { text: label, web_app: { url: MINI_APP_URL } },
+      text: "Open the Dynamic Capital mini app",
+    };
   }
-  return null;
+  return { text: "Mini app not configured yet." };
 }
 
 async function sendMiniAppLink(chatId: number): Promise<void> {
   if (!BOT_TOKEN) return;
-  const button = buildWebAppButton("Open Mini App");
+  const { button, text } = buildWebAppButton("Open Mini App");
   const reply_markup = button ? { inline_keyboard: [[button]] } : undefined;
 
   await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: button
-        ? "Open the Dynamic Capital mini app"
-        : "Mini app not configured yet.",
-      reply_markup,
-    }),
+    body: JSON.stringify({ chat_id: chatId, text, reply_markup }),
   });
 }
 
@@ -206,8 +206,9 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
   const msg = update.message;
   if (!msg) return;
   const text = msg.text?.trim();
-  if (!text) return;
+  if (!text || !text.startsWith("/")) return;
   const chatId = msg.chat.id;
+  logEvent("command_received", { chatId, text });
   try {
     if (text.startsWith("/start")) {
       await sendMiniAppLink(chatId);
@@ -236,15 +237,17 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
   }
 }
 
-async function startReceiptPipeline(update: TelegramUpdate): Promise<void> {
+async function startReceiptPipeline(
+  update: TelegramUpdate,
+  fileId: string,
+): Promise<void> {
   try {
     const message = update.message!;
     const chatId = message.chat.id;
     const userId = String(message.from?.id ?? "");
     if (!rateLimitGuard(chatId)) return;
 
-    const fileId = getFileIdFromUpdate(update);
-    if (!fileId) return;
+    logEvent("pipeline_started", { chatId, hasFile: true });
 
     const fileData = await downloadTelegramFile(fileId);
     if (!fileData) return;
@@ -409,9 +412,11 @@ export async function serveWebhook(req: Request): Promise<Response> {
     }
 
     const body = await extractTelegramUpdate(req);
-    if (body && typeof body === "object" &&
+    if (
+      body && typeof body === "object" &&
       (body as { test?: string }).test === "ping" &&
-      Object.keys(body).length === 1) {
+      Object.keys(body).length === 1
+    ) {
       return okJSON({ pong: true });
     }
     const update = body as TelegramUpdate | null;
@@ -420,7 +425,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
     await handleCommand(update);
 
     const fileId = getFileIdFromUpdate(update);
-    if (fileId) startReceiptPipeline(update);
+    if (fileId) startReceiptPipeline(update, fileId);
 
     return okJSON();
   } catch (err) {
