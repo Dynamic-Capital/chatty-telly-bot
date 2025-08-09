@@ -38,3 +38,6 @@ supabase/functions/**/.edge/
 
 # Mini app build & deps
 apps/mini/dist/
+
+# Audit reports
+.audit/
