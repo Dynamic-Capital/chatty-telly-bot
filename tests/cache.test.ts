@@ -1,17 +1,17 @@
 // @ts-nocheck: cross-runtime test uses dynamic imports
 let registerTest;
 let assertEquals;
-if (typeof Deno !== "undefined") {
+if (typeof Deno !== 'undefined') {
   registerTest = Deno.test;
-  ({ assertEquals } = await import("https://deno.land/std@0.224.0/testing/asserts.ts"));
+  ({ assertEquals } = await import('https://deno.land/std@0.224.0/testing/asserts.ts'));
 } else {
-  const { test } = await import("node:test");
+  const { test } = await import('node:test');
   registerTest = test;
-  const assert = (await import("node:assert")).strict;
+  const assert = (await import('node:assert')).strict;
   assertEquals = (a, b, msg) => assert.equal(a, b, msg);
 }
 
-import { getCached, clearCache, cacheStats } from "../src/utils/cache.ts";
+import { cacheStats, clearCache, getCached } from '../src/utils/cache.ts';
 
 const localStorageMock = (() => {
   let store = {};
@@ -33,18 +33,19 @@ const localStorageMock = (() => {
   };
 })();
 
-(globalThis as unknown as { localStorage: typeof localStorageMock }).localStorage = localStorageMock;
+(globalThis as unknown as { localStorage: typeof localStorageMock }).localStorage =
+  localStorageMock;
 
-registerTest("clearCache only removes cached entries", async () => {
-  localStorage.setItem("external", "keep");
+registerTest('clearCache only removes cached entries', async () => {
+  localStorage.setItem('external', 'keep');
 
-  await getCached("foo", 1000, () => Promise.resolve("foo"));
-  await getCached("bar", 1000, () => Promise.resolve("bar"));
+  await getCached('foo', 1000, () => Promise.resolve('foo'));
+  await getCached('bar', 1000, () => Promise.resolve('bar'));
 
   clearCache();
 
-  assertEquals(localStorage.getItem("external"), "keep");
-  assertEquals(localStorage.getItem("foo"), null);
-  assertEquals(localStorage.getItem("bar"), null);
+  assertEquals(localStorage.getItem('external'), 'keep');
+  assertEquals(localStorage.getItem('foo'), null);
+  assertEquals(localStorage.getItem('bar'), null);
   assertEquals(cacheStats().size, 0);
 });

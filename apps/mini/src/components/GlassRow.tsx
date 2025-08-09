@@ -6,7 +6,7 @@ interface Props {
   className?: string;
 }
 
-export default function GlassRow({ left, right, className = "" }: Props) {
+export default function GlassRow({ left, right, className = '' }: Props) {
   return (
     <div className={`dc-row ${className}`}>
       <div>{left}</div>

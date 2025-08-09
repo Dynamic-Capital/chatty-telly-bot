@@ -28,28 +28,28 @@ export default function Bank() {
   useTelegramMainButton(!!file, 'Submit', handleSubmit);
 
   return (
-    <div className="dc-screen">
-      <TopBar title="Bank Deposit" />
+    <div className='dc-screen'>
+      <TopBar title='Bank Deposit' />
       <NetworkPicker
         options={[{ id: 'BML', label: 'BML' }, { id: 'MIB', label: 'MIB' }]}
         value={bank}
         onChange={setBank}
       />
       {payCode && (
-        <GlassPanel className="mt-4 text-center">
+        <GlassPanel className='mt-4 text-center'>
           <p>Your deposit code</p>
-          <p className="font-mono text-lg">{payCode}</p>
-          <p className="text-sm">Add this in Remarks</p>
+          <p className='font-mono text-lg'>{payCode}</p>
+          <p className='text-sm'>Add this in Remarks</p>
         </GlassPanel>
       )}
-      <div className="mt-4">
-        <p className="mb-2 text-sm">Upload receipt</p>
+      <div className='mt-4'>
+        <p className='mb-2 text-sm'>Upload receipt</p>
         <ReceiptUploader onChange={setFile} />
       </div>
       <PrimaryButton
-        label="Submit for verification"
+        label='Submit for verification'
         onClick={handleSubmit}
-        className="fixed bottom-4 left-4 right-4"
+        className='fixed bottom-4 left-4 right-4'
         disabled={!file}
       />
     </div>

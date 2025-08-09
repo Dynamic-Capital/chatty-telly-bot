@@ -1,9 +1,9 @@
 // Enhanced admin handlers for comprehensive table management
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-  "";
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
+  '';
 
 const supabaseAdmin = createClient(
   SUPABASE_URL,
@@ -12,17 +12,17 @@ const supabaseAdmin = createClient(
 );
 
 // Import utility functions
-import { getBotContent, logAdminAction } from "./database-utils.ts";
-import { requireEnv } from "./helpers/require-env.ts";
+import { getBotContent, logAdminAction } from './database-utils.ts';
+import { requireEnv } from './helpers/require-env.ts';
 import {
-  getFlag,
-  setFlag,
+  getFlag as _getFlag,
   preview,
   publish as publishFlags,
   rollback as rollbackFlags,
-} from "../../../src/utils/config.ts";
+  setFlag,
+} from '../../../src/utils/config.ts';
 
-const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
+const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') || '';
 
 export async function sendMessage(
   chatId: number,
@@ -34,25 +34,25 @@ export async function sendMessage(
     chat_id: chatId,
     text: text,
     reply_markup: replyMarkup,
-    parse_mode: "Markdown",
+    parse_mode: 'Markdown',
   };
 
   try {
     const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error("❌ Telegram API error:", errorData);
+      console.error('❌ Telegram API error:', errorData);
       return null;
     }
 
     return await response.json();
   } catch (error) {
-    console.error("❌ Error sending message:", error);
+    console.error('❌ Error sending message:', error);
     return null;
   }
 }
@@ -66,17 +66,17 @@ interface MessageSection {
 function buildMessage(title: string, sections: MessageSection[]): string {
   const lines: string[] = [title];
   for (const section of sections) {
-    lines.push("", section.title);
+    lines.push('', section.title);
     section.items.forEach((item, index) => {
-      const itemLines = item.split("\n");
-      const prefix = section.numbered ? `${index + 1}. ` : "• ";
+      const itemLines = item.split('\n');
+      const prefix = section.numbered ? `${index + 1}. ` : '• ';
       lines.push(prefix + itemLines[0]);
       for (let i = 1; i < itemLines.length; i++) {
         lines.push(`   ${itemLines[i]}`);
       }
     });
   }
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 // Enhanced table management handlers
@@ -105,62 +105,62 @@ export async function handleTableManagement(
 🔧 *Management Actions:*
 View, Create, Edit, Delete, Export data for any table.`;
 
-  const tableMessage = (await getBotContent("table_management_message")) ||
+  const tableMessage = (await getBotContent('table_management_message')) ||
     defaultTableMessage;
 
   const tableKeyboard = {
     inline_keyboard: [
       [
-        { text: "👥 Users", callback_data: "manage_table_bot_users" },
+        { text: '👥 Users', callback_data: 'manage_table_bot_users' },
         {
-          text: "💎 VIP Plans",
-          callback_data: "manage_table_subscription_plans",
+          text: '💎 VIP Plans',
+          callback_data: 'manage_table_subscription_plans',
         },
       ],
       [
         {
-          text: "📢 Plan Channels",
-          callback_data: "manage_table_plan_channels",
+          text: '📢 Plan Channels',
+          callback_data: 'manage_table_plan_channels',
         },
         {
-          text: "🎓 Education",
-          callback_data: "manage_table_education_packages",
+          text: '🎓 Education',
+          callback_data: 'manage_table_education_packages',
         },
       ],
       [
-        { text: "💰 Promotions", callback_data: "manage_table_promotions" },
-        { text: "📱 Content", callback_data: "manage_table_bot_content" },
+        { text: '💰 Promotions', callback_data: 'manage_table_promotions' },
+        { text: '📱 Content', callback_data: 'manage_table_bot_content' },
       ],
       [
-        { text: "⚙️ Settings", callback_data: "manage_table_bot_settings" },
-        { text: "📈 Analytics", callback_data: "manage_table_daily_analytics" },
+        { text: '⚙️ Settings', callback_data: 'manage_table_bot_settings' },
+        { text: '📈 Analytics', callback_data: 'manage_table_daily_analytics' },
       ],
       [
-        { text: "💬 Sessions", callback_data: "manage_table_user_sessions" },
-        { text: "💳 Payments", callback_data: "manage_table_payments" },
-      ],
-      [
-        {
-          text: "📢 Broadcasts",
-          callback_data: "manage_table_broadcast_messages",
-        },
-        {
-          text: "🏦 Bank Accounts",
-          callback_data: "manage_table_bank_accounts",
-        },
+        { text: '💬 Sessions', callback_data: 'manage_table_user_sessions' },
+        { text: '💳 Payments', callback_data: 'manage_table_payments' },
       ],
       [
         {
-          text: "📝 Templates",
-          callback_data: "manage_table_auto_reply_templates",
+          text: '📢 Broadcasts',
+          callback_data: 'manage_table_broadcast_messages',
         },
-        { text: "📊 Quick Stats", callback_data: "table_stats_overview" },
+        {
+          text: '🏦 Bank Accounts',
+          callback_data: 'manage_table_bank_accounts',
+        },
       ],
       [
-        { text: "💾 Export All", callback_data: "export_all_tables" },
+        {
+          text: '📝 Templates',
+          callback_data: 'manage_table_auto_reply_templates',
+        },
+        { text: '📊 Quick Stats', callback_data: 'table_stats_overview' },
       ],
       [
-        { text: "🔙 Back to Admin", callback_data: "admin_dashboard" },
+        { text: '💾 Export All', callback_data: 'export_all_tables' },
+      ],
+      [
+        { text: '🔙 Back to Admin', callback_data: 'admin_dashboard' },
       ],
     ],
   };
@@ -175,28 +175,28 @@ export async function handleUserTableManagement(
 ): Promise<void> {
   try {
     const { data: users, error: _error } = await supabaseAdmin
-      .from("bot_users")
-      .select("*")
-      .order("created_at", { ascending: false })
+      .from('bot_users')
+      .select('*')
+      .order('created_at', { ascending: false })
       .limit(10);
 
     const totalCount = await supabaseAdmin
-      .from("bot_users")
-      .select("count", { count: "exact" });
+      .from('bot_users')
+      .select('count', { count: 'exact' });
 
     const adminCount = await supabaseAdmin
-      .from("bot_users")
-      .select("count", { count: "exact" })
-      .eq("is_admin", true);
+      .from('bot_users')
+      .select('count', { count: 'exact' })
+      .eq('is_admin', true);
 
     const vipCount = await supabaseAdmin
-      .from("bot_users")
-      .select("count", { count: "exact" })
-      .eq("is_vip", true);
+      .from('bot_users')
+      .select('count', { count: 'exact' })
+      .eq('is_vip', true);
 
-    const userMessage = buildMessage("👥 *Bot Users Management*", [
+    const userMessage = buildMessage('👥 *Bot Users Management*', [
       {
-        title: "📊 *Statistics:*",
+        title: '📊 *Statistics:*',
         items: [
           `Total Users: ${totalCount.count || 0}`,
           `Admin Users: ${adminCount.count || 0}`,
@@ -204,14 +204,12 @@ export async function handleUserTableManagement(
         ],
       },
       {
-        title: "👤 *Recent Users (Last 10):*",
+        title: '👤 *Recent Users (Last 10):*',
         items: users?.map((user) => {
-          const status = user.is_admin ? "🔑" : user.is_vip ? "💎" : "👤";
-          return `${status} ${user.first_name || "Unknown"} (@${
-            user.username || "N/A"
-          })\nID: ${user.telegram_id} | Joined: ${
-            new Date(user.created_at).toLocaleDateString()
-          }`;
+          const status = user.is_admin ? '🔑' : user.is_vip ? '💎' : '👤';
+          return `${status} ${user.first_name || 'Unknown'} (@${
+            user.username || 'N/A'
+          })\nID: ${user.telegram_id} | Joined: ${new Date(user.created_at).toLocaleDateString()}`;
         }) || [],
         numbered: true,
       },
@@ -220,24 +218,24 @@ export async function handleUserTableManagement(
     const userKeyboard = {
       inline_keyboard: [
         [
-          { text: "➕ Add Admin", callback_data: "add_admin_user" },
-          { text: "🔍 Search User", callback_data: "search_user" },
+          { text: '➕ Add Admin', callback_data: 'add_admin_user' },
+          { text: '🔍 Search User', callback_data: 'search_user' },
         ],
         [
-          { text: "💎 Manage VIP", callback_data: "manage_vip_users" },
-          { text: "📊 Export Users", callback_data: "export_users" },
+          { text: '💎 Manage VIP', callback_data: 'manage_vip_users' },
+          { text: '📊 Export Users', callback_data: 'export_users' },
         ],
         [
-          { text: "🔄 Refresh", callback_data: "manage_table_bot_users" },
-          { text: "🔙 Back", callback_data: "manage_tables" },
+          { text: '🔄 Refresh', callback_data: 'manage_table_bot_users' },
+          { text: '🔙 Back', callback_data: 'manage_tables' },
         ],
       ],
     };
 
     await sendMessage(chatId, userMessage, userKeyboard);
   } catch (error) {
-    console.error("Error in user table management:", error);
-    await sendMessage(chatId, "❌ Error fetching user data. Please try again.");
+    console.error('Error in user table management:', error);
+    await sendMessage(chatId, '❌ Error fetching user data. Please try again.');
   }
 }
 
@@ -247,26 +245,24 @@ export async function handleSubscriptionPlansManagement(
 ): Promise<void> {
   try {
     const { data: plans, error } = await supabaseAdmin
-      .from("subscription_plans")
-      .select("*")
-      .order("price", { ascending: true });
+      .from('subscription_plans')
+      .select('*')
+      .order('price', { ascending: true });
 
     if (error) {
-      console.error("Error fetching subscription plans:", error);
+      console.error('Error fetching subscription plans:', error);
       await sendMessage(
         chatId,
-        "❌ Error fetching subscription plans. Please try again.",
+        '❌ Error fetching subscription plans. Please try again.',
       );
       return;
     }
 
-    const planMessage = buildMessage("💎 *VIP Subscription Plans Management*", [
+    const planMessage = buildMessage('💎 *VIP Subscription Plans Management*', [
       {
         title: `📦 *Current Plans (${plans?.length || 0}):*`,
         items: plans?.map((plan) => {
-          const duration = plan.is_lifetime
-            ? "Lifetime"
-            : `${plan.duration_months} months`;
+          const duration = plan.is_lifetime ? 'Lifetime' : `${plan.duration_months} months`;
           return `**${plan.name}**\n💰 ${plan.currency} ${plan.price} (${duration})\n✨ Features: ${
             plan.features?.length || 0
           } items\nID: \`${plan.id}\``;
@@ -278,33 +274,33 @@ export async function handleSubscriptionPlansManagement(
     const planKeyboard = {
       inline_keyboard: [
         [
-          { text: "➕ Create Plan", callback_data: "create_vip_plan" },
-          { text: "✏️ Edit Plan", callback_data: "edit_vip_plan" },
+          { text: '➕ Create Plan', callback_data: 'create_vip_plan' },
+          { text: '✏️ Edit Plan', callback_data: 'edit_vip_plan' },
         ],
         [
-          { text: "🗑️ Delete Plan", callback_data: "delete_vip_plan" },
-          { text: "📊 Plan Stats", callback_data: "vip_plan_stats" },
+          { text: '🗑️ Delete Plan', callback_data: 'delete_vip_plan' },
+          { text: '📊 Plan Stats', callback_data: 'vip_plan_stats' },
         ],
         [
-          { text: "💰 Update Pricing", callback_data: "update_plan_pricing" },
-          { text: "🎯 Manage Features", callback_data: "manage_plan_features" },
+          { text: '💰 Update Pricing', callback_data: 'update_plan_pricing' },
+          { text: '🎯 Manage Features', callback_data: 'manage_plan_features' },
         ],
         [
           {
-            text: "🔄 Refresh",
-            callback_data: "manage_table_subscription_plans",
+            text: '🔄 Refresh',
+            callback_data: 'manage_table_subscription_plans',
           },
-          { text: "🔙 Back", callback_data: "manage_tables" },
+          { text: '🔙 Back', callback_data: 'manage_tables' },
         ],
       ],
     };
 
     await sendMessage(chatId, planMessage, planKeyboard);
   } catch (error) {
-    console.error("Error in subscription plans management:", error);
+    console.error('Error in subscription plans management:', error);
     await sendMessage(
       chatId,
-      "❌ Error fetching subscription plans. Please try again.",
+      '❌ Error fetching subscription plans. Please try again.',
     );
   }
 }
@@ -315,46 +311,42 @@ export async function handlePlanChannelsManagement(
 ): Promise<void> {
   try {
     const { data: channels, error } = await supabaseAdmin
-      .from("plan_channels")
-      .select("channel_name, channel_type, invite_link, is_active, plan_id")
-      .order("channel_name");
+      .from('plan_channels')
+      .select('channel_name, channel_type, invite_link, is_active, plan_id')
+      .order('channel_name');
 
     if (error) {
-      console.error("Error fetching plan channels:", error);
+      console.error('Error fetching plan channels:', error);
       await sendMessage(
         chatId,
-        "❌ Error fetching plan channels. Please try again.",
+        '❌ Error fetching plan channels. Please try again.',
       );
       return;
     }
 
     let msg = `📢 *Plan Channels Management*\n\n`;
     channels?.forEach((channel, index) => {
-      msg += `${
-        index + 1
-      }. ${channel.channel_name} (${channel.channel_type})\n`;
+      msg += `${index + 1}. ${channel.channel_name} (${channel.channel_type})\n`;
       msg += `   🔗 ${channel.invite_link}\n`;
       msg += `   Plan: \`${channel.plan_id}\`\n`;
-      msg += `   Status: ${
-        channel.is_active ? "✅ Active" : "⛔ Inactive"
-      }\n\n`;
+      msg += `   Status: ${channel.is_active ? '✅ Active' : '⛔ Inactive'}\n\n`;
     });
 
     const keyboard = {
       inline_keyboard: [
         [
-          { text: "🔄 Refresh", callback_data: "manage_table_plan_channels" },
-          { text: "🔙 Back", callback_data: "manage_tables" },
+          { text: '🔄 Refresh', callback_data: 'manage_table_plan_channels' },
+          { text: '🔙 Back', callback_data: 'manage_tables' },
         ],
       ],
     };
 
     await sendMessage(chatId, msg, keyboard);
   } catch (error) {
-    console.error("Error in plan channels management:", error);
+    console.error('Error in plan channels management:', error);
     await sendMessage(
       chatId,
-      "❌ Error fetching plan channels. Please try again.",
+      '❌ Error fetching plan channels. Please try again.',
     );
   }
 }
@@ -366,18 +358,18 @@ export async function handleEditVipPlan(
 ): Promise<void> {
   try {
     const { data: plans, error } = await supabaseAdmin
-      .from("subscription_plans")
-      .select("*")
-      .order("price", { ascending: true });
+      .from('subscription_plans')
+      .select('*')
+      .order('price', { ascending: true });
 
     if (error) {
-      console.error("Error fetching plans for editing:", error);
-      await sendMessage(chatId, "❌ Error fetching plans. Please try again.");
+      console.error('Error fetching plans for editing:', error);
+      await sendMessage(chatId, '❌ Error fetching plans. Please try again.');
       return;
     }
 
     if (!plans || plans.length === 0) {
-      await sendMessage(chatId, "❌ No VIP plans found. Create a plan first.");
+      await sendMessage(chatId, '❌ No VIP plans found. Create a plan first.');
       return;
     }
 
@@ -390,16 +382,16 @@ export async function handleEditVipPlan(
           text: `${index + 1}. ${plan.name} ($${plan.price})`,
           callback_data: `edit_plan_${plan.id}`,
         }]),
-        [{ text: "🔙 Back", callback_data: "manage_table_subscription_plans" }],
+        [{ text: '🔙 Back', callback_data: 'manage_table_subscription_plans' }],
       ],
     };
 
     await sendMessage(chatId, editMessage, editKeyboard);
   } catch (error) {
-    console.error("Error in handleEditVipPlan:", error);
+    console.error('Error in handleEditVipPlan:', error);
     await sendMessage(
       chatId,
-      "❌ Error loading plans for editing. Please try again.",
+      '❌ Error loading plans for editing. Please try again.',
     );
   }
 }
@@ -412,20 +404,18 @@ export async function handleEditSpecificPlan(
 ): Promise<void> {
   try {
     const { data: plan, error } = await supabaseAdmin
-      .from("subscription_plans")
-      .select("*")
-      .eq("id", planId)
+      .from('subscription_plans')
+      .select('*')
+      .eq('id', planId)
       .single();
 
     if (error || !plan) {
-      console.error("Error fetching plan for editing:", error);
-      await sendMessage(chatId, "❌ Plan not found. Please try again.");
+      console.error('Error fetching plan for editing:', error);
+      await sendMessage(chatId, '❌ Plan not found. Please try again.');
       return;
     }
 
-    const duration = plan.is_lifetime
-      ? "Lifetime"
-      : `${plan.duration_months} months`;
+    const duration = plan.is_lifetime ? 'Lifetime' : `${plan.duration_months} months`;
     let planDetails = `✏️ *Editing Plan: ${plan.name}*\n\n`;
     planDetails += `💰 **Current Price:** ${plan.currency} ${plan.price}\n`;
     planDetails += `⏰ **Duration:** ${duration}\n`;
@@ -439,50 +429,46 @@ export async function handleEditSpecificPlan(
       planDetails += `   No features configured\n`;
     }
 
-    planDetails += `\n📅 **Created:** ${
-      new Date(plan.created_at).toLocaleDateString()
-    }\n`;
-    planDetails += `🔄 **Updated:** ${
-      new Date(plan.updated_at).toLocaleDateString()
-    }\n\n`;
+    planDetails += `\n📅 **Created:** ${new Date(plan.created_at).toLocaleDateString()}\n`;
+    planDetails += `🔄 **Updated:** ${new Date(plan.updated_at).toLocaleDateString()}\n\n`;
     planDetails += `What would you like to edit?`;
 
     const editOptionsKeyboard = {
       inline_keyboard: [
         [
-          { text: "💰 Edit Price", callback_data: `edit_plan_price_${planId}` },
-          { text: "📝 Edit Name", callback_data: `edit_plan_name_${planId}` },
+          { text: '💰 Edit Price', callback_data: `edit_plan_price_${planId}` },
+          { text: '📝 Edit Name', callback_data: `edit_plan_name_${planId}` },
         ],
         [
           {
-            text: "⏰ Edit Duration",
+            text: '⏰ Edit Duration',
             callback_data: `edit_plan_duration_${planId}`,
           },
           {
-            text: "✨ Edit Features",
+            text: '✨ Edit Features',
             callback_data: `edit_plan_features_${planId}`,
           },
         ],
         [
           {
-            text: "🔄 Toggle Lifetime",
+            text: '🔄 Toggle Lifetime',
             callback_data: `toggle_plan_lifetime_${planId}`,
           },
           {
-            text: "💱 Change Currency",
+            text: '💱 Change Currency',
             callback_data: `edit_plan_currency_${planId}`,
           },
         ],
         [
           {
-            text: "🗑️ Delete Plan",
+            text: '🗑️ Delete Plan',
             callback_data: `confirm_delete_plan_${planId}`,
           },
         ],
         [
           {
-            text: "🔙 Back to Plans",
-            callback_data: "manage_table_subscription_plans",
+            text: '🔙 Back to Plans',
+            callback_data: 'manage_table_subscription_plans',
           },
         ],
       ],
@@ -490,10 +476,10 @@ export async function handleEditSpecificPlan(
 
     await sendMessage(chatId, planDetails, editOptionsKeyboard);
   } catch (error) {
-    console.error("Error in handleEditSpecificPlan:", error);
+    console.error('Error in handleEditSpecificPlan:', error);
     await sendMessage(
       chatId,
-      "❌ Error loading plan details. Please try again.",
+      '❌ Error loading plan details. Please try again.',
     );
   }
 }
@@ -506,13 +492,13 @@ export async function handleEditPlanPrice(
 ): Promise<void> {
   try {
     const { data: plan, error } = await supabaseAdmin
-      .from("subscription_plans")
-      .select("name, price, currency")
-      .eq("id", planId)
+      .from('subscription_plans')
+      .select('name, price, currency')
+      .eq('id', planId)
       .single();
 
     if (error || !plan) {
-      await sendMessage(chatId, "❌ Plan not found.");
+      await sendMessage(chatId, '❌ Plan not found.');
       return;
     }
 
@@ -523,7 +509,7 @@ export async function handleEditPlanPrice(
 
     const cancelKeyboard = {
       inline_keyboard: [
-        [{ text: "❌ Cancel", callback_data: `edit_plan_${planId}` }],
+        [{ text: '❌ Cancel', callback_data: `edit_plan_${planId}` }],
       ],
     };
 
@@ -531,19 +517,19 @@ export async function handleEditPlanPrice(
 
     // Set user session to await price input
     await supabaseAdmin
-      .from("user_sessions")
+      .from('user_sessions')
       .upsert({
         telegram_user_id: userId,
-        awaiting_input: "plan_price",
+        awaiting_input: 'plan_price',
         session_data: { plan_id: planId, plan_name: plan.name },
         last_activity: new Date().toISOString(),
         is_active: true,
       });
   } catch (error) {
-    console.error("Error in handleEditPlanPrice:", error);
+    console.error('Error in handleEditPlanPrice:', error);
     await sendMessage(
       chatId,
-      "❌ Error setting up price editing. Please try again.",
+      '❌ Error setting up price editing. Please try again.',
     );
   }
 }
@@ -556,13 +542,13 @@ export async function handleEditPlanName(
 ): Promise<void> {
   try {
     const { data: plan, error } = await supabaseAdmin
-      .from("subscription_plans")
-      .select("name")
-      .eq("id", planId)
+      .from('subscription_plans')
+      .select('name')
+      .eq('id', planId)
       .single();
 
     if (error || !plan) {
-      await sendMessage(chatId, "❌ Plan not found.");
+      await sendMessage(chatId, '❌ Plan not found.');
       return;
     }
 
@@ -572,7 +558,7 @@ export async function handleEditPlanName(
 
     const cancelKeyboard = {
       inline_keyboard: [
-        [{ text: "❌ Cancel", callback_data: `edit_plan_${planId}` }],
+        [{ text: '❌ Cancel', callback_data: `edit_plan_${planId}` }],
       ],
     };
 
@@ -580,19 +566,19 @@ export async function handleEditPlanName(
 
     // Set user session to await name input
     await supabaseAdmin
-      .from("user_sessions")
+      .from('user_sessions')
       .upsert({
         telegram_user_id: userId,
-        awaiting_input: "plan_name",
+        awaiting_input: 'plan_name',
         session_data: { plan_id: planId },
         last_activity: new Date().toISOString(),
         is_active: true,
       });
   } catch (error) {
-    console.error("Error in handleEditPlanName:", error);
+    console.error('Error in handleEditPlanName:', error);
     await sendMessage(
       chatId,
-      "❌ Error setting up name editing. Please try again.",
+      '❌ Error setting up name editing. Please try again.',
     );
   }
 }
@@ -605,19 +591,17 @@ export async function handleEditPlanDuration(
 ): Promise<void> {
   try {
     const { data: plan, error } = await supabaseAdmin
-      .from("subscription_plans")
-      .select("name, duration_months, is_lifetime")
-      .eq("id", planId)
+      .from('subscription_plans')
+      .select('name, duration_months, is_lifetime')
+      .eq('id', planId)
       .single();
 
     if (error || !plan) {
-      await sendMessage(chatId, "❌ Plan not found.");
+      await sendMessage(chatId, '❌ Plan not found.');
       return;
     }
 
-    const currentDuration = plan.is_lifetime
-      ? "Lifetime"
-      : `${plan.duration_months} months`;
+    const currentDuration = plan.is_lifetime ? 'Lifetime' : `${plan.duration_months} months`;
     const durationMessage = `⏰ *Edit Duration for ${plan.name}*\n\n` +
       `Current Duration: **${currentDuration}**\n\n` +
       `Please send the new duration in months (numbers only):\n` +
@@ -626,7 +610,7 @@ export async function handleEditPlanDuration(
 
     const cancelKeyboard = {
       inline_keyboard: [
-        [{ text: "❌ Cancel", callback_data: `edit_plan_${planId}` }],
+        [{ text: '❌ Cancel', callback_data: `edit_plan_${planId}` }],
       ],
     };
 
@@ -634,19 +618,19 @@ export async function handleEditPlanDuration(
 
     // Set user session to await duration input
     await supabaseAdmin
-      .from("user_sessions")
+      .from('user_sessions')
       .upsert({
         telegram_user_id: userId,
-        awaiting_input: "plan_duration",
+        awaiting_input: 'plan_duration',
         session_data: { plan_id: planId, plan_name: plan.name },
         last_activity: new Date().toISOString(),
         is_active: true,
       });
   } catch (error) {
-    console.error("Error in handleEditPlanDuration:", error);
+    console.error('Error in handleEditPlanDuration:', error);
     await sendMessage(
       chatId,
-      "❌ Error setting up duration editing. Please try again.",
+      '❌ Error setting up duration editing. Please try again.',
     );
   }
 }
@@ -659,13 +643,13 @@ export async function handleEditPlanFeatures(
 ): Promise<void> {
   try {
     const { data: plan, error } = await supabaseAdmin
-      .from("subscription_plans")
-      .select("name, features")
-      .eq("id", planId)
+      .from('subscription_plans')
+      .select('name, features')
+      .eq('id', planId)
       .single();
 
     if (error || !plan) {
-      await sendMessage(chatId, "❌ Plan not found.");
+      await sendMessage(chatId, '❌ Plan not found.');
       return;
     }
 
@@ -686,32 +670,32 @@ export async function handleEditPlanFeatures(
       inline_keyboard: [
         [
           {
-            text: "➕ Add Feature",
+            text: '➕ Add Feature',
             callback_data: `add_plan_feature_${planId}`,
           },
           {
-            text: "🗑️ Remove Feature",
+            text: '🗑️ Remove Feature',
             callback_data: `remove_plan_feature_${planId}`,
           },
         ],
         [
           {
-            text: "🔄 Replace All",
+            text: '🔄 Replace All',
             callback_data: `replace_plan_features_${planId}`,
           },
         ],
         [
-          { text: "🔙 Back", callback_data: `edit_plan_${planId}` },
+          { text: '🔙 Back', callback_data: `edit_plan_${planId}` },
         ],
       ],
     };
 
     await sendMessage(chatId, featuresMessage, featuresKeyboard);
   } catch (error) {
-    console.error("Error in handleEditPlanFeatures:", error);
+    console.error('Error in handleEditPlanFeatures:', error);
     await sendMessage(
       chatId,
-      "❌ Error loading plan features. Please try again.",
+      '❌ Error loading plan features. Please try again.',
     );
   }
 }
@@ -724,13 +708,13 @@ export async function handleAddPlanFeature(
 ): Promise<void> {
   try {
     const { data: plan, error } = await supabaseAdmin
-      .from("subscription_plans")
-      .select("name")
-      .eq("id", planId)
+      .from('subscription_plans')
+      .select('name')
+      .eq('id', planId)
       .single();
 
     if (error || !plan) {
-      await sendMessage(chatId, "❌ Plan not found.");
+      await sendMessage(chatId, '❌ Plan not found.');
       return;
     }
 
@@ -741,7 +725,7 @@ export async function handleAddPlanFeature(
 
     const cancelKeyboard = {
       inline_keyboard: [
-        [{ text: "❌ Cancel", callback_data: `edit_plan_features_${planId}` }],
+        [{ text: '❌ Cancel', callback_data: `edit_plan_features_${planId}` }],
       ],
     };
 
@@ -749,19 +733,19 @@ export async function handleAddPlanFeature(
 
     // Set user session to await feature input
     await supabaseAdmin
-      .from("user_sessions")
+      .from('user_sessions')
       .upsert({
         telegram_user_id: userId,
-        awaiting_input: "plan_add_feature",
+        awaiting_input: 'plan_add_feature',
         session_data: { plan_id: planId, plan_name: plan.name },
         last_activity: new Date().toISOString(),
         is_active: true,
       });
   } catch (error) {
-    console.error("Error in handleAddPlanFeature:", error);
+    console.error('Error in handleAddPlanFeature:', error);
     await sendMessage(
       chatId,
-      "❌ Error setting up feature addition. Please try again.",
+      '❌ Error setting up feature addition. Please try again.',
     );
   }
 }
@@ -788,7 +772,7 @@ export async function handleCreateVipPlan(
 
   const cancelKeyboard = {
     inline_keyboard: [
-      [{ text: "❌ Cancel", callback_data: "manage_table_subscription_plans" }],
+      [{ text: '❌ Cancel', callback_data: 'manage_table_subscription_plans' }],
     ],
   };
 
@@ -796,10 +780,10 @@ export async function handleCreateVipPlan(
 
   // Set user session to await plan creation input
   await supabaseAdmin
-    .from("user_sessions")
+    .from('user_sessions')
     .upsert({
       telegram_user_id: userId,
-      awaiting_input: "create_vip_plan",
+      awaiting_input: 'create_vip_plan',
       session_data: {},
       last_activity: new Date().toISOString(),
       is_active: true,
@@ -813,18 +797,18 @@ export async function handleDeleteVipPlan(
 ): Promise<void> {
   try {
     const { data: plans, error } = await supabaseAdmin
-      .from("subscription_plans")
-      .select("*")
-      .order("price", { ascending: true });
+      .from('subscription_plans')
+      .select('*')
+      .order('price', { ascending: true });
 
     if (error) {
-      console.error("Error fetching plans for deletion:", error);
-      await sendMessage(chatId, "❌ Error fetching plans. Please try again.");
+      console.error('Error fetching plans for deletion:', error);
+      await sendMessage(chatId, '❌ Error fetching plans. Please try again.');
       return;
     }
 
     if (!plans || plans.length === 0) {
-      await sendMessage(chatId, "❌ No VIP plans found to delete.");
+      await sendMessage(chatId, '❌ No VIP plans found to delete.');
       return;
     }
 
@@ -838,16 +822,16 @@ export async function handleDeleteVipPlan(
           text: `🗑️ ${index + 1}. ${plan.name} ($${plan.price})`,
           callback_data: `confirm_delete_plan_${plan.id}`,
         }]),
-        [{ text: "🔙 Back", callback_data: "manage_table_subscription_plans" }],
+        [{ text: '🔙 Back', callback_data: 'manage_table_subscription_plans' }],
       ],
     };
 
     await sendMessage(chatId, deleteMessage, deleteKeyboard);
   } catch (error) {
-    console.error("Error in handleDeleteVipPlan:", error);
+    console.error('Error in handleDeleteVipPlan:', error);
     await sendMessage(
       chatId,
-      "❌ Error loading plans for deletion. Please try again.",
+      '❌ Error loading plans for deletion. Please try again.',
     );
   }
 }
@@ -860,13 +844,13 @@ export async function handleConfirmDeletePlan(
 ): Promise<void> {
   try {
     const { data: plan, error } = await supabaseAdmin
-      .from("subscription_plans")
-      .select("name, price")
-      .eq("id", planId)
+      .from('subscription_plans')
+      .select('name, price')
+      .eq('id', planId)
       .single();
 
     if (error || !plan) {
-      await sendMessage(chatId, "❌ Plan not found.");
+      await sendMessage(chatId, '❌ Plan not found.');
       return;
     }
 
@@ -879,20 +863,20 @@ export async function handleConfirmDeletePlan(
       inline_keyboard: [
         [
           {
-            text: "✅ Yes, Delete",
+            text: '✅ Yes, Delete',
             callback_data: `delete_plan_confirmed_${planId}`,
           },
-          { text: "❌ Cancel", callback_data: `edit_plan_${planId}` },
+          { text: '❌ Cancel', callback_data: `edit_plan_${planId}` },
         ],
       ],
     };
 
     await sendMessage(chatId, confirmMessage, confirmKeyboard);
   } catch (error) {
-    console.error("Error in handleConfirmDeletePlan:", error);
+    console.error('Error in handleConfirmDeletePlan:', error);
     await sendMessage(
       chatId,
-      "❌ Error setting up plan deletion. Please try again.",
+      '❌ Error setting up plan deletion. Please try again.',
     );
   }
 }
@@ -906,13 +890,13 @@ export async function handleExecuteDeletePlan(
   try {
     // First check if plan has active subscriptions
     const { data: activeSubscriptions, error: subError } = await supabaseAdmin
-      .from("user_subscriptions")
-      .select("count")
-      .eq("plan_id", planId)
-      .eq("is_active", true);
+      .from('user_subscriptions')
+      .select('count')
+      .eq('plan_id', planId)
+      .eq('is_active', true);
 
     if (subError) {
-      console.error("Error checking active subscriptions:", subError);
+      console.error('Error checking active subscriptions:', subError);
     }
 
     if (activeSubscriptions && activeSubscriptions.length > 0) {
@@ -927,24 +911,24 @@ export async function handleExecuteDeletePlan(
 
     // Get plan name for confirmation
     const { data: plan, error: planError } = await supabaseAdmin
-      .from("subscription_plans")
-      .select("name")
-      .eq("id", planId)
+      .from('subscription_plans')
+      .select('name')
+      .eq('id', planId)
       .single();
 
     if (planError || !plan) {
-      await sendMessage(chatId, "❌ Plan not found.");
+      await sendMessage(chatId, '❌ Plan not found.');
       return;
     }
 
     // Delete the plan
     const { error: deleteError } = await supabaseAdmin
-      .from("subscription_plans")
+      .from('subscription_plans')
       .delete()
-      .eq("id", planId);
+      .eq('id', planId);
 
     if (deleteError) {
-      console.error("Error deleting plan:", deleteError);
+      console.error('Error deleting plan:', deleteError);
       await sendMessage(
         chatId,
         `❌ Error deleting plan: ${deleteError.message}`,
@@ -955,9 +939,9 @@ export async function handleExecuteDeletePlan(
     // Log admin action
     await logAdminAction(
       userId,
-      "plan_delete",
+      'plan_delete',
       `Deleted VIP plan: ${plan.name}`,
-      "subscription_plans",
+      'subscription_plans',
       planId,
     );
 
@@ -973,8 +957,8 @@ export async function handleExecuteDeletePlan(
       await handleSubscriptionPlansManagement(chatId, userId);
     }, 2000);
   } catch (error) {
-    console.error("Error in handleExecuteDeletePlan:", error);
-    await sendMessage(chatId, "❌ Error deleting plan. Please try again.");
+    console.error('Error in handleExecuteDeletePlan:', error);
+    await sendMessage(chatId, '❌ Error deleting plan. Please try again.');
   }
 }
 
@@ -986,13 +970,13 @@ export async function handleTogglePlanLifetime(
 ): Promise<void> {
   try {
     const { data: plan, error } = await supabaseAdmin
-      .from("subscription_plans")
-      .select("name, is_lifetime, duration_months")
-      .eq("id", planId)
+      .from('subscription_plans')
+      .select('name, is_lifetime, duration_months')
+      .eq('id', planId)
       .single();
 
     if (error || !plan) {
-      await sendMessage(chatId, "❌ Plan not found.");
+      await sendMessage(chatId, '❌ Plan not found.');
       return;
     }
 
@@ -1004,12 +988,12 @@ export async function handleTogglePlanLifetime(
     };
 
     const { error: updateError } = await supabaseAdmin
-      .from("subscription_plans")
+      .from('subscription_plans')
       .update(updateData)
-      .eq("id", planId);
+      .eq('id', planId);
 
     if (updateError) {
-      console.error("Error updating plan lifetime status:", updateError);
+      console.error('Error updating plan lifetime status:', updateError);
       await sendMessage(
         chatId,
         `❌ Error updating plan: ${updateError.message}`,
@@ -1020,15 +1004,15 @@ export async function handleTogglePlanLifetime(
     // Log admin action
     await logAdminAction(
       userId,
-      "plan_update",
+      'plan_update',
       `Toggled lifetime status for plan: ${plan.name}`,
-      "subscription_plans",
+      'subscription_plans',
       planId,
       { is_lifetime: plan.is_lifetime },
       { is_lifetime: newLifetimeStatus },
     );
 
-    const statusText = newLifetimeStatus ? "Lifetime" : "Monthly/Yearly";
+    const statusText = newLifetimeStatus ? 'Lifetime' : 'Monthly/Yearly';
     await sendMessage(
       chatId,
       `✅ *Plan Updated*\n\n` +
@@ -1041,10 +1025,10 @@ export async function handleTogglePlanLifetime(
       await handleEditSpecificPlan(chatId, userId, planId);
     }, 2000);
   } catch (error) {
-    console.error("Error in handleTogglePlanLifetime:", error);
+    console.error('Error in handleTogglePlanLifetime:', error);
     await sendMessage(
       chatId,
-      "❌ Error toggling plan lifetime status. Please try again.",
+      '❌ Error toggling plan lifetime status. Please try again.',
     );
   }
 }
@@ -1054,73 +1038,68 @@ export async function handleEducationPackagesManagement(
 ): Promise<void> {
   try {
     const { data: packages, error: _error } = await supabaseAdmin
-      .from("education_packages")
-      .select("*, category:education_categories(name)")
-      .order("created_at", { ascending: false })
+      .from('education_packages')
+      .select('*, category:education_categories(name)')
+      .order('created_at', { ascending: false })
       .limit(10);
 
     let packageMessage = `🎓 *Education Packages Management*\n\n`;
     packageMessage += `📚 *Current Packages (${packages?.length || 0}):*\n\n`;
 
     packages?.forEach((pkg, index) => {
-      const status = pkg.is_active ? "✅" : "❌";
-      const featured = pkg.is_featured ? "⭐" : "";
+      const status = pkg.is_active ? '✅' : '❌';
+      const featured = pkg.is_featured ? '⭐' : '';
       packageMessage += `${index + 1}. ${status}${featured} **${pkg.name}**\n`;
-      packageMessage +=
-        `   💰 ${pkg.currency} ${pkg.price} (${pkg.duration_weeks} weeks)\n`;
-      packageMessage += `   👥 Students: ${pkg.current_students}/${
-        pkg.max_students || "∞"
-      }\n`;
-      packageMessage += `   📅 Created: ${
-        new Date(pkg.created_at).toLocaleDateString()
-      }\n\n`;
+      packageMessage += `   💰 ${pkg.currency} ${pkg.price} (${pkg.duration_weeks} weeks)\n`;
+      packageMessage += `   👥 Students: ${pkg.current_students}/${pkg.max_students || '∞'}\n`;
+      packageMessage += `   📅 Created: ${new Date(pkg.created_at).toLocaleDateString()}\n\n`;
     });
 
     const packageKeyboard = {
       inline_keyboard: [
         [
           {
-            text: "➕ Create Package",
-            callback_data: "create_education_package",
+            text: '➕ Create Package',
+            callback_data: 'create_education_package',
           },
-          { text: "✏️ Edit Package", callback_data: "edit_education_package" },
+          { text: '✏️ Edit Package', callback_data: 'edit_education_package' },
         ],
         [
           {
-            text: "🗑️ Delete Package",
-            callback_data: "delete_education_package",
+            text: '🗑️ Delete Package',
+            callback_data: 'delete_education_package',
           },
           {
-            text: "📊 Package Stats",
-            callback_data: "education_package_stats",
-          },
-        ],
-        [
-          {
-            text: "🎯 Manage Categories",
-            callback_data: "manage_education_categories",
-          },
-          {
-            text: "👥 View Enrollments",
-            callback_data: "view_education_enrollments",
+            text: '📊 Package Stats',
+            callback_data: 'education_package_stats',
           },
         ],
         [
           {
-            text: "🔄 Refresh",
-            callback_data: "manage_table_education_packages",
+            text: '🎯 Manage Categories',
+            callback_data: 'manage_education_categories',
           },
-          { text: "🔙 Back", callback_data: "manage_tables" },
+          {
+            text: '👥 View Enrollments',
+            callback_data: 'view_education_enrollments',
+          },
+        ],
+        [
+          {
+            text: '🔄 Refresh',
+            callback_data: 'manage_table_education_packages',
+          },
+          { text: '🔙 Back', callback_data: 'manage_tables' },
         ],
       ],
     };
 
     await sendMessage(chatId, packageMessage, packageKeyboard);
   } catch (error) {
-    console.error("Error in education packages management:", error);
+    console.error('Error in education packages management:', error);
     await sendMessage(
       chatId,
-      "❌ Error fetching education packages. Please try again.",
+      '❌ Error fetching education packages. Please try again.',
     );
   }
 }
@@ -1131,15 +1110,15 @@ export async function handlePromotionsManagement(
 ): Promise<void> {
   try {
     const { data: promos, error: _error } = await supabaseAdmin
-      .from("promotions")
-      .select("*")
-      .order("created_at", { ascending: false })
+      .from('promotions')
+      .select('*')
+      .order('created_at', { ascending: false })
       .limit(10);
 
     const activeCount = await supabaseAdmin
-      .from("promotions")
-      .select("count", { count: "exact" })
-      .eq("is_active", true);
+      .from('promotions')
+      .select('count', { count: 'exact' })
+      .eq('is_active', true);
 
     let promoMessage = `💰 *Promotions Management*\n\n`;
     promoMessage += `📊 *Statistics:*\n`;
@@ -1148,50 +1127,46 @@ export async function handlePromotionsManagement(
 
     promoMessage += `🎁 *Recent Promotions:*\n`;
     promos?.forEach((promo, index) => {
-      const status = promo.is_active ? "🟢" : "🔴";
-      const discount = promo.discount_type === "percentage"
+      const status = promo.is_active ? '🟢' : '🔴';
+      const discount = promo.discount_type === 'percentage'
         ? `${promo.discount_value}%`
         : `$${promo.discount_value}`;
       promoMessage += `${index + 1}. ${status} **${promo.code}**\n`;
       promoMessage += `   💰 ${discount} ${promo.discount_type}\n`;
-      promoMessage += `   📅 Valid until: ${
-        new Date(promo.valid_until).toLocaleDateString()
-      }\n`;
-      promoMessage += `   📈 Used: ${promo.current_uses || 0}/${
-        promo.max_uses || "∞"
-      }\n\n`;
+      promoMessage += `   📅 Valid until: ${new Date(promo.valid_until).toLocaleDateString()}\n`;
+      promoMessage += `   📈 Used: ${promo.current_uses || 0}/${promo.max_uses || '∞'}\n\n`;
     });
 
     const promoKeyboard = {
       inline_keyboard: [
         [
-          { text: "➕ Create Promo", callback_data: "create_promotion" },
-          { text: "✏️ Edit Promo", callback_data: "edit_promotion" },
+          { text: '➕ Create Promo', callback_data: 'create_promotion' },
+          { text: '✏️ Edit Promo', callback_data: 'edit_promotion' },
         ],
         [
-          { text: "🗑️ Delete Promo", callback_data: "delete_promotion" },
-          { text: "📊 Promo Analytics", callback_data: "promotion_analytics" },
+          { text: '🗑️ Delete Promo', callback_data: 'delete_promotion' },
+          { text: '📊 Promo Analytics', callback_data: 'promotion_analytics' },
         ],
         [
           {
-            text: "🔄 Toggle Status",
-            callback_data: "toggle_promotion_status",
+            text: '🔄 Toggle Status',
+            callback_data: 'toggle_promotion_status',
           },
-          { text: "📈 Usage Stats", callback_data: "promotion_usage_stats" },
+          { text: '📈 Usage Stats', callback_data: 'promotion_usage_stats' },
         ],
         [
-          { text: "🔄 Refresh", callback_data: "manage_table_promotions" },
-          { text: "🔙 Back", callback_data: "manage_tables" },
+          { text: '🔄 Refresh', callback_data: 'manage_table_promotions' },
+          { text: '🔙 Back', callback_data: 'manage_tables' },
         ],
       ],
     };
 
     await sendMessage(chatId, promoMessage, promoKeyboard);
   } catch (error) {
-    console.error("Error in promotions management:", error);
+    console.error('Error in promotions management:', error);
     await sendMessage(
       chatId,
-      "❌ Error fetching promotions data. Please try again.",
+      '❌ Error fetching promotions data. Please try again.',
     );
   }
 }
@@ -1202,34 +1177,32 @@ export async function handleContentManagement(
 ): Promise<void> {
   try {
     const { data: content, error } = await supabaseAdmin
-      .from("bot_content")
-      .select("*")
-      .order("content_key", { ascending: true });
+      .from('bot_content')
+      .select('*')
+      .order('content_key', { ascending: true });
 
     if (error) {
-      console.error("Error fetching bot content:", error);
+      console.error('Error fetching bot content:', error);
       await sendMessage(
         chatId,
-        "❌ Error fetching content data. Please try again.",
+        '❌ Error fetching content data. Please try again.',
       );
       return;
     }
 
     let contentMessage = `📱 *Bot Content Management*\n\n`;
-    contentMessage += `📝 *Editable Content (${
-      content?.length || 0
-    } items):*\n\n`;
+    contentMessage += `📝 *Editable Content (${content?.length || 0} items):*\n\n`;
 
     const contentTypes: Record<string, string> = {
-      "welcome_message": "🚀 Welcome Message",
-      "about_us": "🏢 About Us",
-      "support_message": "🛟 Support Info",
-      "terms_conditions": "📋 Terms & Conditions",
-      "faq_general": "❓ FAQ Content",
-      "maintenance_message": "🔧 Maintenance Notice",
-      "vip_benefits": "💎 VIP Benefits",
-      "payment_instructions": "💳 Payment Instructions",
-      "help_message": "❓ Help Content",
+      'welcome_message': '🚀 Welcome Message',
+      'about_us': '🏢 About Us',
+      'support_message': '🛟 Support Info',
+      'terms_conditions': '📋 Terms & Conditions',
+      'faq_general': '❓ FAQ Content',
+      'maintenance_message': '🔧 Maintenance Notice',
+      'vip_benefits': '💎 VIP Benefits',
+      'payment_instructions': '💳 Payment Instructions',
+      'help_message': '❓ Help Content',
     };
 
     content?.forEach(
@@ -1244,14 +1217,12 @@ export async function handleContentManagement(
       ) => {
         const displayName = contentTypes[item.content_key] ||
           `📄 ${item.content_key}`;
-        const status = item.is_active ? "🟢" : "🔴";
-        const preview = item.content_value.substring(0, 50) + "...";
+        const status = item.is_active ? '🟢' : '🔴';
+        const preview = item.content_value.substring(0, 50) + '...';
 
         contentMessage += `${index + 1}. ${status} ${displayName}\n`;
         contentMessage += `   📄 Preview: ${preview}\n`;
-        contentMessage += `   🕐 Updated: ${
-          new Date(item.updated_at).toLocaleDateString()
-        }\n\n`;
+        contentMessage += `   🕐 Updated: ${new Date(item.updated_at).toLocaleDateString()}\n\n`;
       },
     );
 
@@ -1259,49 +1230,49 @@ export async function handleContentManagement(
       inline_keyboard: [
         [
           {
-            text: "🚀 Welcome Msg",
-            callback_data: "edit_content_welcome_message",
+            text: '🚀 Welcome Msg',
+            callback_data: 'edit_content_welcome_message',
           },
-          { text: "🏢 About Us", callback_data: "edit_content_about_us" },
+          { text: '🏢 About Us', callback_data: 'edit_content_about_us' },
         ],
         [
-          { text: "🛟 Support", callback_data: "edit_content_support_message" },
-          { text: "📋 Terms", callback_data: "edit_content_terms_conditions" },
+          { text: '🛟 Support', callback_data: 'edit_content_support_message' },
+          { text: '📋 Terms', callback_data: 'edit_content_terms_conditions' },
         ],
         [
-          { text: "❓ FAQ", callback_data: "edit_content_faq_general" },
+          { text: '❓ FAQ', callback_data: 'edit_content_faq_general' },
           {
-            text: "🔧 Maintenance",
-            callback_data: "edit_content_maintenance_message",
+            text: '🔧 Maintenance',
+            callback_data: 'edit_content_maintenance_message',
           },
         ],
         [
           {
-            text: "💎 VIP Benefits",
-            callback_data: "edit_content_vip_benefits",
+            text: '💎 VIP Benefits',
+            callback_data: 'edit_content_vip_benefits',
           },
           {
-            text: "💳 Payment Info",
-            callback_data: "edit_content_payment_instructions",
+            text: '💳 Payment Info',
+            callback_data: 'edit_content_payment_instructions',
           },
         ],
         [
-          { text: "➕ Add Content", callback_data: "add_new_content" },
-          { text: "👀 Preview All", callback_data: "preview_all_content" },
+          { text: '➕ Add Content', callback_data: 'add_new_content' },
+          { text: '👀 Preview All', callback_data: 'preview_all_content' },
         ],
         [
-          { text: "🔄 Refresh", callback_data: "manage_table_bot_content" },
-          { text: "🔙 Back", callback_data: "manage_tables" },
+          { text: '🔄 Refresh', callback_data: 'manage_table_bot_content' },
+          { text: '🔙 Back', callback_data: 'manage_tables' },
         ],
       ],
     };
 
     await sendMessage(chatId, contentMessage, contentKeyboard);
   } catch (error) {
-    console.error("Error in content management:", error);
+    console.error('Error in content management:', error);
     await sendMessage(
       chatId,
-      "❌ Error fetching content data. Please try again.",
+      '❌ Error fetching content data. Please try again.',
     );
   }
 }
@@ -1312,22 +1283,20 @@ export async function handleBotSettingsManagement(
 ): Promise<void> {
   try {
     const { data: settings, error: _error } = await supabaseAdmin
-      .from("bot_settings")
-      .select("*")
-      .order("setting_key", { ascending: true });
+      .from('bot_settings')
+      .select('*')
+      .order('setting_key', { ascending: true });
 
     let settingsMessage = `⚙️ *Bot Settings Management*\n\n`;
-    settingsMessage += `🔧 *Current Settings (${
-      settings?.length || 0
-    } items):*\n\n`;
+    settingsMessage += `🔧 *Current Settings (${settings?.length || 0} items):*\n\n`;
 
     const settingTypes: Record<string, string> = {
-      "session_timeout_minutes": "🕐 Session Timeout",
-      "follow_up_delay_minutes": "📬 Follow-up Delay",
-      "max_follow_ups": "🔢 Max Follow-ups",
-      "maintenance_mode": "🔧 Maintenance Mode",
-      "auto_welcome": "🚀 Auto Welcome",
-      "admin_notifications": "🔔 Admin Notifications",
+      'session_timeout_minutes': '🕐 Session Timeout',
+      'follow_up_delay_minutes': '📬 Follow-up Delay',
+      'max_follow_ups': '🔢 Max Follow-ups',
+      'maintenance_mode': '🔧 Maintenance Mode',
+      'auto_welcome': '🚀 Auto Welcome',
+      'admin_notifications': '🔔 Admin Notifications',
     };
 
     settings?.forEach(
@@ -1342,7 +1311,7 @@ export async function handleBotSettingsManagement(
       ) => {
         const displayName = settingTypes[setting.setting_key] ||
           `⚙️ ${setting.setting_key}`;
-        const status = setting.is_active ? "🟢" : "🔴";
+        const status = setting.is_active ? '🟢' : '🔴';
 
         settingsMessage += `${index + 1}. ${status} ${displayName}\n`;
         settingsMessage += `   📄 Value: \`${setting.setting_value}\`\n`;
@@ -1356,42 +1325,42 @@ export async function handleBotSettingsManagement(
       inline_keyboard: [
         [
           {
-            text: "🕐 Session Config",
-            callback_data: "config_session_settings",
+            text: '🕐 Session Config',
+            callback_data: 'config_session_settings',
           },
           {
-            text: "📬 Follow-up Setup",
-            callback_data: "config_followup_settings",
+            text: '📬 Follow-up Setup',
+            callback_data: 'config_followup_settings',
           },
         ],
         [
-          { text: "🔧 Maintenance", callback_data: "toggle_maintenance_mode" },
-          { text: "🚀 Auto Features", callback_data: "config_auto_features" },
+          { text: '🔧 Maintenance', callback_data: 'toggle_maintenance_mode' },
+          { text: '🚀 Auto Features', callback_data: 'config_auto_features' },
         ],
         [
-          { text: "🔔 Notifications", callback_data: "config_notifications" },
-          { text: "⚡ Performance", callback_data: "config_performance" },
+          { text: '🔔 Notifications', callback_data: 'config_notifications' },
+          { text: '⚡ Performance', callback_data: 'config_performance' },
         ],
         [
-          { text: "➕ Add Setting", callback_data: "add_new_setting" },
-          { text: "💾 Backup Config", callback_data: "backup_bot_settings" },
+          { text: '➕ Add Setting', callback_data: 'add_new_setting' },
+          { text: '💾 Backup Config', callback_data: 'backup_bot_settings' },
         ],
         [
-          { text: "🔄 Refresh", callback_data: "manage_table_bot_settings" },
-          { text: "🔙 Back", callback_data: "manage_tables" },
+          { text: '🔄 Refresh', callback_data: 'manage_table_bot_settings' },
+          { text: '🔙 Back', callback_data: 'manage_tables' },
         ],
         [
-          { text: "🚦 Feature Flags", callback_data: "feature_flags" },
+          { text: '🚦 Feature Flags', callback_data: 'feature_flags' },
         ],
       ],
     };
 
     await sendMessage(chatId, settingsMessage, settingsKeyboard);
   } catch (error) {
-    console.error("Error in bot settings management:", error);
+    console.error('Error in bot settings management:', error);
     await sendMessage(
       chatId,
-      "❌ Error fetching bot settings. Please try again.",
+      '❌ Error fetching bot settings. Please try again.',
     );
   }
 }
@@ -1403,17 +1372,17 @@ export async function handleTableStatsOverview(
 ): Promise<void> {
   try {
     const tables = [
-      "bot_users",
-      "subscription_plans",
-      "education_packages",
-      "promotions",
-      "bot_content",
-      "bot_settings",
-      "user_sessions",
-      "payments",
-      "broadcast_messages",
-      "daily_analytics",
-      "user_interactions",
+      'bot_users',
+      'subscription_plans',
+      'education_packages',
+      'promotions',
+      'bot_content',
+      'bot_settings',
+      'user_sessions',
+      'payments',
+      'broadcast_messages',
+      'daily_analytics',
+      'user_interactions',
     ];
 
     let statsMessage = `📊 *Database Overview & Statistics*\n\n`;
@@ -1422,29 +1391,27 @@ export async function handleTableStatsOverview(
       try {
         const { count } = await supabaseAdmin
           .from(table)
-          .select("count", { count: "exact" });
+          .select('count', { count: 'exact' });
 
         const tableEmoji = {
-          "bot_users": "👥",
-          "subscription_plans": "💎",
-          "education_packages": "🎓",
-          "promotions": "💰",
-          "bot_content": "📱",
-          "bot_settings": "⚙️",
-          "user_sessions": "💬",
-          "payments": "💳",
-          "broadcast_messages": "📢",
-          "daily_analytics": "📈",
-          "user_interactions": "🎯",
-        }[table] || "📊";
+          'bot_users': '👥',
+          'subscription_plans': '💎',
+          'education_packages': '🎓',
+          'promotions': '💰',
+          'bot_content': '📱',
+          'bot_settings': '⚙️',
+          'user_sessions': '💬',
+          'payments': '💳',
+          'broadcast_messages': '📢',
+          'daily_analytics': '📈',
+          'user_interactions': '🎯',
+        }[table] || '📊';
 
-        const tableName = table.replace(/_/g, " ").replace(
+        const tableName = table.replace(/_/g, ' ').replace(
           /\b\w/g,
           (l) => l.toUpperCase(),
         );
-        statsMessage += `${tableEmoji} **${tableName}**: ${
-          count || 0
-        } records\n`;
+        statsMessage += `${tableEmoji} **${tableName}**: ${count || 0} records\n`;
       } catch (error) {
         console.error(`Error fetching count for ${table}:`, error);
       }
@@ -1456,28 +1423,28 @@ export async function handleTableStatsOverview(
     const statsKeyboard = {
       inline_keyboard: [
         [
-          { text: "🔄 Refresh Stats", callback_data: "table_stats_overview" },
+          { text: '🔄 Refresh Stats', callback_data: 'table_stats_overview' },
           {
-            text: "📊 Detailed Analytics",
-            callback_data: "detailed_analytics",
+            text: '📊 Detailed Analytics',
+            callback_data: 'detailed_analytics',
           },
         ],
         [
-          { text: "💾 Export Summary", callback_data: "export_stats_summary" },
-          { text: "📈 Growth Report", callback_data: "growth_report" },
+          { text: '💾 Export Summary', callback_data: 'export_stats_summary' },
+          { text: '📈 Growth Report', callback_data: 'growth_report' },
         ],
         [
-          { text: "🔙 Back to Tables", callback_data: "manage_tables" },
+          { text: '🔙 Back to Tables', callback_data: 'manage_tables' },
         ],
       ],
     };
 
     await sendMessage(chatId, statsMessage, statsKeyboard);
   } catch (error) {
-    console.error("Error in table stats overview:", error);
+    console.error('Error in table stats overview:', error);
     await sendMessage(
       chatId,
-      "❌ Error fetching database statistics. Please try again.",
+      '❌ Error fetching database statistics. Please try again.',
     );
   }
 }
@@ -1488,15 +1455,15 @@ export function handlePing() {
 }
 
 export function handleVersion() {
-  return { version: Deno.env.get("BOT_VERSION") || "unknown" };
+  return { version: Deno.env.get('BOT_VERSION') || 'unknown' };
 }
 
 export function handleEnvStatus() {
   const base = requireEnv([
-    "SUPABASE_URL",
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "TELEGRAM_BOT_TOKEN",
-    "TELEGRAM_WEBHOOK_SECRET",
+    'SUPABASE_URL',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'TELEGRAM_BOT_TOKEN',
+    'TELEGRAM_WEBHOOK_SECRET',
   ]);
   return base;
 }
@@ -1504,10 +1471,10 @@ export function handleEnvStatus() {
 export async function handleReviewList() {
   if (!supabaseAdmin) return [];
   const { data } = await supabaseAdmin
-    .from("receipts")
-    .select("*")
-    .eq("verdict", "manual_review")
-    .order("created_at", { ascending: false })
+    .from('receipts')
+    .select('*')
+    .eq('verdict', 'manual_review')
+    .order('created_at', { ascending: false })
     .limit(10);
   return data || [];
 }
@@ -1527,16 +1494,16 @@ export async function handleWebhookInfo() {
 
 // --- Feature Flag Management ---
 const FLAG_LABELS: Record<string, string> = {
-  payments_enabled: "Payments",
-  vip_sync_enabled: "VIP Sync",
-  broadcasts_enabled: "Broadcasts",
-  mini_app_enabled: "Mini App",
+  payments_enabled: 'Payments',
+  vip_sync_enabled: 'VIP Sync',
+  broadcasts_enabled: 'Broadcasts',
+  mini_app_enabled: 'Mini App',
 };
 
 function buildFlagMessage(flags: Record<string, boolean>): string {
-  let msg = "🚦 *Feature Flags*\n\n";
+  let msg = '🚦 *Feature Flags*\n\n';
   for (const [key, label] of Object.entries(FLAG_LABELS)) {
-    const state = flags[key] ? "🟢 ON" : "🔴 OFF";
+    const state = flags[key] ? '🟢 ON' : '🔴 OFF';
     msg += `${state} - ${label}\n`;
   }
   return msg;
@@ -1546,19 +1513,19 @@ export async function handleFeatureFlags(chatId: number, _userId: string): Promi
   const draft = await preview();
   const flags: Record<string, boolean> = { ...draft.data };
   const keyboardRows = Object.keys(FLAG_LABELS).map((name) => [{
-    text: (flags[name] ? "ON " : "OFF ") + FLAG_LABELS[name],
+    text: (flags[name] ? 'ON ' : 'OFF ') + FLAG_LABELS[name],
     callback_data: `toggle_flag_${name}`,
   }]);
   keyboardRows.push([
-    { text: "👁 PREVIEW", callback_data: "preview_flags" },
-    { text: "🚀 PUBLISH", callback_data: "publish_flags" },
+    { text: '👁 PREVIEW', callback_data: 'preview_flags' },
+    { text: '🚀 PUBLISH', callback_data: 'publish_flags' },
   ]);
   keyboardRows.push([
-    { text: "↩️ ROLLBACK", callback_data: "rollback_flags" },
-    { text: "🔄 Refresh", callback_data: "feature_flags" },
+    { text: '↩️ ROLLBACK', callback_data: 'rollback_flags' },
+    { text: '🔄 Refresh', callback_data: 'feature_flags' },
   ]);
   keyboardRows.push([
-    { text: "⬅️ Home", callback_data: "manage_table_bot_settings" },
+    { text: '⬅️ Home', callback_data: 'manage_table_bot_settings' },
   ]);
   await sendMessage(chatId, buildFlagMessage(flags), { inline_keyboard: keyboardRows });
 }
@@ -1577,11 +1544,11 @@ export async function handleToggleFeatureFlag(
 export async function handlePublishFlagsRequest(chatId: number): Promise<void> {
   const keyboard = {
     inline_keyboard: [[
-      { text: "✅ Confirm", callback_data: "publish_flags_confirm" },
-      { text: "❌ Cancel", callback_data: "feature_flags" },
+      { text: '✅ Confirm', callback_data: 'publish_flags_confirm' },
+      { text: '❌ Cancel', callback_data: 'feature_flags' },
     ]],
   };
-  await sendMessage(chatId, "Publish feature flags?", keyboard);
+  await sendMessage(chatId, 'Publish feature flags?', keyboard);
 }
 
 export async function handlePublishFlagsConfirm(
@@ -1595,11 +1562,11 @@ export async function handlePublishFlagsConfirm(
 export async function handleRollbackFlagsRequest(chatId: number): Promise<void> {
   const keyboard = {
     inline_keyboard: [[
-      { text: "✅ Confirm", callback_data: "rollback_flags_confirm" },
-      { text: "❌ Cancel", callback_data: "feature_flags" },
+      { text: '✅ Confirm', callback_data: 'rollback_flags_confirm' },
+      { text: '❌ Cancel', callback_data: 'feature_flags' },
     ]],
   };
-  await sendMessage(chatId, "Rollback to previous publish?", keyboard);
+  await sendMessage(chatId, 'Rollback to previous publish?', keyboard);
 }
 
 export async function handleRollbackFlagsConfirm(
