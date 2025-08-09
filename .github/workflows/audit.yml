@@ -20,6 +20,18 @@ jobs:
           npm -v
           chmod +x scripts/audit/run.sh
           ./scripts/audit/run.sh
+      - name: Generate FK Index SQL
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          chmod +x scripts/audit/run_fk_index_gen.sh || true
+          scripts/audit/run_fk_index_gen.sh
+      - name: Upload FK SQL
+        uses: actions/upload-artifact@v4
+        with:
+          name: fk-indexes-sql
+          path: .audit/generated_fk_indexes.sql
       - name: Upload report
         uses: actions/upload-artifact@v4
         with:
