@@ -1,26 +1,20 @@
-// @ts-nocheck
+// @ts-nocheck: cross-runtime test uses dynamic imports
 let registerTest;
 let assertEquals;
-if (typeof Deno !== "undefined") {
+if (typeof Deno !== 'undefined') {
   registerTest = Deno.test;
-  ({ assertEquals } = await import("https://deno.land/std@0.224.0/testing/asserts.ts"));
+  ({ assertEquals } = await import('https://deno.land/std@0.224.0/testing/asserts.ts'));
 } else {
-  const { test } = await import("node:test");
+  const { test } = await import('node:test');
   registerTest = test;
-  const assert = (await import("node:assert")).strict;
+  const assert = (await import('node:assert')).strict;
   assertEquals = (a, b, msg) => assert.equal(a, b, msg);
 }
 
-import {
-  getFlag,
-  setFlag,
-  publish,
-  rollback,
-  preview,
-} from "../src/utils/config.ts";
+import { getFlag, preview, publish, rollback, setFlag } from '../src/utils/config.ts';
 
-registerTest("feature flag workflow", async () => {
-  const name = "payments_enabled";
+registerTest('feature flag workflow', async () => {
+  const name = 'payments_enabled';
   // ensure starting state
   assertEquals(await getFlag(name, false), false);
   await setFlag(name, true);

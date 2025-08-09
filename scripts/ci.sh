@@ -2,22 +2,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+DENO_BIN="$(bash scripts/deno_bin.sh)"
 export DENO_TLS_CA_STORE="${DENO_TLS_CA_STORE:-system}"
 export DENO_NO_UPDATE_CHECK=1
 
-echo "== deno fmt (check) =="
-if ! deno fmt --check supabase/functions src; then
-  if [ "${AUTO_FMT:-0}" = "1" ]; then
-    echo "Formatting differences found — applying fixes (AUTO_FMT=1)..."
-    deno fmt supabase/functions src
-  else
-    echo "Formatting differences found. Run: deno fmt supabase/functions src"
-    exit 1
-  fi
-fi
+echo "== deno fmt =="
+$DENO_BIN fmt --check .
 
 echo "== deno lint =="
-deno lint
+$DENO_BIN lint
 
 echo "== typecheck =="
 bash scripts/typecheck.sh
@@ -25,7 +18,7 @@ bash scripts/typecheck.sh
 # Optional tests
 if ls test 1>/dev/null 2>&1 || ls **/*_test.ts 1>/dev/null 2>&1; then
   echo "== deno test =="
-  deno test -A
+  $DENO_BIN test -A
 else
   echo "No tests found, skipping."
 fi

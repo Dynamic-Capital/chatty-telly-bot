@@ -1,6 +1,6 @@
-import { type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
-const BENEFICIARY_TABLE = Deno.env.get("BENEFICIARY_TABLE") ?? "beneficiaries";
+const BENEFICIARY_TABLE = Deno.env.get('BENEFICIARY_TABLE') ?? 'beneficiaries';
 
 export interface Beneficiary {
   account_name?: string | null;
@@ -10,7 +10,7 @@ export interface Beneficiary {
 }
 
 export function normalizeAccount(n: string) {
-  return n.replace(/\s+/g, "");
+  return n.replace(/\s+/g, '');
 }
 
 export async function getApprovedBeneficiaryByAccountNumber(
@@ -20,9 +20,9 @@ export async function getApprovedBeneficiaryByAccountNumber(
   const acct = normalizeAccount(accountNumber);
   const { data, error } = await supabase
     .from(BENEFICIARY_TABLE)
-    .select("*")
-    .eq("account_number", acct)
-    .eq("active", true)
+    .select('*')
+    .eq('account_number', acct)
+    .eq('active', true)
     .limit(1)
     .maybeSingle();
   if (error) throw error;

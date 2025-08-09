@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,16 +17,16 @@ serve(async (req) => {
   }
 
   try {
-    logStep("Analytics data request started");
+    logStep('Analytics data request started');
 
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } }
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      { auth: { persistSession: false } },
     );
 
     const { timeframe } = await req.json().catch(() => ({ timeframe: 'today' }));
-    logStep("Processing timeframe", { timeframe });
+    logStep('Processing timeframe', { timeframe });
 
     const now = new Date();
     let startDate: Date;
@@ -50,7 +50,10 @@ serve(async (req) => {
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     }
 
-    logStep("Date range calculated", { startDate: startDate.toISOString(), endDate: endDate.toISOString() });
+    logStep('Date range calculated', {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+    });
 
     // Get revenue data from payments table
     const { data: revenueData, error: revenueError } = await supabaseClient
@@ -61,7 +64,7 @@ serve(async (req) => {
       .lte('created_at', endDate.toISOString());
 
     if (revenueError) {
-      logStep("Revenue query error", { error: revenueError });
+      logStep('Revenue query error', { error: revenueError });
       throw new Error(`Revenue query failed: ${revenueError.message}`);
     }
 
@@ -74,7 +77,7 @@ serve(async (req) => {
       .lte('created_at', endDate.toISOString());
 
     if (subscriptionError) {
-      logStep("Subscription query error", { error: subscriptionError });
+      logStep('Subscription query error', { error: subscriptionError });
       throw new Error(`Subscription query failed: ${subscriptionError.message}`);
     }
 
@@ -84,32 +87,32 @@ serve(async (req) => {
       .select('id, name, price, currency');
 
     if (plansError) {
-      logStep("Plans query error", { error: plansError });
+      logStep('Plans query error', { error: plansError });
       throw new Error(`Plans query failed: ${plansError.message}`);
     }
 
     // Calculate total revenue
     const totalRevenue = revenueData?.reduce((sum, payment) => sum + (payment.amount || 0), 0) || 0;
-    logStep("Total revenue calculated", { totalRevenue });
+    logStep('Total revenue calculated', { totalRevenue });
 
     // Calculate package performance
-    const packagePerformance = plansData?.map(plan => {
-      const planPayments = revenueData?.filter(payment => payment.plan_id === plan.id) || [];
-      const planSubscriptions = subscriptionData?.filter(sub => sub.plan_id === plan.id) || [];
-      
+    const packagePerformance = plansData?.map((plan) => {
+      const planPayments = revenueData?.filter((payment) => payment.plan_id === plan.id) || [];
+      const planSubscriptions = subscriptionData?.filter((sub) => sub.plan_id === plan.id) || [];
+
       const revenue = planPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
       const sales = planSubscriptions.length;
-      
+
       return {
         id: plan.id,
         name: plan.name,
         sales,
         revenue: revenue / 100, // Convert from cents
-        currency: plan.currency || 'USD'
+        currency: plan.currency || 'USD',
       };
     }) || [];
 
-    logStep("Package performance calculated", { packageCount: packagePerformance.length });
+    logStep('Package performance calculated', { packageCount: packagePerformance.length });
 
     // Calculate comparison metrics (simplified - in real implementation, compare with previous period)
     const comparisonData = {
@@ -123,32 +126,34 @@ serve(async (req) => {
       currency: 'USD',
       comparison: comparisonData,
       package_performance: packagePerformance,
-      generated_at: new Date().toISOString()
+      generated_at: new Date().toISOString(),
     };
 
-    logStep("Analytics data prepared", { 
-      totalRevenue: analyticsData.total_revenue, 
-      packageCount: packagePerformance.length 
+    logStep('Analytics data prepared', {
+      totalRevenue: analyticsData.total_revenue,
+      packageCount: packagePerformance.length,
     });
 
     return new Response(JSON.stringify(analyticsData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR in analytics-data", { message: errorMessage });
-    
-    return new Response(JSON.stringify({ 
-      error: errorMessage,
-      timeframe: 'today',
-      total_revenue: 0,
-      currency: 'USD',
-      package_performance: []
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    logStep('ERROR in analytics-data', { message: errorMessage });
+
+    return new Response(
+      JSON.stringify({
+        error: errorMessage,
+        timeframe: 'today',
+        total_revenue: 0,
+        currency: 'USD',
+        package_performance: [],
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      },
+    );
   }
 });

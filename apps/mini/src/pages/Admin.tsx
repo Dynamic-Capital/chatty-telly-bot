@@ -19,16 +19,16 @@ export default function Admin() {
   }, [api]);
 
   return (
-    <div className="dc-screen">
-      <TopBar title="Admin" />
+    <div className='dc-screen'>
+      <TopBar title='Admin' />
       {items.map((r) => (
         <GlassRow
           key={r.id}
-          left={<span className="text-sm">{r.id.slice(0,6)}…</span>}
+          left={<span className='text-sm'>{r.id.slice(0, 6)}…</span>}
           right={
-            <div className="flex gap-2">
-              <ApproveButton label="Approve" onClick={() => api.approve(r.id)} />
-              <RejectButton label="Reject" onClick={() => api.reject(r.id)} />
+            <div className='flex gap-2'>
+              <ApproveButton label='Approve' onClick={() => api.approve(r.id)} />
+              <RejectButton label='Reject' onClick={() => api.reject(r.id)} />
             </div>
           }
         />
