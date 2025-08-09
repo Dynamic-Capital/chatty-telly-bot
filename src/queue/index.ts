@@ -126,7 +126,7 @@ export async function workerLoop() {
       await sleep(50);
       continue;
     }
-    const id = queue[0];
+    const id = queue[0]!;
     const job = jobStore.get(id);
     if (!job) {
       queue.shift();
