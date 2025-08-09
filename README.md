@@ -24,11 +24,14 @@ Logs avoid PII; rate limits enabled.
 - TELEGRAM_BOT_TOKEN
 - TELEGRAM_WEBHOOK_SECRET
 - MINI_APP_URL *(optional)*
+- MINI_APP_SHORT_NAME *(optional)*
 - AMOUNT_TOLERANCE *(optional)*
 - WINDOW_SECONDS *(optional)*
+- REQUIRE_PAY_CODE *(optional)*
 - OPENAI_API_KEY *(optional)*
 - OPENAI_ENABLED *(optional)*
 - BENEFICIARY_TABLE *(optional)*
+- BOT_VERSION *(optional)*
 
 Values are set in Supabase function secrets, GitHub Environments, or Codex project settings. Do not commit them.
 
