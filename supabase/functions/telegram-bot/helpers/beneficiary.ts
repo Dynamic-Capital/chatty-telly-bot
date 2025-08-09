@@ -1,6 +1,8 @@
 import { type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
-const BENEFICIARY_TABLE = Deno.env.get("BENEFICIARY_TABLE") ?? "beneficiaries";
+import { getEnv } from "../../_shared/env.ts";
+
+const BENEFICIARY_TABLE = getEnv("BENEFICIARY_TABLE") ?? "beneficiaries";
 
 export interface Beneficiary {
   account_name?: string | null;

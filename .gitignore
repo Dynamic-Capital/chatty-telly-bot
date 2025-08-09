@@ -23,6 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .env
+supabase/.env.functions
 # Deno/Supabase caches & artifacts
 .deno/
 .deno_cache/

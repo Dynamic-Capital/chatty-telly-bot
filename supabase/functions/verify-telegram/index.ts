@@ -1,6 +1,8 @@
 // Verify Telegram WebApp initData according to Telegram spec
 // Public Edge Function with CORS
 
+import { ENV } from "../_shared/env.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -32,7 +34,7 @@ function parseInitData(initData: string): Record<string, string> {
 
 async function verifyInitData(initData: string) {
   const encoder = new TextEncoder();
-  const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
+  const botToken = ENV.TELEGRAM_BOT_TOKEN() || "";
   if (!botToken) {
     return { ok: false, error: "BOT_TOKEN_NOT_SET" } as const;
   }
