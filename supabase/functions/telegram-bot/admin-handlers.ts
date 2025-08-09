@@ -14,6 +14,7 @@ const supabaseAdmin = createClient(
 // Import utility functions
 import { getBotContent, logAdminAction } from "./database-utils.ts";
 import { requireEnv } from "./helpers/require-env.ts";
+import { t } from "../../src/i18n/index.ts";
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
 
@@ -122,7 +123,7 @@ View, Create, Edit, Delete, Export data for any table.`;
       ],
       [
         { text: "💰 Promotions", callback_data: "manage_table_promotions" },
-        { text: "📱 Content", callback_data: "manage_table_bot_content" },
+        { text: `📱 ${t("admin.labels.content", "en")}`, callback_data: "manage_table_bot_content" },
       ],
       [
         { text: "⚙️ Settings", callback_data: "manage_table_bot_settings" },

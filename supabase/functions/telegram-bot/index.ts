@@ -8,6 +8,7 @@ import {
   handleVersion,
   handleWebhookInfo,
 } from "./admin-handlers.ts";
+import { t, setLang, getLang } from "../../src/i18n/index.ts";
 
 interface TelegramMessage {
   chat: { id: number };
@@ -98,9 +99,9 @@ function buildWebAppButton(label = "Open Mini App") {
   return null;
 }
 
-async function sendMiniAppLink(chatId: number): Promise<void> {
+async function sendMiniAppLink(chatId: number, lang: string): Promise<void> {
   if (!BOT_TOKEN) return;
-  const button = buildWebAppButton("Open Mini App");
+  const button = buildWebAppButton(t("welcome.title", lang));
   const reply_markup = button ? { inline_keyboard: [[button]] } : undefined;
 
   await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -108,9 +109,7 @@ async function sendMiniAppLink(chatId: number): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,
-      text: button
-        ? "Open the Dynamic Capital mini app"
-        : "Mini app not configured yet.",
+      text: t("welcome.body", lang),
       reply_markup,
     }),
   });
@@ -197,6 +196,11 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
   const text = msg.text?.trim();
   if (!text) return;
   const chatId = msg.chat.id;
+  const userId = msg.from?.id;
+
+  let lang = (userId && getLang(userId)) ||
+    msg.from?.language_code?.split("-")[0] ||
+    "en";
 
   // Extract the command without bot mentions and gather arguments
   const [firstToken, ...args] = text.split(/\s+/);
@@ -206,7 +210,7 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
     switch (command) {
       case "/start":
       case "/app":
-        await sendMiniAppLink(chatId);
+        await sendMiniAppLink(chatId, lang);
         break;
       case "/ping":
         await notifyUser(chatId, JSON.stringify(handlePing()));
@@ -217,6 +221,20 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
       case "/env":
         await notifyUser(chatId, JSON.stringify(handleEnvStatus()));
         break;
+      case "/help":
+        await notifyUser(chatId, t("help.body", lang));
+        break;
+      case "/language": {
+        const newLang = args[0];
+        if (newLang && userId) {
+          await setLang(userId, newLang, getSupabase());
+          lang = newLang;
+          await notifyUser(chatId, t("welcome.body", lang));
+        } else {
+          await notifyUser(chatId, "Languages: en, hi, ur, ne. Use /language <code>");
+        }
+        break;
+      }
       case "/reviewlist": {
         const list = await handleReviewList();
         await notifyUser(chatId, JSON.stringify(list));
