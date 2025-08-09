@@ -2,7 +2,7 @@
   "compilerOptions": {
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "lib": ["deno.ns", "deno.window", "dom", "es2022"]
+    "lib": ["deno.ns", "dom", "es2022"]
   },
   "tasks": {
     "typecheck": "bash scripts/typecheck.sh"

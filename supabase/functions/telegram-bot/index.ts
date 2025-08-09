@@ -133,7 +133,7 @@ function getFileIdFromUpdate(update: TelegramUpdate | null): string | null {
   const msg = update?.message;
   if (!msg) return null;
   if (Array.isArray(msg.photo) && msg.photo.length > 0) {
-    return msg.photo[msg.photo.length - 1].file_id;
+    return msg.photo[msg.photo.length - 1]!.file_id;
   }
   const doc = msg.document;
   if (
@@ -202,7 +202,7 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
   const chatId = msg.chat.id;
 
   // Extract the command without bot mentions and gather arguments
-  const [firstToken, ...args] = text.split(/\s+/);
+  const [firstToken = "", ...args] = text.split(/\s+/);
   const command = firstToken.split("@")[0];
 
   try {
