@@ -1,7 +1,24 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+function getEnv(key: string): string {
+  if (typeof Deno !== "undefined" && typeof Deno.env?.get === "function") {
+    return Deno.env.get(key) ?? "";
+  }
+  if (typeof process !== "undefined") {
+    return (process.env as Record<string, string | undefined>)[key] ?? "";
+  }
+  return "";
+}
 
-const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
-const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
+const BOT_TOKEN = getEnv("TELEGRAM_BOT_TOKEN");
+const WEBHOOK_SECRET = getEnv("TELEGRAM_WEBHOOK_SECRET");
+
+interface TelegramMessage {
+  text?: string;
+  chat?: { id?: number };
+}
+
+interface TelegramUpdate {
+  message?: TelegramMessage;
+}
 
 async function sendMessage(chatId: number, text: string) {
   if (!BOT_TOKEN) return;
@@ -35,16 +52,16 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   // Parse the incoming update
-  let update: any = null;
+  let update: TelegramUpdate | null = null;
   try {
-    update = await req.json();
+    update = await req.json() as TelegramUpdate;
   } catch (err) {
     console.error("failed to parse update", err);
     return new Response(JSON.stringify({ ok: true }), { headers });
   }
 
-  const text: string | undefined = update?.message?.text;
-  const chatId: number | undefined = update?.message?.chat?.id;
+  const text = update?.message?.text;
+  const chatId = update?.message?.chat?.id;
 
   // Reply to /start messages
   if (text === "/start" && typeof chatId === "number") {
@@ -58,8 +75,13 @@ export async function handler(req: Request): Promise<Response> {
   return new Response(JSON.stringify({ ok: true }), { headers });
 }
 
-// Start the HTTP server when run as a standalone script
-if (import.meta.main) {
+// Start the HTTP server when run as a standalone script in Deno.
+if (import.meta.main && typeof Deno !== "undefined") {
+  // Use a dynamic import so the module can also be loaded in Node tests
+  // where the Deno standard library is unavailable.
+  const { serve } = await import(
+    "https://deno.land/std@0.224.0/http/server.ts"
+  );
   serve(handler);
 }
 
