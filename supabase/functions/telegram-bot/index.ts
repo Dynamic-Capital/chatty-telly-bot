@@ -102,20 +102,16 @@ function buildWebAppButton(label = "Open Mini App") {
 async function sendMiniAppLink(chatId: number): Promise<void> {
   if (!BOT_TOKEN) return;
   const enabled = await getFlag("mini_app_enabled", false);
-  if (!enabled) return;
-  const button = buildWebAppButton("Open Mini App");
+  const button = enabled ? buildWebAppButton("Open Mini App") : null;
   const reply_markup = button ? { inline_keyboard: [[button]] } : undefined;
+  const text = button
+    ? "Open the Dynamic Capital mini app"
+    : "Mini app not configured yet.";
 
   await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: button
-        ? "Open the Dynamic Capital mini app"
-        : "Mini app not configured yet.",
-      reply_markup,
-    }),
+    body: JSON.stringify({ chat_id: chatId, text, reply_markup }),
   });
 }
 
