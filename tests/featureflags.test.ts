@@ -3,7 +3,9 @@ let registerTest;
 let assertEquals;
 if (typeof Deno !== "undefined") {
   registerTest = Deno.test;
-  ({ assertEquals } = await import("https://deno.land/std@0.224.0/testing/asserts.ts"));
+  ({ assertEquals } = await import(
+    "https://deno.land/std@0.224.0/testing/asserts.ts"
+  ));
 } else {
   const { test } = await import("node:test");
   registerTest = test;
@@ -13,10 +15,10 @@ if (typeof Deno !== "undefined") {
 
 import {
   getFlag,
-  setFlag,
+  preview,
   publish,
   rollback,
-  preview,
+  setFlag,
 } from "../src/utils/config.ts";
 
 registerTest("feature flag workflow", async () => {

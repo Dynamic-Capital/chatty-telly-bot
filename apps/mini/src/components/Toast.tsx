@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect } from "react";
 
 interface Props {
   message: string;
-  type: 'success' | 'warn' | 'error';
+  type: "success" | "warn" | "error";
   onClose: () => void;
 }
 
@@ -13,12 +13,18 @@ export default function Toast({ message, type, onClose }: Props) {
   }, [onClose]);
 
   const map = {
-    success: 'dc-pill--verified',
-    warn: 'dc-pill--awaiting',
-    error: 'dc-pill--rejected',
+    success: "dc-pill--verified",
+    warn: "dc-pill--awaiting",
+    error: "dc-pill--rejected",
   } as const;
 
   return (
-    <div className={`dc-chip ${map[type]} fixed bottom-4 left-1/2 -translate-x-1/2`}>{message}</div>
+    <div
+      className={`dc-chip ${
+        map[type]
+      } fixed bottom-4 left-1/2 -translate-x-1/2`}
+    >
+      {message}
+    </div>
   );
 }

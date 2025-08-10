@@ -22,5 +22,5 @@ export default tseslint.config(
       "react-refresh/only-export-components": "off",
       "@typescript-eslint/no-unused-vars": "off",
     },
-  }
+  },
 );

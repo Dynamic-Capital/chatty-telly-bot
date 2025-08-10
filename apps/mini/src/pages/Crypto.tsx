@@ -1,34 +1,36 @@
-import { useEffect, useState } from 'react';
-import TopBar from '../components/TopBar';
-import NetworkPicker from '../components/NetworkPicker';
-import GlassPanel from '../components/GlassPanel';
-import PrimaryButton from '../components/PrimaryButton';
-import SecondaryButton from '../components/SecondaryButton';
-import { useApi } from '../hooks/useApi';
-import { useTelegramMainButton } from '../hooks/useTelegram';
+import { useEffect, useState } from "react";
+import TopBar from "../components/TopBar";
+import NetworkPicker from "../components/NetworkPicker";
+import GlassPanel from "../components/GlassPanel";
+import PrimaryButton from "../components/PrimaryButton";
+import SecondaryButton from "../components/SecondaryButton";
+import { useApi } from "../hooks/useApi";
+import { useTelegramMainButton } from "../hooks/useTelegram";
 
 export default function Crypto() {
   const api = useApi();
-  const [network, setNetwork] = useState('TRON');
-  const [address, setAddress] = useState('');
-  const [txid, setTxid] = useState('');
+  const [network, setNetwork] = useState("TRON");
+  const [address, setAddress] = useState("");
+  const [txid, setTxid] = useState("");
 
   useEffect(() => {
-    api.createIntent({ type: 'crypto', network }).then((r) => setAddress(r.deposit_address));
+    api.createIntent({ type: "crypto", network }).then((r) =>
+      setAddress(r.deposit_address)
+    );
   }, [network, api]);
 
   const handleSubmit = async () => {
     if (txid) await api.submitTxid({ txid });
   };
 
-  useTelegramMainButton(!!txid, 'Submit TXID', handleSubmit);
+  useTelegramMainButton(!!txid, "Submit TXID", handleSubmit);
 
   return (
     <div className="dc-screen">
       <TopBar title="Crypto Deposit" />
       <p className="mb-2 text-sm">Network</p>
       <NetworkPicker
-        options={[{ id: 'TRON', label: 'TRON/USDT' }]}
+        options={[{ id: "TRON", label: "TRON/USDT" }]}
         value={network}
         onChange={setNetwork}
       />
@@ -42,7 +44,11 @@ export default function Crypto() {
               onClick={() => navigator.clipboard.writeText(address)}
             />
           </div>
-          <img src="/qr-frame.svg" alt="QR code" className="mx-auto mt-2 w-32 h-32" />
+          <img
+            src="/qr-frame.svg"
+            alt="QR code"
+            className="mx-auto mt-2 w-32 h-32"
+          />
         </GlassPanel>
       )}
       <div className="mt-4">

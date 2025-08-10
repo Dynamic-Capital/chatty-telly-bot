@@ -11,7 +11,7 @@ const cacheKeys = new Set<string>();
 
 function getStorage() {
   try {
-    if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
+    if (typeof globalThis !== "undefined" && "localStorage" in globalThis) {
       return (globalThis as { localStorage: Storage }).localStorage;
     }
   } catch {
@@ -22,7 +22,11 @@ function getStorage() {
 
 const storage = getStorage();
 
-export async function getCached<T>(key: string, ttlMs: number, fetcher: Fetcher<T>): Promise<T> {
+export async function getCached<T>(
+  key: string,
+  ttlMs: number,
+  fetcher: Fetcher<T>,
+): Promise<T> {
   const now = Date.now();
 
   // memory cache check

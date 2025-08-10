@@ -1,6 +1,7 @@
 # Dynamic Capital VIP Bot API Documentation
 
-> **AI-Friendly Documentation** - This documentation is optimized for AI code generation tools like Codex, ChatGPT, and Bolt.
+> **AI-Friendly Documentation** - This documentation is optimized for AI code
+> generation tools like Codex, ChatGPT, and Bolt.
 
 ## 📋 Table of Contents
 
@@ -17,9 +18,12 @@
 
 ## 🚀 Project Overview
 
-The Dynamic Capital VIP Bot is a comprehensive Telegram bot built with TypeScript, Supabase, and Deno Edge Functions. It manages VIP subscriptions, education packages, payments, and user interactions.
+The Dynamic Capital VIP Bot is a comprehensive Telegram bot built with
+TypeScript, Supabase, and Deno Edge Functions. It manages VIP subscriptions,
+education packages, payments, and user interactions.
 
 ### Key Features
+
 - 👥 User management with VIP tiers
 - 💳 Payment processing (Binance Pay, manual uploads)
 - 📚 Education package enrollment
@@ -29,6 +33,7 @@ The Dynamic Capital VIP Bot is a comprehensive Telegram bot built with TypeScrip
 - 🔒 Advanced security and rate limiting
 
 ### Technology Stack
+
 - **Backend**: Supabase (PostgreSQL + Edge Functions)
 - **Runtime**: Deno
 - **Language**: TypeScript
@@ -77,6 +82,7 @@ graph TD
 ### Core Tables
 
 #### bot_users
+
 ```sql
 CREATE TABLE bot_users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -95,6 +101,7 @@ CREATE TABLE bot_users (
 ```
 
 #### subscription_plans
+
 ```sql
 CREATE TABLE subscription_plans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -110,6 +117,7 @@ CREATE TABLE subscription_plans (
 ```
 
 #### bot_content
+
 ```sql
 CREATE TABLE bot_content (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -126,11 +134,13 @@ CREATE TABLE bot_content (
 ```
 
 ### Relationships
+
 - `user_subscriptions` → `bot_users` (many-to-one)
 - `payments` → `subscription_plans` (many-to-one)
 - `education_enrollments` → `education_packages` (many-to-one)
 - `promotion_usage` → `promotions` (many-to-one)
-  - Unique usage enforced: each `telegram_user_id` can apply a given promotion only once
+  - Unique usage enforced: each `telegram_user_id` can apply a given promotion
+    only once
 
 ---
 
@@ -139,6 +149,7 @@ CREATE TABLE bot_content (
 ### Edge Functions
 
 #### 1. Telegram Bot (`/telegram-bot`)
+
 **Primary bot function handling all Telegram interactions**
 
 ```typescript
@@ -153,6 +164,7 @@ interface TelegramWebhookBody {
 ```
 
 #### 2. Analytics Data (`/analytics-data`)
+
 **Retrieve bot analytics and statistics**
 
 ```typescript
@@ -169,6 +181,7 @@ interface AnalyticsResponse {
 ```
 
 #### 3. AI FAQ Assistant (`/ai-faq-assistant`)
+
 **AI-powered FAQ responses using OpenAI**
 
 ```typescript
@@ -193,12 +206,14 @@ interface FAQResponse {
 ### User Commands
 
 #### `/start`
+
 Initialize bot session and show welcome message
+
 ```typescript
 async function handleStartCommand(message: TelegramMessage): Promise<void> {
   const userId = message.from?.id.toString();
   const chatId = message.chat.id;
-  
+
   // Create/update user in database
   // Show welcome message with main menu
   // Start user session
@@ -206,16 +221,20 @@ async function handleStartCommand(message: TelegramMessage): Promise<void> {
 ```
 
 #### `/help`
+
 Display help information and available commands
+
 ```typescript
 async function handleHelpCommand(chatId: number): Promise<void> {
-  const helpContent = await getBotContent('help_message');
+  const helpContent = await getBotContent("help_message");
   await sendMessage(chatId, helpContent);
 }
 ```
 
 #### `/vip`
+
 Show VIP plans and subscription options
+
 ```typescript
 async function handleVipCommand(chatId: number): Promise<void> {
   const vipPackages = await getFormattedVipPackages();
@@ -227,14 +246,19 @@ async function handleVipCommand(chatId: number): Promise<void> {
 ### Admin Commands
 
 #### `/admin`
+
 Access admin dashboard (admin only)
+
 ```typescript
-async function handleAdminCommand(chatId: number, userId: string): Promise<void> {
+async function handleAdminCommand(
+  chatId: number,
+  userId: string,
+): Promise<void> {
   if (!isAdmin(userId)) {
     await sendMessage(chatId, "❌ Access denied.");
     return;
   }
-  
+
   await handleAdminDashboard(chatId, userId);
 }
 ```
@@ -244,50 +268,68 @@ async function handleAdminCommand(chatId: number, userId: string): Promise<void>
 ## 👨‍💼 Admin Functions
 
 ### Version Notifications
-The bot tracks its code version (bot number) using the `BOT_VERSION` environment variable. When a new version is deployed, all admins receive a message with the updated version and the bot automatically refreshes its configuration and prompts. Admins also receive the current bot number and a status report whenever they start a new session with `/start`, ensuring the bot number stays current with each development.
+
+The bot tracks its code version (bot number) using the `BOT_VERSION` environment
+variable. When a new version is deployed, all admins receive a message with the
+updated version and the bot automatically refreshes its configuration and
+prompts. Admins also receive the current bot number and a status report whenever
+they start a new session with `/start`, ensuring the bot number stays current
+with each development.
 
 ### Dashboard Management
+
 ```typescript
 /**
  * Display comprehensive admin dashboard
  * Shows system stats, user metrics, and management options
  */
-async function handleAdminDashboard(chatId: number, userId: string): Promise<void> {
+async function handleAdminDashboard(
+  chatId: number,
+  userId: string,
+): Promise<void> {
   // Get system statistics
   const stats = await getDashboardStats();
-  
+
   // Format admin message
   const adminMessage = formatAdminDashboard(stats);
-  
+
   // Create admin keyboard
   const keyboard = createAdminKeyboard();
-  
+
   await sendMessage(chatId, adminMessage, keyboard);
 }
 ```
 
 ### User Management
+
 ```typescript
 /**
  * Manage bot users - view, edit, promote to VIP/admin
  */
-async function handleUserTableManagement(chatId: number, userId: string): Promise<void> {
-  const users = await getBotUsers({ limit: 50, orderBy: 'created_at' });
+async function handleUserTableManagement(
+  chatId: number,
+  userId: string,
+): Promise<void> {
+  const users = await getBotUsers({ limit: 50, orderBy: "created_at" });
   const userList = formatUserList(users);
-  
+
   await sendMessage(chatId, userList, getUserManagementKeyboard());
 }
 ```
 
 ### Content Management
+
 ```typescript
 /**
  * Edit bot messages, welcome text, FAQ responses
  */
-async function handleContentManagement(chatId: number, userId: string): Promise<void> {
+async function handleContentManagement(
+  chatId: number,
+  userId: string,
+): Promise<void> {
   const content = await getBotContentList();
   const contentMenu = formatContentMenu(content);
-  
+
   await sendMessage(chatId, contentMenu, getContentKeyboard());
 }
 ```
@@ -303,38 +345,41 @@ async function handleContentManagement(chatId: number, userId: string): Promise<
  * Template for creating new bot handlers
  * Copy this template and modify for your specific needs
  */
-async function handleNewFeature(chatId: number, userId: string, data?: string): Promise<void> {
+async function handleNewFeature(
+  chatId: number,
+  userId: string,
+  data?: string,
+): Promise<void> {
   try {
     // 1. Validate user permissions
     if (!isAuthorized(userId)) {
       await sendMessage(chatId, "❌ Access denied.");
       return;
     }
-    
+
     // 2. Get required data from database
     const userData = await getUserData(userId);
-    const settings = await getBotSettings(['feature_enabled', 'max_usage']);
-    
+    const settings = await getBotSettings(["feature_enabled", "max_usage"]);
+
     // 3. Process the request
     const result = await processFeatureRequest(userData, data);
-    
+
     // 4. Update database if needed
-    await updateUserActivity(userId, { feature_used: 'new_feature' });
-    
+    await updateUserActivity(userId, { feature_used: "new_feature" });
+
     // 5. Send response to user
     const responseMessage = formatFeatureResponse(result);
     const keyboard = createFeatureKeyboard(result);
-    
+
     await sendMessage(chatId, responseMessage, keyboard);
-    
+
     // 6. Log admin action if applicable
     if (isAdmin(userId)) {
-      await logAdminAction(userId, 'feature_access', 'Used new feature');
+      await logAdminAction(userId, "feature_access", "Used new feature");
     }
-    
   } catch (error) {
-    console.error('🚨 Error in handleNewFeature:', error);
-    await sendMessage(chatId, '❌ An error occurred. Please try again.');
+    console.error("🚨 Error in handleNewFeature:", error);
+    await sendMessage(chatId, "❌ An error occurred. Please try again.");
   }
 }
 ```
@@ -349,44 +394,47 @@ async function handleNewFeature(chatId: number, userId: string, data?: string): 
 // Create a new record
 async function createUser(userData: Partial<BotUser>): Promise<BotUser | null> {
   const { data, error } = await supabaseAdmin
-    .from('bot_users')
+    .from("bot_users")
     .insert(userData)
     .select()
     .single();
-    
+
   if (error) {
-    console.error('❌ Error creating user:', error);
+    console.error("❌ Error creating user:", error);
     return null;
   }
-  
+
   return data;
 }
 
 // Update existing record
-async function updateUserVipStatus(userId: string, isVip: boolean): Promise<boolean> {
+async function updateUserVipStatus(
+  userId: string,
+  isVip: boolean,
+): Promise<boolean> {
   const { error } = await supabaseAdmin
-    .from('bot_users')
-    .update({ 
+    .from("bot_users")
+    .update({
       is_vip: isVip,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
-    .eq('telegram_id', userId);
-    
+    .eq("telegram_id", userId);
+
   return !error;
 }
 
 // Complex query with joins
 async function getUserSubscriptionData(userId: string): Promise<any> {
   const { data, error } = await supabaseAdmin
-    .from('user_subscriptions')
+    .from("user_subscriptions")
     .select(`
       *,
       subscription_plans(name, price, features),
       payments(amount, status, created_at)
     `)
-    .eq('telegram_user_id', userId)
-    .eq('is_active', true);
-    
+    .eq("telegram_user_id", userId)
+    .eq("is_active", true);
+
   return error ? null : data;
 }
 ```
@@ -403,20 +451,26 @@ function formatUserList(users: BotUser[]): string {
 
 📊 **Total Users:** ${users.length}
 
-${users.map((user, index) => 
-  `${index + 1}. ${user.first_name || 'Unknown'} (@${user.username || 'no_username'})
+${
+    users.map((user, index) =>
+      `${index + 1}. ${user.first_name || "Unknown"} (@${
+        user.username || "no_username"
+      })
    • ID: \`${user.telegram_id}\`
-   • Status: ${user.is_vip ? '💎 VIP' : '👤 Regular'}
+   • Status: ${user.is_vip ? "💎 VIP" : "👤 Regular"}
    • Joined: ${formatDate(user.created_at)}`
-).join('\n\n')}`;
+    ).join("\n\n")
+  }`;
 }
 
-function createInlineKeyboard(buttons: Array<{text: string, data: string}>): TelegramInlineKeyboardMarkup {
+function createInlineKeyboard(
+  buttons: Array<{ text: string; data: string }>,
+): TelegramInlineKeyboardMarkup {
   return {
-    inline_keyboard: buttons.map(btn => ([{
+    inline_keyboard: buttons.map((btn) => [{
       text: btn.text,
-      callback_data: btn.data
-    }]))
+      callback_data: btn.data,
+    }]),
   };
 }
 ```
@@ -426,6 +480,7 @@ function createInlineKeyboard(buttons: Array<{text: string, data: string}>): Tel
 ## 🛠️ Development Guidelines
 
 ### Code Style
+
 - Use TypeScript strict mode
 - Follow JSDoc comment conventions
 - Use descriptive variable and function names
@@ -433,6 +488,7 @@ function createInlineKeyboard(buttons: Array<{text: string, data: string}>): Tel
 - Add logging for debugging
 
 ### AI Tool Compatibility
+
 - All functions have comprehensive JSDoc comments
 - TypeScript interfaces for all data structures
 - Clear separation of concerns
@@ -440,6 +496,7 @@ function createInlineKeyboard(buttons: Array<{text: string, data: string}>): Tel
 - Well-documented configuration
 
 ### Security Best Practices
+
 - Rate limiting on all endpoints
 - Input validation and sanitization
 - Admin permission checks
@@ -447,21 +504,22 @@ function createInlineKeyboard(buttons: Array<{text: string, data: string}>): Tel
 - Sensitive data encryption
 
 ### Testing Guidelines
+
 ```typescript
 /**
  * Example test structure for new features
  */
-describe('New Feature Handler', () => {
-  it('should handle valid user request', async () => {
+describe("New Feature Handler", () => {
+  it("should handle valid user request", async () => {
     const mockChatId = 123456;
-    const mockUserId = 'test_user';
-    
+    const mockUserId = "test_user";
+
     // Mock database responses
-    jest.spyOn(supabaseAdmin, 'from').mockReturnValue(mockQuery);
-    
+    jest.spyOn(supabaseAdmin, "from").mockReturnValue(mockQuery);
+
     // Test the handler
     await handleNewFeature(mockChatId, mockUserId);
-    
+
     // Verify expected behavior
     expect(sendMessage).toHaveBeenCalledWith(mockChatId, expect.any(String));
   });
@@ -469,6 +527,7 @@ describe('New Feature Handler', () => {
 ```
 
 ### Performance Optimization
+
 - Use database functions for complex queries
 - Implement caching for frequently accessed data
 - Batch operations when possible
@@ -479,6 +538,7 @@ describe('New Feature Handler', () => {
 ## 🔧 Configuration
 
 ### Environment Variables
+
 ```bash
 # Required
 TELEGRAM_BOT_TOKEN=your_bot_token_here
@@ -492,16 +552,17 @@ BINANCE_SECRET_KEY=for_payment_processing
 ```
 
 ### Bot Configuration
+
 ```typescript
 const BOT_CONFIG = {
   // Rate limiting
   MAX_REQUESTS_PER_MINUTE: 20,
   MAX_COMMANDS_PER_MINUTE: 8,
-  
+
   // Security
   AUTO_BLOCK_DURATION: 300000, // 5 minutes
   MAX_MESSAGE_LENGTH: 4000,
-  
+
   // Features
   ENABLE_AI_RESPONSES: true,
   ENABLE_PAYMENT_PROCESSING: true,
@@ -522,7 +583,8 @@ const BOT_CONFIG = {
 
 ## 🤝 Contributing
 
-This codebase is designed to be easily understood and modified by AI tools. When making changes:
+This codebase is designed to be easily understood and modified by AI tools. When
+making changes:
 
 1. Update type definitions in `types/telegram-bot.ts`
 2. Add JSDoc comments to new functions
@@ -532,4 +594,6 @@ This codebase is designed to be easily understood and modified by AI tools. When
 
 ---
 
-*This documentation is optimized for AI code generation tools. All functions, interfaces, and patterns are designed to be easily understood and extended by Codex, ChatGPT, Bolt, and similar AI assistants.*
+_This documentation is optimized for AI code generation tools. All functions,
+interfaces, and patterns are designed to be easily understood and extended by
+Codex, ChatGPT, Bolt, and similar AI assistants._

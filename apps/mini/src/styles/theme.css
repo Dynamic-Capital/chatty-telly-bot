@@ -1,30 +1,30 @@
 :root {
-  --dc-brand:#2FD2C5;
-  --dc-ink:#0B3D3A;
+  --dc-brand: #2fd2c5;
+  --dc-ink: #0b3d3a;
 
-  --dc-bg:#0B0E11;
-  --dc-text:#E9F3F4;
-  --dc-text-dim:#C8D6D8;
+  --dc-bg: #0b0e11;
+  --dc-text: #e9f3f4;
+  --dc-text-dim: #c8d6d8;
 
-  --dc-glass:rgba(255,255,255,.08);
-  --dc-glass-stroke:rgba(255,255,255,.18);
-  --dc-blur:16px;
-  --dc-shadow:0 8px 30px rgba(0,0,0,.25);
+  --dc-glass: rgba(255, 255, 255, 0.08);
+  --dc-glass-stroke: rgba(255, 255, 255, 0.18);
+  --dc-blur: 16px;
+  --dc-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 
-  --dc-good:#10D07A;
-  --dc-warn:#FFD166;
-  --dc-bad:#FF6B6B;
-  --dc-info:#9AA8FF;
+  --dc-good: #10d07a;
+  --dc-warn: #ffd166;
+  --dc-bad: #ff6b6b;
+  --dc-info: #9aa8ff;
 
-  --r-sm:10px;
-  --r-md:16px;
-  --r-lg:22px;
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 22px;
 
-  --sp-1:8px;
-  --sp-2:12px;
-  --sp-3:16px;
-  --sp-4:24px;
-  --sp-5:32px;
+  --sp-1: 8px;
+  --sp-2: 12px;
+  --sp-3: 16px;
+  --sp-4: 24px;
+  --sp-5: 32px;
 }
 
 .dc-screen {
@@ -66,7 +66,7 @@
   padding: var(--sp-3) var(--sp-4);
   border-radius: var(--r-md);
   min-height: 44px;
-  transition: transform .15s ease;
+  transition: transform 0.15s ease;
 }
 
 .dc-btn:active {

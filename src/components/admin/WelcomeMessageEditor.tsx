@@ -1,20 +1,26 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { 
-  Save, 
-  RotateCcw, 
-  Eye, 
-  MessageSquare, 
-  Loader2,
+import { useEffect, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Eye,
   Info,
-  Sparkles
-} from 'lucide-react';
+  Loader2,
+  MessageSquare,
+  RotateCcw,
+  Save,
+  Sparkles,
+} from "lucide-react";
 
 interface WelcomeContent {
   id: string;
@@ -28,8 +34,10 @@ interface WelcomeContent {
 }
 
 export const WelcomeMessageEditor = () => {
-  const [welcomeMessage, setWelcomeMessage] = useState<WelcomeContent | null>(null);
-  const [editedMessage, setEditedMessage] = useState('');
+  const [welcomeMessage, setWelcomeMessage] = useState<WelcomeContent | null>(
+    null,
+  );
+  const [editedMessage, setEditedMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
@@ -38,20 +46,20 @@ export const WelcomeMessageEditor = () => {
   const fetchWelcomeMessage = async () => {
     try {
       setLoading(true);
-      console.log('Fetching welcome message from database...');
-      
+      console.log("Fetching welcome message from database...");
+
       const { data, error } = await supabase
-        .from('bot_content')
-        .select('*')
-        .eq('content_key', 'welcome_message')
+        .from("bot_content")
+        .select("*")
+        .eq("content_key", "welcome_message")
         .single();
 
       if (error) {
-        console.error('Error fetching welcome message:', error);
-        
+        console.error("Error fetching welcome message:", error);
+
         // Create default welcome message if it doesn't exist
-        if (error.code === 'PGRST116') {
-          console.log('Welcome message not found, creating default...');
+        if (error.code === "PGRST116") {
+          console.log("Welcome message not found, creating default...");
           await createDefaultWelcomeMessage();
         } else {
           toast({
@@ -63,11 +71,11 @@ export const WelcomeMessageEditor = () => {
         return;
       }
 
-      console.log('Welcome message loaded successfully:', data);
+      console.log("Welcome message loaded successfully:", data);
       setWelcomeMessage(data);
       setEditedMessage(data.content_value);
     } catch (error) {
-      console.error('Error in fetchWelcomeMessage:', error);
+      console.error("Error in fetchWelcomeMessage:", error);
       toast({
         title: "Error",
         description: "Failed to load welcome message",
@@ -92,34 +100,34 @@ export const WelcomeMessageEditor = () => {
 👇 Choose what you need:`;
 
     try {
-      console.log('Creating default welcome message...');
-      
+      console.log("Creating default welcome message...");
+
       const { data, error } = await supabase
-        .from('bot_content')
+        .from("bot_content")
         .insert({
-          content_key: 'welcome_message',
+          content_key: "welcome_message",
           content_value: defaultMessage,
-          content_type: 'text',
-          description: 'Main welcome message shown on /start',
+          content_type: "text",
+          description: "Main welcome message shown on /start",
           is_active: true,
-          created_by: 'admin',
-          last_modified_by: 'admin'
+          created_by: "admin",
+          last_modified_by: "admin",
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      console.log('Default welcome message created:', data);
+      console.log("Default welcome message created:", data);
       setWelcomeMessage(data);
       setEditedMessage(data.content_value);
-      
+
       toast({
         title: "Default Created",
         description: "Default welcome message has been created",
       });
     } catch (error) {
-      console.error('Error creating default welcome message:', error);
+      console.error("Error creating default welcome message:", error);
       toast({
         title: "Error",
         description: "Failed to create default welcome message",
@@ -133,33 +141,40 @@ export const WelcomeMessageEditor = () => {
 
     try {
       setSaving(true);
-      console.log('Saving welcome message...', { id: welcomeMessage.id, content: editedMessage });
-      
+      console.log("Saving welcome message...", {
+        id: welcomeMessage.id,
+        content: editedMessage,
+      });
+
       const { error } = await supabase
-        .from('bot_content')
+        .from("bot_content")
         .update({
           content_value: editedMessage,
-          last_modified_by: 'admin',
-          updated_at: new Date().toISOString()
+          last_modified_by: "admin",
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', welcomeMessage.id);
+        .eq("id", welcomeMessage.id);
 
       if (error) throw error;
 
-      console.log('Welcome message saved successfully');
-      setWelcomeMessage(prev => prev ? {
-        ...prev,
-        content_value: editedMessage,
-        updated_at: new Date().toISOString(),
-        last_modified_by: 'admin'
-      } : null);
+      console.log("Welcome message saved successfully");
+      setWelcomeMessage((prev) =>
+        prev
+          ? {
+            ...prev,
+            content_value: editedMessage,
+            updated_at: new Date().toISOString(),
+            last_modified_by: "admin",
+          }
+          : null
+      );
 
       toast({
         title: "Success",
         description: "Welcome message updated successfully!",
       });
     } catch (error) {
-      console.error('Error saving welcome message:', error);
+      console.error("Error saving welcome message:", error);
       toast({
         title: "Error",
         description: `Failed to save welcome message: ${error.message}`,
@@ -197,7 +212,7 @@ export const WelcomeMessageEditor = () => {
 💎 Join our exclusive VIP community
 🎓 Access premium education resources
 
-👇 Select your option:`
+👇 Select your option:`,
     },
     {
       name: "Friendly",
@@ -207,7 +222,7 @@ export const WelcomeMessageEditor = () => {
 💰 Get premium signals & expert guidance
 🎯 Join thousands of successful traders
 
-What would you like to do? 👇`
+What would you like to do? 👇`,
     },
     {
       name: "Simple",
@@ -217,8 +232,8 @@ What would you like to do? 👇`
 💎 VIP community access
 🎓 Trading education
 
-Choose an option below:`
-    }
+Choose an option below:`,
+    },
   ];
 
   if (loading) {
@@ -239,7 +254,8 @@ Choose an option below:`
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          This message is shown to users when they first interact with your Telegram bot using the /start command.
+          This message is shown to users when they first interact with your
+          Telegram bot using the /start command.
         </AlertDescription>
       </Alert>
 
@@ -266,39 +282,37 @@ Choose an option below:`
                 disabled={saving}
               />
               <p className="text-xs text-muted-foreground">
-                Use emojis and line breaks to make your message engaging. 
+                Use emojis and line breaks to make your message engaging.
                 Telegram supports basic formatting.
               </p>
             </div>
 
             <div className="flex gap-2">
-              <Button 
-                onClick={saveWelcomeMessage} 
+              <Button
+                onClick={saveWelcomeMessage}
                 disabled={saving || !editedMessage.trim()}
                 className="flex-1"
               >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
+                {saving
+                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  : <Save className="h-4 w-4 mr-2" />}
                 Save Changes
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={resetToOriginal}
                 disabled={saving}
               >
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Reset
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setPreviewMode(!previewMode)}
                 disabled={saving}
               >
                 <Eye className="h-4 w-4 mr-2" />
-                {previewMode ? 'Edit' : 'Preview'}
+                {previewMode ? "Edit" : "Preview"}
               </Button>
             </div>
           </CardContent>
@@ -308,72 +322,90 @@ Choose an option below:`
         <Card>
           <CardHeader>
             <CardTitle>
-              {previewMode ? 'Message Preview' : 'Quick Templates'}
+              {previewMode ? "Message Preview" : "Quick Templates"}
             </CardTitle>
             <CardDescription>
-              {previewMode 
-                ? 'How your message will appear to users'
-                : 'Choose from pre-made templates'
-              }
+              {previewMode
+                ? "How your message will appear to users"
+                : "Choose from pre-made templates"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {previewMode ? (
-              <div className="space-y-4">
-                <div className="bg-telegram/10 border border-telegram/20 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 bg-telegram rounded-full flex items-center justify-center text-white text-sm">
-                      🤖
+            {previewMode
+              ? (
+                <div className="space-y-4">
+                  <div className="bg-telegram/10 border border-telegram/20 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 bg-telegram rounded-full flex items-center justify-center text-white text-sm">
+                        🤖
+                      </div>
+                      <span className="font-medium">
+                        Dynamic Capital VIP Bot
+                      </span>
                     </div>
-                    <span className="font-medium">Dynamic Capital VIP Bot</span>
+                    <div className="whitespace-pre-wrap text-sm bg-white rounded-lg p-3 shadow-sm">
+                      {editedMessage || "Enter a message to see preview..."}
+                    </div>
                   </div>
-                  <div className="whitespace-pre-wrap text-sm bg-white rounded-lg p-3 shadow-sm">
-                    {editedMessage || 'Enter a message to see preview...'}
-                  </div>
+
+                  {welcomeMessage && (
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p>
+                        <strong>Last updated:</strong>{" "}
+                        {new Date(welcomeMessage.updated_at).toLocaleString()}
+                      </p>
+                      <p>
+                        <strong>Modified by:</strong>{" "}
+                        {welcomeMessage.last_modified_by}
+                      </p>
+                      <p>
+                        <strong>Status:</strong>
+                        <Badge
+                          variant={welcomeMessage.is_active
+                            ? "default"
+                            : "secondary"}
+                          className="ml-1"
+                        >
+                          {welcomeMessage.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </p>
+                    </div>
+                  )}
                 </div>
-                
-                {welcomeMessage && (
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p><strong>Last updated:</strong> {new Date(welcomeMessage.updated_at).toLocaleString()}</p>
-                    <p><strong>Modified by:</strong> {welcomeMessage.last_modified_by}</p>
-                    <p><strong>Status:</strong> 
-                      <Badge variant={welcomeMessage.is_active ? "default" : "secondary"} className="ml-1">
-                        {welcomeMessage.is_active ? "Active" : "Inactive"}
-                      </Badge>
+              )
+              : (
+                <div className="space-y-3">
+                  {templates.map((template, index) => (
+                    <div key={index} className="border rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">{template.name}</h4>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            applyTemplate(template.content)}
+                          disabled={saving}
+                        >
+                          Use Template
+                        </Button>
+                      </div>
+                      <div className="text-xs text-muted-foreground whitespace-pre-wrap bg-muted/50 rounded p-2">
+                        {template.content}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="font-medium text-blue-800 mb-2">
+                      💡 Template Usage
+                    </h4>
+                    <p className="text-sm text-blue-700">
+                      Click "Use Template" to load any template into the editor.
+                      You can then customize it further before saving.
                     </p>
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {templates.map((template, index) => (
-                  <div key={index} className="border rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{template.name}</h4>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => applyTemplate(template.content)}
-                        disabled={saving}
-                      >
-                        Use Template
-                      </Button>
-                    </div>
-                    <div className="text-xs text-muted-foreground whitespace-pre-wrap bg-muted/50 rounded p-2">
-                      {template.content}
-                    </div>
-                  </div>
-                ))}
-                
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h4 className="font-medium text-blue-800 mb-2">💡 Template Usage</h4>
-                  <p className="text-sm text-blue-700">
-                    Click "Use Template" to load any template into the editor. 
-                    You can then customize it further before saving.
-                  </p>
                 </div>
-              </div>
-            )}
+              )}
           </CardContent>
         </Card>
       </div>

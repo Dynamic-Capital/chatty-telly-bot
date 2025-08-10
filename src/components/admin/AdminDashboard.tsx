@@ -1,28 +1,34 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { supabase } from '@/integrations/supabase/client';
-import { BotSettings } from '@/components/admin/BotSettings';
-import { BotDebugger } from '@/components/admin/BotDebugger';
-import { ContactInfo } from '@/components/admin/ContactInfo';
-import { WelcomeMessageEditor } from '@/components/admin/WelcomeMessageEditor';
-import { SystemStatus } from '@/components/admin/SystemStatus';
-import { VipPlansManager } from '@/components/admin/VipPlansManager';
-import { 
-  Users,
+import { useEffect, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase/client";
+import { BotSettings } from "@/components/admin/BotSettings";
+import { BotDebugger } from "@/components/admin/BotDebugger";
+import { ContactInfo } from "@/components/admin/ContactInfo";
+import { WelcomeMessageEditor } from "@/components/admin/WelcomeMessageEditor";
+import { SystemStatus } from "@/components/admin/SystemStatus";
+import { VipPlansManager } from "@/components/admin/VipPlansManager";
+import {
   CreditCard,
+  DollarSign,
+  Download,
   GraduationCap,
   MessageSquare,
-  TrendingUp,
-  Download,
   Send,
+  TrendingUp,
   User,
-  DollarSign
-} from 'lucide-react';
+  Users,
+} from "lucide-react";
 
 interface DashboardStats {
   totalUsers: number;
@@ -63,13 +69,13 @@ export const AdminDashboard = () => {
     activeSubscriptions: 0,
     totalEnrollments: 0,
     totalRevenue: 0,
-    todayUsers: 0
+    todayUsers: 0,
   });
-  
+
   const [users, setUsers] = useState<User[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcasting, setBroadcasting] = useState(false);
 
   useEffect(() => {
@@ -79,29 +85,35 @@ export const AdminDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch stats
-      const [usersResponse, paymentsResponse, subscriptionsResponse, enrollmentsResponse] = await Promise.all([
-        supabase.from('bot_users').select('*', { count: 'exact' }),
-        supabase.from('payments').select('*', { count: 'exact' }),
-        supabase.from('user_subscriptions').select('*').eq('is_active', true),
-        supabase.from('education_enrollments').select('*', { count: 'exact' })
+      const [
+        usersResponse,
+        paymentsResponse,
+        subscriptionsResponse,
+        enrollmentsResponse,
+      ] = await Promise.all([
+        supabase.from("bot_users").select("*", { count: "exact" }),
+        supabase.from("payments").select("*", { count: "exact" }),
+        supabase.from("user_subscriptions").select("*").eq("is_active", true),
+        supabase.from("education_enrollments").select("*", { count: "exact" }),
       ]);
 
       // Calculate revenue
       const { data: paymentsData } = await supabase
-        .from('payments')
-        .select('amount')
-        .eq('status', 'completed');
-      
-      const totalRevenue = paymentsData?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0;
+        .from("payments")
+        .select("amount")
+        .eq("status", "completed");
+
+      const totalRevenue = paymentsData?.reduce((sum, payment) =>
+        sum + Number(payment.amount), 0) || 0;
 
       // Get today's users
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split("T")[0];
       const { data: todayUsersData } = await supabase
-        .from('bot_users')
-        .select('*', { count: 'exact' })
-        .gte('created_at', today);
+        .from("bot_users")
+        .select("*", { count: "exact" })
+        .gte("created_at", today);
 
       setStats({
         totalUsers: usersResponse.count || 0,
@@ -109,30 +121,29 @@ export const AdminDashboard = () => {
         activeSubscriptions: subscriptionsResponse.data?.length || 0,
         totalEnrollments: enrollmentsResponse.count || 0,
         totalRevenue,
-        todayUsers: todayUsersData?.length || 0
+        todayUsers: todayUsersData?.length || 0,
       });
 
       // Fetch detailed data
       const { data: usersData } = await supabase
-        .from('bot_users')
-        .select('*')
-        .order('created_at', { ascending: false })
+        .from("bot_users")
+        .select("*")
+        .order("created_at", { ascending: false })
         .limit(50);
 
       const { data: paymentsData2 } = await supabase
-        .from('payments')
+        .from("payments")
         .select(`
           *,
           subscription_plans (name)
         `)
-        .order('created_at', { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(50);
 
       setUsers(usersData || []);
       setPayments(paymentsData2 || []);
-      
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      console.error("Error fetching dashboard data:", error);
     } finally {
       setLoading(false);
     }
@@ -141,95 +152,107 @@ export const AdminDashboard = () => {
   const exportData = async (tableName: string) => {
     try {
       let data: unknown[] = [];
-      
+
       // Type-safe table queries
       switch (tableName) {
-        case 'bot_users': {
-          const { data: users } = await supabase.from('bot_users').select('*');
+        case "bot_users": {
+          const { data: users } = await supabase.from("bot_users").select("*");
           data = users || [];
           break;
         }
-        case 'payments': {
-          const { data: payments } = await supabase.from('payments').select('*');
+        case "payments": {
+          const { data: payments } = await supabase.from("payments").select(
+            "*",
+          );
           data = payments || [];
           break;
         }
-        case 'user_subscriptions': {
-          const { data: subscriptions } = await supabase.from('user_subscriptions').select('*');
+        case "user_subscriptions": {
+          const { data: subscriptions } = await supabase.from(
+            "user_subscriptions",
+          ).select("*");
           data = subscriptions || [];
           break;
         }
-        case 'education_enrollments': {
-          const { data: enrollments } = await supabase.from('education_enrollments').select('*');
+        case "education_enrollments": {
+          const { data: enrollments } = await supabase.from(
+            "education_enrollments",
+          ).select("*");
           data = enrollments || [];
           break;
         }
-        case 'promotions': {
-          const { data: promotions } = await supabase.from('promotions').select('*');
+        case "promotions": {
+          const { data: promotions } = await supabase.from("promotions").select(
+            "*",
+          );
           data = promotions || [];
           break;
         }
-        case 'daily_analytics': {
-          const { data: analytics } = await supabase.from('daily_analytics').select('*');
+        case "daily_analytics": {
+          const { data: analytics } = await supabase.from("daily_analytics")
+            .select("*");
           data = analytics || [];
           break;
         }
-        case 'contact_links': {
-          const { data: contacts } = await supabase.from('contact_links').select('*');
+        case "contact_links": {
+          const { data: contacts } = await supabase.from("contact_links")
+            .select("*");
           data = contacts || [];
           break;
         }
         default:
-          throw new Error('Invalid table name');
+          throw new Error("Invalid table name");
       }
 
       // Convert to CSV
       if (data && data.length > 0) {
-        const headers = Object.keys(data[0]).join(',');
-        const rows = data.map(row => 
-          Object.values(row).map(val => 
-            typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val
-          ).join(',')
+        const headers = Object.keys(data[0]).join(",");
+        const rows = data.map((row) =>
+          Object.values(row).map((val) =>
+            typeof val === "string" ? `"${val.replace(/"/g, '""')}"` : val
+          ).join(",")
         );
-        const csv = [headers, ...rows].join('\n');
+        const csv = [headers, ...rows].join("\n");
 
         // Download CSV
-        const blob = new Blob([csv], { type: 'text/csv' });
+        const blob = new Blob([csv], { type: "text/csv" });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
-        a.download = `${tableName}_export_${new Date().toISOString().split('T')[0]}.csv`;
+        a.download = `${tableName}_export_${
+          new Date().toISOString().split("T")[0]
+        }.csv`;
         a.click();
         URL.revokeObjectURL(url);
       }
     } catch (error) {
-      console.error('Export error:', error);
+      console.error("Export error:", error);
     }
   };
 
   const sendBroadcast = async () => {
     if (!broadcastMessage.trim()) return;
-    
+
     setBroadcasting(true);
     try {
       // Call the actual Telegram bot broadcast function
-      const { data, error } = await supabase.functions.invoke('telegram-bot', {
+      const { data, error } = await supabase.functions.invoke("telegram-bot", {
         body: {
-          action: 'broadcast',
+          action: "broadcast",
           message: broadcastMessage,
-          target_audience: 'all'
-        }
+          target_audience: "all",
+        },
       });
 
       if (error) {
         throw error;
       }
 
-      setBroadcastMessage('');
+      setBroadcastMessage("");
       alert(`Broadcast sent successfully to ${data?.recipients || 0} users!`);
     } catch (error) {
-      console.error('Broadcast error:', error);
-      alert('Failed to send broadcast: ' + (error.message || 'Unknown error'));
+      console.error("Broadcast error:", error);
+      alert("Failed to send broadcast: " + (error.message || "Unknown error"));
     } finally {
       setBroadcasting(false);
     }
@@ -238,7 +261,8 @@ export const AdminDashboard = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary">
+        </div>
       </div>
     );
   }
@@ -283,11 +307,15 @@ export const AdminDashboard = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Active Subscriptions
+            </CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.activeSubscriptions}</div>
+            <div className="text-2xl font-bold">
+              {stats.activeSubscriptions}
+            </div>
             <p className="text-xs text-muted-foreground">
               VIP members
             </p>
@@ -296,7 +324,9 @@ export const AdminDashboard = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Education Enrollments</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Education Enrollments
+            </CardTitle>
             <GraduationCap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -349,7 +379,10 @@ export const AdminDashboard = () => {
               <ScrollArea className="h-96">
                 <div className="space-y-2">
                   {users.map((user) => (
-                    <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div
+                      key={user.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
                       <div className="flex items-center space-x-3">
                         <User className="h-8 w-8 text-muted-foreground" />
                         <div>
@@ -357,7 +390,8 @@ export const AdminDashboard = () => {
                             {user.first_name} {user.last_name}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            @{user.username || 'no_username'} • ID: {user.telegram_id}
+                            @{user.username || "no_username"} • ID:{" "}
+                            {user.telegram_id}
                           </p>
                         </div>
                       </div>
@@ -385,18 +419,24 @@ export const AdminDashboard = () => {
               <ScrollArea className="h-96">
                 <div className="space-y-2">
                   {payments.map((payment) => (
-                    <div key={payment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div
+                      key={payment.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
                       <div>
                         <p className="font-medium">
                           ${payment.amount} {payment.currency}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {payment.subscription_plans?.name} • {payment.payment_method}
+                          {payment.subscription_plans?.name} •{" "}
+                          {payment.payment_method}
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Badge 
-                          variant={payment.status === 'completed' ? 'default' : 'secondary'}
+                        <Badge
+                          variant={payment.status === "completed"
+                            ? "default"
+                            : "secondary"}
                         >
                           {payment.status}
                         </Badge>
@@ -426,16 +466,16 @@ export const AdminDashboard = () => {
                 onChange={(e) => setBroadcastMessage(e.target.value)}
               />
               <div className="flex space-x-2">
-                <Button 
-                  onClick={sendBroadcast} 
+                <Button
+                  onClick={sendBroadcast}
                   disabled={!broadcastMessage.trim() || broadcasting}
                 >
                   <Send className="w-4 h-4 mr-2" />
-                  {broadcasting ? 'Sending...' : 'Send Broadcast'}
+                  {broadcasting ? "Sending..." : "Send Broadcast"}
                 </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setBroadcastMessage('')}
+                <Button
+                  variant="outline"
+                  onClick={() => setBroadcastMessage("")}
                 >
                   Clear
                 </Button>
@@ -443,7 +483,8 @@ export const AdminDashboard = () => {
               <Alert>
                 <MessageSquare className="h-4 w-4" />
                 <AlertDescription>
-                  This will send the message to all {stats.totalUsers} registered users.
+                  This will send the message to all {stats.totalUsers}{" "}
+                  registered users.
                 </AlertDescription>
               </Alert>
             </CardContent>
@@ -461,13 +502,41 @@ export const AdminDashboard = () => {
         <TabsContent value="export" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { name: 'bot_users', title: 'Bot Users', description: 'All registered users' },
-              { name: 'payments', title: 'Payments', description: 'Payment transactions' },
-              { name: 'user_subscriptions', title: 'Subscriptions', description: 'User subscriptions' },
-              { name: 'education_enrollments', title: 'Enrollments', description: 'Education enrollments' },
-              { name: 'promotions', title: 'Promotions', description: 'Promotion codes' },
-              { name: 'daily_analytics', title: 'Analytics', description: 'Daily analytics data' },
-              { name: 'contact_links', title: 'Contact Links', description: 'Bot contact information' }
+              {
+                name: "bot_users",
+                title: "Bot Users",
+                description: "All registered users",
+              },
+              {
+                name: "payments",
+                title: "Payments",
+                description: "Payment transactions",
+              },
+              {
+                name: "user_subscriptions",
+                title: "Subscriptions",
+                description: "User subscriptions",
+              },
+              {
+                name: "education_enrollments",
+                title: "Enrollments",
+                description: "Education enrollments",
+              },
+              {
+                name: "promotions",
+                title: "Promotions",
+                description: "Promotion codes",
+              },
+              {
+                name: "daily_analytics",
+                title: "Analytics",
+                description: "Daily analytics data",
+              },
+              {
+                name: "contact_links",
+                title: "Contact Links",
+                description: "Bot contact information",
+              },
             ].map((table) => (
               <Card key={table.name}>
                 <CardHeader>
@@ -475,7 +544,7 @@ export const AdminDashboard = () => {
                   <CardDescription>{table.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button 
+                  <Button
                     onClick={() => exportData(table.name)}
                     className="w-full"
                     variant="outline"

@@ -1,19 +1,13 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import {
-  GraduationCap,
-  Bot,
-  Home,
-  Settings,
-  Menu
-} from 'lucide-react';
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Bot, GraduationCap, Home, Menu, Settings } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 
 const Header: React.FC = () => {
   const location = useLocation();
@@ -30,11 +24,11 @@ const Header: React.FC = () => {
             </div>
             AI Trading Assistant
           </Link>
-          
+
           <nav className="hidden md:flex items-center gap-2">
             <Button
               asChild
-              variant={isActive('/') ? 'default' : 'ghost'}
+              variant={isActive("/") ? "default" : "ghost"}
               size="sm"
             >
               <Link to="/" className="flex items-center gap-2">
@@ -42,11 +36,10 @@ const Header: React.FC = () => {
                 Home
               </Link>
             </Button>
-            
-            
+
             <Button
               asChild
-              variant={isActive('/education') ? 'default' : 'ghost'}
+              variant={isActive("/education") ? "default" : "ghost"}
               size="sm"
             >
               <Link to="/education" className="flex items-center gap-2">
@@ -57,7 +50,7 @@ const Header: React.FC = () => {
 
             <Button
               asChild
-              variant={isActive('/admin') ? 'default' : 'ghost'}
+              variant={isActive("/admin") ? "default" : "ghost"}
               size="sm"
             >
               <Link to="/admin" className="flex items-center gap-2">

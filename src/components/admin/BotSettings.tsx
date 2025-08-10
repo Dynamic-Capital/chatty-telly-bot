@@ -1,12 +1,18 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { Settings, Save, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2, Save, Settings } from "lucide-react";
 
 interface BotSetting {
   id: string;
@@ -26,15 +32,15 @@ export const BotSettings = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('bot_settings')
-        .select('*')
-        .eq('is_active', true)
-        .order('setting_key');
+        .from("bot_settings")
+        .select("*")
+        .eq("is_active", true)
+        .order("setting_key");
 
       if (error) throw error;
       setSettings(data || []);
     } catch (error) {
-      console.error('Error fetching settings:', error);
+      console.error("Error fetching settings:", error);
       toast({
         title: "Error",
         description: "Failed to fetch bot settings",
@@ -53,15 +59,18 @@ export const BotSettings = () => {
     try {
       setSaving(true);
       const { error } = await supabase
-        .from('bot_settings')
-        .update({ setting_value: newValue, updated_at: new Date().toISOString() })
-        .eq('setting_key', settingKey);
+        .from("bot_settings")
+        .update({
+          setting_value: newValue,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("setting_key", settingKey);
 
       if (error) throw error;
 
-      setSettings(prev => 
-        prev.map(setting => 
-          setting.setting_key === settingKey 
+      setSettings((prev) =>
+        prev.map((setting) =>
+          setting.setting_key === settingKey
             ? { ...setting, setting_value: newValue }
             : setting
         )
@@ -72,7 +81,7 @@ export const BotSettings = () => {
         description: `Setting "${settingKey}" updated successfully`,
       });
     } catch (error) {
-      console.error('Error updating setting:', error);
+      console.error("Error updating setting:", error);
       toast({
         title: "Error",
         description: "Failed to update setting",
@@ -84,9 +93,9 @@ export const BotSettings = () => {
   };
 
   const handleInputChange = (settingKey: string, value: string) => {
-    setSettings(prev => 
-      prev.map(setting => 
-        setting.setting_key === settingKey 
+    setSettings((prev) =>
+      prev.map((setting) =>
+        setting.setting_key === settingKey
           ? { ...setting, setting_value: value }
           : setting
       )
@@ -94,19 +103,19 @@ export const BotSettings = () => {
   };
 
   const handleSwitchChange = (settingKey: string, checked: boolean) => {
-    const value = checked ? 'true' : 'false';
+    const value = checked ? "true" : "false";
     updateSetting(settingKey, value);
   };
 
   const handleSave = (settingKey: string) => {
-    const setting = settings.find(s => s.setting_key === settingKey);
+    const setting = settings.find((s) => s.setting_key === settingKey);
     if (setting) {
       updateSetting(settingKey, setting.setting_value);
     }
   };
 
   const setDelayPreset = (seconds: number) => {
-    updateSetting('auto_delete_delay_seconds', seconds.toString());
+    updateSetting("auto_delete_delay_seconds", seconds.toString());
   };
 
   if (loading) {
@@ -128,78 +137,95 @@ export const BotSettings = () => {
         {settings.map((setting) => (
           <Card key={setting.id}>
             <CardHeader>
-              <CardTitle className="text-lg">{setting.setting_key.replace(/_/g, ' ').toUpperCase()}</CardTitle>
+              <CardTitle className="text-lg">
+                {setting.setting_key.replace(/_/g, " ").toUpperCase()}
+              </CardTitle>
               {setting.description && (
                 <CardDescription>{setting.description}</CardDescription>
               )}
             </CardHeader>
             <CardContent className="space-y-4">
-              {setting.setting_type === 'boolean' ? (
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id={setting.setting_key}
-                    checked={setting.setting_value === 'true'}
-                    onCheckedChange={(checked) => handleSwitchChange(setting.setting_key, checked)}
-                    disabled={saving}
-                  />
-                  <Label htmlFor={setting.setting_key}>
-                    {setting.setting_value === 'true' ? 'Enabled' : 'Disabled'}
-                  </Label>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label htmlFor={setting.setting_key}>Value</Label>
-                  <div className="flex gap-2">
-                    <Input
+              {setting.setting_type === "boolean"
+                ? (
+                  <div className="flex items-center space-x-2">
+                    <Switch
                       id={setting.setting_key}
-                      type={setting.setting_type === 'number' ? 'number' : 'text'}
-                      value={setting.setting_value}
-                      onChange={(e) => handleInputChange(setting.setting_key, e.target.value)}
+                      checked={setting.setting_value === "true"}
+                      onCheckedChange={(checked) =>
+                        handleSwitchChange(setting.setting_key, checked)}
                       disabled={saving}
                     />
-                    <Button
-                      onClick={() => handleSave(setting.setting_key)}
-                      disabled={saving}
-                      size="sm"
-                    >
-                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    </Button>
+                    <Label htmlFor={setting.setting_key}>
+                      {setting.setting_value === "true"
+                        ? "Enabled"
+                        : "Disabled"}
+                    </Label>
                   </div>
-                  
-                  {/* Quick preset buttons for auto_delete_delay_seconds */}
-                  {setting.setting_key === 'auto_delete_delay_seconds' && (
-                    <div className="space-y-2">
-                      <Label className="text-sm text-muted-foreground">Quick presets:</Label>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setDelayPreset(5)}
-                          disabled={saving}
-                        >
-                          5 sec
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setDelayPreset(10)}
-                          disabled={saving}
-                        >
-                          10 sec
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setDelayPreset(30)}
-                          disabled={saving}
-                        >
-                          30 sec
-                        </Button>
-                      </div>
+                )
+                : (
+                  <div className="space-y-2">
+                    <Label htmlFor={setting.setting_key}>Value</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id={setting.setting_key}
+                        type={setting.setting_type === "number"
+                          ? "number"
+                          : "text"}
+                        value={setting.setting_value}
+                        onChange={(e) =>
+                          handleInputChange(
+                            setting.setting_key,
+                            e.target.value,
+                          )}
+                        disabled={saving}
+                      />
+                      <Button
+                        onClick={() => handleSave(setting.setting_key)}
+                        disabled={saving}
+                        size="sm"
+                      >
+                        {saving
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <Save className="h-4 w-4" />}
+                      </Button>
                     </div>
-                  )}
-                </div>
-              )}
+
+                    {/* Quick preset buttons for auto_delete_delay_seconds */}
+                    {setting.setting_key === "auto_delete_delay_seconds" && (
+                      <div className="space-y-2">
+                        <Label className="text-sm text-muted-foreground">
+                          Quick presets:
+                        </Label>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDelayPreset(5)}
+                            disabled={saving}
+                          >
+                            5 sec
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDelayPreset(10)}
+                            disabled={saving}
+                          >
+                            10 sec
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDelayPreset(30)}
+                            disabled={saving}
+                          >
+                            30 sec
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
             </CardContent>
           </Card>
         ))}
@@ -208,7 +234,9 @@ export const BotSettings = () => {
       {settings.length === 0 && (
         <Card>
           <CardContent className="text-center py-8">
-            <p className="text-muted-foreground">No bot settings found. Settings will appear here once configured.</p>
+            <p className="text-muted-foreground">
+              No bot settings found. Settings will appear here once configured.
+            </p>
           </CardContent>
         </Card>
       )}

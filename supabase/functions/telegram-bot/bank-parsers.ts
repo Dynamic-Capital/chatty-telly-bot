@@ -10,14 +10,16 @@ export interface ParsedSlip {
   fromName: string | null;
   toName: string | null;
   toAccount: string | null;
-  payCode: string | null;        // e.g. DC-XXXXXX from remarks/purpose/message
-  ocrTxnDateIso: string | null;  // with +05:00
-  ocrValueDateIso: string | null;// with +05:00
+  payCode: string | null; // e.g. DC-XXXXXX from remarks/purpose/message
+  ocrTxnDateIso: string | null; // with +05:00
+  ocrValueDateIso: string | null; // with +05:00
   rawText: string;
 }
 
 function toIsoFromDmy(dateStr: string): string | null {
-  const m = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2}(?::\d{2})?)/);
+  const m = dateStr.match(
+    /(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2}(?::\d{2})?)/,
+  );
   if (!m) return null;
   const [, dd, mm, yyyy, time] = m;
   const t = time.length === 5 ? `${time}:00` : time;
@@ -75,12 +77,16 @@ export function parseBankSlip(ocrText: string): ParsedSlip {
 
   if (bank === "BML") {
     const statusMatch = joined.match(/Status\s*:?\s*(SUCCESS|PENDING|FAILED)/i);
-    if (statusMatch) status = statusMatch[1].toUpperCase() as "SUCCESS" | "PENDING" | "FAILED";
+    if (statusMatch) {
+      status = statusMatch[1].toUpperCase() as "SUCCESS" | "PENDING" | "FAILED";
+    }
 
     const refMatch = joined.match(/Reference\s*:?\s*([A-Z0-9-]{6,24})/i);
     if (refMatch) reference = refMatch[1];
 
-    const txnMatch = joined.match(/Transaction Date\s*:?\s*(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}(?::\d{2})?)/i);
+    const txnMatch = joined.match(
+      /Transaction Date\s*:?\s*(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}(?::\d{2})?)/i,
+    );
     if (txnMatch) ocrTxnDateIso = toIsoFromDmy(txnMatch[1]);
 
     for (let i = 0; i < lines.length; i++) {
@@ -116,10 +122,14 @@ export function parseBankSlip(ocrText: string): ParsedSlip {
       }
     }
 
-    const txnMatch = joined.match(/Transaction Date\s*:?\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/i);
+    const txnMatch = joined.match(
+      /Transaction Date\s*:?\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/i,
+    );
     if (txnMatch) ocrTxnDateIso = toIsoFromYmd(txnMatch[1]);
 
-    const valMatch = joined.match(/Value Date\s*:?\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/i);
+    const valMatch = joined.match(
+      /Value Date\s*:?\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/i,
+    );
     if (valMatch) ocrValueDateIso = toIsoFromYmd(valMatch[1]);
   }
 

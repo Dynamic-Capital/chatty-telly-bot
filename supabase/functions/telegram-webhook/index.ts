@@ -84,4 +84,3 @@ if (import.meta.main && typeof Deno !== "undefined") {
   );
   serve(handler);
 }
-

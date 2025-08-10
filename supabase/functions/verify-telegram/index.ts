@@ -3,7 +3,8 @@
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 function hex(buffer: ArrayBuffer): string {
@@ -49,7 +50,10 @@ async function verifyInitData(initData: string) {
     .join("\n");
 
   // secret key = SHA256(bot_token)
-  const secretKey = await crypto.subtle.digest("SHA-256", encoder.encode(botToken));
+  const secretKey = await crypto.subtle.digest(
+    "SHA-256",
+    encoder.encode(botToken),
+  );
   const hmacKey = await crypto.subtle.importKey(
     "raw",
     secretKey,
@@ -57,7 +61,11 @@ async function verifyInitData(initData: string) {
     false,
     ["sign"],
   );
-  const signature = await crypto.subtle.sign("HMAC", hmacKey, encoder.encode(dataCheckString));
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    hmacKey,
+    encoder.encode(dataCheckString),
+  );
   const signatureHex = hex(signature);
 
   if (!timingSafeEqual(signatureHex, providedHash)) {
@@ -90,18 +98,24 @@ Deno.serve(async (req) => {
 
   try {
     if (req.method !== "POST") {
-      return new Response(JSON.stringify({ ok: false, error: "METHOD_NOT_ALLOWED" }), {
-        status: 405,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+      return new Response(
+        JSON.stringify({ ok: false, error: "METHOD_NOT_ALLOWED" }),
+        {
+          status: 405,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        },
+      );
     }
 
     const { initData } = await req.json().catch(() => ({ initData: "" }));
     if (!initData || typeof initData !== "string") {
-      return new Response(JSON.stringify({ ok: false, error: "MISSING_INIT_DATA" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+      return new Response(
+        JSON.stringify({ ok: false, error: "MISSING_INIT_DATA" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        },
+      );
     }
 
     const result = await verifyInitData(initData);

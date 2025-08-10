@@ -16,10 +16,10 @@ import { getBotContent, logAdminAction } from "./database-utils.ts";
 import { requireEnv } from "./helpers/require-env.ts";
 import {
   getFlag,
-  setFlag,
   preview,
   publish as publishFlags,
   rollback as rollbackFlags,
+  setFlag,
 } from "../../../src/utils/config.ts";
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
@@ -1542,7 +1542,10 @@ function buildFlagMessage(flags: Record<string, boolean>): string {
   return msg;
 }
 
-export async function handleFeatureFlags(chatId: number, _userId: string): Promise<void> {
+export async function handleFeatureFlags(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
   const draft = await preview();
   const flags: Record<string, boolean> = { ...draft.data };
   const keyboardRows = Object.keys(FLAG_LABELS).map((name) => [{
@@ -1560,7 +1563,9 @@ export async function handleFeatureFlags(chatId: number, _userId: string): Promi
   keyboardRows.push([
     { text: "⬅️ Home", callback_data: "manage_table_bot_settings" },
   ]);
-  await sendMessage(chatId, buildFlagMessage(flags), { inline_keyboard: keyboardRows });
+  await sendMessage(chatId, buildFlagMessage(flags), {
+    inline_keyboard: keyboardRows,
+  });
 }
 
 export async function handleToggleFeatureFlag(
@@ -1592,7 +1597,9 @@ export async function handlePublishFlagsConfirm(
   await handleFeatureFlags(chatId, userId);
 }
 
-export async function handleRollbackFlagsRequest(chatId: number): Promise<void> {
+export async function handleRollbackFlagsRequest(
+  chatId: number,
+): Promise<void> {
   const keyboard = {
     inline_keyboard: [[
       { text: "✅ Confirm", callback_data: "rollback_flags_confirm" },

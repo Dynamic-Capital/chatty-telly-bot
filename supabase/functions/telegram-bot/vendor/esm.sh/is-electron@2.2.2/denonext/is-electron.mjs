@@ -1,4 +1,45 @@
 /* esm.sh - is-electron@2.2.2 */
 import __Process$ from "node:process";
-var c=Object.create;var i=Object.defineProperty;var u=Object.getOwnPropertyDescriptor;var d=Object.getOwnPropertyNames;var a=Object.getPrototypeOf,y=Object.prototype.hasOwnProperty;var g=(r,e)=>()=>(e||r((e={exports:{}}).exports,e),e.exports);var l=(r,e,t,s)=>{if(e&&typeof e=="object"||typeof e=="function")for(let o of d(e))!y.call(r,o)&&o!==t&&i(r,o,{get:()=>e[o],enumerable:!(s=u(e,o))||s.enumerable});return r};var w=(r,e,t)=>(t=r!=null?c(a(r)):{},l(e||!r||!r.__esModule?i(t,"default",{value:r,enumerable:!0}):t,r));var p=g((m,f)=>{function j(){return!!(typeof globalThis<"u"&&typeof globalThis.process=="object"&&globalThis.process.type==="renderer"||typeof __Process$<"u"&&typeof __Process$.versions=="object"&&__Process$.versions.electron||typeof navigator=="object"&&typeof navigator.userAgent=="string"&&navigator.userAgent.indexOf("Electron")>=0)}f.exports=j});var n=w(p()),b=n.default??n;export{b as default};
+var c = Object.create;
+var i = Object.defineProperty;
+var u = Object.getOwnPropertyDescriptor;
+var d = Object.getOwnPropertyNames;
+var a = Object.getPrototypeOf, y = Object.prototype.hasOwnProperty;
+var g = (r, e) => () => (e || r((e = { exports: {} }).exports, e), e.exports);
+var l = (r, e, t, s) => {
+  if (e && typeof e == "object" || typeof e == "function") {
+    for (let o of d(e)) {
+      !y.call(r, o) && o !== t && i(r, o, {
+        get: () => e[o],
+        enumerable: !(s = u(e, o)) || s.enumerable,
+      });
+    }
+  }
+  return r;
+};
+var w = (
+  r,
+  e,
+  t,
+) => (t = r != null ? c(a(r)) : {},
+  l(
+    e || !r || !r.__esModule
+      ? i(t, "default", { value: r, enumerable: !0 })
+      : t,
+    r,
+  ));
+var p = g((m, f) => {
+  function j() {
+    return !!(typeof globalThis < "u" &&
+        typeof globalThis.process == "object" &&
+        globalThis.process.type === "renderer" ||
+      typeof __Process$ < "u" && typeof __Process$.versions == "object" &&
+        __Process$.versions.electron ||
+      typeof navigator == "object" && typeof navigator.userAgent == "string" &&
+        navigator.userAgent.indexOf("Electron") >= 0);
+  }
+  f.exports = j;
+});
+var n = w(p()), b = n.default ?? n;
+export { b as default };
 //# sourceMappingURL=is-electron.mjs.map

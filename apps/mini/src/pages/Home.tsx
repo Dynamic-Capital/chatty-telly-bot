@@ -1,6 +1,6 @@
-import { Link } from 'react-router-dom';
-import GlassPanel from '../components/GlassPanel';
-import TopBar from '../components/TopBar';
+import { Link } from "react-router-dom";
+import GlassPanel from "../components/GlassPanel";
+import TopBar from "../components/TopBar";
 
 export default function Home() {
   return (

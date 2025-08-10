@@ -17,7 +17,7 @@ function padNoopAwait(code) {
   let out = code;
   const patterns = [
     /(\bexport\s+)?\basync\s+function\b[^\{]*\{/g,
-    /\basync\s*\([^)]*\)\s*=>\s*\{/g
+    /\basync\s*\([^)]*\)\s*=>\s*\{/g,
   ];
   for (const re of patterns) {
     let m;
@@ -39,14 +39,19 @@ function padNoopAwait(code) {
       const bodyEnd = i;
       const body = out.slice(bodyStart, bodyEnd);
       if (/\bawait\b|\bfor\s+await\b/.test(body)) continue;
-      const indentMatch = out.slice(start, braceStart).match(/(^|\n)([ \t]*)[^\n]*$/);
+      const indentMatch = out.slice(start, braceStart).match(
+        /(^|\n)([ \t]*)[^\n]*$/,
+      );
       const indent = (indentMatch?.[2] ?? "") + "  ";
-      const patched = out.slice(0, bodyStart)
-        + `\n${indent}await Promise.resolve(); // satisfy require-await\n`
-        + body
-        + out.slice(bodyEnd);
+      const patched = out.slice(0, bodyStart) +
+        `\n${indent}await Promise.resolve(); // satisfy require-await\n` +
+        body +
+        out.slice(bodyEnd);
       out = patched;
-      re.lastIndex = bodyEnd + `\n${indent}await Promise.resolve(); // satisfy require-await\n`.length + 1;
+      re.lastIndex = bodyEnd +
+        `\n${indent}await Promise.resolve(); // satisfy require-await\n`
+          .length +
+        1;
     }
   }
   return out;
