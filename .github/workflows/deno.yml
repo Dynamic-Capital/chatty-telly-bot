@@ -42,3 +42,10 @@ jobs:
 
       - name: Run tests
         run: deno test -A
+
+      - name: Enable auto-merge
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/enable-pull-request-automerge@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          merge-method: squash
