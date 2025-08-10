@@ -2,10 +2,16 @@ function getEnv(key: string): string {
   if (typeof Deno !== "undefined" && typeof Deno.env?.get === "function") {
     return Deno.env.get(key) ?? "";
   }
-  if (typeof process !== "undefined") {
-    return (process.env as Record<string, string | undefined>)[key] ?? "";
+  const nodeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  if (nodeProcess?.env) {
+    return nodeProcess.env[key] ?? "";
   }
   return "";
+}
+
+const nodeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+if (nodeProcess?.env) {
+  nodeProcess.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 }
 
 const BOT_TOKEN = getEnv("TELEGRAM_BOT_TOKEN");
