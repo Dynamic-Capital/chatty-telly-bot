@@ -110,8 +110,15 @@ async function publish(adminId?: string): Promise<void> {
     "features:published",
     { ts: Date.now(), data: {} },
   );
-  await setConfig("features:rollback", current);
-  await setConfig("features:published", draft);
+  // clone snapshots to avoid shared references between draft, published and rollback
+  await setConfig("features:rollback", {
+    ts: current.ts,
+    data: { ...current.data },
+  });
+  await setConfig("features:published", {
+    ts: draft.ts,
+    data: { ...draft.data },
+  });
   console.log("publish", { from: current, to: draft });
   const client = await getClient();
   if (client) {
@@ -142,8 +149,14 @@ async function rollback(adminId?: string): Promise<void> {
     "features:rollback",
     { ts: Date.now(), data: {} },
   );
-  await setConfig("features:published", previous);
-  await setConfig("features:rollback", published);
+  await setConfig("features:published", {
+    ts: previous.ts,
+    data: { ...previous.data },
+  });
+  await setConfig("features:rollback", {
+    ts: published.ts,
+    data: { ...published.data },
+  });
   console.log("rollback", { from: published, to: previous });
   const client = await getClient();
   if (client) {
