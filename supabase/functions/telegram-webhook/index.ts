@@ -2,10 +2,16 @@ function getEnv(key: string): string {
   if (typeof Deno !== "undefined" && typeof Deno.env?.get === "function") {
     return Deno.env.get(key) ?? "";
   }
-  if (typeof process !== "undefined") {
-    return (process.env as Record<string, string | undefined>)[key] ?? "";
+  const nodeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  if (nodeProcess?.env) {
+    return nodeProcess.env[key] ?? "";
   }
   return "";
+}
+
+const nodeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+if (nodeProcess?.env) {
+  nodeProcess.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 }
 
 const BOT_TOKEN = getEnv("TELEGRAM_BOT_TOKEN");
@@ -60,11 +66,12 @@ export async function handler(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ ok: true }), { headers });
   }
 
-  const text = update?.message?.text;
+  const text = update?.message?.text?.trim();
   const chatId = update?.message?.chat?.id;
 
-  // Reply to /start messages
-  if (text === "/start" && typeof chatId === "number") {
+  // Reply to /start messages (with optional parameters)
+  const command = text?.split(/\s+/)[0];
+  if (command === "/start" && typeof chatId === "number") {
     try {
       await sendMessage(chatId, "Bot activated. Replying to /start");
     } catch (err) {
