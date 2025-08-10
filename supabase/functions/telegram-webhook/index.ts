@@ -60,11 +60,12 @@ export async function handler(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ ok: true }), { headers });
   }
 
-  const text = update?.message?.text;
+  const text = update?.message?.text?.trim();
   const chatId = update?.message?.chat?.id;
 
-  // Reply to /start messages
-  if (text === "/start" && typeof chatId === "number") {
+  // Reply to /start messages (with optional parameters)
+  const command = text?.split(/\s+/)[0];
+  if (command === "/start" && typeof chatId === "number") {
     try {
       await sendMessage(chatId, "Bot activated. Replying to /start");
     } catch (err) {
