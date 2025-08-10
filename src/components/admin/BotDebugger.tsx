@@ -27,8 +27,10 @@ export const BotDebugger = () => {
   const checkBotStatus = async () => {
     setIsChecking(true);
     try {
-      const { data, error } = await supabase.functions.invoke('test-bot-status');
-      
+      const { data, error } = await supabase.functions.invoke(
+        "test-bot-status",
+      );
+
       if (error) {
         throw error;
       }
@@ -36,7 +38,9 @@ export const BotDebugger = () => {
       setBotStatus(data);
       toast({
         title: "Bot Status Checked",
-        description: `Bot is ${data.bot_status.includes('✅') ? 'working' : 'not working'}`,
+        description: `Bot is ${
+          data.bot_status.includes("✅") ? "working" : "not working"
+        }`,
       });
     } catch (error) {
       console.error("Error checking bot status:", error);
@@ -52,8 +56,10 @@ export const BotDebugger = () => {
 
   const resetBot = async () => {
     try {
-      const { data: _data, error } = await supabase.functions.invoke('reset-bot');
-      
+      const { data: _data, error } = await supabase.functions.invoke(
+        "reset-bot",
+      );
+
       if (error) {
         throw error;
       }
@@ -82,14 +88,14 @@ export const BotDebugger = () => {
           <CardTitle className="flex items-center justify-between">
             🔧 Bot Diagnostics
             <div className="space-x-2">
-              <Button 
-                onClick={checkBotStatus} 
+              <Button
+                onClick={checkBotStatus}
                 disabled={isChecking}
                 variant="outline"
               >
                 {isChecking ? "Checking..." : "Check Status"}
               </Button>
-              <Button 
+              <Button
                 onClick={resetBot}
                 variant="destructive"
               >
@@ -99,45 +105,61 @@ export const BotDebugger = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {botStatus ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <h4 className="font-semibold">Bot Status</h4>
-                  <Badge variant={botStatus.bot_status.includes('✅') ? 'default' : 'destructive'}>
-                    {botStatus.bot_status}
-                  </Badge>
-                  {botStatus.bot_info && (
-                    <div className="text-sm">
-                      <p>Bot: @{botStatus.bot_info.username}</p>
-                      <p>Name: {botStatus.bot_info.first_name}</p>
-                    </div>
-                  )}
+          {botStatus
+            ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold">Bot Status</h4>
+                    <Badge
+                      variant={botStatus.bot_status.includes("✅")
+                        ? "default"
+                        : "destructive"}
+                    >
+                      {botStatus.bot_status}
+                    </Badge>
+                    {botStatus.bot_info && (
+                      <div className="text-sm">
+                        <p>Bot: @{botStatus.bot_info.username}</p>
+                        <p>Name: {botStatus.bot_info.first_name}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold">Webhook Status</h4>
+                    <Badge
+                      variant={botStatus.webhook_status.includes("✅")
+                        ? "default"
+                        : "destructive"}
+                    >
+                      {botStatus.webhook_status}
+                    </Badge>
+                    {botStatus.webhook_info && (
+                      <div className="text-sm">
+                        <p>
+                          URL:{" "}
+                          {botStatus.webhook_info.url ? "✅ Set" : "❌ Not Set"}
+                        </p>
+                        <p>Updates: {botStatus.pending_updates} pending</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <h4 className="font-semibold">Webhook Status</h4>
-                  <Badge variant={botStatus.webhook_status.includes('✅') ? 'default' : 'destructive'}>
-                    {botStatus.webhook_status}
-                  </Badge>
-                  {botStatus.webhook_info && (
-                    <div className="text-sm">
-                      <p>URL: {botStatus.webhook_info.url ? '✅ Set' : '❌ Not Set'}</p>
-                      <p>Updates: {botStatus.pending_updates} pending</p>
-                    </div>
-                  )}
+
+                <div className="mt-4 p-3 bg-muted rounded">
+                  <p className="text-sm text-muted-foreground">
+                    Last checked:{" "}
+                    {new Date(botStatus.timestamp).toLocaleString()}
+                  </p>
                 </div>
               </div>
-              
-              <div className="mt-4 p-3 bg-muted rounded">
-                <p className="text-sm text-muted-foreground">
-                  Last checked: {new Date(botStatus.timestamp).toLocaleString()}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <p className="text-muted-foreground">Click "Check Status" to diagnose bot issues</p>
-          )}
+            )
+            : (
+              <p className="text-muted-foreground">
+                Click "Check Status" to diagnose bot issues
+              </p>
+            )}
         </CardContent>
       </Card>
     </div>

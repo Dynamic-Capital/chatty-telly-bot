@@ -1,22 +1,22 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  BotIcon,
-  Settings,
+import {
   Activity,
-  MessageSquare,
-  Users,
-  Package,
-  HeadphonesIcon,
-  Gift,
-  CreditCard,
+  AlertTriangle,
   BarChart3,
-  Shield,
   Bell,
+  BotIcon,
+  CreditCard,
   FileText,
-  AlertTriangle
+  Gift,
+  HeadphonesIcon,
+  MessageSquare,
+  Package,
+  Settings,
+  Shield,
+  Users,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,7 +31,9 @@ interface DashboardStats {
 }
 
 const BotDashboard = () => {
-  const [currentView, setCurrentView] = useState<'welcome' | 'config' | 'packages' | 'support' | 'analytics' | 'promos'>('welcome');
+  const [currentView, setCurrentView] = useState<
+    "welcome" | "config" | "packages" | "support" | "analytics" | "promos"
+  >("welcome");
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
@@ -39,7 +41,7 @@ const BotDashboard = () => {
     vipMembers: 0,
     totalRevenue: 0,
     pendingPayments: 0,
-    lastUpdated: ''
+    lastUpdated: "",
   });
   const { toast } = useToast();
 
@@ -51,19 +53,19 @@ const BotDashboard = () => {
   const fetchBotStats = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.functions.invoke('analytics-data');
-      
+      const { data, error } = await supabase.functions.invoke("analytics-data");
+
       if (error) throw error;
-      
+
       setStats({
         totalUsers: data?.total_users || 0,
         vipMembers: data?.vip_users || 0,
         totalRevenue: data?.total_revenue || 0,
         pendingPayments: data?.pending_payments || 0,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
       });
     } catch (error) {
-      console.error('Error fetching bot stats:', error);
+      console.error("Error fetching bot stats:", error);
     } finally {
       setLoading(false);
     }
@@ -71,14 +73,15 @@ const BotDashboard = () => {
 
   const checkBotStatus = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('test-bot-status');
-      setIsConnected(!error && data?.bot_status?.includes('✅'));
+      const { data, error } = await supabase.functions.invoke(
+        "test-bot-status",
+      );
+      setIsConnected(!error && data?.bot_status?.includes("✅"));
     } catch (error) {
-      console.error('Error checking bot status:', error);
+      console.error("Error checking bot status:", error);
       setIsConnected(false);
     }
   };
-
 
   const renderWelcomeScreen = () => (
     <div className="space-y-8">
@@ -87,7 +90,8 @@ const BotDashboard = () => {
         <Alert className="border-orange-200 bg-orange-50">
           <AlertTriangle className="h-4 w-4 text-orange-600" />
           <AlertDescription>
-            Bot appears to be offline. Please ensure TELEGRAM_WEBHOOK_SECRET is configured in your Supabase secrets.
+            Bot appears to be offline. Please ensure TELEGRAM_WEBHOOK_SECRET is
+            configured in your Supabase secrets.
           </AlertDescription>
         </Alert>
       )}
@@ -102,7 +106,8 @@ const BotDashboard = () => {
             Welcome to VIP Bot
           </h1>
           <p className="text-muted-foreground text-xl max-w-2xl mx-auto">
-            Your premium Telegram bot for subscription management, payments, and customer support
+            Your premium Telegram bot for subscription management, payments, and
+            customer support
           </p>
         </div>
       </div>
@@ -117,13 +122,32 @@ const BotDashboard = () => {
             <div>
               <p className="text-sm text-muted-foreground">Bot Status</p>
               <div className="font-semibold">
-                {loading ? (
-                  <Badge variant="outline" className="border-gray-500 text-gray-600">Loading...</Badge>
-                ) : isConnected ? (
-                  <Badge variant="outline" className="border-green-500 text-green-600">Online</Badge>
-                ) : (
-                  <Badge variant="outline" className="border-orange-500 text-orange-600">Offline</Badge>
-                )}
+                {loading
+                  ? (
+                    <Badge
+                      variant="outline"
+                      className="border-gray-500 text-gray-600"
+                    >
+                      Loading...
+                    </Badge>
+                  )
+                  : isConnected
+                  ? (
+                    <Badge
+                      variant="outline"
+                      className="border-green-500 text-green-600"
+                    >
+                      Online
+                    </Badge>
+                  )
+                  : (
+                    <Badge
+                      variant="outline"
+                      className="border-orange-500 text-orange-600"
+                    >
+                      Offline
+                    </Badge>
+                  )}
               </div>
             </div>
           </div>
@@ -136,7 +160,9 @@ const BotDashboard = () => {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total Users</p>
-              <p className="font-semibold text-2xl">{loading ? '...' : stats.totalUsers.toLocaleString()}</p>
+              <p className="font-semibold text-2xl">
+                {loading ? "..." : stats.totalUsers.toLocaleString()}
+              </p>
             </div>
           </div>
         </Card>
@@ -148,7 +174,9 @@ const BotDashboard = () => {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">VIP Members</p>
-              <p className="font-semibold text-2xl">{loading ? '...' : stats.vipMembers.toLocaleString()}</p>
+              <p className="font-semibold text-2xl">
+                {loading ? "..." : stats.vipMembers.toLocaleString()}
+              </p>
             </div>
           </div>
         </Card>
@@ -160,7 +188,9 @@ const BotDashboard = () => {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Revenue</p>
-              <p className="font-semibold text-2xl">${loading ? '...' : stats.totalRevenue.toLocaleString()}</p>
+              <p className="font-semibold text-2xl">
+                ${loading ? "..." : stats.totalRevenue.toLocaleString()}
+              </p>
             </div>
           </div>
         </Card>
@@ -168,26 +198,29 @@ const BotDashboard = () => {
 
       {/* Main Menu */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card 
+        <Card
           className="p-8 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
-          onClick={() => setCurrentView('packages')}
+          onClick={() => setCurrentView("packages")}
         >
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500/10 rounded-2xl group-hover:bg-blue-500/20 transition-colors">
               <Package className="w-8 h-8 text-blue-500" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold mb-2">Subscription Packages</h3>
+              <h3 className="text-xl font-semibold mb-2">
+                Subscription Packages
+              </h3>
               <p className="text-muted-foreground">
-                Manage VIP subscription plans, pricing, and features for your users
+                Manage VIP subscription plans, pricing, and features for your
+                users
               </p>
             </div>
           </div>
         </Card>
 
-        <Card 
+        <Card
           className="p-8 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
-          onClick={() => setCurrentView('support')}
+          onClick={() => setCurrentView("support")}
         >
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-2xl group-hover:bg-green-500/20 transition-colors">
@@ -202,9 +235,9 @@ const BotDashboard = () => {
           </div>
         </Card>
 
-        <Card 
+        <Card
           className="p-8 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
-          onClick={() => setCurrentView('config')}
+          onClick={() => setCurrentView("config")}
         >
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600/10 rounded-2xl group-hover:bg-blue-600/20 transition-colors">
@@ -219,16 +252,18 @@ const BotDashboard = () => {
           </div>
         </Card>
 
-        <Card 
+        <Card
           className="p-8 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
-          onClick={() => setCurrentView('analytics')}
+          onClick={() => setCurrentView("analytics")}
         >
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-500/10 rounded-2xl group-hover:bg-purple-500/20 transition-colors">
               <BarChart3 className="w-8 h-8 text-purple-500" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold mb-2">Analytics & Reports</h3>
+              <h3 className="text-xl font-semibold mb-2">
+                Analytics & Reports
+              </h3>
               <p className="text-muted-foreground">
                 View detailed statistics, user engagement, and revenue reports
               </p>
@@ -236,9 +271,9 @@ const BotDashboard = () => {
           </div>
         </Card>
 
-        <Card 
+        <Card
           className="p-8 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
-          onClick={() => setCurrentView('promos')}
+          onClick={() => setCurrentView("promos")}
         >
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-500/10 rounded-2xl group-hover:bg-orange-500/20 transition-colors">
@@ -272,15 +307,30 @@ const BotDashboard = () => {
       <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
         <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => window.open('/admin', '_blank')}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => window.open("/admin", "_blank")}
+          >
             <FileText className="w-4 h-4" />
             View Admin Panel
           </Button>
-          <Button variant="outline" size="sm" className="gap-2" onClick={checkBotStatus}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={checkBotStatus}
+          >
             <Shield className="w-4 h-4" />
             Check Bot Status
           </Button>
-          <Button variant="outline" size="sm" className="gap-2" onClick={fetchBotStats}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={fetchBotStats}
+          >
             <Activity className="w-4 h-4" />
             Refresh Stats
           </Button>
@@ -298,15 +348,21 @@ const BotDashboard = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold">Bot Configuration</h2>
-          <p className="text-muted-foreground">Configure your bot settings and behavior</p>
+          <p className="text-muted-foreground">
+            Configure your bot settings and behavior
+          </p>
         </div>
-        <Button variant="outline" onClick={() => setCurrentView('welcome')}>
+        <Button variant="outline" onClick={() => setCurrentView("welcome")}>
           Back to Dashboard
         </Button>
       </div>
       <div className="text-center p-8">
-        <p className="text-muted-foreground">Bot settings configuration will be available here.</p>
-        <p className="text-sm text-muted-foreground mt-2">Please use the Admin dashboard for full settings management.</p>
+        <p className="text-muted-foreground">
+          Bot settings configuration will be available here.
+        </p>
+        <p className="text-sm text-muted-foreground mt-2">
+          Please use the Admin dashboard for full settings management.
+        </p>
       </div>
     </div>
   );
@@ -316,21 +372,46 @@ const BotDashboard = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold">Subscription Packages</h2>
-          <p className="text-muted-foreground">Manage your VIP subscription plans</p>
+          <p className="text-muted-foreground">
+            Manage your VIP subscription plans
+          </p>
         </div>
-        <Button variant="outline" onClick={() => setCurrentView('welcome')}>
+        <Button variant="outline" onClick={() => setCurrentView("welcome")}>
           Back to Dashboard
         </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { name: "1 Month VIP", price: "$9.99", duration: "1 month", popular: false },
-          { name: "3 Month VIP", price: "$24.99", duration: "3 months", popular: true },
-          { name: "6 Month VIP", price: "$44.99", duration: "6 months", popular: false },
-          { name: "Lifetime VIP", price: "$99.99", duration: "Lifetime", popular: false },
+          {
+            name: "1 Month VIP",
+            price: "$9.99",
+            duration: "1 month",
+            popular: false,
+          },
+          {
+            name: "3 Month VIP",
+            price: "$24.99",
+            duration: "3 months",
+            popular: true,
+          },
+          {
+            name: "6 Month VIP",
+            price: "$44.99",
+            duration: "6 months",
+            popular: false,
+          },
+          {
+            name: "Lifetime VIP",
+            price: "$99.99",
+            duration: "Lifetime",
+            popular: false,
+          },
         ].map((plan, index) => (
-          <Card key={index} className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg relative">
+          <Card
+            key={index}
+            className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg relative"
+          >
             {plan.popular && (
               <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                 <Badge className="bg-blue-600 text-white">Most Popular</Badge>
@@ -363,9 +444,11 @@ const BotDashboard = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold">Revenue Analytics</h2>
-          <p className="text-muted-foreground">Track revenue performance and package analytics</p>
+          <p className="text-muted-foreground">
+            Track revenue performance and package analytics
+          </p>
         </div>
-        <Button variant="outline" onClick={() => setCurrentView('welcome')}>
+        <Button variant="outline" onClick={() => setCurrentView("welcome")}>
           Back to Dashboard
         </Button>
       </div>
@@ -379,7 +462,7 @@ const BotDashboard = () => {
             <p className="text-xs text-muted-foreground">+12% vs yesterday</p>
           </div>
         </Card>
-        
+
         <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
           <div className="text-center space-y-2">
             <p className="text-sm text-muted-foreground">This Week</p>
@@ -387,7 +470,7 @@ const BotDashboard = () => {
             <p className="text-xs text-muted-foreground">+8% vs last week</p>
           </div>
         </Card>
-        
+
         <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
           <div className="text-center space-y-2">
             <p className="text-sm text-muted-foreground">14 Days</p>
@@ -395,7 +478,7 @@ const BotDashboard = () => {
             <p className="text-xs text-muted-foreground">+15% vs previous</p>
           </div>
         </Card>
-        
+
         <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
           <div className="text-center space-y-2">
             <p className="text-sm text-muted-foreground">This Month</p>
@@ -410,17 +493,46 @@ const BotDashboard = () => {
         <h3 className="text-lg font-semibold mb-4">Package Performance</h3>
         <div className="space-y-4">
           {[
-            { name: "1 Month VIP", sales: 156, revenue: "$1,540", percentage: 32, trend: "+8%" },
-            { name: "3 Month VIP", sales: 89, revenue: "$2,225", percentage: 45, trend: "+15%" },
-            { name: "12 Month VIP", sales: 34, revenue: "$1,632", percentage: 28, trend: "+12%" },
-            { name: "Lifetime VIP", sales: 12, revenue: "$1,199", percentage: 18, trend: "+25%" },
+            {
+              name: "1 Month VIP",
+              sales: 156,
+              revenue: "$1,540",
+              percentage: 32,
+              trend: "+8%",
+            },
+            {
+              name: "3 Month VIP",
+              sales: 89,
+              revenue: "$2,225",
+              percentage: 45,
+              trend: "+15%",
+            },
+            {
+              name: "12 Month VIP",
+              sales: 34,
+              revenue: "$1,632",
+              percentage: 28,
+              trend: "+12%",
+            },
+            {
+              name: "Lifetime VIP",
+              sales: 12,
+              revenue: "$1,199",
+              percentage: 18,
+              trend: "+25%",
+            },
           ].map((pkg, index) => (
-            <div key={index} className="flex items-center justify-between p-4 bg-background/50 rounded-lg">
+            <div
+              key={index}
+              className="flex items-center justify-between p-4 bg-background/50 rounded-lg"
+            >
               <div className="flex items-center gap-4">
                 <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
                 <div>
                   <p className="font-medium">{pkg.name}</p>
-                  <p className="text-sm text-muted-foreground">{pkg.sales} sales</p>
+                  <p className="text-sm text-muted-foreground">
+                    {pkg.sales} sales
+                  </p>
                 </div>
               </div>
               <div className="text-right">
@@ -428,10 +540,11 @@ const BotDashboard = () => {
                 <p className="text-sm text-green-500">{pkg.trend}</p>
               </div>
               <div className="w-24 bg-muted rounded-full h-2">
-                <div 
-                  className="bg-blue-600 h-2 rounded-full" 
+                <div
+                  className="bg-blue-600 h-2 rounded-full"
                   style={{ width: `${pkg.percentage}%` }}
-                ></div>
+                >
+                </div>
               </div>
             </div>
           ))}
@@ -440,9 +553,13 @@ const BotDashboard = () => {
 
       {/* Revenue Chart Placeholder */}
       <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg">
-        <h3 className="text-lg font-semibold mb-4">Revenue Trend (Last 30 Days)</h3>
+        <h3 className="text-lg font-semibold mb-4">
+          Revenue Trend (Last 30 Days)
+        </h3>
         <div className="h-64 bg-background/30 rounded-lg flex items-center justify-center">
-          <p className="text-muted-foreground">Chart visualization would go here</p>
+          <p className="text-muted-foreground">
+            Chart visualization would go here
+          </p>
         </div>
       </Card>
 
@@ -476,9 +593,11 @@ const BotDashboard = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold">Customer Support</h2>
-          <p className="text-muted-foreground">Manage user inquiries and support tickets</p>
+          <p className="text-muted-foreground">
+            Manage user inquiries and support tickets
+          </p>
         </div>
-        <Button variant="outline" onClick={() => setCurrentView('welcome')}>
+        <Button variant="outline" onClick={() => setCurrentView("welcome")}>
           Back to Dashboard
         </Button>
       </div>
@@ -525,32 +644,54 @@ const BotDashboard = () => {
         <h3 className="text-lg font-semibold mb-4">Recent Support Requests</h3>
         <div className="space-y-4">
           {[
-            { user: "John Doe", issue: "Payment not processed", status: "Open", time: "2 min ago" },
-            { user: "Jane Smith", issue: "VIP access expired", status: "Pending", time: "15 min ago" },
-            { user: "Mike Johnson", issue: "Cannot access premium signals", status: "Resolved", time: "1 hour ago" },
+            {
+              user: "John Doe",
+              issue: "Payment not processed",
+              status: "Open",
+              time: "2 min ago",
+            },
+            {
+              user: "Jane Smith",
+              issue: "VIP access expired",
+              status: "Pending",
+              time: "15 min ago",
+            },
+            {
+              user: "Mike Johnson",
+              issue: "Cannot access premium signals",
+              status: "Resolved",
+              time: "1 hour ago",
+            },
           ].map((ticket, index) => (
-            <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+            <div
+              key={index}
+              className="flex items-center justify-between p-4 rounded-lg bg-muted/50"
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                  {ticket.user.split(' ').map(n => n[0]).join('')}
+                  {ticket.user.split(" ").map((n) => n[0]).join("")}
                 </div>
                 <div>
                   <p className="font-medium">{ticket.user}</p>
-                  <p className="text-sm text-muted-foreground">{ticket.issue}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {ticket.issue}
+                  </p>
                 </div>
               </div>
               <div className="text-right">
-                <Badge 
-                  variant="outline" 
-                  className={
-                    ticket.status === 'Open' ? 'border-red-500 text-red-600' :
-                    ticket.status === 'Pending' ? 'border-yellow-500 text-yellow-600' :
-                    'border-green-500 text-green-600'
-                  }
+                <Badge
+                  variant="outline"
+                  className={ticket.status === "Open"
+                    ? "border-red-500 text-red-600"
+                    : ticket.status === "Pending"
+                    ? "border-yellow-500 text-yellow-600"
+                    : "border-green-500 text-green-600"}
                 >
                   {ticket.status}
                 </Badge>
-                <p className="text-sm text-muted-foreground mt-1">{ticket.time}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {ticket.time}
+                </p>
               </div>
             </div>
           ))}
@@ -564,9 +705,11 @@ const BotDashboard = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold">Promo Codes Management</h2>
-          <p className="text-muted-foreground">Create and manage discount codes for your users</p>
+          <p className="text-muted-foreground">
+            Create and manage discount codes for your users
+          </p>
         </div>
-        <Button variant="outline" onClick={() => setCurrentView('welcome')}>
+        <Button variant="outline" onClick={() => setCurrentView("welcome")}>
           Back to Dashboard
         </Button>
       </div>
@@ -579,11 +722,17 @@ const BotDashboard = () => {
               <Gift className="w-6 h-6 text-green-500" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-green-600">🚀 VIP Bot Launch Special!</h3>
-              <p className="text-muted-foreground">VIPBOTLAUNCH50 - 50% OFF Lifetime Access</p>
+              <h3 className="text-xl font-semibold text-green-600">
+                🚀 VIP Bot Launch Special!
+              </h3>
+              <p className="text-muted-foreground">
+                VIPBOTLAUNCH50 - 50% OFF Lifetime Access
+              </p>
               <div className="flex items-center gap-4 mt-2">
                 <Badge className="bg-green-500 text-white">ACTIVE</Badge>
-                <span className="text-sm text-muted-foreground">Valid for 30 days • 0/100 uses</span>
+                <span className="text-sm text-muted-foreground">
+                  Valid for 30 days • 0/100 uses
+                </span>
               </div>
             </div>
           </div>
@@ -607,38 +756,41 @@ const BotDashboard = () => {
             Create New Promo
           </Button>
         </div>
-        
+
         <div className="space-y-4">
           {[
-            { 
-              code: "VIPBOTLAUNCH50", 
-              description: "VIP Bot Launch - 50% OFF Lifetime", 
-              discount: "50%", 
+            {
+              code: "VIPBOTLAUNCH50",
+              description: "VIP Bot Launch - 50% OFF Lifetime",
+              discount: "50%",
               type: "Percentage",
               uses: "0/100",
               status: "Active",
-              expires: "30 days"
+              expires: "30 days",
             },
-            { 
-              code: "WELCOME20", 
-              description: "Welcome discount for new users", 
-              discount: "20%", 
+            {
+              code: "WELCOME20",
+              description: "Welcome discount for new users",
+              discount: "20%",
               type: "Percentage",
               uses: "45/500",
               status: "Disabled",
-              expires: "60 days"
+              expires: "60 days",
             },
-            { 
-              code: "SUMMER25", 
-              description: "Summer special offer", 
-              discount: "$25", 
+            {
+              code: "SUMMER25",
+              description: "Summer special offer",
+              discount: "$25",
               type: "Fixed",
               uses: "123/200",
               status: "Disabled",
-              expires: "Expired"
-            }
+              expires: "Expired",
+            },
           ].map((promo, index) => (
-            <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+            <div
+              key={index}
+              className="flex items-center justify-between p-4 rounded-lg bg-muted/50"
+            >
               <div className="flex items-center gap-4">
                 <div className="p-2 bg-orange-500/10 rounded-lg">
                   <Gift className="w-5 h-5 text-orange-500" />
@@ -646,18 +798,20 @@ const BotDashboard = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="font-mono font-semibold">{promo.code}</p>
-                    <Badge 
-                      variant="outline" 
-                      className={
-                        promo.status === 'Active' ? 'border-green-500 text-green-600' :
-                        promo.status === 'Disabled' ? 'border-orange-500 text-orange-600' :
-                        'border-red-500 text-red-600'
-                      }
+                    <Badge
+                      variant="outline"
+                      className={promo.status === "Active"
+                        ? "border-green-500 text-green-600"
+                        : promo.status === "Disabled"
+                        ? "border-orange-500 text-orange-600"
+                        : "border-red-500 text-red-600"}
                     >
                       {promo.status}
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">{promo.description}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {promo.description}
+                  </p>
                   <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
                     <span>{promo.discount} {promo.type}</span>
                     <span>Uses: {promo.uses}</span>
@@ -667,12 +821,16 @@ const BotDashboard = () => {
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm">
-                  {promo.status === 'Active' ? 'Disable' : 'Enable'}
+                  {promo.status === "Active" ? "Disable" : "Enable"}
                 </Button>
                 <Button variant="outline" size="sm">
                   Edit
                 </Button>
-                <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700"
+                >
                   Delete
                 </Button>
               </div>
@@ -705,12 +863,12 @@ const BotDashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-accent/10 p-6">
       <div className="max-w-7xl mx-auto">
-        {currentView === 'welcome' && renderWelcomeScreen()}
-        {currentView === 'config' && renderConfigScreen()}
-        {currentView === 'packages' && renderPackagesScreen()}
-        {currentView === 'support' && renderSupportScreen()}
-        {currentView === 'analytics' && renderAnalyticsScreen()}
-        {currentView === 'promos' && renderPromosScreen()}
+        {currentView === "welcome" && renderWelcomeScreen()}
+        {currentView === "config" && renderConfigScreen()}
+        {currentView === "packages" && renderPackagesScreen()}
+        {currentView === "support" && renderSupportScreen()}
+        {currentView === "analytics" && renderAnalyticsScreen()}
+        {currentView === "promos" && renderPromosScreen()}
       </div>
     </div>
   );

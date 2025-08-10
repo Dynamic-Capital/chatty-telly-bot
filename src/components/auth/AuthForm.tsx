@@ -1,11 +1,18 @@
-import { useState } from 'react';
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export function AuthForm() {
@@ -14,17 +21,17 @@ export function AuthForm() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    firstName: '',
-    lastName: '',
-    confirmPassword: ''
+    email: "",
+    password: "",
+    firstName: "",
+    lastName: "",
+    confirmPassword: "",
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     }));
     setError(null);
   };
@@ -35,23 +42,27 @@ export function AuthForm() {
     setError(null);
 
     if (!formData.email || !formData.password) {
-      setError('Please fill in all fields');
+      setError("Please fill in all fields");
       setLoading(false);
       return;
     }
 
     const { error } = await signIn(formData.email, formData.password);
-    
+
     if (error) {
-      if (error.message.includes('Invalid login credentials')) {
-        setError('Invalid email or password. Please check your credentials and try again.');
-      } else if (error.message.includes('Email not confirmed')) {
-        setError('Please check your email and click the confirmation link before signing in.');
+      if (error.message.includes("Invalid login credentials")) {
+        setError(
+          "Invalid email or password. Please check your credentials and try again.",
+        );
+      } else if (error.message.includes("Email not confirmed")) {
+        setError(
+          "Please check your email and click the confirmation link before signing in.",
+        );
       } else {
         setError(error.message);
       }
     }
-    
+
     setLoading(false);
   };
 
@@ -61,42 +72,46 @@ export function AuthForm() {
     setError(null);
 
     if (!formData.email || !formData.password || !formData.firstName) {
-      setError('Please fill in all required fields');
+      setError("Please fill in all required fields");
       setLoading(false);
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError("Passwords do not match");
       setLoading(false);
       return;
     }
 
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long');
+      setError("Password must be at least 6 characters long");
       setLoading(false);
       return;
     }
 
     const { error } = await signUp(
-      formData.email, 
+      formData.email,
       formData.password,
       formData.firstName,
-      formData.lastName
+      formData.lastName,
     );
-    
+
     if (error) {
-      if (error.message.includes('User already registered')) {
-        setError('An account with this email already exists. Please sign in instead.');
+      if (error.message.includes("User already registered")) {
+        setError(
+          "An account with this email already exists. Please sign in instead.",
+        );
       } else {
         setError(error.message);
       }
     } else {
       setError(null);
       // Show success message
-      alert('Account created successfully! Please check your email for a confirmation link.');
+      alert(
+        "Account created successfully! Please check your email for a confirmation link.",
+      );
     }
-    
+
     setLoading(false);
   };
 
@@ -104,7 +119,9 @@ export function AuthForm() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Dynamic Capital VIP</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">
+            Dynamic Capital VIP
+          </CardTitle>
           <CardDescription className="text-center">
             Access your trading dashboard and manage your VIP membership
           </CardDescription>
@@ -151,11 +168,9 @@ export function AuthForm() {
                       className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
                     >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
+                      {showPassword
+                        ? <EyeOff className="h-4 w-4" />
+                        : <Eye className="h-4 w-4" />}
                     </Button>
                   </div>
                 </div>
@@ -166,8 +181,8 @@ export function AuthForm() {
                   </Alert>
                 )}
 
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full"
                   disabled={loading}
                 >
@@ -237,11 +252,9 @@ export function AuthForm() {
                       className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
                     >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
+                      {showPassword
+                        ? <EyeOff className="h-4 w-4" />
+                        : <Eye className="h-4 w-4" />}
                     </Button>
                   </div>
                 </div>
@@ -265,8 +278,8 @@ export function AuthForm() {
                   </Alert>
                 )}
 
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full"
                   disabled={loading}
                 >
@@ -280,7 +293,8 @@ export function AuthForm() {
 
         <CardFooter className="text-center">
           <p className="text-sm text-muted-foreground">
-            By creating an account, you agree to our terms of service and privacy policy.
+            By creating an account, you agree to our terms of service and
+            privacy policy.
           </p>
         </CardFooter>
       </Card>

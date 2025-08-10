@@ -1,16 +1,17 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -21,19 +22,20 @@ serve(async (req) => {
 
     if (test) {
       return new Response(
-        JSON.stringify({ success: true, message: 'trade-helper OK' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true, message: "trade-helper OK" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     if (!instrument) {
-      return new Response(JSON.stringify({ error: 'Instrument is required' }), {
+      return new Response(JSON.stringify({ error: "Instrument is required" }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const systemPrompt = `You are a professional trading analyst providing educational market analysis for Dynamic Capital.
+    const systemPrompt =
+      `You are a professional trading analyst providing educational market analysis for Dynamic Capital.
 
 CRITICAL DISCLAIMERS:
 - This is EDUCATIONAL content only, NOT financial advice
@@ -65,7 +67,8 @@ FORMAT REQUIREMENTS:
 
 Always include: "⚠️ This is educational analysis only. Always use proper risk management and consider your financial situation before trading."`;
 
-    const userPrompt = `Provide an educational trading analysis for ${instrument.toUpperCase()}. 
+    const userPrompt =
+      `Provide an educational trading analysis for ${instrument.toUpperCase()}. 
     
 Command context: ${command}
     
@@ -78,17 +81,17 @@ Please analyze:
 
 Remember to keep this educational and include proper risk disclaimers.`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
+        "Authorization": `Bearer ${openAIApiKey}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: "gpt-4o-mini",
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
         ],
         max_tokens: 600,
         temperature: 0.6,
@@ -96,24 +99,27 @@ Remember to keep this educational and include proper risk disclaimers.`;
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
-      throw new Error(data.error?.message || 'AI service error');
+      throw new Error(data.error?.message || "AI service error");
     }
 
     const analysis = data.choices[0].message.content;
 
     return new Response(JSON.stringify({ analysis }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error('Error in trade-helper function:', error);
-    return new Response(JSON.stringify({ 
-      error: 'Failed to get trading analysis',
-      details: error.message 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error("Error in trade-helper function:", error);
+    return new Response(
+      JSON.stringify({
+        error: "Failed to get trading analysis",
+        details: error.message,
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });

@@ -1,19 +1,38 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { Plus, Search, Users, Package, Loader2 } from 'lucide-react';
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Loader2, Package, Plus, Search, Users } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -65,38 +84,41 @@ export function UserManagement() {
   const [assignments, setAssignments] = useState<PackageAssignment[]>([]);
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isAssignPackageOpen, setIsAssignPackageOpen] = useState(false);
 
   const [newUser, setNewUser] = useState({
-    telegram_id: '',
-    username: '',
-    first_name: '',
-    last_name: '',
-    email: '',
-    role: 'user'
+    telegram_id: "",
+    username: "",
+    first_name: "",
+    last_name: "",
+    email: "",
+    role: "user",
   });
 
   const [packageAssignment, setPackageAssignment] = useState({
-    user_id: '',
-    package_id: '',
-    expires_at: '',
-    notes: ''
+    user_id: "",
+    package_id: "",
+    expires_at: "",
+    notes: "",
   });
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [usersResponse, packagesResponse, paymentsResponse] = await Promise.all([
-        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-        supabase.from('subscription_plans').select('*').order('name'),
-        supabase.from('user_subscriptions')
-          .select('*, subscription_plans(*)')
-          .eq('payment_status', 'pending')
-          .not('receipt_telegram_file_id', 'is', null)
-          .order('created_at', { ascending: false })
-      ]);
+      const [usersResponse, packagesResponse, paymentsResponse] = await Promise
+        .all([
+          supabase.from("profiles").select("*").order("created_at", {
+            ascending: false,
+          }),
+          supabase.from("subscription_plans").select("*").order("name"),
+          supabase.from("user_subscriptions")
+            .select("*, subscription_plans(*)")
+            .eq("payment_status", "pending")
+            .not("receipt_telegram_file_id", "is", null)
+            .order("created_at", { ascending: false }),
+        ]);
 
       if (usersResponse.error) throw usersResponse.error;
       if (packagesResponse.error) throw packagesResponse.error;
@@ -104,19 +126,19 @@ export function UserManagement() {
       setUsers(usersResponse.data || []);
       setPackages(packagesResponse.data || []);
       setPendingPayments(paymentsResponse.data || []);
-      
+
       // Load assignments separately to handle the complex join
       const assignmentsResponse = await supabase
-        .from('user_package_assignments')
-        .select('*')
-        .eq('is_active', true)
-        .order('assigned_at', { ascending: false });
-        
+        .from("user_package_assignments")
+        .select("*")
+        .eq("is_active", true)
+        .order("assigned_at", { ascending: false });
+
       if (!assignmentsResponse.error) {
         setAssignments((assignmentsResponse.data as PackageAssignment[]) || []);
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error("Error loading data:", error);
       toast({
         title: "Error",
         description: "Failed to load user data",
@@ -147,21 +169,22 @@ export function UserManagement() {
       // For now, just show a message that manual user creation will be handled by admins
       toast({
         title: "Info",
-        description: "Manual user creation feature will be implemented. Users should sign up through the auth system.",
+        description:
+          "Manual user creation feature will be implemented. Users should sign up through the auth system.",
         variant: "default",
       });
 
       setNewUser({
-        telegram_id: '',
-        username: '',
-        first_name: '',
-        last_name: '',
-        email: '',
-        role: 'user'
+        telegram_id: "",
+        username: "",
+        first_name: "",
+        last_name: "",
+        email: "",
+        role: "user",
       });
       setIsAddUserOpen(false);
     } catch (error) {
-      console.error('Error adding user:', error);
+      console.error("Error adding user:", error);
       toast({
         title: "Error",
         description: "Failed to add user",
@@ -182,14 +205,14 @@ export function UserManagement() {
       }
 
       const { error } = await supabase
-        .from('user_package_assignments')
+        .from("user_package_assignments")
         .insert({
           user_id: packageAssignment.user_id,
           package_id: packageAssignment.package_id,
           expires_at: packageAssignment.expires_at || null,
           notes: packageAssignment.notes || null,
           is_active: true,
-          telegram_added: false
+          telegram_added: false,
         });
 
       if (error) throw error;
@@ -200,15 +223,15 @@ export function UserManagement() {
       });
 
       setPackageAssignment({
-        user_id: '',
-        package_id: '',
-        expires_at: '',
-        notes: ''
+        user_id: "",
+        package_id: "",
+        expires_at: "",
+        notes: "",
       });
       setIsAssignPackageOpen(false);
       loadData();
     } catch (error) {
-      console.error('Error assigning package:', error);
+      console.error("Error assigning package:", error);
       toast({
         title: "Error",
         description: "Failed to assign package",
@@ -220,20 +243,22 @@ export function UserManagement() {
   const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({ is_active: !currentStatus })
-        .eq('id', userId);
+        .eq("id", userId);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: `User ${!currentStatus ? 'activated' : 'deactivated'} successfully`,
+        description: `User ${
+          !currentStatus ? "activated" : "deactivated"
+        } successfully`,
       });
 
       loadData();
     } catch (error) {
-      console.error('Error updating user status:', error);
+      console.error("Error updating user status:", error);
       toast({
         title: "Error",
         description: "Failed to update user status",
@@ -245,9 +270,9 @@ export function UserManagement() {
   const revokePackage = async (assignmentId: string) => {
     try {
       const { error } = await supabase
-        .from('user_package_assignments')
+        .from("user_package_assignments")
         .update({ is_active: false })
-        .eq('id', assignmentId);
+        .eq("id", assignmentId);
 
       if (error) throw error;
 
@@ -258,7 +283,7 @@ export function UserManagement() {
 
       loadData();
     } catch (error) {
-      console.error('Error revoking package:', error);
+      console.error("Error revoking package:", error);
       toast({
         title: "Error",
         description: "Failed to revoke package access",
@@ -267,28 +292,35 @@ export function UserManagement() {
     }
   };
 
-  const handlePaymentApproval = async (subscriptionId: string, approve: boolean) => {
+  const handlePaymentApproval = async (
+    subscriptionId: string,
+    approve: boolean,
+  ) => {
     try {
       const { error } = await supabase
-        .from('user_subscriptions')
+        .from("user_subscriptions")
         .update({
-          payment_status: approve ? 'approved' : 'rejected',
+          payment_status: approve ? "approved" : "rejected",
           is_active: approve,
           subscription_start_date: approve ? new Date().toISOString() : null,
-          subscription_end_date: approve ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null
+          subscription_end_date: approve
+            ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+            : null,
         })
-        .eq('id', subscriptionId);
+        .eq("id", subscriptionId);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: `Payment ${approve ? 'approved' : 'rejected'} successfully`,
+        description: `Payment ${
+          approve ? "approved" : "rejected"
+        } successfully`,
       });
 
       loadData();
     } catch (error) {
-      console.error('Error updating payment status:', error);
+      console.error("Error updating payment status:", error);
       toast({
         title: "Error",
         description: "Failed to update payment status",
@@ -307,7 +339,7 @@ export function UserManagement() {
     );
   }
 
-  const filteredUsers = users.filter(user =>
+  const filteredUsers = users.filter((user) =>
     user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -338,7 +370,11 @@ export function UserManagement() {
                     <Input
                       id="first_name"
                       value={newUser.first_name}
-                      onChange={(e) => setNewUser(prev => ({ ...prev, first_name: e.target.value }))}
+                      onChange={(e) =>
+                        setNewUser((prev) => ({
+                          ...prev,
+                          first_name: e.target.value,
+                        }))}
                       placeholder="John"
                     />
                   </div>
@@ -347,7 +383,11 @@ export function UserManagement() {
                     <Input
                       id="last_name"
                       value={newUser.last_name}
-                      onChange={(e) => setNewUser(prev => ({ ...prev, last_name: e.target.value }))}
+                      onChange={(e) =>
+                        setNewUser((prev) => ({
+                          ...prev,
+                          last_name: e.target.value,
+                        }))}
                       placeholder="Doe"
                     />
                   </div>
@@ -358,7 +398,11 @@ export function UserManagement() {
                     id="email"
                     type="email"
                     value={newUser.email}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))}
                     placeholder="john@example.com"
                   />
                 </div>
@@ -367,7 +411,11 @@ export function UserManagement() {
                   <Input
                     id="telegram_id"
                     value={newUser.telegram_id}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, telegram_id: e.target.value }))}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({
+                        ...prev,
+                        telegram_id: e.target.value,
+                      }))}
                     placeholder="123456789"
                   />
                 </div>
@@ -376,13 +424,21 @@ export function UserManagement() {
                   <Input
                     id="username"
                     value={newUser.username}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, username: e.target.value }))}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({
+                        ...prev,
+                        username: e.target.value,
+                      }))}
                     placeholder="@johndoe"
                   />
                 </div>
                 <div>
                   <Label htmlFor="role">Role</Label>
-                  <Select value={newUser.role} onValueChange={(value) => setNewUser(prev => ({ ...prev, role: value }))}>
+                  <Select
+                    value={newUser.role}
+                    onValueChange={(value) =>
+                      setNewUser((prev) => ({ ...prev, role: value }))}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -400,7 +456,10 @@ export function UserManagement() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={isAssignPackageOpen} onOpenChange={setIsAssignPackageOpen}>
+          <Dialog
+            open={isAssignPackageOpen}
+            onOpenChange={setIsAssignPackageOpen}
+          >
             <DialogTrigger asChild>
               <Button variant="outline">
                 <Package className="mr-2 h-4 w-4" />
@@ -414,7 +473,14 @@ export function UserManagement() {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="user_select">Select User</Label>
-                  <Select value={packageAssignment.user_id} onValueChange={(value) => setPackageAssignment(prev => ({ ...prev, user_id: value }))}>
+                  <Select
+                    value={packageAssignment.user_id}
+                    onValueChange={(value) =>
+                      setPackageAssignment((prev) => ({
+                        ...prev,
+                        user_id: value,
+                      }))}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Choose a user" />
                     </SelectTrigger>
@@ -429,14 +495,22 @@ export function UserManagement() {
                 </div>
                 <div>
                   <Label htmlFor="package_select">Select Package</Label>
-                  <Select value={packageAssignment.package_id} onValueChange={(value) => setPackageAssignment(prev => ({ ...prev, package_id: value }))}>
+                  <Select
+                    value={packageAssignment.package_id}
+                    onValueChange={(value) =>
+                      setPackageAssignment((prev) => ({
+                        ...prev,
+                        package_id: value,
+                      }))}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Choose a package" />
                     </SelectTrigger>
                     <SelectContent>
                       {packages.map((pkg) => (
                         <SelectItem key={pkg.id} value={pkg.id}>
-                          {pkg.name} - ${pkg.price} ({pkg.duration_months} months)
+                          {pkg.name} - ${pkg.price} ({pkg.duration_months}{" "}
+                          months)
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -448,7 +522,11 @@ export function UserManagement() {
                     id="expires_at"
                     type="datetime-local"
                     value={packageAssignment.expires_at}
-                    onChange={(e) => setPackageAssignment(prev => ({ ...prev, expires_at: e.target.value }))}
+                    onChange={(e) =>
+                      setPackageAssignment((prev) => ({
+                        ...prev,
+                        expires_at: e.target.value,
+                      }))}
                   />
                 </div>
                 <div>
@@ -456,7 +534,11 @@ export function UserManagement() {
                   <Textarea
                     id="notes"
                     value={packageAssignment.notes}
-                    onChange={(e) => setPackageAssignment(prev => ({ ...prev, notes: e.target.value }))}
+                    onChange={(e) =>
+                      setPackageAssignment((prev) => ({
+                        ...prev,
+                        notes: e.target.value,
+                      }))}
                     placeholder="Add any notes about this assignment..."
                   />
                 </div>
@@ -491,7 +573,10 @@ export function UserManagement() {
                 <Users className="h-4 w-4" />
                 Users ({filteredUsers.length})
               </TabsTrigger>
-              <TabsTrigger value="assignments" className="flex items-center gap-2">
+              <TabsTrigger
+                value="assignments"
+                className="flex items-center gap-2"
+              >
                 <Package className="h-4 w-4" />
                 Package Assignments ({assignments.length})
               </TabsTrigger>
@@ -502,214 +587,238 @@ export function UserManagement() {
             </TabsList>
 
             <TabsContent value="users">
-              {loading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Telegram</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">
-                              {user.first_name} {user.last_name}
-                            </div>
-                            {user.display_name && (
-                              <div className="text-sm text-muted-foreground">
-                                {user.display_name}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>
-                          <div>
-                            {user.telegram_id && (
-                              <div className="text-sm">{user.telegram_id}</div>
-                            )}
-                            {user.username && (
-                              <div className="text-sm text-muted-foreground">
-                                @{user.username}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={user.role === 'admin' ? 'default' : user.role === 'moderator' ? 'secondary' : 'outline'}>
-                            {user.role}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={user.is_active ? 'default' : 'destructive'}>
-                            {user.is_active ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(user.created_at).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => toggleUserStatus(user.id, user.is_active)}
-                            >
-                              {user.is_active ? 'Deactivate' : 'Activate'}
-                            </Button>
-                          </div>
-                        </TableCell>
+              {loading
+                ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  </div>
+                )
+                : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Telegram</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">
+                                {user.first_name} {user.last_name}
+                              </div>
+                              {user.display_name && (
+                                <div className="text-sm text-muted-foreground">
+                                  {user.display_name}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>
+                            <div>
+                              {user.telegram_id && (
+                                <div className="text-sm">
+                                  {user.telegram_id}
+                                </div>
+                              )}
+                              {user.username && (
+                                <div className="text-sm text-muted-foreground">
+                                  @{user.username}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={user.role === "admin"
+                                ? "default"
+                                : user.role === "moderator"
+                                ? "secondary"
+                                : "outline"}
+                            >
+                              {user.role}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={user.is_active
+                                ? "default"
+                                : "destructive"}
+                            >
+                              {user.is_active ? "Active" : "Inactive"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {new Date(user.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  toggleUserStatus(user.id, user.is_active)}
+                              >
+                                {user.is_active ? "Deactivate" : "Activate"}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
             </TabsContent>
 
             <TabsContent value="assignments">
-              {loading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Assignment ID</TableHead>
-                      <TableHead>User ID</TableHead>
-                      <TableHead>Package ID</TableHead>
-                      <TableHead>Assigned</TableHead>
-                      <TableHead>Expires</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {assignments.map((assignment) => (
-                      <TableRow key={assignment.id}>
-                        <TableCell className="font-mono text-xs">
-                          {assignment.id.substring(0, 8)}...
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {assignment.user_id.substring(0, 8)}...
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {assignment.package_id.substring(0, 8)}...
-                        </TableCell>
-                        <TableCell>
-                          {new Date(assignment.assigned_at).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          {assignment.expires_at 
-                            ? new Date(assignment.expires_at).toLocaleDateString()
-                            : 'Never'
-                          }
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={assignment.is_active ? 'default' : 'destructive'}>
-                            {assignment.is_active ? 'Active' : 'Revoked'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            {assignment.is_active && (
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => revokePackage(assignment.id)}
-                              >
-                                Revoke
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
+              {loading
+                ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  </div>
+                )
+                : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Assignment ID</TableHead>
+                        <TableHead>User ID</TableHead>
+                        <TableHead>Package ID</TableHead>
+                        <TableHead>Assigned</TableHead>
+                        <TableHead>Expires</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+                    </TableHeader>
+                    <TableBody>
+                      {assignments.map((assignment) => (
+                        <TableRow key={assignment.id}>
+                          <TableCell className="font-mono text-xs">
+                            {assignment.id.substring(0, 8)}...
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {assignment.user_id.substring(0, 8)}...
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {assignment.package_id.substring(0, 8)}...
+                          </TableCell>
+                          <TableCell>
+                            {new Date(assignment.assigned_at)
+                              .toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            {assignment.expires_at
+                              ? new Date(assignment.expires_at)
+                                .toLocaleDateString()
+                              : "Never"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={assignment.is_active
+                                ? "default"
+                                : "destructive"}
+                            >
+                              {assignment.is_active ? "Active" : "Revoked"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              {assignment.is_active && (
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => revokePackage(assignment.id)}
+                                >
+                                  Revoke
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
             </TabsContent>
 
             <TabsContent value="payments">
-              {loading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User ID</TableHead>
-                      <TableHead>Package</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Method</TableHead>
-                      <TableHead>Submitted</TableHead>
-                      <TableHead>Receipt</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pendingPayments.map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell className="font-mono text-xs">
-                          {payment.telegram_user_id}
-                        </TableCell>
-                        <TableCell>
-                          {payment.subscription_plans?.name || 'Unknown'}
-                        </TableCell>
-                        <TableCell>
-                          ${payment.subscription_plans?.price || 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {payment.payment_method?.toUpperCase() || 'N/A'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(payment.created_at).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          {payment.receipt_telegram_file_id ? (
-                            <Badge variant="default">✅ Uploaded</Badge>
-                          ) : (
-                            <Badge variant="destructive">❌ Missing</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="default"
-                              onClick={() => handlePaymentApproval(payment.id, true)}
-                            >
-                              ✅ Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handlePaymentApproval(payment.id, false)}
-                            >
-                              ❌ Reject
-                            </Button>
-                          </div>
-                        </TableCell>
+              {loading
+                ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  </div>
+                )
+                : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User ID</TableHead>
+                        <TableHead>Package</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Method</TableHead>
+                        <TableHead>Submitted</TableHead>
+                        <TableHead>Receipt</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+                    </TableHeader>
+                    <TableBody>
+                      {pendingPayments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell className="font-mono text-xs">
+                            {payment.telegram_user_id}
+                          </TableCell>
+                          <TableCell>
+                            {payment.subscription_plans?.name || "Unknown"}
+                          </TableCell>
+                          <TableCell>
+                            ${payment.subscription_plans?.price || "N/A"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {payment.payment_method?.toUpperCase() || "N/A"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {new Date(payment.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            {payment.receipt_telegram_file_id
+                              ? <Badge variant="default">✅ Uploaded</Badge>
+                              : <Badge variant="destructive">❌ Missing</Badge>}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() =>
+                                  handlePaymentApproval(payment.id, true)}
+                              >
+                                ✅ Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() =>
+                                  handlePaymentApproval(payment.id, false)}
+                              >
+                                ❌ Reject
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
             </TabsContent>
           </Tabs>
         </CardContent>

@@ -3,7 +3,9 @@ let registerTest;
 let assertEquals;
 if (typeof Deno !== "undefined") {
   registerTest = Deno.test;
-  ({ assertEquals } = await import("https://deno.land/std@0.224.0/testing/asserts.ts"));
+  ({ assertEquals } = await import(
+    "https://deno.land/std@0.224.0/testing/asserts.ts"
+  ));
 } else {
   const { test } = await import("node:test");
   registerTest = test;
@@ -11,7 +13,7 @@ if (typeof Deno !== "undefined") {
   assertEquals = (a, b, msg) => assert.equal(a, b, msg);
 }
 
-import { getCached, clearCache, cacheStats } from "../src/utils/cache.ts";
+import { cacheStats, clearCache, getCached } from "../src/utils/cache.ts";
 
 const localStorageMock = (() => {
   let store = {};
@@ -33,7 +35,8 @@ const localStorageMock = (() => {
   };
 })();
 
-(globalThis as unknown as { localStorage: typeof localStorageMock }).localStorage = localStorageMock;
+(globalThis as unknown as { localStorage: typeof localStorageMock })
+  .localStorage = localStorageMock;
 
 registerTest("clearCache only removes cached entries", async () => {
   localStorage.setItem("external", "keep");

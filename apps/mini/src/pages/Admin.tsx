@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import GlassRow from '../components/GlassRow';
-import ApproveButton from '../components/ApproveButton';
-import RejectButton from '../components/RejectButton';
-import TopBar from '../components/TopBar';
-import { useApi } from '../hooks/useApi';
+import { useEffect, useState } from "react";
+import GlassRow from "../components/GlassRow";
+import ApproveButton from "../components/ApproveButton";
+import RejectButton from "../components/RejectButton";
+import TopBar from "../components/TopBar";
+import { useApi } from "../hooks/useApi";
 
 interface Receipt {
   id: string;
@@ -24,10 +24,13 @@ export default function Admin() {
       {items.map((r) => (
         <GlassRow
           key={r.id}
-          left={<span className="text-sm">{r.id.slice(0,6)}…</span>}
+          left={<span className="text-sm">{r.id.slice(0, 6)}…</span>}
           right={
             <div className="flex gap-2">
-              <ApproveButton label="Approve" onClick={() => api.approve(r.id)} />
+              <ApproveButton
+                label="Approve"
+                onClick={() => api.approve(r.id)}
+              />
               <RejectButton label="Reject" onClick={() => api.reject(r.id)} />
             </div>
           }

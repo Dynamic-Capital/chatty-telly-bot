@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,15 +11,16 @@ export const RefreshBot = () => {
   const handleRefreshBot = async () => {
     setIsRefreshing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('reset-bot');
-      
+      const { data, error } = await supabase.functions.invoke("reset-bot");
+
       if (error) {
         throw error;
       }
 
       toast({
         title: "Bot Refreshed Successfully",
-        description: data.message || "Bot has been reset and webhook reestablished",
+        description: data.message ||
+          "Bot has been reset and webhook reestablished",
       });
     } catch (error) {
       console.error("Error refreshing bot:", error);
@@ -46,8 +47,8 @@ export const RefreshBot = () => {
           <CardTitle>Bot Refresh</CardTitle>
         </CardHeader>
         <CardContent>
-          <Button 
-            onClick={handleRefreshBot} 
+          <Button
+            onClick={handleRefreshBot}
             disabled={isRefreshing}
             className="w-full"
           >

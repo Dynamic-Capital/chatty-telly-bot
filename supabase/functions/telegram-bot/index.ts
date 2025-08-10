@@ -3,8 +3,8 @@ import { requireEnv } from "./helpers/require-env.ts";
 import {
   handleEnvStatus,
   handlePing,
-  handleReviewList,
   handleReplay,
+  handleReviewList,
   handleVersion,
   handleWebhookInfo,
 } from "./admin-handlers.ts";
@@ -265,9 +265,11 @@ export async function serveWebhook(req: Request): Promise<Response> {
     }
 
     const body = await extractTelegramUpdate(req);
-    if (body && typeof body === "object" &&
+    if (
+      body && typeof body === "object" &&
       (body as { test?: string }).test === "ping" &&
-      Object.keys(body).length === 1) {
+      Object.keys(body).length === 1
+    ) {
       return okJSON({ pong: true });
     }
     const update = body as TelegramUpdate | null;

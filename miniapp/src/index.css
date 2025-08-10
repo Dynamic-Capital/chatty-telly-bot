@@ -31,7 +31,11 @@
     --telegram-blue: 197 100% 47%;
     --telegram-light: 197 90% 55%;
     --telegram-dark: 197 100% 35%;
-    --gradient-telegram: linear-gradient(135deg, hsl(var(--telegram-blue)), hsl(var(--telegram-light)));
+    --gradient-telegram: linear-gradient(
+      135deg,
+      hsl(var(--telegram-blue)),
+      hsl(var(--telegram-light))
+    );
     --gradient-card: linear-gradient(135deg, hsl(0 0% 100%), hsl(197 15% 98%));
     --shadow-telegram: 0 10px 30px -10px hsl(var(--telegram-blue) / 0.3);
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -80,8 +84,16 @@
     --telegram-blue: 197 100% 55%;
     --telegram-light: 197 90% 65%;
     --telegram-dark: 197 100% 40%;
-    --gradient-telegram: linear-gradient(135deg, hsl(var(--telegram-blue)), hsl(var(--telegram-light)));
-    --gradient-card: linear-gradient(135deg, hsl(217.2 32.6% 17.5%), hsl(222.2 84% 4.9%));
+    --gradient-telegram: linear-gradient(
+      135deg,
+      hsl(var(--telegram-blue)),
+      hsl(var(--telegram-light))
+    );
+    --gradient-card: linear-gradient(
+      135deg,
+      hsl(217.2 32.6% 17.5%),
+      hsl(222.2 84% 4.9%)
+    );
     --shadow-telegram: 0 10px 30px -10px hsl(var(--telegram-blue) / 0.4);
 
     --sidebar-background: 240 5.9% 10%;
@@ -102,10 +114,22 @@
 
 /* Use existing tokens from :root and .dark (keep as-is if present) */
 /* Add color-scheme hints */
-:root { color-scheme: light; }
-.dark { color-scheme: dark; }
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
 
-html, body { height: 100%; }
-body { @apply font-sans antialiased; background: var(--background); color: var(--foreground); }
-*, *::before, *::after { border-color: var(--border); }
+html, body {
+  height: 100%;
+}
+body {
+  @apply font-sans antialiased;
+  background: var(--background);
+  color: var(--foreground);
+}
+*, *::before, *::after {
+  border-color: var(--border);
+}
 /* <<< DC BLOCK: palette-base (end) */

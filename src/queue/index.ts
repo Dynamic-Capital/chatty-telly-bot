@@ -1,7 +1,7 @@
 // Simple in-process job queue with optional persistence
 // Jobs are processed FIFO with exponential backoff retry logic.
 
-export type BackoffStrategy = 'exp';
+export type BackoffStrategy = "exp";
 
 export interface EnqueueOptions {
   maxAttempts?: number;
@@ -13,7 +13,7 @@ export interface JobRecord {
   id: number;
   type: string;
   payload: unknown;
-  status: 'pending' | 'completed' | 'failed';
+  status: "pending" | "completed" | "failed";
   attempts: number;
   maxAttempts: number;
   nextRunAt: number;
@@ -50,7 +50,7 @@ async function persist(job: JobRecord) {
   if (!supabaseClient) return;
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabaseClient as any).from('jobs').upsert({
+    await (supabaseClient as any).from("jobs").upsert({
       id: job.id,
       type: job.type,
       payload: job.payload,
@@ -68,12 +68,16 @@ export function setBackoffBase(ms: number) {
   backoffBaseMs = ms;
 }
 
-export function enqueue(type: string, payload: unknown, opts: EnqueueOptions = {}) {
+export function enqueue(
+  type: string,
+  payload: unknown,
+  opts: EnqueueOptions = {},
+) {
   const job: JobRecord = {
     id: jobIdCounter++,
     type,
     payload,
-    status: 'pending',
+    status: "pending",
     attempts: 0,
     maxAttempts: opts.maxAttempts ?? 5,
     nextRunAt: Date.now() + (opts.delayMs ?? 0),
@@ -97,14 +101,14 @@ async function sleep(ms: number) {
 async function processJob(job: JobRecord) {
   const processor = processors[job.type];
   if (!processor) {
-    job.status = 'failed';
-    job.lastError = 'no processor';
+    job.status = "failed";
+    job.lastError = "no processor";
     await persist(job);
     return;
   }
   try {
     await processor(job.payload, job);
-    job.status = 'completed';
+    job.status = "completed";
     await persist(job);
   } catch (err) {
     job.attempts += 1;
@@ -114,7 +118,7 @@ async function processJob(job: JobRecord) {
       queue.push(job.id);
       sortQueue();
     } else {
-      job.status = 'failed';
+      job.status = "failed";
     }
     await persist(job);
   }

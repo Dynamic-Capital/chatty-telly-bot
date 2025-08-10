@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // In-memory fallback map when kv_config table is unavailable
 const memStore = new Map<string, unknown>();
@@ -6,8 +6,14 @@ const memStore = new Map<string, unknown>();
 let supabase: SupabaseClient | null | undefined = undefined;
 async function getClient(): Promise<SupabaseClient | null> {
   if (supabase !== undefined) return supabase;
-  const url = (typeof Deno !== "undefined" ? Deno.env.get("SUPABASE_URL") : process.env.SUPABASE_URL) || "";
-  const key = (typeof Deno !== "undefined" ? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") : process.env.SUPABASE_SERVICE_ROLE_KEY) || "";
+  const url =
+    (typeof Deno !== "undefined"
+      ? Deno.env.get("SUPABASE_URL")
+      : process.env.SUPABASE_URL) || "";
+  const key =
+    (typeof Deno !== "undefined"
+      ? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+      : process.env.SUPABASE_SERVICE_ROLE_KEY) || "";
   if (!url || !key) {
     supabase = null;
     return null;
@@ -25,7 +31,10 @@ async function getConfig<T = unknown>(key: string, def?: T): Promise<T> {
   const client = await getClient();
   if (client) {
     try {
-      const { data, error } = await client.from("kv_config").select("value").eq("key", key).maybeSingle();
+      const { data, error } = await client.from("kv_config").select("value").eq(
+        "key",
+        key,
+      ).maybeSingle();
       if (!error && data && typeof data.value !== "undefined") {
         return data.value;
       }
@@ -40,7 +49,10 @@ async function setConfig(key: string, val: unknown): Promise<void> {
   const client = await getClient();
   if (client) {
     try {
-      const { error } = await client.from("kv_config").upsert({ key, value: val });
+      const { error } = await client.from("kv_config").upsert({
+        key,
+        value: val,
+      });
       if (!error) {
         memStore.set(key, val);
         return;
@@ -80,7 +92,9 @@ async function snapshot(
   return { ts: Date.now(), data: { ...snap.data } };
 }
 
-async function pushSnapshot(label: "DRAFT" | "PUBLISHED" | "ROLLBACK"): Promise<void> {
+async function pushSnapshot(
+  label: "DRAFT" | "PUBLISHED" | "ROLLBACK",
+): Promise<void> {
   const snap = await snapshot("FEATURES");
   await setConfig(`features:${label.toLowerCase()}`, snap);
 }
@@ -90,7 +104,9 @@ async function publish(adminId?: string): Promise<void> {
     "features:draft",
     { ts: Date.now(), data: {} },
   );
-  const current = await getConfig<{ ts: number; data: Record<string, boolean> }>(
+  const current = await getConfig<
+    { ts: number; data: Record<string, boolean> }
+  >(
     "features:published",
     { ts: Date.now(), data: {} },
   );
@@ -114,11 +130,15 @@ async function publish(adminId?: string): Promise<void> {
 }
 
 async function rollback(adminId?: string): Promise<void> {
-  const published = await getConfig<{ ts: number; data: Record<string, boolean> }>(
+  const published = await getConfig<
+    { ts: number; data: Record<string, boolean> }
+  >(
     "features:published",
     { ts: Date.now(), data: {} },
   );
-  const previous = await getConfig<{ ts: number; data: Record<string, boolean> }>(
+  const previous = await getConfig<
+    { ts: number; data: Record<string, boolean> }
+  >(
     "features:rollback",
     { ts: Date.now(), data: {} },
   );
@@ -141,7 +161,9 @@ async function rollback(adminId?: string): Promise<void> {
   }
 }
 
-async function preview(): Promise<{ ts: number; data: Record<string, boolean> }> {
+async function preview(): Promise<
+  { ts: number; data: Record<string, boolean> }
+> {
   return await getConfig<{ ts: number; data: Record<string, boolean> }>(
     "features:draft",
     { ts: Date.now(), data: {} },
@@ -150,13 +172,12 @@ async function preview(): Promise<{ ts: number; data: Record<string, boolean> }>
 
 export {
   getConfig,
-  setConfig,
   getFlag,
+  preview,
+  publish,
+  pushSnapshot,
+  rollback,
+  setConfig,
   setFlag,
   snapshot,
-  pushSnapshot,
-  publish,
-  rollback,
-  preview,
 };
-

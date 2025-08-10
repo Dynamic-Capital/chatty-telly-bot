@@ -1,18 +1,24 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Bot, 
-  Zap, 
-  DollarSign, 
-  GraduationCap, 
-  MessageSquare,
-  TrendingUp,
-  Shield,
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Bot,
   Clock,
+  DollarSign,
+  GraduationCap,
+  MessageSquare,
+  Shield,
+  Star,
+  TrendingUp,
   Users,
-  Star
-} from 'lucide-react';
+  Zap,
+} from "lucide-react";
 
 export const WelcomeMessage = () => {
   return (
@@ -27,8 +33,9 @@ export const WelcomeMessage = () => {
             AI Trading Assistant
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            Your intelligent trading companion powered by cutting-edge AI technology. 
-            Get real-time market analysis, trading signals, and education all in one place.
+            Your intelligent trading companion powered by cutting-edge AI
+            technology. Get real-time market analysis, trading signals, and
+            education all in one place.
           </p>
           <div className="flex flex-wrap justify-center gap-2 mb-8">
             <Badge variant="secondary" className="text-sm px-3 py-1">
@@ -61,7 +68,8 @@ export const WelcomeMessage = () => {
               </div>
               <CardTitle>AI Chat Assistant</CardTitle>
               <CardDescription>
-                Get instant answers to your trading questions from our advanced AI trained on market data
+                Get instant answers to your trading questions from our advanced
+                AI trained on market data
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -81,7 +89,8 @@ export const WelcomeMessage = () => {
               </div>
               <CardTitle>Trading Tools</CardTitle>
               <CardDescription>
-                Advanced tools and real-time data to help you make informed trading decisions
+                Advanced tools and real-time data to help you make informed
+                trading decisions
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -101,7 +110,8 @@ export const WelcomeMessage = () => {
               </div>
               <CardTitle>Education Hub</CardTitle>
               <CardDescription>
-                Comprehensive trading education from beginner basics to advanced strategies
+                Comprehensive trading education from beginner basics to advanced
+                strategies
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -121,7 +131,8 @@ export const WelcomeMessage = () => {
               </div>
               <CardTitle>VIP Subscriptions</CardTitle>
               <CardDescription>
-                Unlock premium features and exclusive content with our VIP membership plans
+                Unlock premium features and exclusive content with our VIP
+                membership plans
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -141,7 +152,8 @@ export const WelcomeMessage = () => {
               </div>
               <CardTitle>Real-time Alerts</CardTitle>
               <CardDescription>
-                Never miss important market movements with our intelligent alert system
+                Never miss important market movements with our intelligent alert
+                system
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -161,7 +173,8 @@ export const WelcomeMessage = () => {
               </div>
               <CardTitle>Community</CardTitle>
               <CardDescription>
-                Join thousands of traders in our active community for discussions and insights
+                Join thousands of traders in our active community for
+                discussions and insights
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -181,12 +194,14 @@ export const WelcomeMessage = () => {
           <p className="text-muted-foreground mb-8">
             Start with our free plan or upgrade to unlock premium features
           </p>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             <Card className="relative">
               <CardHeader>
                 <CardTitle>Free Plan</CardTitle>
-                <div className="text-3xl font-bold">$0<span className="text-sm font-normal">/month</span></div>
+                <div className="text-3xl font-bold">
+                  $0<span className="text-sm font-normal">/month</span>
+                </div>
                 <CardDescription>Perfect for getting started</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -196,17 +211,23 @@ export const WelcomeMessage = () => {
                   <li>✓ Educational content</li>
                   <li>✓ Community access</li>
                 </ul>
-                <Button className="w-full" variant="outline">Get Started</Button>
+                <Button className="w-full" variant="outline">
+                  Get Started
+                </Button>
               </CardContent>
             </Card>
 
             <Card className="relative border-2 border-primary">
               <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
-                <Badge className="bg-primary text-primary-foreground">Most Popular</Badge>
+                <Badge className="bg-primary text-primary-foreground">
+                  Most Popular
+                </Badge>
               </div>
               <CardHeader>
                 <CardTitle>VIP Monthly</CardTitle>
-                <div className="text-3xl font-bold">$49<span className="text-sm font-normal">/month</span></div>
+                <div className="text-3xl font-bold">
+                  $49<span className="text-sm font-normal">/month</span>
+                </div>
                 <CardDescription>Best for active traders</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -224,8 +245,12 @@ export const WelcomeMessage = () => {
             <Card className="relative">
               <CardHeader>
                 <CardTitle>Lifetime VIP</CardTitle>
-                <div className="text-3xl font-bold">$999<span className="text-sm font-normal"> once</span></div>
-                <CardDescription>Best value for serious traders</CardDescription>
+                <div className="text-3xl font-bold">
+                  $999<span className="text-sm font-normal">once</span>
+                </div>
+                <CardDescription>
+                  Best value for serious traders
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <ul className="space-y-2 text-sm">
@@ -235,7 +260,9 @@ export const WelcomeMessage = () => {
                   <li>✓ 1-on-1 consultations</li>
                   <li>✓ Custom strategies</li>
                 </ul>
-                <Button className="w-full" variant="outline">Get Lifetime</Button>
+                <Button className="w-full" variant="outline">
+                  Get Lifetime
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -243,10 +270,12 @@ export const WelcomeMessage = () => {
 
         {/* CTA Section */}
         <div className="text-center bg-gradient-to-r from-primary/10 to-primary/5 rounded-2xl p-12">
-          <h2 className="text-3xl font-bold mb-4">Ready to Start Trading Smarter?</h2>
+          <h2 className="text-3xl font-bold mb-4">
+            Ready to Start Trading Smarter?
+          </h2>
           <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Join thousands of traders who are already using our AI assistant to make better trading decisions. 
-            Start your free trial today!
+            Join thousands of traders who are already using our AI assistant to
+            make better trading decisions. Start your free trial today!
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" className="text-lg px-8">

@@ -4,7 +4,7 @@ export function circuit(maxFails = 5, coolMs = 30_000) {
   return {
     async run<T>(fn: () => Promise<T>) {
       const now = Date.now();
-      if (now < until) throw new Error('circuit_open');
+      if (now < until) throw new Error("circuit_open");
       try {
         const result = await fn();
         fails = 0;
@@ -16,7 +16,7 @@ export function circuit(maxFails = 5, coolMs = 30_000) {
         }
         throw err;
       }
-    }
+    },
   };
 }
 // usage: await breaker.run(() => fetch(...))

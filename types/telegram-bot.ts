@@ -47,7 +47,7 @@ export interface BotContent {
   id: string;
   content_key: string;
   content_value: string;
-  content_type: 'text' | 'html' | 'markdown';
+  content_type: "text" | "html" | "markdown";
   description?: string;
   is_active: boolean;
   created_by?: string;
@@ -60,7 +60,7 @@ export interface BotSettings {
   id: string;
   setting_key: string;
   setting_value: string;
-  setting_type: 'string' | 'number' | 'boolean' | 'json';
+  setting_type: "string" | "number" | "boolean" | "json";
   description?: string;
   is_active: boolean;
   created_at: string;
@@ -75,7 +75,7 @@ export interface PlanChannel {
   id: string;
   plan_id: string;
   channel_name: string;
-  channel_type: 'channel' | 'group';
+  channel_type: "channel" | "group";
   invite_link: string;
   chat_id?: string;
   is_active: boolean;
@@ -100,7 +100,7 @@ export interface UserSubscription {
   telegram_user_id: string;
   plan_id?: string;
   is_active: boolean;
-  payment_status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  payment_status: "pending" | "completed" | "failed" | "cancelled";
   payment_method?: string;
   subscription_start_date?: string;
   subscription_end_date?: string;
@@ -121,7 +121,7 @@ export interface Payment {
   currency: string;
   payment_method: string;
   payment_provider_id?: string;
-  status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  status: "pending" | "completed" | "failed" | "cancelled";
   webhook_data?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -153,7 +153,7 @@ export interface EducationPackage {
   instructor_image_url?: string;
   thumbnail_url?: string;
   video_preview_url?: string;
-  difficulty_level?: 'beginner' | 'intermediate' | 'advanced';
+  difficulty_level?: "beginner" | "intermediate" | "advanced";
   starts_at?: string;
   enrollment_deadline?: string;
   created_at: string;
@@ -169,8 +169,8 @@ export interface EducationEnrollment {
   student_last_name?: string;
   student_email?: string;
   student_phone?: string;
-  enrollment_status: 'pending' | 'active' | 'completed' | 'cancelled';
-  payment_status: 'pending' | 'completed' | 'failed';
+  enrollment_status: "pending" | "active" | "completed" | "cancelled";
+  payment_status: "pending" | "completed" | "failed";
   payment_method?: string;
   payment_amount?: number;
   payment_reference?: string;
@@ -193,7 +193,7 @@ export interface Promotion {
   id: string;
   code: string;
   description?: string;
-  discount_type: 'percentage' | 'fixed';
+  discount_type: "percentage" | "fixed";
   discount_value: number;
   max_uses?: number;
   current_uses: number;
@@ -267,7 +267,7 @@ export interface BroadcastMessage {
   id: string;
   title: string;
   content?: string;
-  media_type?: 'photo' | 'video' | 'document';
+  media_type?: "photo" | "video" | "document";
   media_url?: string;
   media_file_path?: string;
   media_file_id?: string;
@@ -276,7 +276,7 @@ export interface BroadcastMessage {
   target_audience: Record<string, unknown>;
   scheduled_at?: string;
   sent_at?: string;
-  delivery_status: 'draft' | 'scheduled' | 'sending' | 'completed' | 'failed';
+  delivery_status: "draft" | "scheduled" | "sending" | "completed" | "failed";
   total_recipients: number;
   successful_deliveries: number;
   failed_deliveries: number;
@@ -351,7 +351,7 @@ export interface TelegramUser {
 
 export interface TelegramChat {
   id: number;
-  type: 'private' | 'group' | 'supergroup' | 'channel';
+  type: "private" | "group" | "supergroup" | "channel";
   title?: string;
   username?: string;
   first_name?: string;
@@ -462,35 +462,40 @@ export interface BotConfig {
 // Utility Types
 // ============================================
 
-export type DatabaseTable = 
-  | 'bot_users'
-  | 'bot_sessions'
-  | 'bot_content'
-  | 'bot_settings'
-  | 'subscription_plans'
-  | 'user_subscriptions'
-  | 'payments'
-  | 'education_packages'
-  | 'education_enrollments'
-  | 'promotions'
-  | 'promotion_usage'
-  | 'user_interactions'
-  | 'daily_analytics'
-  | 'contact_links'
-  | 'media_files'
-  | 'broadcast_messages'
-  | 'admin_logs';
+export type DatabaseTable =
+  | "bot_users"
+  | "bot_sessions"
+  | "bot_content"
+  | "bot_settings"
+  | "subscription_plans"
+  | "user_subscriptions"
+  | "payments"
+  | "education_packages"
+  | "education_enrollments"
+  | "promotions"
+  | "promotion_usage"
+  | "user_interactions"
+  | "daily_analytics"
+  | "contact_links"
+  | "media_files"
+  | "broadcast_messages"
+  | "admin_logs";
 
-export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'cancelled';
-export type SubscriptionStatus = 'pending' | 'active' | 'expired' | 'cancelled';
-export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'completed' | 'failed';
-export type UserRole = 'user' | 'vip' | 'admin';
-export type ContentType = 'text' | 'html' | 'markdown';
-export type SettingType = 'string' | 'number' | 'boolean' | 'json';
-export type DiscountType = 'percentage' | 'fixed';
-export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
-export type ChatType = 'private' | 'group' | 'supergroup' | 'channel';
-export type MediaType = 'photo' | 'video' | 'document' | 'audio';
+export type PaymentStatus = "pending" | "completed" | "failed" | "cancelled";
+export type SubscriptionStatus = "pending" | "active" | "expired" | "cancelled";
+export type BroadcastStatus =
+  | "draft"
+  | "scheduled"
+  | "sending"
+  | "completed"
+  | "failed";
+export type UserRole = "user" | "vip" | "admin";
+export type ContentType = "text" | "html" | "markdown";
+export type SettingType = "string" | "number" | "boolean" | "json";
+export type DiscountType = "percentage" | "fixed";
+export type DifficultyLevel = "beginner" | "intermediate" | "advanced";
+export type ChatType = "private" | "group" | "supergroup" | "channel";
+export type MediaType = "photo" | "video" | "document" | "audio";
 
 // ============================================
 // Function Parameter Types
@@ -500,7 +505,7 @@ export interface SendMessageParams {
   chatId: number;
   text: string;
   replyMarkup?: TelegramInlineKeyboardMarkup;
-  parseMode?: 'HTML' | 'Markdown' | 'MarkdownV2';
+  parseMode?: "HTML" | "Markdown" | "MarkdownV2";
   disableWebPagePreview?: boolean;
 }
 
@@ -509,7 +514,7 @@ export interface EditMessageParams {
   messageId: number;
   text: string;
   replyMarkup?: TelegramInlineKeyboardMarkup;
-  parseMode?: 'HTML' | 'Markdown' | 'MarkdownV2';
+  parseMode?: "HTML" | "Markdown" | "MarkdownV2";
 }
 
 export interface DeleteMessageParams {
@@ -553,14 +558,14 @@ export interface RateLimitError extends BotError {
 export type MessageHandler = (
   message: TelegramMessage,
   userId: string,
-  chatId: number
+  chatId: number,
 ) => Promise<void>;
 
 export type CallbackHandler = (
   callbackQuery: TelegramCallbackQuery,
   userId: string,
   chatId: number,
-  data: string
+  data: string,
 ) => Promise<void>;
 
 export type AdminHandler = (
@@ -573,14 +578,14 @@ export type AdminHandler = (
 // Database Function Types
 // ============================================
 
-export type DatabaseFunction = 
-  | 'get_bot_content_batch'
-  | 'get_bot_settings_batch'
-  | 'get_user_complete_data'
-  | 'get_dashboard_stats_fast'
-  | 'is_user_admin'
-  | 'batch_insert_user_interactions'
-  | 'cleanup_old_media_files';
+export type DatabaseFunction =
+  | "get_bot_content_batch"
+  | "get_bot_settings_batch"
+  | "get_user_complete_data"
+  | "get_dashboard_stats_fast"
+  | "is_user_admin"
+  | "batch_insert_user_interactions"
+  | "cleanup_old_media_files";
 
 // ============================================
 // Export All Types
@@ -592,50 +597,50 @@ export default {
   BotSession,
   BotContent,
   BotSettings,
-  
+
   // Subscription interfaces
   SubscriptionPlan,
   UserSubscription,
   Payment,
-  
+
   // Education interfaces
   EducationPackage,
   EducationEnrollment,
-  
+
   // Analytics interfaces
   Promotion,
   PromotionUsage,
   UserInteraction,
   DailyAnalytics,
-  
+
   // Media interfaces
   ContactLink,
   MediaFile,
   BroadcastMessage,
-  
+
   // Admin interfaces
   AdminLog,
   RateLimitEntry,
   SecurityStats,
-  
+
   // Telegram interfaces
   TelegramUpdate,
   TelegramMessage,
   TelegramUser,
   TelegramChat,
   TelegramCallbackQuery,
-  
+
   // Response interfaces
   ApiResponse,
   BotStats,
   UserCompleteData,
-  
+
   // Configuration
   SecurityConfig,
   BotConfig,
-  
+
   // Function types
   MessageHandler,
   CallbackHandler,
-  AdminHandler
+  AdminHandler,
 };

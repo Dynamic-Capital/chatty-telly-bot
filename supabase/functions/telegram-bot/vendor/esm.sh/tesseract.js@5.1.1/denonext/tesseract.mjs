@@ -1,6 +1,704 @@
 /* esm.sh - tesseract.js@5.1.1 */
 import __Process$ from "node:process";
 import { Buffer as __Buffer$ } from "node:buffer";
-import*as __0$ from"/regenerator-runtime@^0.13.3/runtime?target=denonext";import*as __1$ from"/is-electron@^2.2.2?target=denonext";import*as __2$ from"node:path";import*as __3$ from"node:util";import*as __4$ from"node:fs";var __5$=(()=>{const{Blob:s,fetch:n,File:i,FormData:c,Headers:p,Request:b,Response:a,AbortController:f}=globalThis,u=Error,w=Error,l=e=>e>300&&e<304||e>306&&e<309;n.isRedirect=l,n.Promise=globalThis.Promise;var x=n;async function F(e,o){const r=await Deno.open(e),t=new a(r.readable);return new s([await t.blob()],{type:o})}function d(e,o){const r=Deno.readFileSync(e);return new s([r],{type:o})}async function m(e,o){const r=await Deno.open(e),t=new a(r.readable);return new i([await t.blob()],e.split(/[\/\\]/).pop(),{type:o})}function y(e,o){const r=Deno.readFileSync(e);return new i([r],e.split(/[\/\\]/).pop(),{type:o})}return{AbortController:f,AbortError:u,Blob:s,FetchError:w,File:i,FormData:c,Headers:p,Request:b,Response:a,blobFrom:F,blobFromSync:d,default:x,fetch:n,fileFrom:m,fileFromSync:y,isRedirect:l};})();import*as __6$ from"/is-url@^1.2.4?target=denonext";import*as __7$ from"node:worker_threads";var require=n=>{const e=m=>typeof m.default<"u"?m.default:m,c=m=>Object.assign({__esModule:true},m);switch(n){case"regenerator-runtime/runtime":return e(__0$);case"is-electron":return e(__1$);case"node:path":return e(__2$);case"node:util":return e(__3$);case"node:fs":return e(__4$);case"npm:node-fetch":return e(__5$);case"is-url":return e(__6$);case"node:worker_threads":return e(__7$);default:console.error('module "'+n+'" not found');return null;}};
-var Ve=Object.create;var K=Object.defineProperty;var Qe=Object.getOwnPropertyDescriptor;var Xe=Object.getOwnPropertyNames;var er=Object.getPrototypeOf,rr=Object.prototype.hasOwnProperty;var y=(e=>typeof require<"u"?require:typeof Proxy<"u"?new Proxy(e,{get:(r,s)=>(typeof require<"u"?require:r)[s]}):e)(function(e){if(typeof require<"u")return require.apply(this,arguments);throw Error('Dynamic require of "'+e+'" is not supported')});var i=(e,r)=>()=>(r||e((r={exports:{}}).exports,r),r.exports);var tr=(e,r,s,n)=>{if(r&&typeof r=="object"||typeof r=="function")for(let u of Xe(r))!rr.call(e,u)&&u!==s&&K(e,u,{get:()=>r[u],enumerable:!(n=Qe(r,u))||n.enumerable});return e};var or=(e,r,s)=>(s=e!=null?Ve(er(e)):{},tr(r||!e||!e.__esModule?K(s,"default",{value:e,enumerable:!0}):s,e));var b=i(($r,j)=>{j.exports=(e,r)=>`${e}-${r}-${Math.random().toString(16).slice(3,8)}`});var z=i((Br,H)=>{var sr=b(),Y=0;H.exports=({id:e,action:r,payload:s={}})=>{let n=e;return typeof n>"u"&&(n=sr("Job",Y),Y+=1),{id:n,action:r,payload:s}}});var I=i(N=>{var F=!1;N.logging=F;N.setLogging=e=>{F=e};N.log=(...e)=>F?console.log.apply(N,e):null});var Q=i((Z,V)=>{var nr=z(),{log:M}=I(),ir=b(),J=0;V.exports=()=>{let e=ir("Scheduler",J),r={},s={},n=[];J+=1;let u=()=>n.length,S=()=>Object.keys(r).length,p=()=>{if(n.length!==0){let c=Object.keys(r);for(let g=0;g<c.length;g+=1)if(typeof s[c[g]]>"u"){n[0](r[c[g]]);break}}},a=(c,g)=>new Promise((T,_)=>{let k=nr({action:c,payload:g});n.push(async q=>{n.shift(),s[q.id]=k;try{T(await q[c].apply(Z,[...g,k.id]))}catch(D){_(D)}finally{delete s[q.id],p()}}),M(`[${e}]: Add ${k.id} to JobQueue`),M(`[${e}]: JobQueue length=${n.length}`),p()});return{addWorker:c=>(r[c.id]=c,M(`[${e}]: Add ${c.id}`),M(`[${e}]: Number of workers=${S()}`),p(),c.id),addJob:async(c,...g)=>{if(S()===0)throw Error(`[${e}]: You need to have at least one worker before adding jobs`);return a(c,g)},terminate:async()=>{Object.keys(r).forEach(async c=>{await r[c].terminate()}),n=[]},getQueueLen:u,getNumWorkers:S}}});var ee=i((Kr,X)=>{var cr=y("is-electron");X.exports=e=>{let r={};return typeof WorkerGlobalScope<"u"?r.type="webworker":cr()?r.type="electron":typeof document=="object"?r.type="browser":typeof __Process$=="object"&&typeof y=="function"&&(r.type="node"),typeof e>"u"?r:r[e]}});var te=i((Yr,re)=>{var ar=ee()("type")==="browser",lr=ar?e=>new URL(e,globalThis.location.href).href:e=>e;re.exports=e=>{let r={...e};return["corePath","workerPath","langPath"].forEach(s=>{e[s]&&(r[s]=lr(r[s]))}),r}});var se=i((Hr,oe)=>{oe.exports=e=>{let r=[],s=[],n=[],u=[],S=[];return e.blocks&&e.blocks.forEach(p=>{p.paragraphs.forEach(a=>{a.lines.forEach(m=>{m.words.forEach(w=>{w.symbols.forEach(O=>{S.push({...O,page:e,block:p,paragraph:a,line:m,word:w})}),u.push({...w,page:e,block:p,paragraph:a,line:m})}),n.push({...m,page:e,block:p,paragraph:a})}),s.push({...a,page:e,block:p})}),r.push({...p,page:e})}),{...e,blocks:r,paragraphs:s,lines:n,words:u,symbols:S}}});var W=i((Jr,ne)=>{ne.exports={TESSERACT_ONLY:0,LSTM_ONLY:1,TESSERACT_LSTM_COMBINED:2,DEFAULT:3}});var ce=i((Zr,ie)=>{ie.exports={workerBlobURL:!0,logger:()=>{}}});var le=i((Vr,ae)=>{var dr=y("node:path"),ur=ce();ae.exports={...ur,workerPath:dr.join("/tesseract.js@5.1.1/denonext","..","..","worker-script","node","index.js")}});var ue=i((Qr,de)=>{var{Worker:fr}=y("node:worker_threads");de.exports=({workerPath:e})=>new fr(e)});var pe=i((Xr,fe)=>{fe.exports=e=>{e.terminate()}});var he=i((et,ge)=>{ge.exports=(e,r)=>{e.on("message",r)}});var ye=i((rt,Le)=>{Le.exports=async(e,r)=>{e.postMessage(r)}});var Se=i((tt,Ee)=>{var pr=y("node:util"),gr=y("node:fs"),hr=y("npm:node-fetch"),Lr=y("is-url"),yr=pr.promisify(gr.readFile);Ee.exports=async e=>{let r=e;return typeof e>"u"?e:(typeof e=="string"?Lr(e)||e.startsWith("moz-extension://")||e.startsWith("chrome-extension://")||e.startsWith("file://")?r=await(await hr(e)).arrayBuffer():/data:image\/([a-zA-Z]*);base64,([^"]*)/.test(e)?r=__Buffer$.from(e.split(",")[1],"base64"):r=await yr(e):__Buffer$.isBuffer(e)&&(r=e),new Uint8Array(r))}});var we=i((ot,me)=>{var Er=le(),Sr=ue(),mr=pe(),wr=he(),Ar=ye(),Rr=Se();me.exports={defaultOptions:Er,spawnWorker:Sr,terminateWorker:mr,onMessage:wr,send:Ar,loadImage:Rr}});var v=i((st,Oe)=>{var kr=te(),Or=se(),L=z(),{log:Ae}=I(),Tr=b(),R=W(),{defaultOptions:_r,spawnWorker:qr,terminateWorker:Nr,onMessage:Pr,loadImage:Re,send:br}=we(),ke=0;Oe.exports=async(e="eng",r=R.LSTM_ONLY,s={},n={})=>{let u=Tr("Worker",ke),{logger:S,errorHandler:p,...a}=kr({..._r,...s}),m={},w={},O=typeof e=="string"?e.split("+"):e,c=r,g=n,T=[R.DEFAULT,R.LSTM_ONLY].includes(r)&&!a.legacyCore,_,k,q=new Promise((t,o)=>{k=t,_=o}),D=t=>{_(t.message)},A=qr(a);A.onerror=D,ke+=1;let $=(t,o)=>{m[t]=o},B=(t,o)=>{w[t]=o},h=({id:t,action:o,payload:l})=>new Promise((f,d)=>{Ae(`[${u}]: Start ${t}, action=${o}`);let E=`${o}-${t}`;$(E,f),B(E,d),br(A,{workerId:u,jobId:t,action:o,payload:l})}),De=()=>console.warn("`load` is depreciated and should be removed from code (workers now come pre-loaded)"),Ue=t=>h(L({id:t,action:"load",payload:{options:{lstmOnly:T,corePath:a.corePath,logging:a.logging}}})),xe=(t,o,l)=>h(L({id:l,action:"FS",payload:{method:"writeFile",args:[t,o]}})),ze=(t,o)=>h(L({id:o,action:"FS",payload:{method:"readFile",args:[t,{encoding:"utf8"}]}})),Fe=(t,o)=>h(L({id:o,action:"FS",payload:{method:"unlink",args:[t]}})),We=(t,o,l)=>h(L({id:l,action:"FS",payload:{method:t,args:o}})),ve=()=>console.warn("`loadLanguage` is depreciated and should be removed from code (workers now come with language pre-loaded)"),G=(t,o)=>h(L({id:o,action:"loadLanguage",payload:{langs:t,options:{langPath:a.langPath,dataPath:a.dataPath,cachePath:a.cachePath,cacheMethod:a.cacheMethod,gzip:a.gzip,lstmOnly:[R.DEFAULT,R.LSTM_ONLY].includes(c)&&!a.legacyLang}}})),$e=()=>console.warn("`initialize` is depreciated and should be removed from code (workers now come pre-initialized)"),U=(t,o,l,f)=>h(L({id:f,action:"initialize",payload:{langs:t,oem:o,config:l}})),Be=(t="eng",o,l,f)=>{if(T&&[R.TESSERACT_ONLY,R.TESSERACT_LSTM_COMBINED].includes(o))throw Error("Legacy model requested but code missing.");let d=o||c;c=d;let E=l||g;g=E;let x=(typeof t=="string"?t.split("+"):t).filter(Ze=>!O.includes(Ze));return O.push(...x),x.length>0?G(x,f).then(()=>U(t,d,E,f)):U(t,d,E,f)},Ge=(t={},o)=>h(L({id:o,action:"setParameters",payload:{params:t}})),Ke=async(t,o={},l={blocks:!0,text:!0,hocr:!0,tsv:!0},f)=>h(L({id:f,action:"recognize",payload:{image:await Re(t),options:o,output:l}})),je=(t="Tesseract OCR Result",o=!1,l)=>(console.log("`getPDF` function is depreciated. `recognize` option `savePDF` should be used instead."),h(L({id:l,action:"getPDF",payload:{title:t,textonly:o}}))),Ye=async(t,o)=>{if(T)throw Error("`worker.detect` requires Legacy model, which was not loaded.");return h(L({id:o,action:"detect",payload:{image:await Re(t)}}))},He=async()=>(A!==null&&(Nr(A),A=null),Promise.resolve());Pr(A,({workerId:t,jobId:o,status:l,action:f,data:d})=>{let E=`${f}-${o}`;if(l==="resolve"){Ae(`[${t}]: Complete ${o}`);let P=d;f==="recognize"?P=Or(d):f==="getPDF"&&(P=Array.from({...d,length:Object.keys(d).length})),m[E]({jobId:o,data:P})}else if(l==="reject")if(w[E](d),f==="load"&&_(d),p)p(d);else throw Error(d);else l==="progress"&&S({...d,userJobId:o})});let Je={id:u,worker:A,setResolve:$,setReject:B,load:De,writeText:xe,readText:ze,removeFile:Fe,FS:We,loadLanguage:ve,initialize:$e,reinitialize:Be,setParameters:Ge,recognize:Ke,getPDF:je,detect:Ye,terminate:He};return Ue().then(()=>G(e)).then(()=>U(e,r,n)).then(()=>k(Je)).catch(()=>{}),q}});var qe=i((nt,_e)=>{var Te=v(),Ir=async(e,r,s)=>{let n=await Te(r,1,s);return n.recognize(e).finally(async()=>{await n.terminate()})},Mr=async(e,r)=>{let s=await Te("osd",0,r);return s.detect(e).finally(async()=>{await s.terminate()})};_e.exports={recognize:Ir,detect:Mr}});var Pe=i((it,Ne)=>{Ne.exports={AFR:"afr",AMH:"amh",ARA:"ara",ASM:"asm",AZE:"aze",AZE_CYRL:"aze_cyrl",BEL:"bel",BEN:"ben",BOD:"bod",BOS:"bos",BUL:"bul",CAT:"cat",CEB:"ceb",CES:"ces",CHI_SIM:"chi_sim",CHI_TRA:"chi_tra",CHR:"chr",CYM:"cym",DAN:"dan",DEU:"deu",DZO:"dzo",ELL:"ell",ENG:"eng",ENM:"enm",EPO:"epo",EST:"est",EUS:"eus",FAS:"fas",FIN:"fin",FRA:"fra",FRK:"frk",FRM:"frm",GLE:"gle",GLG:"glg",GRC:"grc",GUJ:"guj",HAT:"hat",HEB:"heb",HIN:"hin",HRV:"hrv",HUN:"hun",IKU:"iku",IND:"ind",ISL:"isl",ITA:"ita",ITA_OLD:"ita_old",JAV:"jav",JPN:"jpn",KAN:"kan",KAT:"kat",KAT_OLD:"kat_old",KAZ:"kaz",KHM:"khm",KIR:"kir",KOR:"kor",KUR:"kur",LAO:"lao",LAT:"lat",LAV:"lav",LIT:"lit",MAL:"mal",MAR:"mar",MKD:"mkd",MLT:"mlt",MSA:"msa",MYA:"mya",NEP:"nep",NLD:"nld",NOR:"nor",ORI:"ori",PAN:"pan",POL:"pol",POR:"por",PUS:"pus",RON:"ron",RUS:"rus",SAN:"san",SIN:"sin",SLK:"slk",SLV:"slv",SPA:"spa",SPA_OLD:"spa_old",SQI:"sqi",SRP:"srp",SRP_LATN:"srp_latn",SWA:"swa",SWE:"swe",SYR:"syr",TAM:"tam",TEL:"tel",TGK:"tgk",TGL:"tgl",THA:"tha",TIR:"tir",TUR:"tur",UIG:"uig",UKR:"ukr",URD:"urd",UZB:"uzb",UZB_CYRL:"uzb_cyrl",VIE:"vie",YID:"yid"}});var Ie=i((ct,be)=>{be.exports={OSD_ONLY:"0",AUTO_OSD:"1",AUTO_ONLY:"2",AUTO:"3",SINGLE_COLUMN:"4",SINGLE_BLOCK_VERT_TEXT:"5",SINGLE_BLOCK:"6",SINGLE_LINE:"7",SINGLE_WORD:"8",CIRCLE_WORD:"9",SINGLE_CHAR:"10",SPARSE_TEXT:"11",SPARSE_TEXT_OSD:"12",RAW_LINE:"13"}});var Ce=i((at,Me)=>{y("regenerator-runtime/runtime");var Cr=Q(),Dr=v(),Ur=qe(),xr=Pe(),zr=W(),Fr=Ie(),{setLogging:Wr}=I();Me.exports={languages:xr,OEM:zr,PSM:Fr,createScheduler:Cr,createWorker:Dr,setLogging:Wr,...Ur}});var C=or(Ce()),{languages:lt,OEM:dt,PSM:ut,createScheduler:ft,createWorker:pt,setLogging:gt,recognize:ht,detect:Lt}=C,yt=C.default??C;export{dt as OEM,ut as PSM,ft as createScheduler,pt as createWorker,yt as default,Lt as detect,lt as languages,ht as recognize,gt as setLogging};
+import * as __0$ from "/regenerator-runtime@^0.13.3/runtime?target=denonext";
+import * as __1$ from "/is-electron@^2.2.2?target=denonext";
+import * as __2$ from "node:path";
+import * as __3$ from "node:util";
+import * as __4$ from "node:fs";
+var __5$ = (() => {
+  const {
+      Blob: s,
+      fetch: n,
+      File: i,
+      FormData: c,
+      Headers: p,
+      Request: b,
+      Response: a,
+      AbortController: f,
+    } = globalThis,
+    u = Error,
+    w = Error,
+    l = (e) => e > 300 && e < 304 || e > 306 && e < 309;
+  n.isRedirect = l, n.Promise = globalThis.Promise;
+  var x = n;
+  async function F(e, o) {
+    const r = await Deno.open(e), t = new a(r.readable);
+    return new s([await t.blob()], { type: o });
+  }
+  function d(e, o) {
+    const r = Deno.readFileSync(e);
+    return new s([r], { type: o });
+  }
+  async function m(e, o) {
+    const r = await Deno.open(e), t = new a(r.readable);
+    return new i([await t.blob()], e.split(/[\/\\]/).pop(), { type: o });
+  }
+  function y(e, o) {
+    const r = Deno.readFileSync(e);
+    return new i([r], e.split(/[\/\\]/).pop(), { type: o });
+  }
+  return {
+    AbortController: f,
+    AbortError: u,
+    Blob: s,
+    FetchError: w,
+    File: i,
+    FormData: c,
+    Headers: p,
+    Request: b,
+    Response: a,
+    blobFrom: F,
+    blobFromSync: d,
+    default: x,
+    fetch: n,
+    fileFrom: m,
+    fileFromSync: y,
+    isRedirect: l,
+  };
+})();
+import * as __6$ from "/is-url@^1.2.4?target=denonext";
+import * as __7$ from "node:worker_threads";
+var require = (n) => {
+  const e = (m) => typeof m.default < "u" ? m.default : m,
+    c = (m) => Object.assign({ __esModule: true }, m);
+  switch (n) {
+    case "regenerator-runtime/runtime":
+      return e(__0$);
+    case "is-electron":
+      return e(__1$);
+    case "node:path":
+      return e(__2$);
+    case "node:util":
+      return e(__3$);
+    case "node:fs":
+      return e(__4$);
+    case "npm:node-fetch":
+      return e(__5$);
+    case "is-url":
+      return e(__6$);
+    case "node:worker_threads":
+      return e(__7$);
+    default:
+      console.error('module "' + n + '" not found');
+      return null;
+  }
+};
+var Ve = Object.create;
+var K = Object.defineProperty;
+var Qe = Object.getOwnPropertyDescriptor;
+var Xe = Object.getOwnPropertyNames;
+var er = Object.getPrototypeOf, rr = Object.prototype.hasOwnProperty;
+var y =
+  ((e) =>
+    typeof require < "u"
+      ? require
+      : typeof Proxy < "u"
+      ? new Proxy(e, { get: (r, s) => (typeof require < "u" ? require : r)[s] })
+      : e)(function (e) {
+      if (typeof require < "u") return require.apply(this, arguments);
+      throw Error('Dynamic require of "' + e + '" is not supported');
+    });
+var i = (e, r) => () => (r || e((r = { exports: {} }).exports, r), r.exports);
+var tr = (e, r, s, n) => {
+  if (r && typeof r == "object" || typeof r == "function") {
+    for (let u of Xe(r)) {
+      !rr.call(e, u) && u !== s && K(e, u, {
+        get: () => r[u],
+        enumerable: !(n = Qe(r, u)) || n.enumerable,
+      });
+    }
+  }
+  return e;
+};
+var or = (
+  e,
+  r,
+  s,
+) => (s = e != null ? Ve(er(e)) : {},
+  tr(
+    r || !e || !e.__esModule
+      ? K(s, "default", { value: e, enumerable: !0 })
+      : s,
+    e,
+  ));
+var b = i(($r, j) => {
+  j.exports = (e, r) => `${e}-${r}-${Math.random().toString(16).slice(3, 8)}`;
+});
+var z = i((Br, H) => {
+  var sr = b(), Y = 0;
+  H.exports = ({ id: e, action: r, payload: s = {} }) => {
+    let n = e;
+    return typeof n > "u" && (n = sr("Job", Y), Y += 1),
+      { id: n, action: r, payload: s };
+  };
+});
+var I = i((N) => {
+  var F = !1;
+  N.logging = F;
+  N.setLogging = (e) => {
+    F = e;
+  };
+  N.log = (...e) => F ? console.log.apply(N, e) : null;
+});
+var Q = i((Z, V) => {
+  var nr = z(), { log: M } = I(), ir = b(), J = 0;
+  V.exports = () => {
+    let e = ir("Scheduler", J), r = {}, s = {}, n = [];
+    J += 1;
+    let u = () => n.length,
+      S = () => Object.keys(r).length,
+      p = () => {
+        if (n.length !== 0) {
+          let c = Object.keys(r);
+          for (let g = 0; g < c.length; g += 1) {
+            if (typeof s[c[g]] > "u") {
+              n[0](r[c[g]]);
+              break;
+            }
+          }
+        }
+      },
+      a = (c, g) =>
+        new Promise((T, _) => {
+          let k = nr({ action: c, payload: g });
+          n.push(async (q) => {
+            n.shift(), s[q.id] = k;
+            try {
+              T(await q[c].apply(Z, [...g, k.id]));
+            } catch (D) {
+              _(D);
+            } finally {
+              delete s[q.id], p();
+            }
+          }),
+            M(`[${e}]: Add ${k.id} to JobQueue`),
+            M(`[${e}]: JobQueue length=${n.length}`),
+            p();
+        });
+    return {
+      addWorker: (
+        c,
+      ) => (r[c.id] = c,
+        M(`[${e}]: Add ${c.id}`),
+        M(`[${e}]: Number of workers=${S()}`),
+        p(),
+        c.id),
+      addJob: async (c, ...g) => {
+        if (S() === 0) {
+          throw Error(
+            `[${e}]: You need to have at least one worker before adding jobs`,
+          );
+        }
+        return a(c, g);
+      },
+      terminate: async () => {
+        Object.keys(r).forEach(async (c) => {
+          await r[c].terminate();
+        }), n = [];
+      },
+      getQueueLen: u,
+      getNumWorkers: S,
+    };
+  };
+});
+var ee = i((Kr, X) => {
+  var cr = y("is-electron");
+  X.exports = (e) => {
+    let r = {};
+    return typeof WorkerGlobalScope < "u"
+      ? r.type = "webworker"
+      : cr()
+      ? r.type = "electron"
+      : typeof document == "object"
+      ? r.type = "browser"
+      : typeof __Process$ == "object" && typeof y == "function" &&
+        (r.type = "node"),
+      typeof e > "u" ? r : r[e];
+  };
+});
+var te = i((Yr, re) => {
+  var ar = ee()("type") === "browser",
+    lr = ar ? (e) => new URL(e, globalThis.location.href).href : (e) => e;
+  re.exports = (e) => {
+    let r = { ...e };
+    return ["corePath", "workerPath", "langPath"].forEach((s) => {
+      e[s] && (r[s] = lr(r[s]));
+    }),
+      r;
+  };
+});
+var se = i((Hr, oe) => {
+  oe.exports = (e) => {
+    let r = [], s = [], n = [], u = [], S = [];
+    return e.blocks && e.blocks.forEach((p) => {
+      p.paragraphs.forEach((a) => {
+        a.lines.forEach((m) => {
+          m.words.forEach((w) => {
+            w.symbols.forEach((O) => {
+              S.push({
+                ...O,
+                page: e,
+                block: p,
+                paragraph: a,
+                line: m,
+                word: w,
+              });
+            }), u.push({ ...w, page: e, block: p, paragraph: a, line: m });
+          }), n.push({ ...m, page: e, block: p, paragraph: a });
+        }), s.push({ ...a, page: e, block: p });
+      }), r.push({ ...p, page: e });
+    }),
+      { ...e, blocks: r, paragraphs: s, lines: n, words: u, symbols: S };
+  };
+});
+var W = i((Jr, ne) => {
+  ne.exports = {
+    TESSERACT_ONLY: 0,
+    LSTM_ONLY: 1,
+    TESSERACT_LSTM_COMBINED: 2,
+    DEFAULT: 3,
+  };
+});
+var ce = i((Zr, ie) => {
+  ie.exports = { workerBlobURL: !0, logger: () => {} };
+});
+var le = i((Vr, ae) => {
+  var dr = y("node:path"), ur = ce();
+  ae.exports = {
+    ...ur,
+    workerPath: dr.join(
+      "/tesseract.js@5.1.1/denonext",
+      "..",
+      "..",
+      "worker-script",
+      "node",
+      "index.js",
+    ),
+  };
+});
+var ue = i((Qr, de) => {
+  var { Worker: fr } = y("node:worker_threads");
+  de.exports = ({ workerPath: e }) => new fr(e);
+});
+var pe = i((Xr, fe) => {
+  fe.exports = (e) => {
+    e.terminate();
+  };
+});
+var he = i((et, ge) => {
+  ge.exports = (e, r) => {
+    e.on("message", r);
+  };
+});
+var ye = i((rt, Le) => {
+  Le.exports = async (e, r) => {
+    e.postMessage(r);
+  };
+});
+var Se = i((tt, Ee) => {
+  var pr = y("node:util"),
+    gr = y("node:fs"),
+    hr = y("npm:node-fetch"),
+    Lr = y("is-url"),
+    yr = pr.promisify(gr.readFile);
+  Ee.exports = async (e) => {
+    let r = e;
+    return typeof e > "u"
+      ? e
+      : (typeof e == "string"
+        ? Lr(e) || e.startsWith("moz-extension://") ||
+            e.startsWith("chrome-extension://") || e.startsWith("file://")
+          ? r = await (await hr(e)).arrayBuffer()
+          : /data:image\/([a-zA-Z]*);base64,([^"]*)/.test(e)
+          ? r = __Buffer$.from(e.split(",")[1], "base64")
+          : r = await yr(e)
+        : __Buffer$.isBuffer(e) && (r = e),
+        new Uint8Array(r));
+  };
+});
+var we = i((ot, me) => {
+  var Er = le(), Sr = ue(), mr = pe(), wr = he(), Ar = ye(), Rr = Se();
+  me.exports = {
+    defaultOptions: Er,
+    spawnWorker: Sr,
+    terminateWorker: mr,
+    onMessage: wr,
+    send: Ar,
+    loadImage: Rr,
+  };
+});
+var v = i((st, Oe) => {
+  var kr = te(),
+    Or = se(),
+    L = z(),
+    { log: Ae } = I(),
+    Tr = b(),
+    R = W(),
+    {
+      defaultOptions: _r,
+      spawnWorker: qr,
+      terminateWorker: Nr,
+      onMessage: Pr,
+      loadImage: Re,
+      send: br,
+    } = we(),
+    ke = 0;
+  Oe.exports = async (e = "eng", r = R.LSTM_ONLY, s = {}, n = {}) => {
+    let u = Tr("Worker", ke),
+      { logger: S, errorHandler: p, ...a } = kr({ ..._r, ...s }),
+      m = {},
+      w = {},
+      O = typeof e == "string" ? e.split("+") : e,
+      c = r,
+      g = n,
+      T = [R.DEFAULT, R.LSTM_ONLY].includes(r) && !a.legacyCore,
+      _,
+      k,
+      q = new Promise((t, o) => {
+        k = t, _ = o;
+      }),
+      D = (t) => {
+        _(t.message);
+      },
+      A = qr(a);
+    A.onerror = D, ke += 1;
+    let $ = (t, o) => {
+        m[t] = o;
+      },
+      B = (t, o) => {
+        w[t] = o;
+      },
+      h = ({ id: t, action: o, payload: l }) =>
+        new Promise((f, d) => {
+          Ae(`[${u}]: Start ${t}, action=${o}`);
+          let E = `${o}-${t}`;
+          $(E, f),
+            B(E, d),
+            br(A, { workerId: u, jobId: t, action: o, payload: l });
+        }),
+      De = () =>
+        console.warn(
+          "`load` is depreciated and should be removed from code (workers now come pre-loaded)",
+        ),
+      Ue = (t) =>
+        h(L({
+          id: t,
+          action: "load",
+          payload: {
+            options: { lstmOnly: T, corePath: a.corePath, logging: a.logging },
+          },
+        })),
+      xe = (t, o, l) =>
+        h(L({
+          id: l,
+          action: "FS",
+          payload: { method: "writeFile", args: [t, o] },
+        })),
+      ze = (t, o) =>
+        h(L({
+          id: o,
+          action: "FS",
+          payload: { method: "readFile", args: [t, { encoding: "utf8" }] },
+        })),
+      Fe = (t, o) =>
+        h(L({ id: o, action: "FS", payload: { method: "unlink", args: [t] } })),
+      We = (t, o, l) =>
+        h(L({ id: l, action: "FS", payload: { method: t, args: o } })),
+      ve = () =>
+        console.warn(
+          "`loadLanguage` is depreciated and should be removed from code (workers now come with language pre-loaded)",
+        ),
+      G = (t, o) =>
+        h(L({
+          id: o,
+          action: "loadLanguage",
+          payload: {
+            langs: t,
+            options: {
+              langPath: a.langPath,
+              dataPath: a.dataPath,
+              cachePath: a.cachePath,
+              cacheMethod: a.cacheMethod,
+              gzip: a.gzip,
+              lstmOnly: [R.DEFAULT, R.LSTM_ONLY].includes(c) && !a.legacyLang,
+            },
+          },
+        })),
+      $e = () =>
+        console.warn(
+          "`initialize` is depreciated and should be removed from code (workers now come pre-initialized)",
+        ),
+      U = (t, o, l, f) =>
+        h(L({
+          id: f,
+          action: "initialize",
+          payload: { langs: t, oem: o, config: l },
+        })),
+      Be = (t = "eng", o, l, f) => {
+        if (T && [R.TESSERACT_ONLY, R.TESSERACT_LSTM_COMBINED].includes(o)) {
+          throw Error("Legacy model requested but code missing.");
+        }
+        let d = o || c;
+        c = d;
+        let E = l || g;
+        g = E;
+        let x = (typeof t == "string" ? t.split("+") : t).filter((Ze) =>
+          !O.includes(Ze)
+        );
+        return O.push(...x),
+          x.length > 0 ? G(x, f).then(() => U(t, d, E, f)) : U(t, d, E, f);
+      },
+      Ge = (t = {}, o) =>
+        h(L({ id: o, action: "setParameters", payload: { params: t } })),
+      Ke = async (
+        t,
+        o = {},
+        l = { blocks: !0, text: !0, hocr: !0, tsv: !0 },
+        f,
+      ) =>
+        h(L({
+          id: f,
+          action: "recognize",
+          payload: { image: await Re(t), options: o, output: l },
+        })),
+      je = (
+        t = "Tesseract OCR Result",
+        o = !1,
+        l,
+      ) => (console.log(
+        "`getPDF` function is depreciated. `recognize` option `savePDF` should be used instead.",
+      ),
+        h(L({ id: l, action: "getPDF", payload: { title: t, textonly: o } }))),
+      Ye = async (t, o) => {
+        if (T) {
+          throw Error(
+            "`worker.detect` requires Legacy model, which was not loaded.",
+          );
+        }
+        return h(
+          L({ id: o, action: "detect", payload: { image: await Re(t) } }),
+        );
+      },
+      He = async () => (A !== null && (Nr(A), A = null), Promise.resolve());
+    Pr(A, ({ workerId: t, jobId: o, status: l, action: f, data: d }) => {
+      let E = `${f}-${o}`;
+      if (l === "resolve") {
+        Ae(`[${t}]: Complete ${o}`);
+        let P = d;
+        f === "recognize" ? P = Or(d) : f === "getPDF" &&
+          (P = Array.from({ ...d, length: Object.keys(d).length })),
+          m[E]({ jobId: o, data: P });
+      } else if (l === "reject") {
+        if (w[E](d), f === "load" && _(d), p) p(d);
+        else throw Error(d);
+      } else l === "progress" && S({ ...d, userJobId: o });
+    });
+    let Je = {
+      id: u,
+      worker: A,
+      setResolve: $,
+      setReject: B,
+      load: De,
+      writeText: xe,
+      readText: ze,
+      removeFile: Fe,
+      FS: We,
+      loadLanguage: ve,
+      initialize: $e,
+      reinitialize: Be,
+      setParameters: Ge,
+      recognize: Ke,
+      getPDF: je,
+      detect: Ye,
+      terminate: He,
+    };
+    return Ue().then(() => G(e)).then(() => U(e, r, n)).then(() => k(Je)).catch(
+      () => {},
+    ),
+      q;
+  };
+});
+var qe = i((nt, _e) => {
+  var Te = v(),
+    Ir = async (e, r, s) => {
+      let n = await Te(r, 1, s);
+      return n.recognize(e).finally(async () => {
+        await n.terminate();
+      });
+    },
+    Mr = async (e, r) => {
+      let s = await Te("osd", 0, r);
+      return s.detect(e).finally(async () => {
+        await s.terminate();
+      });
+    };
+  _e.exports = { recognize: Ir, detect: Mr };
+});
+var Pe = i((it, Ne) => {
+  Ne.exports = {
+    AFR: "afr",
+    AMH: "amh",
+    ARA: "ara",
+    ASM: "asm",
+    AZE: "aze",
+    AZE_CYRL: "aze_cyrl",
+    BEL: "bel",
+    BEN: "ben",
+    BOD: "bod",
+    BOS: "bos",
+    BUL: "bul",
+    CAT: "cat",
+    CEB: "ceb",
+    CES: "ces",
+    CHI_SIM: "chi_sim",
+    CHI_TRA: "chi_tra",
+    CHR: "chr",
+    CYM: "cym",
+    DAN: "dan",
+    DEU: "deu",
+    DZO: "dzo",
+    ELL: "ell",
+    ENG: "eng",
+    ENM: "enm",
+    EPO: "epo",
+    EST: "est",
+    EUS: "eus",
+    FAS: "fas",
+    FIN: "fin",
+    FRA: "fra",
+    FRK: "frk",
+    FRM: "frm",
+    GLE: "gle",
+    GLG: "glg",
+    GRC: "grc",
+    GUJ: "guj",
+    HAT: "hat",
+    HEB: "heb",
+    HIN: "hin",
+    HRV: "hrv",
+    HUN: "hun",
+    IKU: "iku",
+    IND: "ind",
+    ISL: "isl",
+    ITA: "ita",
+    ITA_OLD: "ita_old",
+    JAV: "jav",
+    JPN: "jpn",
+    KAN: "kan",
+    KAT: "kat",
+    KAT_OLD: "kat_old",
+    KAZ: "kaz",
+    KHM: "khm",
+    KIR: "kir",
+    KOR: "kor",
+    KUR: "kur",
+    LAO: "lao",
+    LAT: "lat",
+    LAV: "lav",
+    LIT: "lit",
+    MAL: "mal",
+    MAR: "mar",
+    MKD: "mkd",
+    MLT: "mlt",
+    MSA: "msa",
+    MYA: "mya",
+    NEP: "nep",
+    NLD: "nld",
+    NOR: "nor",
+    ORI: "ori",
+    PAN: "pan",
+    POL: "pol",
+    POR: "por",
+    PUS: "pus",
+    RON: "ron",
+    RUS: "rus",
+    SAN: "san",
+    SIN: "sin",
+    SLK: "slk",
+    SLV: "slv",
+    SPA: "spa",
+    SPA_OLD: "spa_old",
+    SQI: "sqi",
+    SRP: "srp",
+    SRP_LATN: "srp_latn",
+    SWA: "swa",
+    SWE: "swe",
+    SYR: "syr",
+    TAM: "tam",
+    TEL: "tel",
+    TGK: "tgk",
+    TGL: "tgl",
+    THA: "tha",
+    TIR: "tir",
+    TUR: "tur",
+    UIG: "uig",
+    UKR: "ukr",
+    URD: "urd",
+    UZB: "uzb",
+    UZB_CYRL: "uzb_cyrl",
+    VIE: "vie",
+    YID: "yid",
+  };
+});
+var Ie = i((ct, be) => {
+  be.exports = {
+    OSD_ONLY: "0",
+    AUTO_OSD: "1",
+    AUTO_ONLY: "2",
+    AUTO: "3",
+    SINGLE_COLUMN: "4",
+    SINGLE_BLOCK_VERT_TEXT: "5",
+    SINGLE_BLOCK: "6",
+    SINGLE_LINE: "7",
+    SINGLE_WORD: "8",
+    CIRCLE_WORD: "9",
+    SINGLE_CHAR: "10",
+    SPARSE_TEXT: "11",
+    SPARSE_TEXT_OSD: "12",
+    RAW_LINE: "13",
+  };
+});
+var Ce = i((at, Me) => {
+  y("regenerator-runtime/runtime");
+  var Cr = Q(),
+    Dr = v(),
+    Ur = qe(),
+    xr = Pe(),
+    zr = W(),
+    Fr = Ie(),
+    { setLogging: Wr } = I();
+  Me.exports = {
+    languages: xr,
+    OEM: zr,
+    PSM: Fr,
+    createScheduler: Cr,
+    createWorker: Dr,
+    setLogging: Wr,
+    ...Ur,
+  };
+});
+var C = or(Ce()),
+  {
+    languages: lt,
+    OEM: dt,
+    PSM: ut,
+    createScheduler: ft,
+    createWorker: pt,
+    setLogging: gt,
+    recognize: ht,
+    detect: Lt,
+  } = C,
+  yt = C.default ?? C;
+export {
+  dt as OEM,
+  ft as createScheduler,
+  gt as setLogging,
+  ht as recognize,
+  Lt as detect,
+  lt as languages,
+  pt as createWorker,
+  ut as PSM,
+  yt as default,
+};
 //# sourceMappingURL=tesseract.mjs.map

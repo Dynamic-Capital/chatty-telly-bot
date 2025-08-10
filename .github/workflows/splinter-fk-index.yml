@@ -2,7 +2,7 @@ name: DB Lint + Auto FK Index PR
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * 1'   # Mondays at 03:00 UTC
+    - cron: "0 3 * * 1" # Mondays at 03:00 UTC
 jobs:
   splinter:
     runs-on: ubuntu-latest
@@ -12,7 +12,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
       - name: Run Splinter + generate migration
         env:
-          DB_URL: ${{ secrets.SUPABASE_DB_URL }}   # Session pooler string
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }} # Session pooler string
         run: |
           bash scripts/splinter_run.sh
           bash scripts/gen_fk_indexes.sh || true
