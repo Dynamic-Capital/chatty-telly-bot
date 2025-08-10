@@ -11,8 +11,8 @@ export function ThemeSection() {
   const [token, setToken] = useState<string>('');
 
   useEffect(() => {
-    (window as any).Telegram?.WebApp?.ready?.();
-    (window as any).Telegram?.WebApp?.expand?.();
+    window.Telegram?.WebApp?.ready?.();
+    window.Telegram?.WebApp?.expand?.();
     initTelegramThemeHandlers();
     (async () => {
       try {
