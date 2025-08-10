@@ -42,9 +42,12 @@ export async function getCached<T>(key: string, ttlMs: number, fetcher: Fetcher<
           cacheKeys.add(key);
           return parsed.value;
         }
+        // clean up expired entry to avoid repeated parsing
+        storage.removeItem(key);
       }
     } catch {
-      // ignore JSON errors
+      // remove malformed entry and ignore JSON errors
+      storage?.removeItem(key);
     }
   }
 
