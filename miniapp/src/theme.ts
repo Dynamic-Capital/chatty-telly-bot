@@ -1,6 +1,15 @@
 /* >>> DC BLOCK: theme-sync (start) */
-export type ThemeMode = 'auto'|'light'|'dark';
-declare global { interface Window { Telegram: any } }
+export type ThemeMode = 'auto' | 'light' | 'dark';
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: {
+        colorScheme?: string;
+        onEvent?: (event: string, handler: () => void) => void;
+      };
+    };
+  }
+}
 
 const root = document.documentElement;
 let current: ThemeMode = 'auto';

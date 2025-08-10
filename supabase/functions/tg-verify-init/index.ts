@@ -5,7 +5,11 @@ import { encode as hex } from "https://deno.land/std@0.224.0/encoding/hex.ts";
 const BOT = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
 const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
 
-function subtle() { return globalThis.crypto?.subtle!; }
+function subtle() {
+  const s = globalThis.crypto?.subtle;
+  if (!s) throw new Error("crypto.subtle not available");
+  return s;
+}
 async function sha256(data: Uint8Array) { return new Uint8Array(await subtle().digest("SHA-256", data)); }
 function text(s: string) { return new TextEncoder().encode(s); }
 function toHex(u8: Uint8Array) { return new TextDecoder("utf-8").decode(hex.encode(u8)); }
