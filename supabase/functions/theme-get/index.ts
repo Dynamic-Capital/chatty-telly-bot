@@ -19,10 +19,12 @@ serve(async (req) => {
     });
     if (res.ok) {
       const rows = await res.json();
-      const mode = (rows?.[0]?.setting_value || 'auto') as 'auto'|'light'|'dark';
-      return new Response(JSON.stringify({ mode }), { headers: { "content-type":"application/json" }});
+      const mode = (rows?.[0]?.setting_value || 'auto') as 'auto' | 'light' | 'dark';
+      return new Response(JSON.stringify({ mode }), { headers: { "content-type": "application/json" } });
     }
-  } catch {}
+  } catch (_err) {
+    // ignore errors and fall back to default mode
+  }
   return new Response(JSON.stringify({ mode: 'auto' }), { headers: { "content-type":"application/json" }});
 });
 // <<< DC BLOCK: theme-get-core (end)
