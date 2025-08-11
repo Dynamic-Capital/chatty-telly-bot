@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { functionUrl } from "../lib/edge";
 
 interface TelegramWebApp {
   themeParams?: Record<string, string>;
@@ -38,33 +39,52 @@ export function useTelegram() {
         Telegram?: { WebApp?: { initData?: string } };
       }).Telegram?.WebApp?.initData;
       if (initData) {
-        fetch(
-          "https://qeejuomcapbdlhnjqjcc.functions.supabase.co/verify-telegram",
-          {
+        const verifyUrl = functionUrl("tg-verify-init");
+        if (verifyUrl) {
+          fetch(verifyUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ initData }),
-          },
-        )
-          .then(async (res) => {
-            const json = await res.json().catch(() => null);
-            return { ok: res.ok, json };
           })
-          .then(({ ok, json }) => {
-            if (ok && json?.ok) {
-              (root as HTMLElement).dataset.tgVerified = "true";
-              console.log("[MiniApp] Telegram initData verified", json.user);
-            } else {
-              (root as HTMLElement).dataset.tgVerified = "false";
-              console.warn(
-                "[MiniApp] Telegram initData verification failed",
-                json,
-              );
-            }
+            .then(async (res) => {
+              const json = await res.json().catch(() => null);
+              return { ok: res.ok, json };
+            })
+            .then(({ ok, json }) => {
+              if (ok && json?.ok) {
+                (root as HTMLElement).dataset.tgVerified = "true";
+                console.log("[MiniApp] Telegram initData verified", json.user);
+              } else {
+                (root as HTMLElement).dataset.tgVerified = "false";
+                console.warn(
+                  "[MiniApp] Telegram initData verification failed",
+                  json,
+                );
+              }
+            })
+            .catch((err) =>
+              console.error("[MiniApp] tg-verify-init error", err)
+            );
+        }
+
+        const healthUrl = functionUrl("miniapp-health");
+        if (healthUrl) {
+          fetch(healthUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ initData }),
           })
-          .catch((err) =>
-            console.error("[MiniApp] verify-telegram error", err)
-          );
+            .then((res) => res.json().catch(() => null))
+            .then((json) => {
+              const vip = json?.vip?.is_vip;
+              if (vip !== undefined) {
+                (root as HTMLElement).dataset.tgVip = String(!!vip);
+              }
+            })
+            .catch((err) =>
+              console.error("[MiniApp] miniapp-health error", err)
+            );
+        }
       }
     } catch (e) {
       console.warn("[MiniApp] Unable to verify Telegram initData", e);
