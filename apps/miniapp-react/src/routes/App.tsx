@@ -3,6 +3,8 @@ import Landing from '@/routes/Landing';
 import Dashboard from '@/routes/Dashboard';
 import Plans from '@/routes/Plans';
 import Checkout from '@/routes/Checkout';
+import AdminGate from '@/routes/admin/AdminGate';
+import Admin from '@/routes/admin';
 
 export default function App() {
   const loc = useLocation();
@@ -29,6 +31,7 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/plans" element={<Plans />} />
           <Route path="/checkout" element={<Checkout />} />
+          <Route path="/admin/*" element={<AdminGate><Admin /></AdminGate>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
