@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTelegram } from '@/shared/useTelegram';
 import { verifyInitData, getVipStatus, getPackages } from '@/services/api';
 import VipBadge from '@/shared/VipBadge';
@@ -8,6 +9,7 @@ type Pkg = { id: string; name: string; price: number; currency: string; thumbnai
 
 export default function Dashboard() {
   const { initData, user, haptic } = useTelegram();
+  const nav = useNavigate();
   const [vip, setVip] = useState<null | boolean>(null);
   const [pkgs, setPkgs] = useState<Pkg[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +34,13 @@ export default function Dashboard() {
         <h2 className="text-xl font-semibold mb-1">Membership</h2>
         <VipBadge value={vip} />
         <div className="mt-3 flex gap-3">
-          <button className="btn bg-emerald-600 text-white hover:bg-emerald-700" onClick={() => haptic('medium')}>
+          <button
+            className="btn bg-emerald-600 text-white hover:bg-emerald-700"
+            onClick={() => {
+              haptic('medium');
+              nav('/plans');
+            }}
+          >
             Renew / Upgrade
           </button>
           <button className="btn bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100" onClick={() => haptic('light')}>
