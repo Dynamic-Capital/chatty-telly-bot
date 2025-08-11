@@ -1,6 +1,4 @@
 import { requireEnv } from "./helpers/require-env.ts";
-// import removed: avoid cross-repo import that breaks function bundling
-// import { getFlag } from "../../../src/utils/config.ts";
 
 interface TelegramMessage {
   chat: { id: number };
@@ -54,15 +52,6 @@ const WINDOW_SECONDS = Number(Deno.env.get("WINDOW_SECONDS") || "180");
 const AMOUNT_TOLERANCE = Number(Deno.env.get("AMOUNT_TOLERANCE") || "0.02");
 const REQUIRE_PAY_CODE = Deno.env.get("REQUIRE_PAY_CODE") === "true";
 
-// Local getFlag: prefer env-based flags for Edge isolation
-async function getFlag(key: string, fallback: boolean): Promise<boolean> {
-  const envName = key.toUpperCase();
-  const val = Deno.env.get(envName);
-  if (val === 'true') return true;
-  if (val === 'false') return false;
-  return fallback;
-}
-
 type SupabaseClient = any;
 let supabaseAdmin: SupabaseClient | null = null;
 async function getSupabase(): Promise<SupabaseClient | null> {
@@ -100,7 +89,8 @@ async function loadAdminHandlers(): Promise<AdminHandlers> {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-telegram-bot-api-secret-token",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-telegram-bot-api-secret-token",
 };
 
 function okJSON(body: unknown = { ok: true }): Response {
@@ -113,11 +103,14 @@ function okJSON(body: unknown = { ok: true }): Response {
 async function notifyUser(chatId: number, text: string): Promise<void> {
   if (!BOT_TOKEN) return;
   try {
-    const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text }),
-    });
+    const r = await fetch(
+      `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text }),
+      },
+    );
     const out = await r.text();
     console.log("sendMessage", r.status, out.slice(0, 200));
   } catch (e) {
@@ -137,8 +130,7 @@ function buildWebAppButton(label = "Open Mini App") {
 
 async function sendMiniAppLink(chatId: number): Promise<void> {
   if (!BOT_TOKEN) return;
-  const enabled = await getFlag("mini_app_enabled", false);
-  const button = enabled ? buildWebAppButton("Open Mini App") : null;
+  const button = buildWebAppButton("Open Mini App");
   const reply_markup = button ? { inline_keyboard: [[button]] } : undefined;
   const text = button
     ? "Open the Dynamic Capital mini app"
@@ -181,8 +173,14 @@ function isStartMessage(m?: TelegramMessage): boolean {
   const t = m?.text ?? "";
   if (t.startsWith("/start")) return true;
   // Fallback to entities scanning
-  const ents = (m as unknown as { entities?: Array<{ offset: number; length: number; type: string }> })?.entities;
-  return Array.isArray(ents) && ents.some((e) => e.type === "bot_command" && t.slice(e.offset, e.length).startsWith("/start"));
+  const ents = (m as unknown as {
+    entities?: Array<{ offset: number; length: number; type: string }>;
+  })?.entities;
+  return Array.isArray(ents) &&
+    ents.some((e) =>
+      e.type === "bot_command" &&
+      t.slice(e.offset, e.length).startsWith("/start")
+    );
 }
 
 const rateLimitMap = new Map<number, number>();
@@ -333,6 +331,14 @@ export async function serveWebhook(req: Request): Promise<Response> {
         console.warn("Webhook secret mismatch");
         return okJSON();
       }
+    }
+
+    // Allow scripts to fetch Mini App config directly from this Edge function
+    if (url.searchParams.get("miniapp-config")) {
+      return okJSON({
+        mini_app_url: MINI_APP_URL,
+        mini_app_short_name: MINI_APP_SHORT_NAME,
+      });
     }
 
     const body = await extractTelegramUpdate(req);
