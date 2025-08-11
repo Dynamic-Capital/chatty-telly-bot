@@ -45,7 +45,10 @@
     "edge:deploy:ref": "npx supabase functions deploy referral-link",
     "edge:deploy:broadcast": "npx supabase functions deploy broadcast-dispatch && npx supabase functions deploy broadcast-cron",
     "edge:deploy:funnel": "npx supabase functions deploy funnel-track",
-    "edge:deploy:security": "npx supabase functions deploy admin-bans && npx supabase functions deploy data-retention-cron && npx supabase functions deploy rotate-webhook-secret"
+    "edge:deploy:security": "npx supabase functions deploy admin-bans && npx supabase functions deploy data-retention-cron && npx supabase functions deploy rotate-webhook-secret",
+    "edge:deploy:ocr": "npx supabase functions deploy receipt-ocr",
+    "edge:deploy:auto": "npx supabase functions deploy payments-auto-review",
+    "edge:deploy:binance": "npx supabase functions deploy binancepay-webhook"
   }
 }
 // Schedules:
@@ -53,3 +56,5 @@
 // supabase functions schedule create "10 3 * * *" data-retention-cron
 // Optional monthly rotation (manual trigger recommended first time)
 // supabase functions schedule create "0 2 1 * *" rotate-webhook-secret
+// Auto-review: every 10 minutes
+// supabase functions schedule create "*/10 * * * *" payments-auto-review
