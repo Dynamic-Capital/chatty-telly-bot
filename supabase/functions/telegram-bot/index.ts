@@ -1,4 +1,5 @@
 import { requireEnv } from "./helpers/require-env.ts";
+import { readMiniAppEnv } from "./_miniapp.ts";
 
 interface TelegramMessage {
   chat: { id: number };
@@ -37,6 +38,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
   "";
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
 const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
+const botUsername = Deno.env.get("TELEGRAM_BOT_USERNAME") || "";
 // Ensure MINI_APP_URL always includes a trailing slash to avoid redirects
 const MINI_APP_URL = (() => {
   const url = Deno.env.get("MINI_APP_URL");
@@ -100,7 +102,11 @@ function okJSON(body: unknown = { ok: true }): Response {
   });
 }
 
-async function notifyUser(chatId: number, text: string): Promise<void> {
+async function sendMessage(
+  chatId: number,
+  text: string,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
   if (!BOT_TOKEN) return;
   try {
     const r = await fetch(
@@ -108,7 +114,7 @@ async function notifyUser(chatId: number, text: string): Promise<void> {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, text }),
+        body: JSON.stringify({ chat_id: chatId, text, ...extra }),
       },
     );
     const out = await r.text();
@@ -116,6 +122,10 @@ async function notifyUser(chatId: number, text: string): Promise<void> {
   } catch (e) {
     console.error("sendMessage error", e);
   }
+}
+
+async function notifyUser(chatId: number, text: string): Promise<void> {
+  await sendMessage(chatId, text);
 }
 
 function buildWebAppButton(label = "Open Mini App") {
@@ -130,17 +140,19 @@ function buildWebAppButton(label = "Open Mini App") {
 
 async function sendMiniAppLink(chatId: number): Promise<void> {
   if (!BOT_TOKEN) return;
-  const button = buildWebAppButton("Open Mini App");
-  const reply_markup = button ? { inline_keyboard: [[button]] } : undefined;
-  const text = button
-    ? "Open the Dynamic Capital mini app"
-    : "Mini app not configured yet.";
+  const mini = readMiniAppEnv();
+  if (!mini.ready) {
+    await sendMessage(chatId, "Mini app not configured yet.");
+    return;
+  }
 
-  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, reply_markup }),
-  });
+  const openUrl = mini.url || `https://t.me/${botUsername}?startapp=1`;
+  const keyboard = {
+    reply_markup: {
+      inline_keyboard: [[{ text: "Open VIP Mini App", web_app: { url: openUrl } }]],
+    },
+  };
+  await sendMessage(chatId, "Welcome to Dynamic Capital VIP.", keyboard);
 }
 
 async function extractTelegramUpdate(
