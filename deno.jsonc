@@ -12,6 +12,8 @@
     "miniapp:setmenu": "deno run -A scripts/set-chat-menu-button.ts",
     "audit:edge-hosts": "deno run -A scripts/audit-edge-hosts.ts",
     "linkage:check": "deno run -A scripts/check-linkage.ts",
-    "serve:linkage-audit": "supabase functions serve --no-verify-jwt linkage-audit"
+    "serve:linkage-audit": "supabase functions serve --no-verify-jwt linkage-audit",
+    "miniapp-react:dev": "bash scripts/miniapp-react-dev.sh",
+    "miniapp-react:build": "bash scripts/miniapp-react-build.sh"
   }
 }
