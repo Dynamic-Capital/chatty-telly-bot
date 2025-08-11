@@ -55,3 +55,11 @@ export function optionalEnv<K extends EnvKey>(key: K): string | null {
     (globalThis as unknown as { __TEST_ENV__?: TestEnv }).__TEST_ENV__;
   return Deno.env.get(key) ?? testEnv?.[key] ?? null;
 }
+
+export function need(k: string): string {
+  const v = Deno.env.get(k);
+  if (!v) throw new Error(`Missing env: ${k}`);
+  return v;
+}
+
+export const maybe = (k: string) => Deno.env.get(k) ?? null;
