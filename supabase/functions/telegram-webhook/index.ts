@@ -14,8 +14,6 @@ if (nodeProcess?.env) {
   nodeProcess.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 }
 
-const BOT_TOKEN = getEnv("TELEGRAM_BOT_TOKEN");
-const WEBHOOK_SECRET = getEnv("TELEGRAM_WEBHOOK_SECRET");
 
 interface TelegramMessage {
   text?: string;
@@ -27,9 +25,10 @@ interface TelegramUpdate {
 }
 
 async function sendMessage(chatId: number, text: string) {
-  if (!BOT_TOKEN) return;
+  const token = getEnv("TELEGRAM_BOT_TOKEN");
+  if (!token) return;
   try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: chatId, text }),
@@ -41,6 +40,7 @@ async function sendMessage(chatId: number, text: string) {
 
 export async function handler(req: Request): Promise<Response> {
   const headers = { "Content-Type": "application/json" };
+  const WEBHOOK_SECRET = getEnv("TELEGRAM_WEBHOOK_SECRET");
 
   // Only accept POST requests
   if (req.method !== "POST") {
@@ -52,8 +52,10 @@ export async function handler(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
     const querySecret = url.searchParams.get("secret");
-    if (headerSecret !== WEBHOOK_SECRET && querySecret !== WEBHOOK_SECRET) {
-      return new Response(JSON.stringify({ ok: true }), { headers });
+    if (headerSecret || querySecret) {
+      if (headerSecret !== WEBHOOK_SECRET && querySecret !== WEBHOOK_SECRET) {
+        return new Response(JSON.stringify({ ok: true }), { headers });
+      }
     }
   }
 
