@@ -149,3 +149,25 @@ export async function submitReceipt(
   });
   return r.ok;
 }
+
+
+export async function adminCheck(initData: string) {
+  const u = functionUrl('admin-check'); if (!u) return { ok:false };
+  const r = await fetch(u, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ initData }) });
+  return r.json();
+}
+export async function adminListPending(initData: string, limit=25, offset=0) {
+  const u = functionUrl('admin-list-pending'); if (!u) return { ok:false, items:[] };
+  const r = await fetch(u, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ initData, limit, offset }) });
+  return r.json();
+}
+export async function adminActOnPayment(initData: string, payment_id: string, decision: "approve"|"reject", months?: number, message?: string) {
+  const u = functionUrl('admin-act-on-payment'); if (!u) return { ok:false };
+  const r = await fetch(u, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ initData, payment_id, decision, months, message }) });
+  return r.json();
+}
+export async function adminFetchLogs(initData: string, limit=20, offset=0) {
+  const u = functionUrl('admin-logs'); if (!u) return { ok:false, items:[] };
+  const r = await fetch(u, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ initData, limit, offset }) });
+  return r.json();
+}

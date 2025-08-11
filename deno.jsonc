@@ -29,6 +29,10 @@
     "edge:deploy:uploadurl": "npx supabase functions deploy receipt-upload-url",
     "edge:deploy:receipt": "npx supabase functions deploy receipt-submit",
     "edge:deploy:review": "npx supabase functions deploy admin-review-payment",
-    "edge:deploy:cron": "npx supabase functions deploy subscriptions-cron"
+    "edge:deploy:cron": "npx supabase functions deploy subscriptions-cron",
+    "edge:deploy:admin-check": "npx supabase functions deploy admin-check",
+    "edge:deploy:admin-list": "npx supabase functions deploy admin-list-pending",
+    "edge:deploy:admin-act": "npx supabase functions deploy admin-act-on-payment",
+    "edge:deploy:admin-logs": "npx supabase functions deploy admin-logs"
   }
 }
