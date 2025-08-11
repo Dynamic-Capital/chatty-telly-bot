@@ -29,8 +29,9 @@ async function scan(dir: string) {
       continue;
     }
     if (p === "scripts/guard-service-role.ts") continue;
+    if (/(^|\/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$/.test(p)) continue;
     if (p.endsWith(".env.example")) continue;
-    if (!/\.(t|j)sx?$|\.env$|\.yml$|\.jsonc?$/.test(p)) continue;
+    if (!/\.(t|j)sx?$|\.env|\.yml$|\.jsonc?$/.test(p)) continue;
     const buf = await Deno.readFile(p);
     if (isBinary(buf)) continue;
     const txt = decoder.decode(buf);

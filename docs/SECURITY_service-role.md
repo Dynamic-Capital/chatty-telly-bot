@@ -5,11 +5,13 @@
 - Prefer anon key for public reads; elevate via RPC where possible.
 
 ## Rotation (recommended quarterly or after suspected exposure)
+```bash
 npx supabase login
 npx supabase link --project-ref <PROJECT_REF>
 
-Generate a new key in Supabase dashboard (Settings → API), then update Edge Secrets:
+# Generate a new key in Supabase dashboard (Settings → API), then update Edge Secrets:
 npx supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<NEW_VALUE>
 
-Redeploy affected functions
+# Redeploy affected functions
 npx supabase functions deploy telegram-bot
+```
