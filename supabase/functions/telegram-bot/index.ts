@@ -1,4 +1,4 @@
-import { optionalEnv, requireEnv } from "../_shared/env.ts";
+import { optionalEnv } from "../_shared/env.ts";
 import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 
 interface TelegramMessage {
@@ -33,19 +33,10 @@ const REQUIRED_ENV_KEYS = [
   "TELEGRAM_BOT_TOKEN",
 ] as const;
 
-const {
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY,
-  TELEGRAM_BOT_TOKEN: BOT_TOKEN,
-  TELEGRAM_WEBHOOK_SECRET: WEBHOOK_SECRET,
-} = requireEnv(
-  [
-    "SUPABASE_URL",
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "TELEGRAM_BOT_TOKEN",
-    "TELEGRAM_WEBHOOK_SECRET",
-  ] as const,
-);
+const SUPABASE_URL = optionalEnv("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = optionalEnv("SUPABASE_SERVICE_ROLE_KEY");
+const BOT_TOKEN = optionalEnv("TELEGRAM_BOT_TOKEN");
+const WEBHOOK_SECRET = optionalEnv("TELEGRAM_WEBHOOK_SECRET");
 const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
 // Ensure MINI_APP_URL always includes a trailing slash to avoid redirects
 const MINI_APP_URL = (() => {
