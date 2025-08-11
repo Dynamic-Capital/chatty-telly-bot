@@ -8,7 +8,8 @@ import {
   handleVersion,
   handleWebhookInfo,
 } from "./admin-handlers.ts";
-import { getFlag } from "../../../src/utils/config.ts";
+// import removed: avoid cross-repo import that breaks function bundling
+// import { getFlag } from "../../../src/utils/config.ts";
 
 interface TelegramMessage {
   chat: { id: number };
@@ -62,6 +63,15 @@ const _FAQ_ENABLED = Deno.env.get("FAQ_ENABLED") === "true";
 const WINDOW_SECONDS = Number(Deno.env.get("WINDOW_SECONDS") || "180");
 const AMOUNT_TOLERANCE = Number(Deno.env.get("AMOUNT_TOLERANCE") || "0.02");
 const REQUIRE_PAY_CODE = Deno.env.get("REQUIRE_PAY_CODE") === "true";
+
+// Local getFlag: prefer env-based flags for Edge isolation
+async function getFlag(key: string, fallback: boolean): Promise<boolean> {
+  const envName = key.toUpperCase();
+  const val = Deno.env.get(envName);
+  if (val === 'true') return true;
+  if (val === 'false') return false;
+  return fallback;
+}
 
 let supabaseAdmin: SupabaseClient | null = null;
 function getSupabase(): SupabaseClient {
