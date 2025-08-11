@@ -148,22 +148,13 @@ function buildWebAppButton(label = "Open Mini App") {
 
 async function sendMiniAppLink(chatId: number): Promise<void> {
   if (!BOT_TOKEN) return;
-  const miniUrl = optionalEnv("MINI_APP_URL");
-  const short = optionalEnv("MINI_APP_SHORT_NAME");
-  if (!miniUrl && !short) {
+  const button = buildWebAppButton("Open VIP Mini App");
+  if (!button) {
     await sendMessage(chatId, "Mini app not configured yet.");
     return;
   }
-  const openUrl = miniUrl
-    ? (miniUrl.endsWith("/") ? miniUrl : miniUrl + "/")
-    : `https://t.me/${botUsername}?startapp=1`;
   await sendMessage(chatId, "Welcome to Dynamic Capital VIP.", {
-    reply_markup: {
-      inline_keyboard: [[{
-        text: "Open VIP Mini App",
-        web_app: { url: openUrl },
-      }]],
-    },
+    reply_markup: { inline_keyboard: [[button]] },
   });
 }
 
