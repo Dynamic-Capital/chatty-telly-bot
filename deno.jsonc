@@ -27,6 +27,8 @@
     "edge:deploy:plans": "npx supabase functions deploy plans",
     "edge:deploy:checkout": "npx supabase functions deploy checkout-init",
     "edge:deploy:uploadurl": "npx supabase functions deploy receipt-upload-url",
-    "edge:deploy:receipt": "npx supabase functions deploy receipt-submit"
+    "edge:deploy:receipt": "npx supabase functions deploy receipt-submit",
+    "edge:deploy:review": "npx supabase functions deploy admin-review-payment",
+    "edge:deploy:cron": "npx supabase functions deploy subscriptions-cron"
   }
 }
