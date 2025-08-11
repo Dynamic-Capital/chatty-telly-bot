@@ -9,14 +9,22 @@ interface TelegramUpdate {
   message?: TelegramMessage;
 }
 
-async function sendMessage(chatId: number, text: string) {
+/**
+ * Minimal wrapper around Telegram's sendMessage API.
+ * Allows passing through optional payload fields like reply_markup.
+ */
+async function sendMessage(
+  chatId: number,
+  text: string,
+  extra?: Record<string, unknown>,
+) {
   const token = optionalEnv("TELEGRAM_BOT_TOKEN");
   if (!token) return;
   try {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text }),
+      body: JSON.stringify({ chat_id: chatId, text, ...extra }),
     });
   } catch (err) {
     console.error("sendMessage error", err);
@@ -60,7 +68,29 @@ export async function handler(req: Request): Promise<Response> {
   const command = text?.split(/\s+/)[0];
   if (command === "/start" && typeof chatId === "number") {
     try {
-      await sendMessage(chatId, "Bot activated. Replying to /start");
+      const miniUrl = optionalEnv("MINI_APP_URL");
+      const short = optionalEnv("MINI_APP_SHORT_NAME");
+      const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME");
+
+      let openUrl: string | null = null;
+      if (miniUrl) {
+        openUrl = miniUrl.endsWith("/") ? miniUrl : miniUrl + "/";
+      } else if (short && botUsername) {
+        openUrl = `https://t.me/${botUsername}/${short}`;
+      }
+
+      if (openUrl) {
+        await sendMessage(chatId, "Open the VIP Mini App:", {
+          reply_markup: {
+            inline_keyboard: [[{
+              text: "Open VIP Mini App",
+              web_app: { url: openUrl },
+            }]],
+          },
+        });
+      } else {
+        await sendMessage(chatId, "Bot activated. Replying to /start");
+      }
     } catch (err) {
       console.error("error handling /start", err);
     }
