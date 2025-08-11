@@ -1,5 +1,6 @@
 import { optionalEnv } from "../_shared/env.ts";
 import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 interface TelegramMessage {
   chat: { id: number };
@@ -36,7 +37,6 @@ const REQUIRED_ENV_KEYS = [
 const SUPABASE_URL = optionalEnv("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = optionalEnv("SUPABASE_SERVICE_ROLE_KEY");
 const BOT_TOKEN = optionalEnv("TELEGRAM_BOT_TOKEN");
-const WEBHOOK_SECRET = optionalEnv("TELEGRAM_WEBHOOK_SECRET");
 const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
 
 // Optional feature flags (currently unused)
@@ -313,6 +313,25 @@ async function startReceiptPipeline(update: TelegramUpdate): Promise<void> {
   }
 }
 
+async function readDbWebhookSecret(): Promise<string | null> {
+  try {
+    const url = Deno.env.get("SUPABASE_URL");
+    const srv = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!url || !srv) return null;
+    const supa = createClient(url, srv, { auth: { persistSession: false } });
+    const { data, error } = await supa
+      .from("bot_settings")
+      .select("setting_value")
+      .eq("setting_key", "TELEGRAM_WEBHOOK_SECRET")
+      .limit(1)
+      .maybeSingle();
+    if (error) return null;
+    return (data?.setting_value as string) || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function serveWebhook(req: Request): Promise<Response> {
   // CORS preflight support for browser calls
   if (req.method === "OPTIONS") {
@@ -327,15 +346,23 @@ export async function serveWebhook(req: Request): Promise<Response> {
       return okJSON();
     }
 
-    const url = new URL(req.url);
-    if (WEBHOOK_SECRET) {
-      const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
-      const querySecret = url.searchParams.get("secret");
-      if (headerSecret !== WEBHOOK_SECRET && querySecret !== WEBHOOK_SECRET) {
-        console.warn("Webhook secret mismatch");
-        return okJSON();
-      }
+    // --- Secret validation (ENV or DB) ---
+    const h = req.headers;
+    const got = h.get("X-Telegram-Bot-Api-Secret-Token") ||
+      h.get("x-telegram-bot-api-secret-token") || "";
+    const envSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
+    const dbSecret = await readDbWebhookSecret();
+    const expected = envSecret || dbSecret || "";
+
+    if (!expected) {
+      console.log("telegram-bot: no secret configured (env nor db); refusing");
+      return new Response("Secret missing", { status: 500 });
     }
+    if (got !== expected) {
+      console.log("telegram-bot: secret mismatch");
+      return new Response("Unauthorized", { status: 401 });
+    }
+    // --- end secret validation ---
 
     const body = await extractTelegramUpdate(req);
     if (

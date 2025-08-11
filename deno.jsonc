@@ -21,6 +21,8 @@
     "miniapp:check": "deno run -A scripts/miniapp-domain-check.ts",
     "edge:call": "deno run -A scripts/call-edge.ts",
     "edge:deploy:verify": "npx supabase functions deploy verify-initdata",
-    "edge:deploy:health": "npx supabase functions deploy miniapp-health"
+    "edge:deploy:health": "npx supabase functions deploy miniapp-health",
+    "tg:keeper:deploy": "npx supabase functions deploy telegram-webhook-keeper",
+    "tg:keeper:run": "curl -s https://qeejuomcapbdlhnjqjcc.functions.supabase.co/telegram-webhook-keeper | jq ."
   }
 }
