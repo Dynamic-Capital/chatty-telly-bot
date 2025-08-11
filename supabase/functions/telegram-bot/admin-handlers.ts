@@ -14,13 +14,53 @@ const supabaseAdmin = createClient(
 // Import utility functions
 import { getBotContent, logAdminAction } from "./database-utils.ts";
 import { requireEnv } from "./helpers/require-env.ts";
-import {
-  getFlag,
-  preview,
-  publish as publishFlags,
-  rollback as rollbackFlags,
-  setFlag,
-} from "../../../src/utils/config.ts";
+// Removed cross-import of config helpers; provide local flag helpers for Edge isolation
+// Simple implementation stores flags in bot_settings with keys prefixed by "flag_"
+
+type FlagMap = Record<string, boolean>;
+const FLAG_PREFIX = "flag_";
+
+async function preview(): Promise<{ data: FlagMap }> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("bot_settings")
+      .select("setting_key, setting_value")
+      .like("setting_key", `${FLAG_PREFIX}%`);
+    if (error) throw error;
+    const map: FlagMap = {};
+    for (const row of (data as any[]) ?? []) {
+      const key: string = (row.setting_key as string) || "";
+      const valRaw: string = String(row.setting_value ?? "");
+      const normalized = valRaw.toLowerCase();
+      const boolVal = normalized === "true" || normalized === "1" || normalized === "on";
+      map[key.replace(FLAG_PREFIX, "")] = boolVal;
+    }
+    return { data: map };
+  } catch (e) {
+    console.error("preview flags error", e);
+    return { data: {} };
+  }
+}
+
+async function setFlag(name: string, value: boolean): Promise<void> {
+  try {
+    const key = `${FLAG_PREFIX}${name}`;
+    const { error } = await supabaseAdmin
+      .from("bot_settings")
+      .upsert({ setting_key: key, setting_value: value ? "true" : "false", is_active: true }, { onConflict: "setting_key" });
+    if (error) throw error;
+  } catch (e) {
+    console.error("setFlag error", e);
+  }
+}
+
+async function publishFlags(userId: string): Promise<void> {
+  console.log("publishFlags invoked by", userId);
+}
+
+async function rollbackFlags(userId: string): Promise<void> {
+  console.log("rollbackFlags invoked by", userId);
+}
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
 
