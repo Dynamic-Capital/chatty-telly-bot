@@ -295,6 +295,24 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
         await notifyUser(chatId, JSON.stringify(info));
         break;
       }
+      case "/status": {
+        const supa = await getSupabase();
+        if (supa) {
+          const { data } = await supa
+            .from("bot_users")
+            .select("is_vip,subscription_expires_at")
+            .eq("telegram_id", chatId)
+            .maybeSingle();
+          const vip = data?.is_vip ? "VIP: active" : "VIP: inactive";
+          const expiry = data?.subscription_expires_at
+            ? `Expiry: ${
+              new Date(data.subscription_expires_at).toLocaleDateString()
+            }`
+            : "Expiry: none";
+          await notifyUser(chatId, `${vip}\n${expiry}`);
+        }
+        break;
+      }
       default:
         // Unsupported command; ignore silently
         break;
