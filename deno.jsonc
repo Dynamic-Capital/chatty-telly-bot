@@ -36,6 +36,9 @@
     "edge:deploy:admin-logs": "npx supabase functions deploy admin-logs",
     "edge:deploy:analytics": "npx supabase functions deploy analytics-collector",
     "edge:deploy:ops": "npx supabase functions deploy ops-health",
-    "edge:deploy:smoke": "npx supabase functions deploy miniapp-smoke"
+    "edge:deploy:smoke": "npx supabase functions deploy miniapp-smoke",
+    "tg:menu:get": "deno run -A scripts/tg-chat-menu.ts get",
+    "tg:menu:set": "deno run -A scripts/tg-chat-menu.ts set",
+    "miniapp:audit": "deno run -A scripts/miniapp-audit.ts"
   }
 }

@@ -46,7 +46,13 @@ const TYPE = (p: string) =>
     ? "image/webp"
     : "application/octet-stream";
 
-serve(async (req) => {
+serve((req) => {
+  console.log(
+    "miniapp hit",
+    new Date().toISOString(),
+    new URL(req.url).pathname,
+    req.headers.get("user-agent") || "",
+  );
   const url = new URL(req.url);
   if (
     url.pathname === "/" || url.pathname === "/miniapp" ||
