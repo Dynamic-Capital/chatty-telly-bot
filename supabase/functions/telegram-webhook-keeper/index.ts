@@ -43,6 +43,15 @@ async function readDbSecret(supa: any): Promise<string | null> {
   return (data?.setting_value as string) || null;
 }
 
+export async function decideSecret(supa: any, envSecret: string | null): Promise<string> {
+  if (envSecret) return envSecret;
+  let secret = await readDbSecret(supa);
+  if (secret) return secret;
+  secret = genSecretHex(24);
+  await upsertDbSecret(supa, secret);
+  return secret;
+}
+
 async function tgCall(token: string, method: string, body?: unknown) {
   const r = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: "POST",
@@ -68,12 +77,7 @@ serve(async (req) => {
   const supa = createClient(url, srv, { auth: { persistSession: false } });
 
   // 1) Determine secret precedence: ENV -> DB -> generate
-  let secret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || null;
-  if (!secret) secret = await readDbSecret(supa);
-  if (!secret) {
-    secret = genSecretHex(24);
-    await upsertDbSecret(supa, secret);
-  }
+  const secret = await decideSecret(supa, Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || null);
 
   // 2) Ping bot echo (helps surface downtime)
   let echoOK = false;

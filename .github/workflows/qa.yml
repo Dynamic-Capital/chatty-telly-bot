@@ -1,0 +1,41 @@
+name: QA Pack
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  deno-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v1
+        with: { deno-version: v1.x }
+      - name: Run unit + integration tests
+        env:
+          # Optional: enable integration smoke if provided at repo/CI level
+          MINI_APP_URL: ${{ secrets.MINI_APP_URL }}
+          FUNCTIONS_BASE: https://qeejuomcapbdlhnjqjcc.functions.supabase.co
+        run: deno test -A supabase/functions/_tests
+
+  edge-secrets-audit:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event.pull_request.merged == false }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Supabase CLI
+        run: npm i -g supabase
+      - name: List required edge secrets
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase link --project-ref qeejuomcapbdlhnjqjcc
+          supabase secrets list | tee secrets.txt
+          # Fail if any must-have is missing
+          req=(SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET)
+          miss=0
+          for k in "${req[@]}"; do
+            grep -q "^$k" secrets.txt || { echo "❌ missing $k"; miss=1; }
+          done
+          exit $miss

@@ -1,5 +1,6 @@
 {
   "tasks": {
+    "test": "deno test -A supabase/functions/_tests",
     "check:webhook": "deno run -A scripts/check-webhook.ts",
     "ping:webhook": "deno run -A scripts/ping-webhook.ts",
     "set:webhook": "deno run -A scripts/set-webhook.ts",

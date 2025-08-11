@@ -22,6 +22,29 @@ async function importHmacKeyFromToken(token: string) {
   );
 }
 
+async function verifyDetailed(initData: string, windowSec: number) {
+  const token = getEnv("TELEGRAM_BOT_TOKEN");
+  const key = await importHmacKeyFromToken(token);
+  const params = new URLSearchParams(initData);
+  const hash = params.get("hash") || "";
+  params.delete("hash");
+  const pairs = Array.from(params.entries()).map(([k, v]) => `${k}=${v}`).sort();
+  const dataCheckString = pairs.join("\n");
+  const sig = await hmacSHA256(key, dataCheckString);
+  if (sig !== hash) return { ok: false, reason: "bad_signature" } as const;
+  const auth = Number(params.get("auth_date") || "0");
+  const age = Math.floor(Date.now() / 1000) - auth;
+  if (windowSec > 0 && (isNaN(auth) || age > windowSec)) {
+    return { ok: false, reason: "stale" } as const;
+  }
+  return { ok: true } as const;
+}
+
+export async function verifyFromRaw(initData: string, windowSec = 900): Promise<boolean> {
+  const { ok } = await verifyDetailed(initData, windowSec);
+  return ok;
+}
+
 serve(async (req) => {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
@@ -35,33 +58,14 @@ serve(async (req) => {
   const raw = body.initData || "";
   if (!raw) return new Response("Missing initData", { status: 400 });
 
-  const token = getEnv("TELEGRAM_BOT_TOKEN");
-  const key = await importHmacKeyFromToken(token);
-
-  const params = new URLSearchParams(raw);
-  const hash = params.get("hash") || "";
-  params.delete("hash");
-
-  const pairs = Array.from(params.entries()).map(([k, v]) => `${k}=${v}`)
-    .sort();
-  const dataCheckString = pairs.join("\n");
-  const sig = await hmacSHA256(key, dataCheckString);
-
-  if (sig !== hash) {
+  const win = Number(Deno.env.get("WINDOW_SECONDS") ?? "900");
+  const ok = await verifyFromRaw(raw, win);
+  if (!ok) {
+    const res = await verifyDetailed(raw, win);
     return new Response(
-      JSON.stringify({ ok: false, reason: "bad_signature" }),
+      JSON.stringify({ ok: false, reason: res.reason }),
       { status: 401 },
     );
-  }
-
-  // optional age window
-  const win = Number(Deno.env.get("WINDOW_SECONDS") ?? "900"); // 15 min default
-  const auth = Number(params.get("auth_date") || "0");
-  const age = Math.floor(Date.now() / 1000) - auth;
-  if (win > 0 && (isNaN(auth) || age > win)) {
-    return new Response(JSON.stringify({ ok: false, reason: "stale" }), {
-      status: 401,
-    });
   }
 
   return new Response(JSON.stringify({ ok: true }), {
