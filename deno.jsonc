@@ -48,7 +48,8 @@
     "edge:deploy:security": "npx supabase functions deploy admin-bans && npx supabase functions deploy data-retention-cron && npx supabase functions deploy rotate-webhook-secret",
     "edge:deploy:ocr": "npx supabase functions deploy receipt-ocr",
     "edge:deploy:auto": "npx supabase functions deploy payments-auto-review",
-    "edge:deploy:binance": "npx supabase functions deploy binancepay-webhook"
+    "edge:deploy:binance": "npx supabase functions deploy binancepay-webhook",
+    "edge:deploy:sync": "npx supabase functions deploy sync-audit"
   }
 }
 // Schedules:

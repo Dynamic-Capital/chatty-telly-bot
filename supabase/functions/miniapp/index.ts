@@ -60,6 +60,23 @@ const TYPE = (p: string) =>
     : "application/octet-stream";
 
 serve((req) => {
+  if (req.method === "GET") {
+    const url = new URL(req.url);
+    if (url.pathname.endsWith("/version")) {
+      const ref = Deno.env.get("SUPABASE_URL")
+        ? new URL(Deno.env.get("SUPABASE_URL")!).hostname.split(".")[0]
+        : null;
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          name: "miniapp",
+          project_ref: ref,
+          ts: new Date().toISOString(),
+        }),
+        { headers: { "content-type": "application/json" } },
+      );
+    }
+  }
   console.log(
     "miniapp hit",
     new Date().toISOString(),
