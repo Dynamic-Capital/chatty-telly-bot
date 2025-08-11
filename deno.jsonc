@@ -44,6 +44,12 @@
     "edge:deploy:promo": "npx supabase functions deploy promo-validate && npx supabase functions deploy promo-redeem",
     "edge:deploy:ref": "npx supabase functions deploy referral-link",
     "edge:deploy:broadcast": "npx supabase functions deploy broadcast-dispatch && npx supabase functions deploy broadcast-cron",
-    "edge:deploy:funnel": "npx supabase functions deploy funnel-track"
+    "edge:deploy:funnel": "npx supabase functions deploy funnel-track",
+    "edge:deploy:security": "npx supabase functions deploy admin-bans && npx supabase functions deploy data-retention-cron && npx supabase functions deploy rotate-webhook-secret"
   }
 }
+// Schedules:
+// Retention: daily at 03:10 (server time)
+// supabase functions schedule create "10 3 * * *" data-retention-cron
+// Optional monthly rotation (manual trigger recommended first time)
+// supabase functions schedule create "0 2 1 * *" rotate-webhook-secret
