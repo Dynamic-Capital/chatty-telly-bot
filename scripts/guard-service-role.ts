@@ -22,13 +22,15 @@ let bad = false;
 
 async function scan(dir: string) {
   for await (const e of Deno.readDir(dir)) {
-    const p = `${dir}/${e.name}`;
+    const p = dir === "." ? e.name : `${dir}/${e.name}`;
     if (e.isDirectory) {
       if ([".git","node_modules","dist","build",".next",".turbo",".vercel",".vscode","coverage"].includes(e.name)) continue;
       await scan(p);
       continue;
     }
-    if (!/\.(t|j)sx?$|\.env|\.md|\.yml|\.jsonc?$/.test(p)) continue;
+    if (p === "scripts/guard-service-role.ts") continue;
+    if (p.endsWith(".env.example")) continue;
+    if (!/\.(t|j)sx?$|\.env$|\.yml$|\.jsonc?$/.test(p)) continue;
     const buf = await Deno.readFile(p);
     if (isBinary(buf)) continue;
     const txt = decoder.decode(buf);

@@ -4,6 +4,6 @@
     "ping:webhook": "deno run -A scripts/ping-webhook.ts",
     "set:webhook": "deno run -A scripts/set-webhook.ts",
     "test:start": "deno test -A functions/_tests/start-command.test.ts",
-    "guard:service-role": "deno run -A scripts/guard-service-role.ts"
+    "guard:service-role": "deno run -A --no-npm scripts/guard-service-role.ts"
   }
 }
