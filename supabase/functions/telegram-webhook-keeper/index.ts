@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 function requireEnv(k: string) {
   const v = Deno.env.get(k);
@@ -62,7 +61,7 @@ async function tgCall(token: string, method: string, body?: unknown) {
   return { status: r.status, json: j };
 }
 
-serve(async (req) => {
+async function handler(req: Request): Promise<Response> {
   if (req.method !== "GET" && req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
@@ -74,10 +73,14 @@ serve(async (req) => {
   const ref = projectRef();
   const expectedUrl = `https://${ref}.functions.supabase.co/telegram-bot`;
 
+  const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
   const supa = createClient(url, srv, { auth: { persistSession: false } });
 
   // 1) Determine secret precedence: ENV -> DB -> generate
-  const secret = await decideSecret(supa, Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || null);
+  const secret = await decideSecret(
+    supa,
+    Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || null,
+  );
 
   // 2) Ping bot echo (helps surface downtime)
   let echoOK = false;
@@ -117,4 +120,8 @@ serve(async (req) => {
     headers: { "content-type": "application/json" },
     status: out.ok ? 200 : 500,
   });
-});
+}
+
+if (import.meta.main) {
+  serve(handler);
+}
