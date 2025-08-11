@@ -38,13 +38,6 @@ const SUPABASE_SERVICE_ROLE_KEY = optionalEnv("SUPABASE_SERVICE_ROLE_KEY");
 const BOT_TOKEN = optionalEnv("TELEGRAM_BOT_TOKEN");
 const WEBHOOK_SECRET = optionalEnv("TELEGRAM_WEBHOOK_SECRET");
 const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
-// Ensure MINI_APP_URL always includes a trailing slash to avoid redirects
-const MINI_APP_URL = (() => {
-  const url = optionalEnv("MINI_APP_URL");
-  if (!url) return null;
-  return url.endsWith("/") ? url : `${url}/`;
-})();
-const MINI_APP_SHORT_NAME = optionalEnv("MINI_APP_SHORT_NAME");
 
 // Optional feature flags (currently unused)
 const _OPENAI_ENABLED = optionalEnv("OPENAI_ENABLED") === "true";
@@ -127,25 +120,28 @@ async function notifyUser(chatId: number, text: string): Promise<void> {
   await sendMessage(chatId, text);
 }
 
-function buildWebAppButton(label = "Open Mini App") {
-  if (MINI_APP_SHORT_NAME) {
-    return { text: label, web_app: { short_name: MINI_APP_SHORT_NAME } };
-  }
-  if (MINI_APP_URL) {
-    return { text: label, web_app: { url: MINI_APP_URL } };
-  }
-  return null;
-}
-
 async function sendMiniAppLink(chatId: number): Promise<void> {
   if (!BOT_TOKEN) return;
-  const button = buildWebAppButton("Open VIP Mini App");
-  if (!button) {
-    await sendMessage(chatId, "Mini app not configured yet.");
+  const miniUrl = optionalEnv("MINI_APP_URL");
+  const short = optionalEnv("MINI_APP_SHORT_NAME");
+  if (!miniUrl && !short) {
+    await sendMessage(
+      chatId,
+      "Welcome! Mini app is being configured. Please try again soon.",
+    );
     return;
   }
-  await sendMessage(chatId, "Welcome to Dynamic Capital VIP.", {
-    reply_markup: { inline_keyboard: [[button]] },
+  const openUrl = miniUrl
+    ? (miniUrl.endsWith("/") ? miniUrl : miniUrl + "/")
+    : `https://t.me/${botUsername}?startapp=1`;
+
+  await sendMessage(chatId, "Open the VIP Mini App:", {
+    reply_markup: {
+      inline_keyboard: [[{
+        text: "Open VIP Mini App",
+        web_app: { url: openUrl },
+      }]],
+    },
   });
 }
 
