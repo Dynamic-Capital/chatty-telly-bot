@@ -38,6 +38,9 @@ supabase/functions/**/.edge/
 
 # Mini app build & deps
 apps/mini/dist/
+apps/miniapp-react/package-lock.json
+supabase/functions/miniapp/static/*
+!supabase/functions/miniapp/static/.gitkeep
 
 # Audit reports
 .audit/
