@@ -3,6 +3,8 @@
     "check:webhook": "deno run -A scripts/check-webhook.ts",
     "ping:webhook": "deno run -A scripts/ping-webhook.ts",
     "set:webhook": "deno run -A scripts/set-webhook.ts",
-    "test:start": "deno test -A functions/_tests/start-command.test.ts"
+    "test:start": "deno test -A functions/_tests/start-command.test.ts",
+    "verify": "deno run -A scripts/ci-verify.ts",
+    "ci:env": "deno run -A scripts/ci-env-sanity.ts"
   }
 }
