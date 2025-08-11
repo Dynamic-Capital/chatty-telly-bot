@@ -1,5 +1,6 @@
 // >>> DC BLOCK: theme-save-core (start)
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { optionalEnv, requireEnv } from "../_shared/env.ts";
 
 function parseToken(bearer: string | undefined) {
   if (!bearer?.startsWith("Bearer ")) return 0;
@@ -25,9 +26,13 @@ serve(async (req) => {
     });
   }
   try {
-    const url = Deno.env.get("SUPABASE_URL")!;
-    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-      Deno.env.get("SUPABASE_ANON_KEY")!;
+    const { SUPABASE_URL, SUPABASE_ANON_KEY } = requireEnv(
+      [
+        "SUPABASE_URL",
+        "SUPABASE_ANON_KEY",
+      ] as const,
+    );
+    const key = optionalEnv("SUPABASE_SERVICE_ROLE_KEY") || SUPABASE_ANON_KEY;
     // upsert into bot_settings
     const body = [{
       setting_key: `theme:${uid}`,
@@ -35,7 +40,7 @@ serve(async (req) => {
       description: "miniapp theme",
       is_system: false,
     }];
-    const r = await fetch(`${url}/rest/v1/bot_settings`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/bot_settings`, {
       method: "POST",
       headers: {
         apikey: key,

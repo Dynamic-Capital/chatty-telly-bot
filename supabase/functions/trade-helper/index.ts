@@ -1,7 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { requireEnv } from "../_shared/env.ts";
 
-const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
+const { OPENAI_API_KEY } = requireEnv(["OPENAI_API_KEY"] as const);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -84,7 +85,7 @@ Remember to keep this educational and include proper risk disclaimers.`;
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${openAIApiKey}`,
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

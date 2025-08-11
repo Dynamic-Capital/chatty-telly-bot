@@ -14,6 +14,7 @@
     "linkage:check": "deno run -A scripts/check-linkage.ts",
     "serve:linkage-audit": "supabase functions serve --no-verify-jwt linkage-audit",
     "miniapp-react:dev": "bash scripts/miniapp-react-dev.sh",
-    "miniapp-react:build": "bash scripts/miniapp-react-build.sh"
+    "miniapp-react:build": "bash scripts/miniapp-react-build.sh",
+    "guard:env": "deno run -A scripts/guard-env-usage.ts"
   }
 }

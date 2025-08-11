@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { optionalEnv } from "../_shared/env.ts";
 
 serve(async (req) => {
   const headers = {
@@ -31,7 +32,7 @@ serve(async (req) => {
       );
     }
 
-    const base = (Deno.env.get("SUPABASE_URL") || "").replace(/\/$/, "");
+    const base = (optionalEnv("SUPABASE_URL") || "").replace(/\/$/, "");
     if (!base) {
       return new Response(
         JSON.stringify({ ok: false, error: "SUPABASE_URL not set" }),
@@ -55,7 +56,7 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    const secret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
+    const secret = optionalEnv("TELEGRAM_WEBHOOK_SECRET");
     if (secret) {
       fetchHeaders["x-telegram-bot-api-secret-token"] = secret;
     }

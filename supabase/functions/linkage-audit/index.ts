@@ -1,16 +1,23 @@
 // supabase/functions/linkage-audit/index.ts
 // Reports whether bot webhook, Mini App URL, and project ref align.
 // Also lists which envs are present inside the Edge runtime (source of truth).
-import { functionUrl, functionsHost, getProjectRef } from "../_shared/edge.ts";
+import { functionsHost, functionUrl, getProjectRef } from "../_shared/edge.ts";
+import { EnvKey, optionalEnv } from "../_shared/env.ts";
 
 type J = Record<string, unknown>;
-function has(k: string) { return (Deno.env.get(k) ?? "") !== ""; }
-function env(k: string) { return Deno.env.get(k) ?? ""; }
+function has(k: EnvKey) {
+  return optionalEnv(k) !== null;
+}
+function env(k: EnvKey) {
+  return optionalEnv(k) ?? "";
+}
 
 async function getWebhookInfo(token?: string): Promise<any> {
   if (!token) return { ok: false, error: "missing_token" };
   try {
-    const r = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`);
+    const r = await fetch(
+      `https://api.telegram.org/bot${token}/getWebhookInfo`,
+    );
     return await r.json();
   } catch (e) {
     return { ok: false, error: String(e?.message || e) };
@@ -19,7 +26,11 @@ async function getWebhookInfo(token?: string): Promise<any> {
 
 function sameHost(a?: string, b?: string): boolean {
   if (!a || !b) return false;
-  try { return new URL(a).host === new URL(b).host; } catch { return false; }
+  try {
+    return new URL(a).host === new URL(b).host;
+  } catch {
+    return false;
+  }
 }
 
 function normalizeSlash(u?: string) {
@@ -45,7 +56,10 @@ export default async function handler(_req: Request): Promise<Response> {
     expectedWebhookUrl: botWebhookUrlExpected,
     currentWebhookUrl,
     miniAppUrl: miniUrl,
-    sameHost_webhook_vs_functions: sameHost(currentWebhookUrl, botWebhookUrlExpected || ""),
+    sameHost_webhook_vs_functions: sameHost(
+      currentWebhookUrl,
+      botWebhookUrlExpected || "",
+    ),
     sameHost_mini_vs_functions: sameHost(miniUrl, botWebhookUrlExpected || ""),
     env: {
       TELEGRAM_BOT_TOKEN: has("TELEGRAM_BOT_TOKEN"),
@@ -53,19 +67,19 @@ export default async function handler(_req: Request): Promise<Response> {
       MINI_APP_URL: has("MINI_APP_URL"),
       SUPABASE_URL: has("SUPABASE_URL"),
       SUPABASE_ANON_KEY: has("SUPABASE_ANON_KEY"),
-      SUPABASE_PROJECT_ID: has("SUPABASE_PROJECT_ID")
+      SUPABASE_PROJECT_ID: has("SUPABASE_PROJECT_ID"),
     },
     optional: {
-      miniapp_health_url: healthUrl
+      miniapp_health_url: healthUrl,
     },
     notes: [
       "expectedWebhookUrl should equal currentWebhookUrl",
       "miniAppUrl host should match expected functions host (same project)",
-      "All runtime secrets should be set in Supabase Edge"
-    ]
+      "All runtime secrets should be set in Supabase Edge",
+    ],
   } as J;
 
   return new Response(JSON.stringify({ ok: true, linkage: checks }), {
-    headers: { "content-type": "application/json" }
+    headers: { "content-type": "application/json" },
   });
 }

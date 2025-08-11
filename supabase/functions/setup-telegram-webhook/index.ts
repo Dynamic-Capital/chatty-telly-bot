@@ -1,7 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { requireEnv } from "../_shared/env.ts";
 
-const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const { TELEGRAM_BOT_TOKEN: BOT_TOKEN, SUPABASE_URL } = requireEnv(
+  [
+    "TELEGRAM_BOT_TOKEN",
+    "SUPABASE_URL",
+  ] as const,
+);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

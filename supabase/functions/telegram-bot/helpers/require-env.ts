@@ -1,4 +1,6 @@
+import { EnvKey, optionalEnv } from "../../_shared/env.ts";
+
 export function requireEnv(keys: string[]): { ok: boolean; missing: string[] } {
-  const missing = keys.filter((k) => !Deno.env.get(k));
+  const missing = keys.filter((k) => !optionalEnv(k as EnvKey));
   return { ok: missing.length === 0, missing };
 }

@@ -1,9 +1,18 @@
 // Enhanced admin handlers for comprehensive table management
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { optionalEnv, requireEnv } from "../_shared/env.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-  "";
+const {
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY,
+  TELEGRAM_BOT_TOKEN: BOT_TOKEN,
+} = requireEnv(
+  [
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "TELEGRAM_BOT_TOKEN",
+  ] as const,
+);
 
 const supabaseAdmin = createClient(
   SUPABASE_URL,
@@ -13,7 +22,6 @@ const supabaseAdmin = createClient(
 
 // Import utility functions
 import { getBotContent, logAdminAction } from "./database-utils.ts";
-import { requireEnv } from "./helpers/require-env.ts";
 // Removed cross-import of config helpers; provide local flag helpers for Edge isolation
 // Simple implementation stores flags in bot_settings with keys prefixed by "flag_"
 
@@ -32,7 +40,8 @@ async function preview(): Promise<{ data: FlagMap }> {
       const key: string = (row.setting_key as string) || "";
       const valRaw: string = String(row.setting_value ?? "");
       const normalized = valRaw.toLowerCase();
-      const boolVal = normalized === "true" || normalized === "1" || normalized === "on";
+      const boolVal = normalized === "true" || normalized === "1" ||
+        normalized === "on";
       map[key.replace(FLAG_PREFIX, "")] = boolVal;
     }
     return { data: map };
@@ -47,7 +56,11 @@ async function setFlag(name: string, value: boolean): Promise<void> {
     const key = `${FLAG_PREFIX}${name}`;
     const { error } = await supabaseAdmin
       .from("bot_settings")
-      .upsert({ setting_key: key, setting_value: value ? "true" : "false", is_active: true }, { onConflict: "setting_key" });
+      .upsert({
+        setting_key: key,
+        setting_value: value ? "true" : "false",
+        is_active: true,
+      }, { onConflict: "setting_key" });
     if (error) throw error;
   } catch (e) {
     console.error("setFlag error", e);
@@ -61,8 +74,6 @@ async function publishFlags(userId: string): Promise<void> {
 async function rollbackFlags(userId: string): Promise<void> {
   console.log("rollbackFlags invoked by", userId);
 }
-
-const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
 
 export async function sendMessage(
   chatId: number,
@@ -1528,7 +1539,7 @@ export function handlePing() {
 }
 
 export function handleVersion() {
-  return { version: Deno.env.get("BOT_VERSION") || "unknown" };
+  return { version: optionalEnv("BOT_VERSION") || "unknown" };
 }
 
 export function handleEnvStatus() {

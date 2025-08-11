@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { optionalEnv, requireEnv } from "../_shared/env.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,7 +55,7 @@ serve(async (req) => {
     const signature = req.headers.get("BinancePay-Signature");
 
     // Verify webhook signature (optional but recommended for production)
-    const secretKey = Deno.env.get("BINANCE_SECRET_KEY");
+    const secretKey = optionalEnv("BINANCE_SECRET_KEY");
     if (secretKey && timestamp && nonce && signature) {
       const isValid = await verifySignature(
         timestamp,
@@ -75,9 +76,13 @@ serve(async (req) => {
     console.log("Binance Pay webhook received:", webhookData);
 
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = requireEnv(
+      [
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY",
+      ] as const,
+    );
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { bizType, data } = webhookData;
 
@@ -178,7 +183,7 @@ serve(async (req) => {
         });
 
       // Send success message to user via Telegram bot
-      const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+      const botToken = optionalEnv("TELEGRAM_BOT_TOKEN");
       if (botToken) {
         try {
           const message =

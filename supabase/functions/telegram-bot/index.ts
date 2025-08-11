@@ -1,5 +1,6 @@
-import { requireEnv } from "./helpers/require-env.ts";
+import { optionalEnv, requireEnv } from "../_shared/env.ts";
 import { readMiniAppEnv } from "./_miniapp.ts";
+import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 
 interface TelegramMessage {
   chat: { id: number };
@@ -31,28 +32,36 @@ const REQUIRED_ENV_KEYS = [
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
   "TELEGRAM_BOT_TOKEN",
-];
+] as const;
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-  "";
-const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
-const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
-const botUsername = Deno.env.get("TELEGRAM_BOT_USERNAME") || "";
+const {
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY,
+  TELEGRAM_BOT_TOKEN: BOT_TOKEN,
+  TELEGRAM_WEBHOOK_SECRET: WEBHOOK_SECRET,
+} = requireEnv(
+  [
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_WEBHOOK_SECRET",
+  ] as const,
+);
+const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
 // Ensure MINI_APP_URL always includes a trailing slash to avoid redirects
 const MINI_APP_URL = (() => {
-  const url = Deno.env.get("MINI_APP_URL");
+  const url = optionalEnv("MINI_APP_URL");
   if (!url) return null;
   return url.endsWith("/") ? url : `${url}/`;
 })();
-const MINI_APP_SHORT_NAME = Deno.env.get("MINI_APP_SHORT_NAME") || null;
+const MINI_APP_SHORT_NAME = optionalEnv("MINI_APP_SHORT_NAME");
 
 // Optional feature flags (currently unused)
-const _OPENAI_ENABLED = Deno.env.get("OPENAI_ENABLED") === "true";
-const _FAQ_ENABLED = Deno.env.get("FAQ_ENABLED") === "true";
-const WINDOW_SECONDS = Number(Deno.env.get("WINDOW_SECONDS") || "180");
-const AMOUNT_TOLERANCE = Number(Deno.env.get("AMOUNT_TOLERANCE") || "0.02");
-const REQUIRE_PAY_CODE = Deno.env.get("REQUIRE_PAY_CODE") === "true";
+const _OPENAI_ENABLED = optionalEnv("OPENAI_ENABLED") === "true";
+const _FAQ_ENABLED = optionalEnv("FAQ_ENABLED") === "true";
+const WINDOW_SECONDS = Number(optionalEnv("WINDOW_SECONDS") ?? "180");
+const AMOUNT_TOLERANCE = Number(optionalEnv("AMOUNT_TOLERANCE") ?? "0.02");
+const REQUIRE_PAY_CODE = optionalEnv("REQUIRE_PAY_CODE") === "true";
 
 type SupabaseClient = any;
 let supabaseAdmin: SupabaseClient | null = null;
@@ -149,7 +158,10 @@ async function sendMiniAppLink(chatId: number): Promise<void> {
   const openUrl = mini.url || `https://t.me/${botUsername}?startapp=1`;
   const keyboard = {
     reply_markup: {
-      inline_keyboard: [[{ text: "Open VIP Mini App", web_app: { url: openUrl } }]],
+      inline_keyboard: [[{
+        text: "Open VIP Mini App",
+        web_app: { url: openUrl },
+      }]],
     },
   };
   await sendMessage(chatId, "Welcome to Dynamic Capital VIP.", keyboard);
@@ -205,7 +217,7 @@ function rateLimitGuard(chatId: number): boolean {
 }
 
 function logEvent(event: string, data: Record<string, unknown>): void {
-  const sb_request_id = Deno.env.get("SB_REQUEST_ID");
+  const sb_request_id = optionalEnv("SB_REQUEST_ID");
   console.log(JSON.stringify({ event, sb_request_id, ...data }));
 }
 
@@ -329,7 +341,9 @@ export async function serveWebhook(req: Request): Promise<Response> {
     return new Response(null, { headers: corsHeaders });
   }
   try {
-    const { ok, missing } = requireEnv(REQUIRED_ENV_KEYS);
+    const { ok, missing } = requireEnvCheck(
+      REQUIRED_ENV_KEYS as unknown as string[],
+    );
     if (!ok) {
       console.error("Missing env vars", missing);
       return okJSON();
