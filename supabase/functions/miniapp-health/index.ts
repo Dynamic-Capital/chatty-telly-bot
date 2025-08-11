@@ -3,6 +3,26 @@ import { getEnv } from "../_shared/env.ts";
 // Supabase client (Deno ESM)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+export async function getVipForTelegram(supa: any, tg: string): Promise<boolean | null> {
+  const { data: users, error } = await supa
+    .from("bot_users")
+    .select("is_vip, subscription_expires_at")
+    .eq("telegram_id", tg)
+    .limit(1);
+  if (error) {
+    throw new Error(error.message);
+  }
+  let isVip: boolean | null = null;
+  if (users && users.length > 0) {
+    const u = users[0] as any;
+    if (typeof u.is_vip === "boolean") isVip = u.is_vip;
+    if (isVip === null && u.subscription_expires_at) {
+      isVip = new Date(u.subscription_expires_at).getTime() >= Date.now();
+    }
+  }
+  return isVip;
+}
+
 serve(async (req) => {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
@@ -20,26 +40,13 @@ serve(async (req) => {
   const srv = getEnv("SUPABASE_SERVICE_ROLE_KEY");
   const supa = createClient(url, srv, { auth: { persistSession: false } });
 
-  // Strategy: prefer bot_users.is_vip, else infer via subscription_end_date if present.
-  // Adjust to your actual schema if needed.
-  const { data: users, error } = await supa
-    .from("bot_users")
-    .select("is_vip, subscription_expires_at")
-    .eq("telegram_id", tg)
-    .limit(1);
-  if (error) {
-    return new Response(JSON.stringify({ ok: false, error: error.message }), {
+  let isVip: boolean | null = null;
+  try {
+    isVip = await getVipForTelegram(supa, tg);
+  } catch (error) {
+    return new Response(JSON.stringify({ ok: false, error: (error as Error).message }), {
       status: 500,
     });
-  }
-
-  let isVip: boolean | null = null;
-  if (users && users.length > 0) {
-    const u = users[0] as any;
-    if (typeof u.is_vip === "boolean") isVip = u.is_vip;
-    if (isVip === null && u.subscription_expires_at) {
-      isVip = new Date(u.subscription_expires_at).getTime() >= Date.now();
-    }
   }
 
   return new Response(JSON.stringify({ ok: true, vip: { is_vip: isVip } }), {
