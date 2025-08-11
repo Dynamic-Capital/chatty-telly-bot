@@ -1,0 +1,7 @@
+{
+  "tasks": {
+    "check:webhook": "deno run -A scripts/check-webhook.ts",
+    "ping:webhook": "deno run -A scripts/ping-webhook.ts",
+    "test:start": "deno test -A functions/_tests/start-command.test.ts"
+  }
+}
