@@ -247,8 +247,14 @@ async function handleStartPayload(msg: TelegramMessage): Promise<void> {
       .eq("telegram_user_id", telegramId)
       .limit(1)
       .maybeSingle();
-    if (us?.id) await supa.from("user_sessions").update({ promo_data }).eq("id", us.id);
-    else await supa.from("user_sessions").insert({ telegram_user_id: telegramId, promo_data, last_activity: now, is_active: true });
+    if (us?.id) {
+      await supa.from("user_sessions").update({ promo_data }).eq("id", us.id);
+    } else {await supa.from("user_sessions").insert({
+        telegram_user_id: telegramId,
+        promo_data,
+        last_activity: now,
+        is_active: true,
+      });}
   } catch {
     /* swallow */
   }
@@ -469,16 +475,9 @@ export async function serveWebhook(req: Request): Promise<Response> {
       h.get("x-telegram-bot-api-secret-token") || "";
     const envSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
     const dbSecret = await readDbWebhookSecret();
-    const expected = envSecret || dbSecret || "";
-
-    if (!expected) {
-      console.log("telegram-bot: no secret configured (env nor db); refusing");
-      return new Response("Secret missing", { status: 500 });
-    }
-    if (got !== expected) {
-      console.log("telegram-bot: secret mismatch");
-      return new Response("Unauthorized", { status: 401 });
-    }
+    const expected = dbSecret || envSecret;
+    if (!expected) return new Response("Secret missing", { status: 500 });
+    if (got !== expected) return new Response("Unauthorized", { status: 401 });
     // --- end secret validation ---
 
     const body = await extractTelegramUpdate(req);
@@ -492,9 +491,29 @@ export async function serveWebhook(req: Request): Promise<Response> {
     const update = body as TelegramUpdate | null;
     if (!update) return okJSON();
 
-    const tgId = String(
+    // ---- BAN CHECK (short-circuit early) ----
+    const supa = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false } },
+    );
+    const fromId = String(
       update?.message?.from?.id ?? update?.callback_query?.from?.id ?? "",
     );
+    if (fromId) {
+      const { data: ban } = await supa.from("abuse_bans")
+        .select("expires_at")
+        .eq("telegram_id", fromId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (ban && (!ban.expires_at || new Date(ban.expires_at) > new Date())) {
+        // optional: send a one-time notice
+        return new Response("Forbidden", { status: 403 });
+      }
+    }
+
+    const tgId = fromId;
     if (tgId) {
       const rl = await enforceRateLimit(tgId);
       if (rl) return rl; // 429
