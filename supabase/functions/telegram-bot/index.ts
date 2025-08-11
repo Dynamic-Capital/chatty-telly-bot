@@ -118,9 +118,26 @@ async function notifyUser(chatId: number, text: string): Promise<void> {
   }
 }
 
-function buildWebAppButton(label = "Open Mini App") {
+let cachedBotUsername: string | null = null;
+async function getBotUsername(): Promise<string | null> {
+  if (cachedBotUsername !== null) return cachedBotUsername;
+  if (!BOT_TOKEN) return null;
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getMe`);
+    const j = await r.json();
+    cachedBotUsername = j.result?.username ?? null;
+  } catch {
+    cachedBotUsername = null;
+  }
+  return cachedBotUsername;
+}
+
+async function buildWebAppButton(label = "Open Mini App") {
   if (MINI_APP_SHORT_NAME) {
-    return { text: label, web_app: { short_name: MINI_APP_SHORT_NAME } };
+    const username = await getBotUsername();
+    if (!username) return null;
+    const url = `https://t.me/${username}/${MINI_APP_SHORT_NAME}`;
+    return { text: label, web_app: { url } };
   }
   if (MINI_APP_URL) {
     return { text: label, web_app: { url: MINI_APP_URL } };
@@ -130,7 +147,7 @@ function buildWebAppButton(label = "Open Mini App") {
 
 async function sendMiniAppLink(chatId: number): Promise<void> {
   if (!BOT_TOKEN) return;
-  const button = buildWebAppButton("Open Mini App");
+  const button = await buildWebAppButton("Open Mini App");
   const reply_markup = button ? { inline_keyboard: [[button]] } : undefined;
   const text = button
     ? "Open the Dynamic Capital mini app"
