@@ -4,6 +4,9 @@
     "ping:webhook": "deno run -A scripts/ping-webhook.ts",
     "set:webhook": "deno run -A scripts/set-webhook.ts",
     "test:start": "deno test -A functions/_tests/start-command.test.ts",
-    "guard:service-role": "deno run -A --no-npm scripts/guard-service-role.ts"
+    "guard:service-role": "deno run -A --no-npm scripts/guard-service-role.ts",
+    "serve:miniapp-health": "supabase functions serve --no-verify-jwt miniapp-health",
+    "miniapp:health": "deno run -A scripts/miniapp-health-check.ts",
+    "test:miniapp-health": "deno test -A functions/_tests/miniapp-health.test.ts"
   }
 }
