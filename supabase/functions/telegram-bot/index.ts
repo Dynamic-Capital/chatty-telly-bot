@@ -1,13 +1,4 @@
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { requireEnv } from "./helpers/require-env.ts";
-import {
-  handleEnvStatus,
-  handlePing,
-  handleReplay,
-  handleReviewList,
-  handleVersion,
-  handleWebhookInfo,
-} from "./admin-handlers.ts";
 // import removed: avoid cross-repo import that breaks function bundling
 // import { getFlag } from "../../../src/utils/config.ts";
 
@@ -41,7 +32,6 @@ const REQUIRED_ENV_KEYS = [
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
   "TELEGRAM_BOT_TOKEN",
-  "TELEGRAM_WEBHOOK_SECRET",
 ];
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -73,14 +63,39 @@ async function getFlag(key: string, fallback: boolean): Promise<boolean> {
   return fallback;
 }
 
+type SupabaseClient = any;
 let supabaseAdmin: SupabaseClient | null = null;
-function getSupabase(): SupabaseClient {
-  if (!supabaseAdmin) {
+async function getSupabase(): Promise<SupabaseClient | null> {
+  if (supabaseAdmin) return supabaseAdmin;
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
+  try {
+    const { createClient } = await import(
+      "https://esm.sh/@supabase/supabase-js@2"
+    );
     supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
     });
+  } catch (_e) {
+    supabaseAdmin = null;
   }
   return supabaseAdmin;
+}
+
+type AdminHandlers = {
+  handleEnvStatus: typeof import("./admin-handlers.ts").handleEnvStatus;
+  handlePing: typeof import("./admin-handlers.ts").handlePing;
+  handleReplay: typeof import("./admin-handlers.ts").handleReplay;
+  handleReviewList: typeof import("./admin-handlers.ts").handleReviewList;
+  handleVersion: typeof import("./admin-handlers.ts").handleVersion;
+  handleWebhookInfo: typeof import("./admin-handlers.ts").handleWebhookInfo;
+};
+
+let adminHandlers: AdminHandlers | null = null;
+async function loadAdminHandlers(): Promise<AdminHandlers> {
+  if (!adminHandlers) {
+    adminHandlers = await import("./admin-handlers.ts");
+  }
+  return adminHandlers;
 }
 
 const corsHeaders = {
@@ -212,8 +227,8 @@ async function storeReceiptImage(
   blob: Blob,
   storagePath: string,
 ): Promise<string> {
-  const supabase = getSupabase();
-  await supabase.storage.from("receipts").upload(storagePath, blob, {
+  const supabase = await getSupabase();
+  await supabase?.storage.from("receipts").upload(storagePath, blob, {
     contentType: blob.type || undefined,
   });
   return storagePath;
@@ -243,15 +258,25 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
         await sendMiniAppLink(chatId);
         break;
       case "/ping":
-        await notifyUser(chatId, JSON.stringify(handlePing()));
+        await notifyUser(
+          chatId,
+          JSON.stringify((await loadAdminHandlers()).handlePing()),
+        );
         break;
       case "/version":
-        await notifyUser(chatId, JSON.stringify(handleVersion()));
+        await notifyUser(
+          chatId,
+          JSON.stringify((await loadAdminHandlers()).handleVersion()),
+        );
         break;
       case "/env":
-        await notifyUser(chatId, JSON.stringify(handleEnvStatus()));
+        await notifyUser(
+          chatId,
+          JSON.stringify((await loadAdminHandlers()).handleEnvStatus()),
+        );
         break;
       case "/reviewlist": {
+        const { handleReviewList } = await loadAdminHandlers();
         const list = await handleReviewList();
         await notifyUser(chatId, JSON.stringify(list));
         break;
@@ -259,11 +284,13 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
       case "/replay": {
         const id = args[0];
         if (id) {
+          const { handleReplay } = await loadAdminHandlers();
           await notifyUser(chatId, JSON.stringify(handleReplay(id)));
         }
         break;
       }
       case "/webhookinfo": {
+        const { handleWebhookInfo } = await loadAdminHandlers();
         const info = await handleWebhookInfo();
         await notifyUser(chatId, JSON.stringify(info));
         break;
@@ -299,12 +326,13 @@ export async function serveWebhook(req: Request): Promise<Response> {
     }
 
     const url = new URL(req.url);
-    const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
-    if (WEBHOOK_SECRET && headerSecret !== WEBHOOK_SECRET) {
-      console.warn("Webhook secret mismatch");
-    }
-    if (url.searchParams.get("secret") !== WEBHOOK_SECRET) {
-      return okJSON();
+    if (WEBHOOK_SECRET) {
+      const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
+      const querySecret = url.searchParams.get("secret");
+      if (headerSecret !== WEBHOOK_SECRET && querySecret !== WEBHOOK_SECRET) {
+        console.warn("Webhook secret mismatch");
+        return okJSON();
+      }
     }
 
     const body = await extractTelegramUpdate(req);
@@ -330,4 +358,6 @@ export async function serveWebhook(req: Request): Promise<Response> {
   }
 }
 
-Deno.serve(serveWebhook);
+if (import.meta.main) {
+  Deno.serve(serveWebhook);
+}

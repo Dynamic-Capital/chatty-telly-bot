@@ -18,12 +18,17 @@ async function getClient(): Promise<SupabaseClient | null> {
     supabase = null;
     return null;
   }
-  const mod = await import(
-    typeof Deno !== "undefined"
-      ? "npm:@supabase/supabase-js@2"
-      : "@supabase/supabase-js"
-  );
-  supabase = mod.createClient(url, key, { auth: { persistSession: false } });
+  try {
+    const mod = await import(
+      typeof Deno !== "undefined"
+        ? "jsr:@supabase/supabase-js@2"
+        : "@supabase/supabase-js"
+    );
+    supabase = mod.createClient(url, key, { auth: { persistSession: false } });
+  } catch (_e) {
+    supabase = null;
+    return null;
+  }
   return supabase ?? null;
 }
 
