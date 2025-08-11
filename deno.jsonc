@@ -9,6 +9,9 @@
     "miniapp:health": "deno run -A scripts/miniapp-health-check.ts",
     "test:miniapp-health": "deno test -A functions/_tests/miniapp-health.test.ts",
     "preflight:miniapp": "deno run -A scripts/assert-miniapp-config.ts",
-    "miniapp:setmenu": "deno run -A scripts/set-chat-menu-button.ts"
+    "miniapp:setmenu": "deno run -A scripts/set-chat-menu-button.ts",
+    "audit:edge-hosts": "deno run -A scripts/audit-edge-hosts.ts",
+    "linkage:check": "deno run -A scripts/check-linkage.ts",
+    "serve:linkage-audit": "supabase functions serve --no-verify-jwt linkage-audit"
   }
 }
