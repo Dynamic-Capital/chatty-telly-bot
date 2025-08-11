@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { optionalEnv, requireEnv } from "../_shared/env.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,8 +10,19 @@ const corsHeaders = {
 };
 
 // Binance Pay API configuration
-const _BINANCE_PAY_API_KEY = Deno.env.get("BINANCE_API_KEY")!;
-const _BINANCE_PAY_SECRET_KEY = Deno.env.get("BINANCE_SECRET_KEY")!;
+const {
+  BINANCE_API_KEY: _BINANCE_PAY_API_KEY,
+  BINANCE_SECRET_KEY: _BINANCE_PAY_SECRET_KEY,
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY,
+} = requireEnv(
+  [
+    "BINANCE_API_KEY",
+    "BINANCE_SECRET_KEY",
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+  ] as const,
+);
 const _BINANCE_PAY_MERCHANT_ID = "59586072";
 const _BINANCE_PAY_BASE_URL = "https://bpay.binanceapi.com";
 
@@ -75,8 +87,8 @@ serve(async (req) => {
     }
 
     // Check if API keys are available
-    const binanceApiKey = Deno.env.get("BINANCE_API_KEY");
-    const binanceSecretKey = Deno.env.get("BINANCE_SECRET_KEY");
+    const binanceApiKey = optionalEnv("BINANCE_API_KEY");
+    const binanceSecretKey = optionalEnv("BINANCE_SECRET_KEY");
 
     console.log("API Keys check:", {
       hasApiKey: !!binanceApiKey,
@@ -90,14 +102,7 @@ serve(async (req) => {
     }
 
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error("Supabase configuration missing");
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     console.log("Supabase client initialized");
 
     // Get plan details

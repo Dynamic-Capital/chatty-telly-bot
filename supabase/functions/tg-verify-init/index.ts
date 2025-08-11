@@ -1,9 +1,10 @@
 // >>> DC BLOCK: tg-verify-core (start)
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { encode as hex } from "https://deno.land/std@0.224.0/encoding/hex.ts";
+import { getEnv, optionalEnv } from "../_shared/env.ts";
 
-const BOT = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
-const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
+const BOT = getEnv("TELEGRAM_BOT_TOKEN");
+const WEBHOOK_SECRET = optionalEnv("TELEGRAM_WEBHOOK_SECRET") || "";
 
 function subtle() {
   const s = globalThis.crypto?.subtle;

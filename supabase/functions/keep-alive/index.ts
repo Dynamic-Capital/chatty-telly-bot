@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { getEnv } from "../_shared/env.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,10 +34,7 @@ serve((req) => {
     // Start keep-alive on first request
     startKeepAlive();
 
-    const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
-    if (!botToken) {
-      throw new Error("TELEGRAM_BOT_TOKEN is not set");
-    }
+    const botToken = getEnv("TELEGRAM_BOT_TOKEN");
 
     console.log("Keep-alive service started for telegram bot");
 

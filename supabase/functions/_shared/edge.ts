@@ -2,15 +2,19 @@
 // Shared utilities to compute your Supabase Functions host and build URLs consistently.
 // Prefer using these helpers anywhere you call an Edge function.
 
+import { optionalEnv } from "./env.ts";
+
 export function getProjectRef(): string | null {
-  const ref = Deno.env.get("SUPABASE_PROJECT_ID");
+  const ref = optionalEnv("SUPABASE_PROJECT_ID");
   if (ref) return ref;
-  const url = Deno.env.get("SUPABASE_URL"); // e.g., https://qeejuomcapbdlhnjqjcc.supabase.co
+  const url = optionalEnv("SUPABASE_URL"); // e.g., https://qeejuomcapbdlhnjqjcc.supabase.co
   if (!url) return null;
   try {
     const m = new URL(url).hostname.split(".")[0];
     return m || null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 export function functionsHost(): string | null {

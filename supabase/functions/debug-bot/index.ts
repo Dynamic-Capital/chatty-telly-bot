@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { optionalEnv } from "../_shared/env.ts";
 
-const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+const BOT_TOKEN = optionalEnv("TELEGRAM_BOT_TOKEN");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -56,7 +57,7 @@ serve(async (req) => {
     console.log("🔍 Webhook info:", JSON.stringify(webhookInfo, null, 2));
 
     // Test bot function URL
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseUrl = optionalEnv("SUPABASE_URL");
     const botFunctionUrl = `${supabaseUrl}/functions/v1/telegram-bot`;
 
     console.log("🧪 Testing bot function URL:", botFunctionUrl);

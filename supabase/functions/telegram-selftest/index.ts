@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { optionalEnv } from "../_shared/env.ts";
 
-const BOT = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
-const SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
-const BASE = (Deno.env.get("SUPABASE_URL") || "").replace(/\/$/, "");
+const BOT = optionalEnv("TELEGRAM_BOT_TOKEN") || "";
+const SECRET = optionalEnv("TELEGRAM_WEBHOOK_SECRET") || "";
+const BASE = (optionalEnv("SUPABASE_URL") || "").replace(/\/$/, "");
 const WEBHOOK = `${BASE}/functions/v1/telegram-webhook`;
 
 function tg(method: string, payload: unknown) {

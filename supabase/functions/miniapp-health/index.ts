@@ -13,13 +13,15 @@
 // Optional:
 //   SUPABASE_PROJECT_ID             (informational only)
 
+import { EnvKey, optionalEnv } from "../_shared/env.ts";
+
 type Json = Record<string, unknown>;
 
-function has(k: string) {
-  return (Deno.env.get(k) ?? "") !== "";
+function has(k: EnvKey) {
+  return optionalEnv(k) !== null;
 }
-function env(k: string) {
-  return Deno.env.get(k) ?? "";
+function env(k: EnvKey) {
+  return optionalEnv(k) ?? "";
 }
 
 async function headOk(url?: string): Promise<boolean> {

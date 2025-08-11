@@ -1,9 +1,13 @@
 // Database utility functions for the Telegram bot
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { requireEnv } from "../_shared/env.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-  "";
+const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = requireEnv(
+  [
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+  ] as const,
+);
 
 const supabaseAdmin = createClient(
   SUPABASE_URL,

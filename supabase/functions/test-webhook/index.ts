@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { optionalEnv } from "../_shared/env.ts";
 
-const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+const BOT_TOKEN = optionalEnv("TELEGRAM_BOT_TOKEN");
 
 serve(async (req) => {
   console.log("🔧 WEBHOOK TEST FUNCTION CALLED!");

@@ -1,19 +1,4 @@
-function getEnv(key: string): string {
-  if (typeof Deno !== "undefined" && typeof Deno.env?.get === "function") {
-    return Deno.env.get(key) ?? "";
-  }
-  const nodeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
-  if (nodeProcess?.env) {
-    return nodeProcess.env[key] ?? "";
-  }
-  return "";
-}
-
-const nodeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
-if (nodeProcess?.env) {
-  nodeProcess.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-}
-
+import { optionalEnv } from "../_shared/env.ts";
 
 interface TelegramMessage {
   text?: string;
@@ -25,7 +10,7 @@ interface TelegramUpdate {
 }
 
 async function sendMessage(chatId: number, text: string) {
-  const token = getEnv("TELEGRAM_BOT_TOKEN");
+  const token = optionalEnv("TELEGRAM_BOT_TOKEN");
   if (!token) return;
   try {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -40,7 +25,7 @@ async function sendMessage(chatId: number, text: string) {
 
 export async function handler(req: Request): Promise<Response> {
   const headers = { "Content-Type": "application/json" };
-  const WEBHOOK_SECRET = getEnv("TELEGRAM_WEBHOOK_SECRET");
+  const WEBHOOK_SECRET = optionalEnv("TELEGRAM_WEBHOOK_SECRET") || "";
 
   // Only accept POST requests
   if (req.method !== "POST") {
