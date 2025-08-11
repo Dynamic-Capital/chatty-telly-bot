@@ -7,6 +7,8 @@
     "guard:service-role": "deno run -A --no-npm scripts/guard-service-role.ts",
     "serve:miniapp-health": "supabase functions serve --no-verify-jwt miniapp-health",
     "miniapp:health": "deno run -A scripts/miniapp-health-check.ts",
-    "test:miniapp-health": "deno test -A functions/_tests/miniapp-health.test.ts"
+    "test:miniapp-health": "deno test -A functions/_tests/miniapp-health.test.ts",
+    "preflight:miniapp": "deno run -A scripts/assert-miniapp-config.ts",
+    "miniapp:setmenu": "deno run -A scripts/set-chat-menu-button.ts"
   }
 }
