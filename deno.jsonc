@@ -19,6 +19,8 @@
     "miniapp:build": "bash scripts/miniapp-build-to-edge.sh",
     "miniapp:deploy": "deno task -c deno.jsonc miniapp:build && npx supabase functions deploy miniapp",
     "miniapp:check": "deno run -A scripts/miniapp-domain-check.ts",
-    "edge:call": "deno run -A scripts/call-edge.ts"
+    "edge:call": "deno run -A scripts/call-edge.ts",
+    "edge:deploy:verify": "npx supabase functions deploy verify-initdata",
+    "edge:deploy:health": "npx supabase functions deploy miniapp-health"
   }
 }
