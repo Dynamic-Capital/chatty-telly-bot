@@ -33,6 +33,8 @@
     "edge:deploy:admin-check": "npx supabase functions deploy admin-check",
     "edge:deploy:admin-list": "npx supabase functions deploy admin-list-pending",
     "edge:deploy:admin-act": "npx supabase functions deploy admin-act-on-payment",
-    "edge:deploy:admin-logs": "npx supabase functions deploy admin-logs"
+    "edge:deploy:admin-logs": "npx supabase functions deploy admin-logs",
+    "edge:deploy:analytics": "npx supabase functions deploy analytics-collector",
+    "edge:deploy:ops": "npx supabase functions deploy ops-health"
   }
 }

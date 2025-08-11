@@ -1,6 +1,7 @@
 import { optionalEnv } from "../_shared/env.ts";
 import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { alertAdmins } from "../_shared/alerts.ts";
 
 interface TelegramMessage {
   chat: { id: number };
@@ -185,18 +186,77 @@ function isStartMessage(m?: TelegramMessage): boolean {
     );
 }
 
-const rateLimitMap = new Map<number, number>();
-function rateLimitGuard(chatId: number): boolean {
-  const now = Date.now();
-  const last = rateLimitMap.get(chatId) || 0;
-  if (now - last < 5000) return false;
-  rateLimitMap.set(chatId, now);
-  return true;
-}
-
 function logEvent(event: string, data: Record<string, unknown>): void {
   const sb_request_id = optionalEnv("SB_REQUEST_ID");
   console.log(JSON.stringify({ event, sb_request_id, ...data }));
+}
+
+function supaSvc() {
+  const url = Deno.env.get("SUPABASE_URL")!;
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  return createClient(url, key, { auth: { persistSession: false } });
+}
+
+/** Persist one interaction for analytics. */
+async function logInteraction(
+  kind: string,
+  telegramUserId: string,
+  extra: unknown = null,
+): Promise<void> {
+  try {
+    const supa = supaSvc();
+    await supa.from("user_interactions").insert({
+      telegram_user_id: telegramUserId,
+      interaction_type: kind,
+      interaction_data: extra,
+      page_context: "telegram-bot",
+    });
+  } catch {
+    /* swallow */
+  }
+}
+
+/** Simple per-user RPM limit using user_sessions (resets every minute). */
+async function enforceRateLimit(
+  telegramUserId: string,
+): Promise<null | Response> {
+  const supa = supaSvc();
+  const LIMIT = Number(Deno.env.get("RATE_LIMIT_PER_MINUTE") ?? "20");
+
+  const now = new Date();
+  const { data: row } = await supa
+    .from("user_sessions")
+    .select("id,follow_up_count,last_activity")
+    .eq("telegram_user_id", telegramUserId)
+    .limit(1)
+    .maybeSingle();
+
+  let count = 1;
+  if (
+    row?.last_activity &&
+    (now.getTime() - new Date(row.last_activity).getTime()) < 60_000
+  ) {
+    count = (row.follow_up_count ?? 0) + 1;
+  }
+
+  const up = {
+    telegram_user_id: telegramUserId,
+    last_activity: now.toISOString(),
+    follow_up_count: count,
+    is_active: true,
+  };
+
+  if (row?.id) await supa.from("user_sessions").update(up).eq("id", row.id);
+  else await supa.from("user_sessions").insert(up);
+
+  if (count > LIMIT) {
+    await logInteraction("rate_limited", telegramUserId, {
+      count,
+      limit: LIMIT,
+    });
+    return new Response("Too Many Requests", { status: 429 });
+  }
+  return null;
 }
 
 async function downloadTelegramFile(
@@ -393,15 +453,36 @@ export async function serveWebhook(req: Request): Promise<Response> {
     const update = body as TelegramUpdate | null;
     if (!update) return okJSON();
 
+    const tgId = String(
+      update?.message?.from?.id ?? update?.callback_query?.from?.id ?? "",
+    );
+    if (tgId) {
+      const rl = await enforceRateLimit(tgId);
+      if (rl) return rl; // 429
+      const isCmd = !!update?.message?.text?.startsWith("/");
+      await logInteraction(
+        isCmd ? "command" : (update?.callback_query ? "callback" : "message"),
+        tgId,
+        update?.message?.text ?? update?.callback_query?.data ?? null,
+      );
+    }
+
     await handleCommand(update);
 
     const fileId = getFileIdFromUpdate(update);
     if (fileId) startReceiptPipeline(update);
 
     return okJSON();
-  } catch (err) {
-    console.error("serveWebhook error", err);
-    return okJSON();
+  } catch (e) {
+    console.log("bot fatal:", e?.message ?? e);
+    await alertAdmins(`🚨 <b>Bot error</b>\n<code>${String(e)}</code>`);
+    const supa = supaSvc();
+    await supa.from("admin_logs").insert({
+      admin_telegram_id: "system",
+      action_type: "bot_error",
+      action_description: String(e),
+    });
+    return new Response("Internal Error", { status: 500 });
   }
 }
 
