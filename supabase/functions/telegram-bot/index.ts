@@ -153,11 +153,27 @@ async function sendMiniAppLink(chatId: number): Promise<void> {
     ? "Open the Dynamic Capital mini app"
     : "Mini app not configured yet.";
 
-  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, reply_markup }),
-  });
+  try {
+    const res = await fetch(
+      `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text, reply_markup }),
+      },
+    );
+    if (!res.ok) {
+      console.warn(
+        "sendMiniAppLink failed",
+        res.status,
+        await res.text().catch(() => ""),
+      );
+      await notifyUser(chatId, text);
+    }
+  } catch (err) {
+    console.error("sendMiniAppLink error", err);
+    await notifyUser(chatId, text);
+  }
 }
 
 async function extractTelegramUpdate(
