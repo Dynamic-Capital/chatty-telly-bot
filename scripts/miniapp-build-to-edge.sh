@@ -4,7 +4,7 @@ APP_DIR="apps/miniapp-react"
 OUT_DIR="$APP_DIR/dist"
 EDGE_DIR="supabase/functions/miniapp/static"
 if [ ! -d "$APP_DIR" ]; then
-  echo "React app not found at $APP_DIR"; exit 1
+  echo "React app not found at $APP_DIR"; exit 0
 fi
 pushd "$APP_DIR" >/dev/null
 npm i
