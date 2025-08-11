@@ -82,11 +82,17 @@ function okJSON(body: unknown = { ok: true }): Response {
 
 async function notifyUser(chatId: number, text: string): Promise<void> {
   if (!BOT_TOKEN) return;
-  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
-  });
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    });
+    const out = await r.text();
+    console.log("sendMessage", r.status, out.slice(0, 200));
+  } catch (e) {
+    console.error("sendMessage error", e);
+  }
 }
 
 function buildWebAppButton(label = "Open Mini App") {
@@ -139,6 +145,14 @@ function getFileIdFromUpdate(update: TelegramUpdate | null): string | null {
     return doc.file_id;
   }
   return null;
+}
+
+function isStartMessage(m?: TelegramMessage): boolean {
+  const t = m?.text ?? "";
+  if (t.startsWith("/start")) return true;
+  // Fallback to entities scanning
+  const ents = (m as unknown as { entities?: Array<{ offset: number; length: number; type: string }> })?.entities;
+  return Array.isArray(ents) && ents.some((e) => e.type === "bot_command" && t.slice(e.offset, e.length).startsWith("/start"));
 }
 
 const rateLimitMap = new Map<number, number>();
@@ -196,6 +210,12 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
   const text = msg.text?.trim();
   if (!text) return;
   const chatId = msg.chat.id;
+
+  // Early match for /start variants like "/start", "/start@Bot", or "/start foo"
+  if (isStartMessage(msg)) {
+    await sendMiniAppLink(chatId);
+    return;
+  }
 
   // Extract the command without bot mentions and gather arguments
   const [firstToken, ...args] = text.split(/\s+/);
@@ -260,6 +280,10 @@ export async function serveWebhook(req: Request): Promise<Response> {
     }
 
     const url = new URL(req.url);
+    const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
+    if (WEBHOOK_SECRET && headerSecret !== WEBHOOK_SECRET) {
+      console.warn("Webhook secret mismatch");
+    }
     if (url.searchParams.get("secret") !== WEBHOOK_SECRET) {
       return okJSON();
     }
