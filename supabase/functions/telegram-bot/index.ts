@@ -1,5 +1,4 @@
 import { optionalEnv, requireEnv } from "../_shared/env.ts";
-import { readMiniAppEnv } from "./_miniapp.ts";
 import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 
 interface TelegramMessage {
@@ -137,34 +136,18 @@ async function notifyUser(chatId: number, text: string): Promise<void> {
   await sendMessage(chatId, text);
 }
 
-function buildWebAppButton(label = "Open Mini App") {
-  if (MINI_APP_SHORT_NAME) {
-    return { text: label, web_app: { short_name: MINI_APP_SHORT_NAME } };
-  }
-  if (MINI_APP_URL) {
-    return { text: label, web_app: { url: MINI_APP_URL } };
-  }
-  return null;
-}
-
 async function sendMiniAppLink(chatId: number): Promise<void> {
   if (!BOT_TOKEN) return;
-  const mini = readMiniAppEnv();
-  if (!mini.ready) {
+  if (!MINI_APP_URL && !MINI_APP_SHORT_NAME) {
     await sendMessage(chatId, "Mini app not configured yet.");
     return;
   }
-
-  const openUrl = mini.url || `https://t.me/${botUsername}?startapp=1`;
-  const keyboard = {
+  const openUrl = MINI_APP_URL ?? `https://t.me/${botUsername}?startapp=1`;
+  await sendMessage(chatId, "Welcome to Dynamic Capital VIP.", {
     reply_markup: {
-      inline_keyboard: [[{
-        text: "Open VIP Mini App",
-        web_app: { url: openUrl },
-      }]],
+      inline_keyboard: [[{ text: "Open VIP Mini App", web_app: { url: openUrl } }]],
     },
-  };
-  await sendMessage(chatId, "Welcome to Dynamic Capital VIP.", keyboard);
+  });
 }
 
 async function extractTelegramUpdate(
