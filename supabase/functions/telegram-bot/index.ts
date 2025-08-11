@@ -216,6 +216,44 @@ async function logInteraction(
   }
 }
 
+async function handleStartPayload(msg: TelegramMessage): Promise<void> {
+  const t = msg.text?.split(/\s+/)[1];
+  if (!t) return;
+  const supa = supaSvc();
+  const telegramId = String(msg.from?.id || msg.chat.id);
+  const now = new Date().toISOString();
+  let promo_data: Record<string, unknown> | null = null;
+  const row: Record<string, unknown> = {
+    telegram_user_id: telegramId,
+    funnel_step: 1,
+    conversion_type: "start",
+  };
+  if (t.startsWith("ref_")) {
+    const ref = t.slice(4);
+    row.conversion_type = "referral";
+    row.conversion_data = { ref };
+    promo_data = { ref };
+  } else if (t.startsWith("promo_")) {
+    const code = t.slice(6);
+    row.conversion_type = "promo";
+    row.promo_code = code;
+    promo_data = { code };
+  } else return;
+  try {
+    await supa.from("conversion_tracking").insert(row);
+    const { data: us } = await supa
+      .from("user_sessions")
+      .select("id")
+      .eq("telegram_user_id", telegramId)
+      .limit(1)
+      .maybeSingle();
+    if (us?.id) await supa.from("user_sessions").update({ promo_data }).eq("id", us.id);
+    else await supa.from("user_sessions").insert({ telegram_user_id: telegramId, promo_data, last_activity: now, is_active: true });
+  } catch {
+    /* swallow */
+  }
+}
+
 /** Simple per-user RPM limit using user_sessions (resets every minute). */
 async function enforceRateLimit(
   telegramUserId: string,
@@ -303,6 +341,7 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
 
   // Early match for /start variants like "/start", "/start@Bot", or "/start foo"
   if (isStartMessage(msg)) {
+    await handleStartPayload(msg);
     await sendMiniAppLink(chatId);
     return;
   }
