@@ -35,6 +35,7 @@
     "edge:deploy:admin-act": "npx supabase functions deploy admin-act-on-payment",
     "edge:deploy:admin-logs": "npx supabase functions deploy admin-logs",
     "edge:deploy:analytics": "npx supabase functions deploy analytics-collector",
-    "edge:deploy:ops": "npx supabase functions deploy ops-health"
+    "edge:deploy:ops": "npx supabase functions deploy ops-health",
+    "edge:deploy:smoke": "npx supabase functions deploy miniapp-smoke"
   }
 }

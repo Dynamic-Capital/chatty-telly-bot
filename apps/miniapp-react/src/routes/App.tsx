@@ -1,21 +1,21 @@
-import { Route, Routes, Navigate, Link, useLocation } from 'react-router-dom';
-import Landing from '@/routes/Landing';
-import Dashboard from '@/routes/Dashboard';
-import Plans from '@/routes/Plans';
-import Checkout from '@/routes/Checkout';
-import AdminGate from '@/routes/admin/AdminGate';
-import Admin from '@/routes/admin';
+import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import Landing from "@/routes/Landing";
+import Dashboard from "@/routes/Dashboard";
+import Plans from "@/routes/Plans";
+import Checkout from "@/routes/Checkout";
+import Diag from "@/routes/Diag";
+import AdminGate from "@/routes/admin/AdminGate";
+import Admin from "@/routes/admin";
 
 export default function App() {
   const loc = useLocation();
-  const page =
-    loc.pathname === '/dashboard'
-      ? 'Dashboard'
-      : loc.pathname === '/plans'
-      ? 'Plans'
-      : loc.pathname === '/checkout'
-      ? 'Checkout'
-      : 'Home';
+  const page = loc.pathname === "/dashboard"
+    ? "Dashboard"
+    : loc.pathname === "/plans"
+    ? "Plans"
+    : loc.pathname === "/checkout"
+    ? "Checkout"
+    : "Home";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 text-slate-900 dark:text-slate-100">
@@ -31,7 +31,15 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/plans" element={<Plans />} />
           <Route path="/checkout" element={<Checkout />} />
-          <Route path="/admin/*" element={<AdminGate><Admin /></AdminGate>} />
+          <Route path="/diag" element={<Diag />} />
+          <Route
+            path="/admin/*"
+            element={
+              <AdminGate>
+                <Admin />
+              </AdminGate>
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
