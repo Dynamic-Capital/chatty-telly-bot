@@ -1,6 +1,7 @@
 {
   "imports": {
     "https://esm.sh/tesseract.js@5?dts": "./esm.sh/tesseract.js@5.1.1.js",
+    "https://esm.sh/@supabase/supabase-js@2": "https://esm.sh/@supabase/supabase-js@2",
     "https://esm.sh/": "./esm.sh/"
   },
   "scopes": {
