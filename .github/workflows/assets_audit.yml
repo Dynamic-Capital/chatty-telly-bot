@@ -18,7 +18,6 @@ jobs:
       - name: Run assets audit (dry-run)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: bash scripts/cleanup/report.sh
 
   # Optional job to perform deletion only on manual dispatch with label:

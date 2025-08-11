@@ -452,7 +452,6 @@ export interface SecurityConfig {
 export interface BotConfig {
   BOT_TOKEN: string;
   SUPABASE_URL: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
   OPENAI_API_KEY?: string;
   ADMIN_USER_IDS: Set<string>;
   SECURITY_CONFIG: SecurityConfig;

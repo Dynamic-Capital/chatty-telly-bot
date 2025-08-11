@@ -401,7 +401,7 @@ interface BotEnvironment {
 
   // 🗄️ Required - Supabase Configuration
   SUPABASE_URL: string; // Your Supabase project URL
-  SUPABASE_SERVICE_ROLE_KEY: string; // Service role key (not anon key!)
+  SUPABASE_KEY: string; // Service role key (not anon key!)
 
   // 🧠 Optional - AI Features
   OPENAI_API_KEY?: string; // For AI-powered FAQ responses

@@ -12,8 +12,8 @@ async function getClient(): Promise<SupabaseClient | null> {
       : process.env.SUPABASE_URL) || "";
   const key =
     (typeof Deno !== "undefined"
-      ? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
-      : process.env.SUPABASE_SERVICE_ROLE_KEY) || "";
+      ? Deno.env.get("SUPABASE_ANON_KEY")
+      : process.env.SUPABASE_ANON_KEY) || "";
   if (!url || !key) {
     supabase = null;
     return null;

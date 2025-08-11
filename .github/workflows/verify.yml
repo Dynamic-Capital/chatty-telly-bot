@@ -12,7 +12,6 @@ jobs:
       - name: Run verification
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: bash scripts/verify/verify_all.sh
       - name: Upload report artifact
         uses: actions/upload-artifact@v4

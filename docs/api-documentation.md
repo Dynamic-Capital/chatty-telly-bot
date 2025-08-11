@@ -543,7 +543,7 @@ describe("New Feature Handler", () => {
 # Required
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+SUPABASE_ANON_KEY=your_anon_key
 
 # Optional
 OPENAI_API_KEY=your_openai_key_for_ai_features

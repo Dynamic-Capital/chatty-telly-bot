@@ -8,7 +8,6 @@ below.
 | ------------------------- | ---------------------------- | -------------------------------- | --------------------------- |
 | SUPABASE_URL              | ✅                           | ✅                               | ❌                          |
 | SUPABASE_ANON_KEY         | ✅                           | ✅                               | ❌                          |
-| SUPABASE_SERVICE_ROLE_KEY | ✅                           | ✅                               | ❌                          |
 | SUPABASE_PROJECT_ID       | ✅                           | ✅                               | ✅                          |
 | SUPABASE_ACCESS_TOKEN     | ✅                           | ✅                               | ✅                          |
 | SUPABASE_DB_PASSWORD      | ✅                           | ✅                               | ✅                          |
