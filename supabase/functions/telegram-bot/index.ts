@@ -32,7 +32,6 @@ const REQUIRED_ENV_KEYS = [
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
   "TELEGRAM_BOT_TOKEN",
-  "TELEGRAM_WEBHOOK_SECRET",
 ];
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -327,12 +326,13 @@ export async function serveWebhook(req: Request): Promise<Response> {
     }
 
     const url = new URL(req.url);
-    const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
-    if (WEBHOOK_SECRET && headerSecret !== WEBHOOK_SECRET) {
-      console.warn("Webhook secret mismatch");
-    }
-    if (url.searchParams.get("secret") !== WEBHOOK_SECRET) {
-      return okJSON();
+    if (WEBHOOK_SECRET) {
+      const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
+      const querySecret = url.searchParams.get("secret");
+      if (headerSecret !== WEBHOOK_SECRET && querySecret !== WEBHOOK_SECRET) {
+        console.warn("Webhook secret mismatch");
+        return okJSON();
+      }
     }
 
     const body = await extractTelegramUpdate(req);
