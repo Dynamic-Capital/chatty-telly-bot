@@ -51,7 +51,8 @@
     "edge:deploy:binance": "npx supabase functions deploy binancepay-webhook",
     "edge:deploy:sync": "npx supabase functions deploy sync-audit",
     "edge:deploy:bot": "npx supabase functions deploy telegram-bot",
-    "edge:deploy:mini": "npx supabase functions deploy miniapp"
+    "edge:deploy:mini": "npx supabase functions deploy miniapp",
+    "make:initdata": "deno run -A scripts/make-initdata.ts"
   }
 }
 // Schedules:
