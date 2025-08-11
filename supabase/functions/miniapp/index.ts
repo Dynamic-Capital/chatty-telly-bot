@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { mna, ok } from "../_shared/http.ts";
 
 const cache = new Map<string, Response>();
 const SECURITY = {
@@ -59,24 +60,16 @@ const TYPE = (p: string) =>
     ? "image/webp"
     : "application/octet-stream";
 
-serve((req) => {
+serve(async (req) => {
   if (req.method === "GET") {
     const url = new URL(req.url);
     if (url.pathname.endsWith("/version")) {
-      const ref = Deno.env.get("SUPABASE_URL")
-        ? new URL(Deno.env.get("SUPABASE_URL")!).hostname.split(".")[0]
-        : null;
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          name: "miniapp",
-          project_ref: ref,
-          ts: new Date().toISOString(),
-        }),
-        { headers: { "content-type": "application/json" } },
-      );
+      return ok({ name: "miniapp", ts: new Date().toISOString() });
     }
   }
+  if (req.method === "HEAD") return new Response(null, { status: 200 });
+  if (req.method !== "GET") return mna();
+
   console.log(
     "miniapp hit",
     new Date().toISOString(),
@@ -84,15 +77,32 @@ serve((req) => {
     req.headers.get("user-agent") || "",
   );
   const url = new URL(req.url);
+  let resp: Response;
   if (
     url.pathname === "/" || url.pathname === "/miniapp" ||
     url.pathname === "/miniapp/"
   ) {
-    return indexHtml();
-  }
-  if (url.pathname.startsWith("/assets/")) {
+    resp = await indexHtml();
+  } else if (url.pathname.startsWith("/assets/")) {
     const rel = url.pathname.replace(/^\//, "");
-    return file(rel, TYPE(rel));
+    resp = await file(rel, TYPE(rel));
+  } else {
+    resp = await indexHtml();
   }
-  return indexHtml();
+  const h = new Headers(resp.headers);
+  h.set("referrer-policy", "strict-origin-when-cross-origin");
+  h.set("x-content-type-options", "nosniff");
+  h.set("permissions-policy", "geolocation=(), microphone=(), camera=()");
+  h.set(
+    "content-security-policy",
+    "default-src 'self' https://*.telegram.org https://telegram.org; " +
+      "script-src 'self' 'unsafe-inline' https://*.telegram.org; " +
+      "style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; " +
+      "connect-src 'self' https://*.functions.supabase.co https://*.supabase.co; " +
+      "frame-ancestors *;",
+  );
+  return new Response(await resp.arrayBuffer(), {
+    status: resp.status,
+    headers: h,
+  });
 });

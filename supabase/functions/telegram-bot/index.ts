@@ -2,6 +2,8 @@ import { optionalEnv } from "../_shared/env.ts";
 import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { alertAdmins } from "../_shared/alerts.ts";
+import { json, mna, ok, oops } from "../_shared/http.ts";
+import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 
 interface TelegramMessage {
   chat: { id: number };
@@ -87,13 +89,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-telegram-bot-api-secret-token",
 };
-
-function okJSON(body: unknown = { ok: true }): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { "Content-Type": "application/json", ...corsHeaders },
-  });
-}
 
 async function sendMessage(
   chatId: number,
@@ -298,7 +293,7 @@ async function enforceRateLimit(
       count,
       limit: LIMIT,
     });
-    return new Response("Too Many Requests", { status: 429 });
+    return json({ ok: false, error: "Too Many Requests" }, 429);
   }
   return null;
 }
@@ -436,25 +431,6 @@ async function startReceiptPipeline(update: TelegramUpdate): Promise<void> {
   }
 }
 
-async function readDbWebhookSecret(): Promise<string | null> {
-  try {
-    const url = Deno.env.get("SUPABASE_URL");
-    const srv = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!url || !srv) return null;
-    const supa = createClient(url, srv, { auth: { persistSession: false } });
-    const { data, error } = await supa
-      .from("bot_settings")
-      .select("setting_value")
-      .eq("setting_key", "TELEGRAM_WEBHOOK_SECRET")
-      .limit(1)
-      .maybeSingle();
-    if (error) return null;
-    return (data?.setting_value as string) || null;
-  } catch {
-    return null;
-  }
-}
-
 export async function serveWebhook(req: Request): Promise<Response> {
   // CORS preflight support for browser calls
   if (req.method === "OPTIONS") {
@@ -463,41 +439,26 @@ export async function serveWebhook(req: Request): Promise<Response> {
   if (req.method === "GET") {
     const url = new URL(req.url);
     if (url.pathname.endsWith("/version")) {
-      const ref = Deno.env.get("SUPABASE_URL")
-        ? new URL(Deno.env.get("SUPABASE_URL")!).hostname.split(".")[0]
-        : null;
-      const mini = Deno.env.get("MINI_APP_URL") || null;
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          name: "telegram-bot",
-          project_ref: ref,
-          mini_set: !!mini,
-          ts: new Date().toISOString(),
-        }),
-        { headers: { "content-type": "application/json" } },
-      );
+      return ok({ name: "telegram-bot", ts: new Date().toISOString() });
     }
+    if (url.pathname.endsWith("/echo")) {
+      return ok({ echo: true, ua: req.headers.get("user-agent") || "" });
+    }
+    return mna();
   }
+  if (req.method !== "POST") return mna();
+
+  const authResp = await validateTelegramHeader(req);
+  if (authResp) return authResp;
+
   try {
-    const { ok, missing } = requireEnvCheck(
+    const { ok: envOk, missing } = requireEnvCheck(
       REQUIRED_ENV_KEYS as unknown as string[],
     );
-    if (!ok) {
+    if (!envOk) {
       console.error("Missing env vars", missing);
-      return okJSON();
+      return ok();
     }
-
-    // --- Secret validation (ENV or DB) ---
-    const h = req.headers;
-    const got = h.get("X-Telegram-Bot-Api-Secret-Token") ||
-      h.get("x-telegram-bot-api-secret-token") || "";
-    const envSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
-    const dbSecret = await readDbWebhookSecret();
-    const expected = dbSecret || envSecret;
-    if (!expected) return new Response("Secret missing", { status: 500 });
-    if (got !== expected) return new Response("Unauthorized", { status: 401 });
-    // --- end secret validation ---
 
     const body = await extractTelegramUpdate(req);
     if (
@@ -505,10 +466,10 @@ export async function serveWebhook(req: Request): Promise<Response> {
       (body as { test?: string }).test === "ping" &&
       Object.keys(body).length === 1
     ) {
-      return okJSON({ pong: true });
+      return ok({ pong: true });
     }
     const update = body as TelegramUpdate | null;
-    if (!update) return okJSON();
+    if (!update) return ok();
 
     // ---- BAN CHECK (short-circuit early) ----
     const supa = createClient(
@@ -528,7 +489,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
         .maybeSingle();
       if (ban && (!ban.expires_at || new Date(ban.expires_at) > new Date())) {
         // optional: send a one-time notice
-        return new Response("Forbidden", { status: 403 });
+        return json({ ok: false, error: "Forbidden" }, 403);
       }
     }
 
@@ -549,9 +510,9 @@ export async function serveWebhook(req: Request): Promise<Response> {
     const fileId = getFileIdFromUpdate(update);
     if (fileId) startReceiptPipeline(update);
 
-    return okJSON();
+    return ok({ handled: true });
   } catch (e) {
-    console.log("bot fatal:", e?.message ?? e);
+    console.log("telegram-bot fatal:", e?.message || e);
     await alertAdmins(`🚨 <b>Bot error</b>\n<code>${String(e)}</code>`);
     const supa = supaSvc();
     await supa.from("admin_logs").insert({
@@ -559,7 +520,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
       action_type: "bot_error",
       action_description: String(e),
     });
-    return new Response("Internal Error", { status: 500 });
+    return oops("Internal Error");
   }
 }
 

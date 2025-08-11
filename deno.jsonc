@@ -49,7 +49,9 @@
     "edge:deploy:ocr": "npx supabase functions deploy receipt-ocr",
     "edge:deploy:auto": "npx supabase functions deploy payments-auto-review",
     "edge:deploy:binance": "npx supabase functions deploy binancepay-webhook",
-    "edge:deploy:sync": "npx supabase functions deploy sync-audit"
+    "edge:deploy:sync": "npx supabase functions deploy sync-audit",
+    "edge:deploy:bot": "npx supabase functions deploy telegram-bot",
+    "edge:deploy:mini": "npx supabase functions deploy miniapp"
   }
 }
 // Schedules:
