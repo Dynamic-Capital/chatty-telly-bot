@@ -43,4 +43,51 @@ export async function saveTheme(
   });
   return await r.json();
 }
+
+export async function validatePromo(
+  session_token: string,
+  code: string,
+  telegram_id: number,
+  plan_id: string,
+) {
+  const r = await fetch(`${base}/functions/v1/promo-validate`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      Authorization: `Bearer ${session_token}`,
+    },
+    body: JSON.stringify({ code, telegram_id, plan_id }),
+  });
+  return await r.json();
+}
+
+export async function redeemPromo(
+  session_token: string,
+  code: string,
+  telegram_id: number,
+  plan_id: string,
+  payment_id: string,
+) {
+  const r = await fetch(`${base}/functions/v1/promo-redeem`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      Authorization: `Bearer ${session_token}`,
+    },
+    body: JSON.stringify({ code, telegram_id, plan_id, payment_id }),
+  });
+  return await r.json();
+}
+
+export async function getReferralLink(session_token: string, telegram_id: number) {
+  const r = await fetch(`${base}/functions/v1/referral-link`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      Authorization: `Bearer ${session_token}`,
+    },
+    body: JSON.stringify({ telegram_id }),
+  });
+  return await r.json();
+}
 /* <<< DC BLOCK: api-core (end) */

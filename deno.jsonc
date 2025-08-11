@@ -40,6 +40,10 @@
     "edge:deploy:smoke": "npx supabase functions deploy miniapp-smoke",
     "tg:menu:get": "deno run -A scripts/tg-chat-menu.ts get",
     "tg:menu:set": "deno run -A scripts/tg-chat-menu.ts set",
-    "miniapp:audit": "deno run -A scripts/miniapp-audit.ts"
+    "miniapp:audit": "deno run -A scripts/miniapp-audit.ts",
+    "edge:deploy:promo": "npx supabase functions deploy promo-validate && npx supabase functions deploy promo-redeem",
+    "edge:deploy:ref": "npx supabase functions deploy referral-link",
+    "edge:deploy:broadcast": "npx supabase functions deploy broadcast-dispatch && npx supabase functions deploy broadcast-cron",
+    "edge:deploy:funnel": "npx supabase functions deploy funnel-track"
   }
 }
