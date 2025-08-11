@@ -8,10 +8,6 @@ This repo includes:
 deno run -A scripts/ci-verify.ts
 deno run -A scripts/ci-env-sanity.ts
 
-```pgsql
-
-```
-
 ### Notes
 - Secrets (Telegram/Supabase) should live in **Supabase Edge**. CI can run without them.
 - If you want full verification in CI, add secrets to GitHub → Settings → Secrets and the job will perform real checks automatically.
