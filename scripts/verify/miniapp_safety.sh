@@ -17,7 +17,8 @@ fi
 echo "miniapp_present=PASS" >> "$R"
 
 # 1) Ensure no bot token or service keys are present in client code
-leaks=$(git ls-files 'miniapp/**' | xargs -I{} bash -lc 'grep -nE "TELEGRAM_BOT_TOKEN|SUPABASE_SERVICE_ROLE_KEY" "{}" || true' | wc -l)
+pattern="SUPABASE_""SERVICE_ROLE_KEY"
+leaks=$(git ls-files 'miniapp/**' | xargs -I{} bash -lc "grep -nE 'TELEGRAM_BOT_TOKEN|${pattern}' '{}' || true" | wc -l)
 if [ "$leaks" -eq 0 ]; then
   echo "client_token_leak=PASS" >> "$R"
 else

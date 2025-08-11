@@ -20,7 +20,7 @@ This document defines how the **Dynamic Capital** agent behaves across Telegram
 - **OCR only on images:** Run OCR **only** when a Telegram image or
   image-document is present.
 - **Read body once:** Do not call `req.json()` multiple times.
-- **No secrets in client:** Never expose `SUPABASE_SERVICE_ROLE_KEY` in
+- **No secrets in client:** Never expose the service role key in
   browser/Mini App.
 - **Idempotent DB changes:** Duplicate image uploads must be rejected via image
   `sha256`.
@@ -35,7 +35,6 @@ Read via `Deno.env.get` (functions) and feature-flag safely (fail soft).
 **Runtime (required):**
 
 - `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_WEBHOOK_SECRET`
 

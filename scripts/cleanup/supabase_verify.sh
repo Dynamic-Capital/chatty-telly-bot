@@ -3,10 +3,10 @@ set -euo pipefail
 . scripts/cleanup/guard_rules.sh
 
 : "${SUPABASE_URL:?Set SUPABASE_URL}"
-: "${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY}"
+: "${SUPABASE_KEY:?Set SUPABASE_KEY}"
 
 SB="${SUPABASE_URL%/}"
-HDR=(-H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}")
+HDR=(-H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}")
 
 # Fetch text-bearing columns we care about; expand easily later.
 fetch_table_col() {

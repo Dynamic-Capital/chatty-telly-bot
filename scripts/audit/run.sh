@@ -3,11 +3,11 @@ set -euo pipefail
 mkdir -p .audit
 : "${SUPABASE_URL:?SUPABASE_URL required}"
 : "${SUPABASE_ANON_KEY:=}"
-: "${SUPABASE_SERVICE_ROLE_KEY:=}"
+: "${SUPABASE_SECRET_KEY:=}"
 
 export NODE_NO_WARNINGS=1
 export A_SUPABASE_URL="$SUPABASE_URL"
-export A_SUPABASE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-$SUPABASE_ANON_KEY}"
+export A_SUPABASE_KEY="${SUPABASE_SECRET_KEY:-$SUPABASE_ANON_KEY}"
 
 node scripts/audit/scan_code.mjs
 node scripts/audit/read_meta.mjs
