@@ -23,6 +23,10 @@
     "edge:deploy:verify": "npx supabase functions deploy verify-initdata",
     "edge:deploy:health": "npx supabase functions deploy miniapp-health",
     "tg:keeper:deploy": "npx supabase functions deploy telegram-webhook-keeper",
-    "tg:keeper:run": "curl -s https://qeejuomcapbdlhnjqjcc.functions.supabase.co/telegram-webhook-keeper | jq ."
+    "tg:keeper:run": "curl -s https://qeejuomcapbdlhnjqjcc.functions.supabase.co/telegram-webhook-keeper | jq .",
+    "edge:deploy:plans": "npx supabase functions deploy plans",
+    "edge:deploy:checkout": "npx supabase functions deploy checkout-init",
+    "edge:deploy:uploadurl": "npx supabase functions deploy receipt-upload-url",
+    "edge:deploy:receipt": "npx supabase functions deploy receipt-submit"
   }
 }
