@@ -17,7 +17,7 @@
     "miniapp-react:build": "bash scripts/miniapp-react-build.sh",
     "guard:env": "deno run -A scripts/guard-env-usage.ts",
     "miniapp:build": "bash scripts/miniapp-build-to-edge.sh",
-    "miniapp:deploy": "deno task miniapp:build && npx supabase functions deploy miniapp",
+    "miniapp:deploy": "deno task -c deno.jsonc miniapp:build && npx supabase functions deploy miniapp",
     "miniapp:check": "deno run -A scripts/miniapp-domain-check.ts",
     "edge:call": "deno run -A scripts/call-edge.ts"
   }
