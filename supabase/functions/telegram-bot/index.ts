@@ -1,4 +1,4 @@
-import { optionalEnv, requireEnv } from "../_shared/env.ts";
+import { optionalEnv } from "../_shared/env.ts";
 import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 
 interface TelegramMessage {
@@ -33,26 +33,12 @@ const REQUIRED_ENV_KEYS = [
   "TELEGRAM_BOT_TOKEN",
 ] as const;
 
-const {
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY,
-  TELEGRAM_BOT_TOKEN: BOT_TOKEN,
-  TELEGRAM_WEBHOOK_SECRET: WEBHOOK_SECRET,
-} = requireEnv(
-  [
-    "SUPABASE_URL",
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "TELEGRAM_BOT_TOKEN",
-    "TELEGRAM_WEBHOOK_SECRET",
-  ] as const,
-);
+const SUPABASE_URL = optionalEnv("SUPABASE_URL") || "";
+const SUPABASE_SERVICE_ROLE_KEY = optionalEnv("SUPABASE_SERVICE_ROLE_KEY") || "";
+const BOT_TOKEN = optionalEnv("TELEGRAM_BOT_TOKEN") || "";
+const WEBHOOK_SECRET = optionalEnv("TELEGRAM_WEBHOOK_SECRET");
 const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
-// Ensure MINI_APP_URL always includes a trailing slash to avoid redirects
-const MINI_APP_URL = (() => {
-  const url = optionalEnv("MINI_APP_URL");
-  if (!url) return null;
-  return url.endsWith("/") ? url : `${url}/`;
-})();
+const MINI_APP_URL = optionalEnv("MINI_APP_URL");
 const MINI_APP_SHORT_NAME = optionalEnv("MINI_APP_SHORT_NAME");
 
 // Optional feature flags (currently unused)
@@ -138,14 +124,21 @@ async function notifyUser(chatId: number, text: string): Promise<void> {
 
 async function sendMiniAppLink(chatId: number): Promise<void> {
   if (!BOT_TOKEN) return;
-  if (!MINI_APP_URL && !MINI_APP_SHORT_NAME) {
+  const miniUrl = MINI_APP_URL;
+  const short = MINI_APP_SHORT_NAME;
+  if (!miniUrl && !short) {
     await sendMessage(chatId, "Mini app not configured yet.");
     return;
   }
-  const openUrl = MINI_APP_URL ?? `https://t.me/${botUsername}?startapp=1`;
+  const openUrl = miniUrl
+    ? (miniUrl.endsWith("/") ? miniUrl : miniUrl + "/")
+    : `https://t.me/${botUsername}?startapp=1`;
   await sendMessage(chatId, "Welcome to Dynamic Capital VIP.", {
     reply_markup: {
-      inline_keyboard: [[{ text: "Open VIP Mini App", web_app: { url: openUrl } }]],
+      inline_keyboard: [[{
+        text: "Open VIP Mini App",
+        web_app: { url: openUrl },
+      }]],
     },
   });
 }
