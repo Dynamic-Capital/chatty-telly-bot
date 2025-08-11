@@ -83,10 +83,15 @@ function getSupabase(): SupabaseClient {
   return supabaseAdmin;
 }
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-telegram-bot-api-secret-token",
+};
+
 function okJSON(body: unknown = { ok: true }): Response {
   return new Response(JSON.stringify(body), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...corsHeaders },
   });
 }
 
@@ -282,6 +287,10 @@ async function startReceiptPipeline(update: TelegramUpdate): Promise<void> {
 }
 
 export async function serveWebhook(req: Request): Promise<Response> {
+  // CORS preflight support for browser calls
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
   try {
     const { ok, missing } = requireEnv(REQUIRED_ENV_KEYS);
     if (!ok) {
