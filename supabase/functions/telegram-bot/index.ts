@@ -460,6 +460,25 @@ export async function serveWebhook(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  if (req.method === "GET") {
+    const url = new URL(req.url);
+    if (url.pathname.endsWith("/version")) {
+      const ref = Deno.env.get("SUPABASE_URL")
+        ? new URL(Deno.env.get("SUPABASE_URL")!).hostname.split(".")[0]
+        : null;
+      const mini = Deno.env.get("MINI_APP_URL") || null;
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          name: "telegram-bot",
+          project_ref: ref,
+          mini_set: !!mini,
+          ts: new Date().toISOString(),
+        }),
+        { headers: { "content-type": "application/json" } },
+      );
+    }
+  }
   try {
     const { ok, missing } = requireEnvCheck(
       REQUIRED_ENV_KEYS as unknown as string[],
