@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.tg-verify-init]
 verify_jwt = false
+
+[functions.miniapp]
+verify_jwt = false
