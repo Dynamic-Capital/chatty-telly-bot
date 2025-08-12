@@ -10,7 +10,7 @@
     "ci": "bash scripts/ci.sh",
     "fix:repo": "bash scripts/fix_and_check.sh"
   },
-  "nodeModulesDir": true,
+  "nodeModulesDir": "auto",
   "compilerOptions": {
     "types": [
       "./types/tesseract.d.ts"
