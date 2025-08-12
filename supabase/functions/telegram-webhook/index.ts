@@ -33,6 +33,15 @@ async function sendMessage(
   }
 }
 
+function isValidHttpsUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export async function handler(req: Request): Promise<Response> {
   try {
     const url = new URL(req.url);
@@ -69,11 +78,19 @@ export async function handler(req: Request): Promise<Response> {
       try {
         const miniUrl = optionalEnv("MINI_APP_URL");
         const short = optionalEnv("MINI_APP_SHORT_NAME");
-        if (miniUrl || short) {
-          const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
-          const openUrl = miniUrl
-            ? (miniUrl.endsWith("/") ? miniUrl : miniUrl + "/")
-            : `https://t.me/${botUsername}?startapp=1`;
+        const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
+        let openUrl: string | null = null;
+        if (miniUrl) {
+          openUrl = miniUrl.endsWith("/") ? miniUrl : miniUrl + "/";
+        } else if (short && botUsername) {
+          openUrl = `https://t.me/${botUsername}?startapp=1`;
+        }
+        if (!openUrl || !isValidHttpsUrl(openUrl)) {
+          await sendMessage(
+            chatId,
+            "Bot activated. Mini app is being configured. Please try again soon.",
+          );
+        } else {
           await sendMessage(chatId, "Open the VIP Mini App:", {
             reply_markup: {
               inline_keyboard: [[{
@@ -82,8 +99,6 @@ export async function handler(req: Request): Promise<Response> {
               }]],
             },
           });
-        } else {
-          await sendMessage(chatId, "Bot activated. Replying to /start");
         }
       } catch (err) {
         console.error("error handling /start", err);
