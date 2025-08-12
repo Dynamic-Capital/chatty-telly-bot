@@ -1,5 +1,5 @@
 import { optionalEnv } from "../_shared/env.ts";
-import { ok, mna, oops } from "../_shared/http.ts";
+import { ok, mna, oops, bad } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 
 interface TelegramMessage {
@@ -57,7 +57,7 @@ export async function handler(req: Request): Promise<Response> {
       update = await req.json() as TelegramUpdate;
     } catch (err) {
       console.error("failed to parse update", err);
-      return ok({ ok: true });
+      return bad("Invalid JSON");
     }
 
     const text = update?.message?.text?.trim();
