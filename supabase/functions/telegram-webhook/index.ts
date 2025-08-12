@@ -1,4 +1,6 @@
 import { optionalEnv } from "../_shared/env.ts";
+import { ok, mna, oops } from "../_shared/http.ts";
+import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 
 interface TelegramMessage {
   text?: string;
@@ -32,66 +34,67 @@ async function sendMessage(
 }
 
 export async function handler(req: Request): Promise<Response> {
-  const headers = { "Content-Type": "application/json" };
-  const WEBHOOK_SECRET = optionalEnv("TELEGRAM_WEBHOOK_SECRET") || "";
-
-  // Only accept POST requests
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ ok: true }), { headers });
-  }
-
-  // Validate optional secret
-  if (WEBHOOK_SECRET) {
-    const url = new URL(req.url);
-    const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
-    const querySecret = url.searchParams.get("secret");
-    if (headerSecret || querySecret) {
-      if (headerSecret !== WEBHOOK_SECRET && querySecret !== WEBHOOK_SECRET) {
-        return new Response(JSON.stringify({ ok: true }), { headers });
-      }
-    }
-  }
-
-  // Parse the incoming update
-  let update: TelegramUpdate | null = null;
   try {
-    update = await req.json() as TelegramUpdate;
-  } catch (err) {
-    console.error("failed to parse update", err);
-    return new Response(JSON.stringify({ ok: true }), { headers });
-  }
+    const url = new URL(req.url);
 
-  const text = update?.message?.text?.trim();
-  const chatId = update?.message?.chat?.id;
-
-  // Reply to /start messages (with optional parameters)
-  const command = text?.split(/\s+/)[0];
-  if (command === "/start" && typeof chatId === "number") {
-    try {
-      const miniUrl = optionalEnv("MINI_APP_URL");
-      const short = optionalEnv("MINI_APP_SHORT_NAME");
-      if (miniUrl || short) {
-        const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
-        const openUrl = miniUrl
-          ? (miniUrl.endsWith("/") ? miniUrl : miniUrl + "/")
-          : `https://t.me/${botUsername}?startapp=1`;
-        await sendMessage(chatId, "Open the VIP Mini App:", {
-          reply_markup: {
-            inline_keyboard: [[{
-              text: "Open VIP Mini App",
-              web_app: { url: openUrl },
-            }]],
-          },
-        });
-      } else {
-        await sendMessage(chatId, "Bot activated. Replying to /start");
-      }
-    } catch (err) {
-      console.error("error handling /start", err);
+    // Health/version probe
+    if (req.method === "GET" && url.pathname.endsWith("/version")) {
+      return ok({ name: "telegram-webhook", ts: new Date().toISOString() });
     }
-  }
 
-  return new Response(JSON.stringify({ ok: true }), { headers });
+    // Only accept POST for webhook deliveries
+    if (req.method !== "POST") {
+      return mna();
+    }
+
+    // Validate Telegram secret header (DB-first with env fallback)
+    const authResp = await validateTelegramHeader(req);
+    if (authResp) return authResp;
+
+    // Parse the incoming update
+    let update: TelegramUpdate | null = null;
+    try {
+      update = await req.json() as TelegramUpdate;
+    } catch (err) {
+      console.error("failed to parse update", err);
+      return ok({ ok: true });
+    }
+
+    const text = update?.message?.text?.trim();
+    const chatId = update?.message?.chat?.id;
+
+    // Reply to /start messages (with optional parameters)
+    const command = text?.split(/\s+/)[0];
+    if (command === "/start" && typeof chatId === "number") {
+      try {
+        const miniUrl = optionalEnv("MINI_APP_URL");
+        const short = optionalEnv("MINI_APP_SHORT_NAME");
+        if (miniUrl || short) {
+          const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
+          const openUrl = miniUrl
+            ? (miniUrl.endsWith("/") ? miniUrl : miniUrl + "/")
+            : `https://t.me/${botUsername}?startapp=1`;
+          await sendMessage(chatId, "Open the VIP Mini App:", {
+            reply_markup: {
+              inline_keyboard: [[{
+                text: "Open VIP Mini App",
+                web_app: { url: openUrl },
+              }]],
+            },
+          });
+        } else {
+          await sendMessage(chatId, "Bot activated. Replying to /start");
+        }
+      } catch (err) {
+        console.error("error handling /start", err);
+      }
+    }
+
+    return ok({ ok: true });
+  } catch (err) {
+    console.error("telegram-webhook handler error", err);
+    return oops("Internal Error", String(err));
+  }
 }
 
 // Start the HTTP server when run as a standalone script in Deno.

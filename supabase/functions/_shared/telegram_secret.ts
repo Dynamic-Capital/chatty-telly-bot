@@ -26,7 +26,7 @@ export async function validateTelegramHeader(
   const got = req.headers.get("X-Telegram-Bot-Api-Secret-Token") ||
     req.headers.get("x-telegram-bot-api-secret-token") || "";
   const exp = await expectedSecret();
-  if (!exp) return oops("Secret missing");
-  if (got !== exp) return unauth();
+  if (!exp) return unauth("Webhook secret missing");
+  if (got !== exp) return unauth("Secret mismatch");
   return null;
 }

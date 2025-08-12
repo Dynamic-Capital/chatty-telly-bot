@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { mna, ok } from "../_shared/http.ts";
+import { mna, ok, nf } from "../_shared/http.ts";
 
 const cache = new Map<string, Response>();
 const SECURITY = {
@@ -87,7 +87,7 @@ serve(async (req) => {
     const rel = url.pathname.replace(/^\//, "");
     resp = await file(rel, TYPE(rel));
   } else {
-    resp = await indexHtml();
+    resp = nf("Not Found");
   }
   const h = new Headers(resp.headers);
   h.set("referrer-policy", "strict-origin-when-cross-origin");

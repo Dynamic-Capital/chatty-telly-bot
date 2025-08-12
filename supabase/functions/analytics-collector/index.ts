@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ok } from "../_shared/http.ts";
 
 function svc() {
   const url = Deno.env.get("SUPABASE_URL")!;
@@ -10,7 +11,12 @@ function isoDay(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-serve(async (_req) => {
+serve(async (req) => {
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.pathname.endsWith("/version")) {
+    return ok({ name: "analytics-collector", ts: new Date().toISOString() });
+  }
+  if (req.method === "HEAD") return new Response(null, { status: 200 });
   const supa = svc();
 
   // Define "day" as UTC day for simplicity; adjust if you prefer MVT (UTC+5).

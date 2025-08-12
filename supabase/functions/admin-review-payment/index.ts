@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getEnv, optionalEnv } from "../_shared/env.ts";
+import { ok } from "../_shared/http.ts";
 
 type Body = {
   admin_telegram_id?: string;
@@ -25,6 +26,11 @@ async function tgSend(token: string, chatId: string, text: string) {
 }
 
 serve(async (req) => {
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.pathname.endsWith("/version")) {
+    return ok({ name: "admin-review-payment", ts: new Date().toISOString() });
+  }
+  if (req.method === "HEAD") return new Response(null, { status: 200 });
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
