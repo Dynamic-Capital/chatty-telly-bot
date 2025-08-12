@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { optionalEnv } from "../_shared/env.ts";
+import { expectedSecret } from "../_shared/telegram_secret.ts";
+import { ok, bad, oops, mna } from "../_shared/http.ts";
 
 const BOT = optionalEnv("TELEGRAM_BOT_TOKEN") || "";
-const SECRET = optionalEnv("TELEGRAM_WEBHOOK_SECRET") || "";
 const BASE = (optionalEnv("SUPABASE_URL") || "").replace(/\/$/, "");
 const WEBHOOK = `${BASE}/functions/v1/telegram-webhook`;
 
@@ -16,46 +17,36 @@ function tg(method: string, payload: unknown) {
 }
 
 serve(async (req) => {
-  // GET /?chat_id=123 : direct sendMessage to confirm token works and chat_id is valid.
-  // POST { "chat_id":123 } : server-to-server webhook simulation for /start.
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.pathname.endsWith("/version")) {
+    return ok({ name: "telegram-selftest", ts: new Date().toISOString() });
+  }
+  if (req.method === "HEAD") return new Response(null, { status: 200 });
+
   try {
     if (!BOT) {
-      return new Response(
-        JSON.stringify({ ok: false, error: "BOT_TOKEN missing" }),
-        { status: 500, headers: { "content-type": "application/json" } },
-      );
+      return oops("BOT_TOKEN missing");
     }
 
     if (req.method === "GET") {
-      const chatId = Number(new URL(req.url).searchParams.get("chat_id") || 0);
+      const chatId = Number(url.searchParams.get("chat_id") || 0);
       if (!chatId) {
-        return new Response(
-          JSON.stringify({ ok: false, error: "chat_id required" }),
-          { status: 400, headers: { "content-type": "application/json" } },
-        );
+        return bad("chat_id required");
       }
       const res = await tg("sendMessage", {
         chat_id: chatId,
         text: "Self-test ✅ Bot can send messages.",
       });
       const txt = await res.text().catch(() => "");
-      return new Response(
-        JSON.stringify({
-          ok: res.ok,
-          status: res.status,
-          body: txt.slice(0, 300),
-        }),
-        { headers: { "content-type": "application/json" } },
-      );
+      return ok({ telegram_ok: res.ok, status: res.status, body: txt.slice(0, 300) });
     }
+
+    if (req.method !== "POST") return mna();
 
     // POST path: simulate Telegram → Webhook with a /start update
     const { chat_id } = await req.json().catch(() => ({}));
     if (!chat_id) {
-      return new Response(
-        JSON.stringify({ ok: false, error: "chat_id required in JSON" }),
-        { status: 400, headers: { "content-type": "application/json" } },
-      );
+      return bad("chat_id required in JSON");
     }
     const fakeUpdate = {
       update_id: Date.now(),
@@ -66,6 +57,7 @@ serve(async (req) => {
         text: "/start",
       },
     };
+    const SECRET = await expectedSecret();
     const resp = await fetch(WEBHOOK, {
       method: "POST",
       headers: {
@@ -76,24 +68,13 @@ serve(async (req) => {
       signal: AbortSignal.timeout(8000),
     });
     const body = await resp.text().catch(() => "");
-    return new Response(
-      JSON.stringify({
-        ok: resp.ok,
-        status: resp.status,
-        webhook: WEBHOOK,
-        body: body.slice(0, 300),
-      }),
-      {
-        headers: {
-          "content-type": "application/json",
-          "cache-control": "no-store",
-        },
-      },
-    );
-  } catch (e) {
-    return new Response(JSON.stringify({ ok: false, error: String(e) }), {
-      status: 500,
-      headers: { "content-type": "application/json" },
+    return ok({
+      webhook: WEBHOOK,
+      status: resp.status,
+      telegram_ok: resp.ok,
+      body: body.slice(0, 300),
     });
+  } catch (e) {
+    return oops("Self-test failed", String(e));
   }
 });

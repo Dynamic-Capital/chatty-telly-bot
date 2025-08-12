@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-
-function requireEnv(k: string) {
-  const v = Deno.env.get(k);
-  if (!v) throw new Error(`Missing env: ${k}`);
-  return v;
-}
+import { expectedSecret, readDbWebhookSecret } from "../_shared/telegram_secret.ts";
+import { requireEnv } from "../_shared/env.ts";
+import { json, mna, ok } from "../_shared/http.ts";
 function projectRef(): string {
   const url = Deno.env.get("SUPABASE_URL");
   if (url) {
@@ -12,9 +9,7 @@ function projectRef(): string {
       return new URL(url).hostname.split(".")[0];
     } catch {}
   }
-  const ref = Deno.env.get("SUPABASE_PROJECT_ID");
-  if (!ref) throw new Error("Cannot derive SUPABASE project ref");
-  return ref;
+  return requireEnv("SUPABASE_PROJECT_ID");
 }
 function genSecretHex(len = 24) {
   const bytes = new Uint8Array(len);
@@ -31,20 +26,8 @@ async function upsertDbSecret(supa: any, secret: string) {
   if (error) throw new Error("upsert bot_settings failed: " + error.message);
 }
 
-async function readDbSecret(supa: any): Promise<string | null> {
-  const { data, error } = await supa
-    .from("bot_settings")
-    .select("setting_value")
-    .eq("setting_key", "TELEGRAM_WEBHOOK_SECRET")
-    .limit(1)
-    .maybeSingle();
-  if (error) return null;
-  return (data?.setting_value as string) || null;
-}
-
-export async function decideSecret(supa: any, envSecret: string | null): Promise<string> {
-  if (envSecret) return envSecret;
-  let secret = await readDbSecret(supa);
+export async function decideSecret(supa: any): Promise<string> {
+  let secret = await expectedSecret();
   if (secret) return secret;
   secret = genSecretHex(24);
   await upsertDbSecret(supa, secret);
@@ -62,25 +45,36 @@ async function tgCall(token: string, method: string, body?: unknown) {
 }
 
 async function handler(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.pathname.endsWith("/version")) {
+    return ok({ name: "telegram-webhook-keeper", ts: new Date().toISOString() });
+  }
+  if (req.method === "HEAD") return new Response(null, { status: 200 });
   if (req.method !== "GET" && req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
+    return mna();
   }
 
   // Supabase + Telegram pre-reqs
-  const url = requireEnv("SUPABASE_URL");
-  const srv = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
-  const token = requireEnv("TELEGRAM_BOT_TOKEN");
+  const {
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
+    TELEGRAM_BOT_TOKEN,
+  } = requireEnv([
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "TELEGRAM_BOT_TOKEN",
+  ] as const);
   const ref = projectRef();
   const expectedUrl = `https://${ref}.functions.supabase.co/telegram-bot`;
 
   const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-  const supa = createClient(url, srv, { auth: { persistSession: false } });
+  const supa = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+  const token = TELEGRAM_BOT_TOKEN;
 
-  // 1) Determine secret precedence: ENV -> DB -> generate
-  const secret = await decideSecret(
-    supa,
-    Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || null,
-  );
+  // 1) Determine secret precedence: DB -> ENV -> generate
+  const secret = await decideSecret(supa);
 
   // 2) Ping bot echo (helps surface downtime)
   let echoOK = false;
@@ -110,16 +104,13 @@ async function handler(req: Request): Promise<Response> {
     ok: after.json?.ok === true,
     expectedUrl,
     echoOK,
-    secretStoredInDb: !!(await readDbSecret(supa)),
+    secretStoredInDb: !!(await readDbWebhookSecret()),
     before: before.json,
     setAttempted: needsSet,
     setResult,
     after: after.json,
   };
-  return new Response(JSON.stringify(out, null, 2), {
-    headers: { "content-type": "application/json" },
-    status: out.ok ? 200 : 500,
-  });
+  return json(out, out.ok ? 200 : 500);
 }
 
 if (import.meta.main) {
