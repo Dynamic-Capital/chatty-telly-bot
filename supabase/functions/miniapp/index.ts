@@ -67,11 +67,17 @@ const TYPE = (p: string) =>
     : "application/octet-stream";
 
 serve(async (req) => {
-  if (req.method === "GET") {
-    const url = new URL(req.url);
-    if (url.pathname.endsWith("/version")) {
-      return ok({ name: "miniapp", ts: new Date().toISOString() });
-    }
+  const url = new URL(req.url);
+
+  if (url.pathname === "/miniapp/") {
+    return new Response(null, {
+      status: 308,
+      headers: { Location: `${url.origin}/miniapp` },
+    });
+  }
+
+  if (req.method === "GET" && url.pathname.endsWith("/version")) {
+    return ok({ name: "miniapp", ts: new Date().toISOString() });
   }
   if (req.method === "HEAD") return new Response(null, { status: 200 });
   if (req.method !== "GET") return mna();
@@ -79,15 +85,11 @@ serve(async (req) => {
   console.log(
     "miniapp hit",
     new Date().toISOString(),
-    new URL(req.url).pathname,
+    url.pathname,
     req.headers.get("user-agent") || "",
   );
-  const url = new URL(req.url);
   let resp: Response;
-  if (
-    url.pathname === "/" || url.pathname === "/miniapp" ||
-    url.pathname === "/miniapp/"
-  ) {
+  if (url.pathname === "/" || url.pathname === "/miniapp") {
     resp = await indexHtml();
   } else if (url.pathname.startsWith("/assets/")) {
     const rel = url.pathname.replace(/^\//, "");
