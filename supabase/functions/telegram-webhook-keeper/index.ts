@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { expectedSecret, readDbWebhookSecret } from "../_shared/telegram_secret.ts";
 
 function requireEnv(k: string) {
   const v = Deno.env.get(k);
@@ -31,20 +32,8 @@ async function upsertDbSecret(supa: any, secret: string) {
   if (error) throw new Error("upsert bot_settings failed: " + error.message);
 }
 
-async function readDbSecret(supa: any): Promise<string | null> {
-  const { data, error } = await supa
-    .from("bot_settings")
-    .select("setting_value")
-    .eq("setting_key", "TELEGRAM_WEBHOOK_SECRET")
-    .limit(1)
-    .maybeSingle();
-  if (error) return null;
-  return (data?.setting_value as string) || null;
-}
-
-export async function decideSecret(supa: any, envSecret: string | null): Promise<string> {
-  if (envSecret) return envSecret;
-  let secret = await readDbSecret(supa);
+export async function decideSecret(supa: any): Promise<string> {
+  let secret = await expectedSecret();
   if (secret) return secret;
   secret = genSecretHex(24);
   await upsertDbSecret(supa, secret);
@@ -76,11 +65,8 @@ async function handler(req: Request): Promise<Response> {
   const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
   const supa = createClient(url, srv, { auth: { persistSession: false } });
 
-  // 1) Determine secret precedence: ENV -> DB -> generate
-  const secret = await decideSecret(
-    supa,
-    Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || null,
-  );
+  // 1) Determine secret precedence: DB -> ENV -> generate
+  const secret = await decideSecret(supa);
 
   // 2) Ping bot echo (helps surface downtime)
   let echoOK = false;
@@ -110,7 +96,7 @@ async function handler(req: Request): Promise<Response> {
     ok: after.json?.ok === true,
     expectedUrl,
     echoOK,
-    secretStoredInDb: !!(await readDbSecret(supa)),
+    secretStoredInDb: !!(await readDbWebhookSecret()),
     before: before.json,
     setAttempted: needsSet,
     setResult,

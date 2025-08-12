@@ -1,13 +1,14 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { optionalEnv } from "../_shared/env.ts";
+import { expectedSecret } from "../_shared/telegram_secret.ts";
 
 const BOT = optionalEnv("TELEGRAM_BOT_TOKEN") || "";
-const SECRET = optionalEnv("TELEGRAM_WEBHOOK_SECRET") || "";
 const BASE = (optionalEnv("SUPABASE_URL") || "").replace(/\/$/, "");
 const FN = "telegram-webhook";
 const url = BASE ? `${BASE}/functions/v1/${FN}` : "";
 
 serve(async (req) => {
+  const SECRET = await expectedSecret();
   if (!BOT || !url) {
     return new Response(
       JSON.stringify({ ok: false, error: "Missing BOT or BASE URL" }),
