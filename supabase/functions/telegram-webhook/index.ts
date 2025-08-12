@@ -83,7 +83,7 @@ export async function handler(req: Request): Promise<Response> {
         if (miniUrl) {
           openUrl = miniUrl.endsWith("/") ? miniUrl : miniUrl + "/";
         } else if (short && botUsername) {
-          openUrl = `https://t.me/${botUsername}?startapp=1`;
+          openUrl = `https://t.me/${botUsername}/${short}`;
         }
         if (!openUrl || !isValidHttpsUrl(openUrl)) {
           await sendMessage(
