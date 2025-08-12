@@ -1,7 +1,10 @@
 /* >>> DC BLOCK: api-core (start) */
 const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ||
   window.location.origin;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const anonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  new URLSearchParams(location.search).get("anon") ||
+  "";
 
 function getInitData(): string {
   return window.Telegram?.WebApp?.initData || "";
