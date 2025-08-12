@@ -32,8 +32,8 @@ async function upsertDbSecret(supa: any, secret: string) {
   if (error) throw new Error("upsert bot_settings failed: " + error.message);
 }
 
-export async function decideSecret(supa: any): Promise<string> {
-  let secret = await expectedSecret();
+export async function decideSecret(supa: any, envSecret?: string | null): Promise<string> {
+  let secret = envSecret ?? (await expectedSecret(supa));
   if (secret) return secret;
   secret = genSecretHex(24);
   await upsertDbSecret(supa, secret);
@@ -66,7 +66,7 @@ async function handler(req: Request): Promise<Response> {
   const supa = createClient(url, srv, { auth: { persistSession: false } });
 
   // 1) Determine secret precedence: DB -> ENV -> generate
-  const secret = await decideSecret(supa);
+    const secret = await decideSecret(supa);
 
   // 2) Ping bot echo (helps surface downtime)
   let echoOK = false;
@@ -96,7 +96,7 @@ async function handler(req: Request): Promise<Response> {
     ok: after.json?.ok === true,
     expectedUrl,
     echoOK,
-    secretStoredInDb: !!(await readDbWebhookSecret()),
+    secretStoredInDb: !!(await readDbWebhookSecret(supa)),
     before: before.json,
     setAttempted: needsSet,
     setResult,
