@@ -21,7 +21,7 @@ setTestEnv({
   SUPABASE_URL: "http://local",
   SUPABASE_ANON_KEY: "test-anon",
   SUPABASE_SERVICE_ROLE_KEY: "test-svc",
-  TELEGRAM_BOT_TOKEN: "",
+  TELEGRAM_BOT_TOKEN: "test-token",
   TELEGRAM_WEBHOOK_SECRET: "test-secret",
 });
 
