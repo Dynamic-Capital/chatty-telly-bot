@@ -152,7 +152,8 @@ export async function handleAdminDashboard(
     await sendMessage(chatId, "❌ Access denied.");
     return;
   }
-  const msg = "⚙️ *Admin Dashboard*\nSelect an option:";
+  const defaultMsg = "⚙️ *Admin Dashboard*\nSelect an option:";
+  const msg = (await getBotContent("admin_dashboard_message")) || defaultMsg;
   const keyboard = {
     inline_keyboard: [
       [{ text: "🗃 Tables", callback_data: "table_management" }],
