@@ -40,7 +40,6 @@ const REQUIRED_ENV_KEYS = [
 const SUPABASE_URL = optionalEnv("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = optionalEnv("SUPABASE_SERVICE_ROLE_KEY");
 const BOT_TOKEN = optionalEnv("TELEGRAM_BOT_TOKEN");
-const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
 
 // Optional feature flags (currently unused)
 const _OPENAI_ENABLED = optionalEnv("OPENAI_ENABLED") === "true";
@@ -114,39 +113,25 @@ async function notifyUser(chatId: number, text: string): Promise<void> {
   await sendMessage(chatId, text);
 }
 
-function isValidHttpsUrl(url: string): boolean {
-  try {
-    const u = new URL(url);
-    return u.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-async function sendMiniAppLink(chatId: number): Promise<void> {
+async function sendMiniAppLink(chatId: number) {
   if (!BOT_TOKEN) return;
-  const miniUrl = optionalEnv("MINI_APP_URL");
-  const short = optionalEnv("MINI_APP_SHORT_NAME");
+  const raw = (optionalEnv("MINI_APP_URL") || "").trim();
   let openUrl: string | null = null;
-  if (miniUrl) {
-    openUrl = miniUrl.endsWith("/") ? miniUrl : miniUrl + "/";
-  } else if (short && botUsername) {
-    openUrl = `https://t.me/${botUsername}/${short}`;
+  if (raw) {
+    try {
+      const u = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+      if (u.protocol === "https:") {
+        if (!u.pathname.endsWith("/")) u.pathname += "/";
+        openUrl = u.toString();
+      }
+    } catch { /* ignore invalid */ }
   }
-  if (!openUrl || !isValidHttpsUrl(openUrl)) {
-    await sendMessage(
-      chatId,
-      "Welcome! Mini app is being configured. Please try again soon.",
-    );
+  if (!openUrl) {
+    await sendMessage(chatId, "Welcome! Mini app is being configured. Please try again soon.");
     return;
   }
   await sendMessage(chatId, "Open the VIP Mini App:", {
-    reply_markup: {
-      inline_keyboard: [[{
-        text: "Open VIP Mini App",
-        web_app: { url: openUrl },
-      }]],
-    },
+    reply_markup: { inline_keyboard: [[{ text: "Open VIP Mini App", web_app: { url: openUrl } }]] }
   });
 }
 
@@ -176,18 +161,14 @@ function getFileIdFromUpdate(update: TelegramUpdate | null): string | null {
   return null;
 }
 
-function isStartMessage(m?: TelegramMessage): boolean {
+function isStartMessage(m: any) {
   const t = m?.text ?? "";
   if (t.startsWith("/start")) return true;
-  // Fallback to entities scanning
-  const ents = (m as unknown as {
-    entities?: Array<{ offset: number; length: number; type: string }>;
-  })?.entities;
-  return Array.isArray(ents) &&
-    ents.some((e) =>
-      e.type === "bot_command" &&
-      t.slice(e.offset, e.length).startsWith("/start")
-    );
+  const ents = m?.entities;
+  return Array.isArray(ents) && ents.some((e: any) =>
+    e.type === "bot_command" &&
+    t.slice(e.offset, e.offset + e.length).startsWith("/start")
+  );
 }
 
 function logEvent(event: string, data: Record<string, unknown>): void {
@@ -476,8 +457,11 @@ export async function serveWebhook(req: Request): Promise<Response> {
     ) {
       return ok({ pong: true });
     }
-    const update = body as TelegramUpdate | null;
-    if (!update) return ok();
+    if (!body) {
+      console.log("telegram-bot: empty/invalid JSON");
+      return json({ ok: false, error: "Invalid JSON" }, 400);
+    }
+    const update = body as TelegramUpdate;
 
     // ---- BAN CHECK (short-circuit early) ----
     const supa = createClient(
