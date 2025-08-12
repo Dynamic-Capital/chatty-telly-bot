@@ -131,6 +131,39 @@ function buildMessage(title: string, sections: MessageSection[]): string {
   return lines.join("\n");
 }
 
+async function isAdmin(userId: string): Promise<boolean> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("bot_users")
+      .select("is_admin")
+      .eq("telegram_id", userId)
+      .maybeSingle();
+    return data?.is_admin === true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+export async function handleAdminDashboard(
+  chatId: number,
+  userId: string,
+): Promise<void> {
+  if (!(await isAdmin(userId))) {
+    await sendMessage(chatId, "❌ Access denied.");
+    return;
+  }
+  const defaultMsg = "⚙️ *Admin Dashboard*\nSelect an option:";
+  const msg = (await getBotContent("admin_dashboard_message")) || defaultMsg;
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "🗃 Tables", callback_data: "table_management" }],
+      [{ text: "🚩 Feature Flags", callback_data: "feature_flags" }],
+      [{ text: "🌍 Env Status", callback_data: "env_status" }],
+    ],
+  };
+  await sendMessage(chatId, msg, keyboard);
+}
+
 // Enhanced table management handlers
 export async function handleTableManagement(
   chatId: number,

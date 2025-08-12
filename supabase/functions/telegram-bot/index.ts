@@ -3,7 +3,11 @@ import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  createClient,
+  type SupabaseClient,
+} from "https://esm.sh/@supabase/supabase-js@2";
+import { getBotContent } from "./database-utils.ts";
 
 interface TelegramMessage {
   chat: { id: number };
@@ -14,8 +18,16 @@ interface TelegramMessage {
   [key: string]: unknown;
 }
 
+interface TelegramCallback {
+  id: string;
+  from: { id: number };
+  data?: string;
+  message?: TelegramMessage;
+}
+
 interface TelegramUpdate {
   message?: TelegramMessage;
+  callback_query?: TelegramCallback;
   [key: string]: unknown;
 }
 
@@ -64,14 +76,7 @@ async function getSupabase(): Promise<SupabaseClient | null> {
   return supabaseAdmin;
 }
 
-type AdminHandlers = {
-  handleEnvStatus: typeof import("./admin-handlers.ts").handleEnvStatus;
-  handlePing: typeof import("./admin-handlers.ts").handlePing;
-  handleReplay: typeof import("./admin-handlers.ts").handleReplay;
-  handleReviewList: typeof import("./admin-handlers.ts").handleReviewList;
-  handleVersion: typeof import("./admin-handlers.ts").handleVersion;
-  handleWebhookInfo: typeof import("./admin-handlers.ts").handleWebhookInfo;
-};
+type AdminHandlers = typeof import("./admin-handlers.ts");
 
 let adminHandlers: AdminHandlers | null = null;
 async function loadAdminHandlers(): Promise<AdminHandlers> {
@@ -127,11 +132,19 @@ async function sendMiniAppLink(chatId: number) {
     } catch { /* ignore invalid */ }
   }
   if (!openUrl) {
-    await sendMessage(chatId, "Welcome! Mini app is being configured. Please try again soon.");
+    await sendMessage(
+      chatId,
+      "Welcome! Mini app is being configured. Please try again soon.",
+    );
     return;
   }
   await sendMessage(chatId, "Open the VIP Mini App:", {
-    reply_markup: { inline_keyboard: [[{ text: "Open VIP Mini App", web_app: { url: openUrl } }]] }
+    reply_markup: {
+      inline_keyboard: [[{
+        text: "Open VIP Mini App",
+        web_app: { url: openUrl },
+      }]],
+    },
   });
 }
 
@@ -164,7 +177,9 @@ function getFileIdFromUpdate(update: TelegramUpdate | null): string | null {
 function isStartMessage(m: TelegramMessage | undefined) {
   const t = m?.text ?? "";
   if (t.startsWith("/start")) return true;
-  const ents = m?.entities as { offset: number; length: number; type: string }[] | undefined;
+  const ents = m?.entities as
+    | { offset: number; length: number; type: string }[]
+    | undefined;
   return Array.isArray(ents) && ents.some((e) =>
     e.type === "bot_command" &&
     t.slice(e.offset, e.offset + e.length).startsWith("/start")
@@ -332,6 +347,8 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
 
   // Early match for /start variants like "/start", "/start@Bot", or "/start foo"
   if (isStartMessage(msg)) {
+    const welcome = await getBotContent("welcome_message");
+    if (welcome) await notifyUser(chatId, welcome);
     await handleStartPayload(msg);
     await sendMiniAppLink(chatId);
     return;
@@ -347,6 +364,31 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
       case "/app":
         await sendMiniAppLink(chatId);
         break;
+      case "/help": {
+        const msg = await getBotContent("help_message");
+        await notifyUser(chatId, msg ?? "Help is coming soon.");
+        break;
+      }
+      case "/support": {
+        const msg = await getBotContent("support_message");
+        await notifyUser(chatId, msg ?? "Support information is unavailable.");
+        break;
+      }
+      case "/about": {
+        const msg = await getBotContent("about_us");
+        await notifyUser(chatId, msg ?? "About information is unavailable.");
+        break;
+      }
+      case "/vip": {
+        const msg = await getBotContent("vip_benefits");
+        await notifyUser(chatId, msg ?? "VIP information is unavailable.");
+        break;
+      }
+      case "/faq": {
+        const msg = await getBotContent("faq_general");
+        await notifyUser(chatId, msg ?? "FAQ is unavailable.");
+        break;
+      }
       case "/ping":
         await notifyUser(
           chatId,
@@ -384,6 +426,12 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
         await notifyUser(chatId, JSON.stringify(info));
         break;
       }
+      case "/admin": {
+        const userId = String(msg.from?.id ?? chatId);
+        const { handleAdminDashboard } = await loadAdminHandlers();
+        await handleAdminDashboard(chatId, userId);
+        break;
+      }
       case "/status": {
         const supa = await getSupabase();
         if (supa) {
@@ -408,6 +456,64 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
     }
   } catch (err) {
     console.error("handleCommand error", err);
+  }
+}
+
+async function handleCallback(update: TelegramUpdate): Promise<void> {
+  const cb = update.callback_query;
+  if (!cb) return;
+  const chatId = cb.message?.chat.id ?? cb.from.id;
+  const data = cb.data || "";
+  const userId = String(cb.from.id);
+  try {
+    const handlers = await loadAdminHandlers();
+    if (data.startsWith("toggle_flag_")) {
+      const flag = data.replace("toggle_flag_", "");
+      await handlers.handleToggleFeatureFlag(chatId, userId, flag);
+    } else {
+      switch (data) {
+        case "admin_dashboard":
+          await handlers.handleAdminDashboard(chatId, userId);
+          break;
+        case "table_management":
+          await handlers.handleTableManagement(chatId, userId);
+          break;
+        case "feature_flags":
+          await handlers.handleFeatureFlags(chatId, userId);
+          break;
+        case "publish_flags":
+          await handlers.handlePublishFlagsRequest(chatId);
+          break;
+        case "publish_flags_confirm":
+          await handlers.handlePublishFlagsConfirm(chatId, userId);
+          break;
+        case "rollback_flags":
+          await handlers.handleRollbackFlagsRequest(chatId);
+          break;
+        case "rollback_flags_confirm":
+          await handlers.handleRollbackFlagsConfirm(chatId, userId);
+          break;
+        case "env_status": {
+          const envStatus = await handlers.handleEnvStatus();
+          await notifyUser(chatId, JSON.stringify(envStatus));
+          break;
+        }
+        case "manage_table_bot_users":
+          await handlers.handleUserTableManagement(chatId, userId);
+          break;
+        case "manage_table_subscription_plans":
+          await handlers.handleSubscriptionPlansManagement(chatId, userId);
+          break;
+        case "table_stats_overview":
+          await handlers.handleTableStatsOverview(chatId, userId);
+          break;
+        default:
+          // Other callbacks can be added here
+          break;
+      }
+    }
+  } catch (err) {
+    console.error("handleCallback error", err);
   }
 }
 
@@ -498,13 +604,15 @@ export async function serveWebhook(req: Request): Promise<Response> {
     }
 
     await handleCommand(update);
+    await handleCallback(update);
 
     const fileId = getFileIdFromUpdate(update);
     if (fileId) startReceiptPipeline(update);
 
     return ok({ handled: true });
   } catch (e) {
-    console.log("telegram-bot fatal:", e?.message || e);
+    const errMsg = e instanceof Error ? e.message : String(e);
+    console.log("telegram-bot fatal:", errMsg);
     await alertAdmins(`🚨 <b>Bot error</b>\n<code>${String(e)}</code>`);
     const supa = supaSvc();
     await supa.from("admin_logs").insert({
