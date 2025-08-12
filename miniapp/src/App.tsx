@@ -1,97 +1,112 @@
 import React, { useEffect, useState } from "react";
-import { initTelegramThemeHandlers, setMode as applyMode } from "./theme";
-import { getTheme, saveTheme, verify, validatePromo, redeemPromo, getReferralLink } from "./api";
-type Mode = "auto" | "light" | "dark";
+import { initTelegramThemeHandlers } from "./theme";
+import { verify } from "./api";
 
-function ThemeSection({ token }: { token: string }) {
-  const [mode, setMode] = useState<Mode>("auto");
-  useEffect(() => {
-    initTelegramThemeHandlers();
-    (async () => {
-      try {
-        const t = await getTheme(token);
-        setMode(t.mode);
-        applyMode(t.mode);
-      } catch {
-        /* ignore */
-      }
-    })();
-  }, [token]);
-  async function choose(next: Mode) {
-    setMode(next);
-    applyMode(next);
-    await saveTheme(token, next);
-  }
+type Auth = {
+  token: string;
+  uid: number;
+  username?: string;
+  is_vip?: boolean;
+  subscription_expires_at?: string;
+};
+
+function VipActive() {
   return (
-    <div className="space-y-3 p-4 border border-border rounded-lg bg-card text-foreground">
-      <div className="text-sm opacity-80">Theme</div>
-      <div className="flex gap-2">
-        {(["auto", "light", "dark"] as Mode[]).map((m) => (
-          <button
-            key={m}
-            onClick={() => choose(m)}
-            className={`px-3 py-2 rounded-lg border border-border ${
-              m === mode ? "bg-primary text-primary-foreground" : "bg-background"
-            }`}
-          >
-            {m.toUpperCase()}
-          </button>
-        ))}
+    <section className="space-y-4">
+      <div className="p-4 border border-border rounded-lg bg-card">
+        <div className="font-medium">Continue where you left off</div>
+        <div className="text-sm opacity-80">No recent activity</div>
       </div>
-    </div>
+      <div className="flex flex-col gap-3">
+        <button className="py-3 rounded-lg bg-primary text-primary-foreground">
+          View Signals
+        </button>
+        <button className="py-3 rounded-lg bg-primary text-primary-foreground">
+          Education Library
+        </button>
+      </div>
+      <div className="p-4 border border-border rounded-lg bg-card">
+        <div className="font-medium">Announcements</div>
+        <div className="text-sm opacity-80">No announcements</div>
+      </div>
+    </section>
   );
 }
 
-function PromoSection({ token, uid }: { token: string; uid: number }) {
-  const [code, setCode] = useState("");
-  const [plan, setPlan] = useState("");
-  const [final, setFinal] = useState<number | null>(null);
-  async function apply() {
-    const r = await validatePromo(token, code, uid, plan);
-    if (r.ok) setFinal(r.final_amount);
-  }
-  async function redeem() {
-    await redeemPromo(token, code, uid, plan, "demo-pay");
-  }
+function VipInactive() {
   return (
-    <div className="space-y-3 p-4 border border-border rounded-lg bg-card text-foreground">
-      <div className="text-sm opacity-80">Promo Code</div>
-      <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="code" className="w-full px-2 py-1 border rounded" />
-      <input value={plan} onChange={(e) => setPlan(e.target.value)} placeholder="plan id" className="w-full px-2 py-1 border rounded" />
-      <button onClick={apply} className="px-3 py-2 border rounded">Apply</button>
-      {final !== null && <div className="text-sm">Final: {final}</div>}
-      <button onClick={redeem} className="px-3 py-2 border rounded">Redeem</button>
-    </div>
+    <section className="space-y-4" id="plans">
+      <ul className="list-disc pl-5 text-sm space-y-1">
+        <li>Access premium signals</li>
+        <li>Unlock education library</li>
+        <li>Priority support</li>
+      </ul>
+      <div className="p-4 border border-border rounded-lg bg-card space-y-2">
+        <div className="font-medium">VIP Plan - $49/mo</div>
+        <div className="text-sm opacity-80">Full access for 30 days</div>
+        <button className="w-full py-3 rounded-lg bg-primary text-primary-foreground">
+          Start now
+        </button>
+      </div>
+      <div className="text-xs text-center">
+        7-day refund guarantee.
+        <button className="underline ml-1">Chat with Support</button>
+      </div>
+    </section>
   );
 }
 
-function ReferralSection({ token, uid }: { token: string; uid: number }) {
-  const [link, setLink] = useState("");
+function Footer() {
+  const [version, setVersion] = useState("");
   useEffect(() => {
     (async () => {
       try {
-        const r = await getReferralLink(token, uid);
-        setLink(r.link);
+        const r = await fetch("/miniapp/version");
+        if (r.ok) setVersion((await r.text()).trim());
       } catch {
         /* ignore */
       }
     })();
-  }, [token, uid]);
+  }, []);
   return (
-    <div className="space-y-1 p-4 border border-border rounded-lg bg-card text-foreground">
-      <div className="text-sm opacity-80">Referral Link</div>
-      <div className="break-all text-xs">{link}</div>
-    </div>
+    <footer className="text-xs text-center opacity-70">
+      {version ? `v${version}` : "v0.0.0"} • Theme: auto
+    </footer>
+  );
+}
+
+function SharedSections() {
+  return (
+    <section className="space-y-6">
+      <div className="space-y-2">
+        <div className="font-medium">Education Spotlight</div>
+        <div className="text-sm opacity-80">No featured lessons yet.</div>
+      </div>
+      <div className="space-y-2">
+        <div className="font-medium">Progress</div>
+        <div className="text-sm opacity-80">0% completed</div>
+      </div>
+      <div className="space-y-2">
+        <div className="font-medium">Payments</div>
+        <div className="text-sm opacity-80">No pending payments</div>
+      </div>
+      <div className="space-y-2">
+        <div className="font-medium">FAQ / Help</div>
+        <button className="underline text-sm">Contact support</button>
+      </div>
+      <Footer />
+    </section>
   );
 }
 
 export default function App() {
-  const [auth, setAuth] = useState<
-    { token: string; uid: number; username?: string } | null
-  >(null);
+  const [auth, setAuth] = useState<Auth | null>(null);
+  const [error, setError] = useState(false);
+
   useEffect(() => {
     window.Telegram?.WebApp?.ready?.();
     window.Telegram?.WebApp?.expand?.();
+    initTelegramThemeHandlers();
     (async () => {
       try {
         const vr = await verify();
@@ -99,26 +114,70 @@ export default function App() {
           token: vr.session_token,
           uid: vr.user_id,
           username: vr.username,
+          is_vip: vr.is_vip,
+          subscription_expires_at: vr.subscription_expires_at,
         });
       } catch {
-        /* ignore */
+        setError(true);
       }
     })();
   }, []);
+
+  if (error)
+    return (
+      <div className="p-4 space-y-4">
+        <div>Verification failed</div>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 rounded-lg bg-primary text-primary-foreground"
+        >
+          Reload
+        </button>
+      </div>
+    );
   if (!auth) return <div className="p-4">Loading...</div>;
+
+  const firstName = window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name;
+  const greeting = firstName ? `Welcome back, ${firstName}` : "Welcome";
+
+  const vipBadge = auth.is_vip
+    ? `Active VIP • renews ${
+        auth.subscription_expires_at
+          ? new Date(auth.subscription_expires_at).toLocaleDateString()
+          : ""
+      }`
+    : "VIP inactive • unlock signals & lessons";
+
+  function handlePrimaryCTA() {
+    if (auth.is_vip) {
+      window.location.href = "/dashboard";
+    } else {
+      document
+        .getElementById("plans")
+        ?.scrollIntoView({ behavior: "smooth" });
+    }
+  }
+
   return (
-    <div className="min-h-screen space-y-4 p-4 bg-background text-foreground">
-      <header className="space-y-1 text-center">
-        <h1 className="text-2xl font-bold">
-          {auth.username ? `Welcome, ${auth.username}!` : "Welcome"}
-        </h1>
-        <p className="text-sm opacity-80">
-          Manage your theme, promo codes and referrals below.
-        </p>
+    <div className="min-h-screen space-y-6 p-4 bg-background text-foreground">
+      <header className="space-y-2 text-center">
+        <h1 className="text-2xl font-bold">{greeting}</h1>
+        <div className="text-sm opacity-80">{vipBadge}</div>
+        <button
+          onClick={handlePrimaryCTA}
+          className="w-full mt-3 py-3 rounded-lg bg-primary text-primary-foreground"
+        >
+          {auth.is_vip ? "Open Dashboard" : "Join VIP"}
+        </button>
+        <div className="flex justify-center gap-2 mt-4 text-sm">
+          <button className="px-3 py-1 rounded-full border">Signals</button>
+          <button className="px-3 py-1 rounded-full border">Education</button>
+          <button className="px-3 py-1 rounded-full border">Support</button>
+        </div>
       </header>
-      <ThemeSection token={auth.token} />
-      <PromoSection token={auth.token} uid={auth.uid} />
-      <ReferralSection token={auth.token} uid={auth.uid} />
+      {auth.is_vip ? <VipActive /> : <VipInactive />}
+      <SharedSections />
     </div>
   );
 }
+

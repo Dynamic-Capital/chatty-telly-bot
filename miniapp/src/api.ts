@@ -19,6 +19,8 @@ export async function verify() {
     user_id: number;
     username?: string;
     session_token: string;
+    is_vip?: boolean;
+    subscription_expires_at?: string;
   };
 }
 
