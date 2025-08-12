@@ -86,14 +86,20 @@ function ReferralSection({ token, uid }: { token: string; uid: number }) {
 }
 
 export default function App() {
-  const [auth, setAuth] = useState<{ token: string; uid: number } | null>(null);
+  const [auth, setAuth] = useState<
+    { token: string; uid: number; username?: string } | null
+  >(null);
   useEffect(() => {
     window.Telegram?.WebApp?.ready?.();
     window.Telegram?.WebApp?.expand?.();
     (async () => {
       try {
         const vr = await verify();
-        setAuth({ token: vr.session_token, uid: vr.user_id });
+        setAuth({
+          token: vr.session_token,
+          uid: vr.user_id,
+          username: vr.username,
+        });
       } catch {
         /* ignore */
       }
@@ -102,6 +108,14 @@ export default function App() {
   if (!auth) return <div className="p-4">Loading...</div>;
   return (
     <div className="min-h-screen space-y-4 p-4 bg-background text-foreground">
+      <header className="space-y-1 text-center">
+        <h1 className="text-2xl font-bold">
+          {auth.username ? `Welcome, ${auth.username}!` : "Welcome"}
+        </h1>
+        <p className="text-sm opacity-80">
+          Manage your theme, promo codes and referrals below.
+        </p>
+      </header>
       <ThemeSection token={auth.token} />
       <PromoSection token={auth.token} uid={auth.uid} />
       <ReferralSection token={auth.token} uid={auth.uid} />
