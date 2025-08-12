@@ -39,8 +39,9 @@ supabase/functions/**/.edge/
 # Mini app build & deps
 apps/mini/dist/
 apps/miniapp-react/package-lock.json
-supabase/functions/miniapp/static/*
-!supabase/functions/miniapp/static/.gitkeep
+
+# Include mini app static assets for deployment
+# (previously ignored to keep directory empty)
 
 # Audit reports
 .audit/
