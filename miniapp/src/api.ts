@@ -1,6 +1,10 @@
 /* >>> DC BLOCK: api-core (start) */
 const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ||
   window.location.origin;
+const anonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  new URLSearchParams(location.search).get("anon") ||
+  "";
 
 function getInitData(): string {
   return window.Telegram?.WebApp?.initData || "";
@@ -9,7 +13,11 @@ function getInitData(): string {
 export async function verify() {
   const res = await fetch(`${base}/functions/v1/tg-verify-init`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+    },
     body: JSON.stringify({ initData: getInitData() }),
   });
   const json = await res.json();
