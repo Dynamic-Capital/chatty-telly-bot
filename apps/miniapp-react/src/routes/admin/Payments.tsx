@@ -4,7 +4,7 @@ import { adminListPending, adminActOnPayment } from '@/services/api';
 
 export default function Payments() {
   const { initData, haptic } = useTelegram();
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function load() {

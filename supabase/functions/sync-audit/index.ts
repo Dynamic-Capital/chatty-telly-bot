@@ -25,7 +25,16 @@ function genHex(n = 24) {
   return Array.from(b).map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 
-async function upsertDbSecret(supa: any, val: string) {
+interface SupaUpsert {
+  from: (table: string) => {
+    upsert: (
+      values: Record<string, unknown>,
+      options: { onConflict: string },
+    ) => Promise<{ error?: { message: string } }>; 
+  };
+}
+
+async function upsertDbSecret(supa: SupaUpsert, val: string) {
   const { error } = await supa.from("bot_settings").upsert({
     setting_key: "TELEGRAM_WEBHOOK_SECRET",
     setting_value: val,
@@ -99,7 +108,7 @@ serve(async (req) => {
   if (!secret) mismatches.push("webhook_secret_missing");
 
   // 5) Optional fixes
-  const actions: any[] = [];
+  const actions: Array<Record<string, unknown>> = [];
   if (fix) {
     // Ensure we have a secret
     if (!secret) {

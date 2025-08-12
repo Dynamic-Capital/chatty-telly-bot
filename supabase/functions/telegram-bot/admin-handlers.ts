@@ -37,7 +37,7 @@ async function preview(): Promise<{ data: FlagMap }> {
       .like("setting_key", `${FLAG_PREFIX}%`);
     if (error) throw error;
     const map: FlagMap = {};
-    for (const row of (data as any[]) ?? []) {
+    for (const row of (data as Array<Record<string, unknown>>) ?? []) {
       const key: string = (row.setting_key as string) || "";
       const valRaw: string = String(row.setting_value ?? "");
       const normalized = valRaw.toLowerCase();

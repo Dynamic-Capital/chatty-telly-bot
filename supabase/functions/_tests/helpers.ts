@@ -1,10 +1,19 @@
 // tiny harness for Edge-function logic
 
-export function setTestEnv(kv: Record<string,string>) {
-  (globalThis as any).__TEST_ENV__ = { ...(globalThis as any).__TEST_ENV__, ...kv };
+interface TestEnvGlobal {
+  __TEST_ENV__?: Record<string, string>;
 }
 
-export async function makeTelegramInitData(user: any, botToken: string, extra: Record<string,string> = {}) {
+export function setTestEnv(kv: Record<string, string>) {
+  const g = globalThis as TestEnvGlobal;
+  g.__TEST_ENV__ = { ...g.__TEST_ENV__, ...kv };
+}
+
+export async function makeTelegramInitData(
+  user: Record<string, unknown>,
+  botToken: string,
+  extra: Record<string, string> = {},
+) {
   // builds a valid WebApp initData for tests
   const enc = new TextEncoder();
   const secretKey = await crypto.subtle.digest("SHA-256", enc.encode(botToken));

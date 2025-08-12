@@ -7,7 +7,7 @@ const need = (k: string) =>
     throw new Error(`Missing env ${k}`);
   })();
 
-async function approve(supa: any, paymentId: string, monthsOverride?: number) {
+async function approve(_supa: unknown, paymentId: string, monthsOverride?: number) {
   // Reuse Phase 4 admin flow by calling the endpoint (keeps logic in one place)
   const admin = need("ADMIN_API_SECRET");
   const ref = new URL(need("SUPABASE_URL")).hostname.split(".")[0];
@@ -25,7 +25,7 @@ async function approve(supa: any, paymentId: string, monthsOverride?: number) {
   return { ok: r.ok, j: await r.json().catch(() => ({})) };
 }
 
-function num(x: any) {
+function num(x: unknown) {
   const n = Number(x);
   return isFinite(n) ? n : null;
 }
@@ -64,7 +64,7 @@ serve(async (req) => {
       )
       .eq("status", "pending").gte("created_at", sinceIso).limit(50);
 
-    const results: any[] = [];
+    const results: Array<Record<string, unknown>> = [];
 
     for (const p of pendings || []) {
       const ocr = p.webhook_data?.ocr;

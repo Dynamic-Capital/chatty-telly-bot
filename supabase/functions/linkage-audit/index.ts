@@ -12,7 +12,7 @@ function env(k: EnvKey) {
   return optionalEnv(k) ?? "";
 }
 
-async function getWebhookInfo(token?: string): Promise<any> {
+async function getWebhookInfo(token?: string): Promise<Record<string, unknown>> {
   if (!token) return { ok: false, error: "missing_token" };
   try {
     const r = await fetch(

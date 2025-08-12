@@ -51,7 +51,7 @@ serve(async (req) => {
     .gte("updated_at", start).lte("updated_at", end);
 
   const revenue = (pays ?? []).reduce(
-    (s, p: any) => s + (Number(p.amount ?? 0) || 0),
+    (s, p: { amount?: unknown }) => s + (Number(p.amount ?? 0) || 0),
     0,
   );
 
@@ -72,7 +72,7 @@ serve(async (req) => {
   const conversionRates = { simple: commands ? (completed / commands) : 0 };
 
   // top promo codes if table present
-  let topPromoCodes: Record<string, number> = {};
+  const topPromoCodes: Record<string, number> = {};
   try {
     const { data: promos } = await supa.from("promo_analytics")
       .select("promo_code")
@@ -81,7 +81,9 @@ serve(async (req) => {
       const code = p.promo_code || "unknown";
       topPromoCodes[code] = (topPromoCodes[code] ?? 0) + 1;
     }
-  } catch {}
+  } catch {
+    // ignore if promo_analytics table is absent
+  }
 
   // upsert daily_analytics
   await supa.from("daily_analytics").upsert({

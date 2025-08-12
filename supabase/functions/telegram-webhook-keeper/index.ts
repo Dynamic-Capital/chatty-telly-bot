@@ -11,7 +11,9 @@ function projectRef(): string {
   if (url) {
     try {
       return new URL(url).hostname.split(".")[0];
-    } catch {}
+    } catch {
+      // ignore invalid URL
+    }
   }
   const ref = Deno.env.get("SUPABASE_PROJECT_ID");
   if (!ref) throw new Error("Cannot derive SUPABASE project ref");
@@ -23,7 +25,16 @@ function genSecretHex(len = 24) {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function upsertDbSecret(supa: any, secret: string) {
+interface SupaUpsert {
+  from: (table: string) => {
+    upsert: (
+      values: Record<string, unknown>,
+      options: { onConflict: string },
+    ) => Promise<{ error?: { message: string } }>;
+  };
+}
+
+async function upsertDbSecret(supa: SupaUpsert, secret: string) {
   const { error } = await supa
     .from("bot_settings")
     .upsert({ setting_key: "TELEGRAM_WEBHOOK_SECRET", setting_value: secret }, {
@@ -32,7 +43,10 @@ async function upsertDbSecret(supa: any, secret: string) {
   if (error) throw new Error("upsert bot_settings failed: " + error.message);
 }
 
-export async function decideSecret(supa: any, envSecret?: string | null): Promise<string> {
+export async function decideSecret(
+  supa: SupaUpsert,
+  envSecret?: string | null,
+): Promise<string> {
   let secret = envSecret ?? (await expectedSecret(supa));
   if (secret) return secret;
   secret = genSecretHex(24);
@@ -73,14 +87,16 @@ async function handler(req: Request): Promise<Response> {
   try {
     const ping = await fetch(`${expectedUrl}/echo`, { method: "GET" });
     echoOK = ping.ok;
-  } catch {}
+  } catch {
+    // ignore network errors
+  }
 
   // 3) Ensure webhook points to expected URL
   const before = await tgCall(token, "getWebhookInfo");
   const currentUrl: string | undefined = before.json?.result?.url;
   const needsSet = !currentUrl || currentUrl !== expectedUrl;
 
-  let setResult: any = null;
+  let setResult: Record<string, unknown> | null = null;
   if (needsSet) {
     setResult = await tgCall(token, "setWebhook", {
       url: expectedUrl,

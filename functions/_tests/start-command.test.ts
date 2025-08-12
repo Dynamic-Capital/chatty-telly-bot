@@ -32,7 +32,7 @@ const candidates = [
   "../../edge/telegram-bot/index.ts",
 ];
 
-let mod: any = null;
+let mod: Record<string, unknown> | null = null;
 let used: string | null = null;
 for (const p of candidates) {
   try {
@@ -85,8 +85,12 @@ Deno.test("handler responds to /start offline", async () => {
       // Try with injected deps (mock fetch + supabase) if supported
       const mockFetch: typeof fetch = async () =>
         new Response("{}", { status: 200 });
-      const mockSupabase = () =>
-        ({ from: () => ({ insert: () => ({ error: null }) }) }) as any;
+      type MockSupabase = {
+        from: () => { insert: () => { error: null } };
+      };
+      const mockSupabase = (): MockSupabase => ({
+        from: () => ({ insert: () => ({ error: null }) }),
+      });
       res = await mod.default(req, {
         fetcher: mockFetch,
         supabaseFactory: mockSupabase,
