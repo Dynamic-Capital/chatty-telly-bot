@@ -14,8 +14,16 @@ interface TelegramMessage {
   [key: string]: unknown;
 }
 
+interface TelegramCallback {
+  id: string;
+  from: { id: number };
+  data?: string;
+  message?: TelegramMessage;
+}
+
 interface TelegramUpdate {
   message?: TelegramMessage;
+  callback_query?: TelegramCallback;
   [key: string]: unknown;
 }
 
@@ -71,6 +79,9 @@ type AdminHandlers = {
   handleReviewList: typeof import("./admin-handlers.ts").handleReviewList;
   handleVersion: typeof import("./admin-handlers.ts").handleVersion;
   handleWebhookInfo: typeof import("./admin-handlers.ts").handleWebhookInfo;
+  handleAdminDashboard: typeof import("./admin-handlers.ts").handleAdminDashboard;
+  handleTableManagement: typeof import("./admin-handlers.ts").handleTableManagement;
+  handleFeatureFlags: typeof import("./admin-handlers.ts").handleFeatureFlags;
 };
 
 let adminHandlers: AdminHandlers | null = null;
@@ -384,6 +395,12 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
         await notifyUser(chatId, JSON.stringify(info));
         break;
       }
+      case "/admin": {
+        const userId = String(msg.from?.id ?? chatId);
+        const { handleAdminDashboard } = await loadAdminHandlers();
+        await handleAdminDashboard(chatId, userId);
+        break;
+      }
       case "/status": {
         const supa = await getSupabase();
         if (supa) {
@@ -408,6 +425,38 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
     }
   } catch (err) {
     console.error("handleCommand error", err);
+  }
+}
+
+async function handleCallback(update: TelegramUpdate): Promise<void> {
+  const cb = update.callback_query;
+  if (!cb) return;
+  const chatId = cb.message?.chat.id ?? cb.from.id;
+  const data = cb.data || "";
+  const userId = String(cb.from.id);
+  try {
+    const handlers = await loadAdminHandlers();
+    switch (data) {
+      case "admin_dashboard":
+        await handlers.handleAdminDashboard(chatId, userId);
+        break;
+      case "table_management":
+        await handlers.handleTableManagement(chatId, userId);
+        break;
+      case "feature_flags":
+        await handlers.handleFeatureFlags(chatId, userId);
+        break;
+      case "env_status": {
+        const envStatus = await handlers.handleEnvStatus();
+        await notifyUser(chatId, JSON.stringify(envStatus));
+        break;
+      }
+      default:
+        // Other callbacks can be added here
+        break;
+    }
+  } catch (err) {
+    console.error("handleCallback error", err);
   }
 }
 
@@ -498,13 +547,15 @@ export async function serveWebhook(req: Request): Promise<Response> {
     }
 
     await handleCommand(update);
+    await handleCallback(update);
 
     const fileId = getFileIdFromUpdate(update);
     if (fileId) startReceiptPipeline(update);
 
     return ok({ handled: true });
   } catch (e) {
-    console.log("telegram-bot fatal:", e?.message || e);
+    const errMsg = e instanceof Error ? e.message : String(e);
+    console.log("telegram-bot fatal:", errMsg);
     await alertAdmins(`🚨 <b>Bot error</b>\n<code>${String(e)}</code>`);
     const supa = supaSvc();
     await supa.from("admin_logs").insert({
