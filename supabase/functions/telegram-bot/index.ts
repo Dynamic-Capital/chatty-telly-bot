@@ -1,9 +1,9 @@
 import { optionalEnv } from "../_shared/env.ts";
 import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 interface TelegramMessage {
   chat: { id: number };
@@ -48,8 +48,6 @@ const _FAQ_ENABLED = optionalEnv("FAQ_ENABLED") === "true";
 const WINDOW_SECONDS = Number(optionalEnv("WINDOW_SECONDS") ?? "180");
 const AMOUNT_TOLERANCE = Number(optionalEnv("AMOUNT_TOLERANCE") ?? "0.02");
 const REQUIRE_PAY_CODE = optionalEnv("REQUIRE_PAY_CODE") === "true";
-
-type SupabaseClient = any;
 let supabaseAdmin: SupabaseClient | null = null;
 async function getSupabase(): Promise<SupabaseClient | null> {
   if (supabaseAdmin) return supabaseAdmin;
@@ -133,7 +131,7 @@ async function sendMiniAppLink(chatId: number): Promise<void> {
   if (miniUrl) {
     openUrl = miniUrl.endsWith("/") ? miniUrl : miniUrl + "/";
   } else if (short && botUsername) {
-    openUrl = `https://t.me/${botUsername}?startapp=1`;
+    openUrl = `https://t.me/${botUsername}/${short}`;
   }
   if (!openUrl || !isValidHttpsUrl(openUrl)) {
     await sendMessage(
