@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { unauth, ok } from "../_shared/http.ts";
 import { expectedSecret, readDbWebhookSecret } from "../_shared/telegram_secret.ts";
 
 const need = (k: string) =>
@@ -53,8 +54,19 @@ async function tg(token: string, method: string, body?: unknown) {
 }
 
 serve(async (req) => {
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.pathname.endsWith("/version")) {
+    return ok({ name: "sync-audit", ts: new Date().toISOString() });
+  }
   if (req.method !== "POST" && req.method !== "GET") {
     return new Response("Method Not Allowed", { status: 405 });
+  }
+  const admin = Deno.env.get("ADMIN_API_SECRET") || "";
+  const auth = req.headers.get("authorization") || "";
+  const bearer = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  const alt = req.headers.get("x-admin-secret") || "";
+  if (!admin || (bearer !== admin && alt !== admin)) {
+    return unauth();
   }
   const ref = projectRef();
   const expectedWebhook = `https://${ref}.functions.supabase.co/telegram-bot`;
