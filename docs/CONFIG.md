@@ -1,8 +1,6 @@
 # Configuration
 
-The project relies on a shared set of environment keys. Set them in your local
-`.env`, Supabase function secrets, and GitHub Actions secrets as indicated
-below.
+The project relies on a shared set of environment keys. Set them in your local `.env`, Supabase function secrets, and GitHub Actions secrets as indicated below.
 
 | Key                       | Codex project settings (dev) | Supabase function secrets (prod) | GitHub Actions secrets (CI) |
 | ------------------------- | ---------------------------- | -------------------------------- | --------------------------- |
@@ -24,6 +22,4 @@ below.
 
 `✅` indicates where each key should be set.
 
-`MINI_APP_URL` should point to the deployed Telegram Mini App (for example,
-`https://mini.dynamic.capital/`). If set, the bot shows a Mini App button and
-will automatically append a trailing slash if missing to avoid redirect issues.
+`MINI_APP_URL` should point to the deployed Telegram Mini App (for example, `https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/`). If set, the bot shows a Mini App button and will automatically append a trailing slash if missing to avoid redirect issues.
