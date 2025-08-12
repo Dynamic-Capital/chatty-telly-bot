@@ -161,11 +161,11 @@ function getFileIdFromUpdate(update: TelegramUpdate | null): string | null {
   return null;
 }
 
-function isStartMessage(m: any) {
+function isStartMessage(m: TelegramMessage | undefined) {
   const t = m?.text ?? "";
   if (t.startsWith("/start")) return true;
-  const ents = m?.entities;
-  return Array.isArray(ents) && ents.some((e: any) =>
+  const ents = m?.entities as { offset: number; length: number; type: string }[] | undefined;
+  return Array.isArray(ents) && ents.some((e) =>
     e.type === "bot_command" &&
     t.slice(e.offset, e.offset + e.length).startsWith("/start")
   );

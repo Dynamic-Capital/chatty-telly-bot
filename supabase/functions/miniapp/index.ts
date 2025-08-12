@@ -58,6 +58,12 @@ const TYPE = (p: string) =>
     ? "image/jpeg"
     : p.endsWith(".webp")
     ? "image/webp"
+    : p.endsWith(".ico")
+    ? "image/x-icon"
+    : p.endsWith(".txt")
+    ? "text/plain"
+    : p.endsWith(".webmanifest")
+    ? "application/manifest+json"
     : "application/octet-stream";
 
 serve(async (req) => {
@@ -84,6 +90,17 @@ serve(async (req) => {
   ) {
     resp = await indexHtml();
   } else if (url.pathname.startsWith("/assets/")) {
+    const rel = url.pathname.replace(/^\//, "");
+    resp = await file(rel, TYPE(rel));
+  } else if (
+    [
+      "/favicon.ico",
+      "/favicon.svg",
+      "/vite.svg",
+      "/site.webmanifest",
+      "/robots.txt",
+    ].includes(url.pathname)
+  ) {
     const rel = url.pathname.replace(/^\//, "");
     resp = await file(rel, TYPE(rel));
   } else {
