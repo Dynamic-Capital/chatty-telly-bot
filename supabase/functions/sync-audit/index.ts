@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { expectedSecret, readDbWebhookSecret } from "../_shared/telegram_secret.ts";
 
 const need = (k: string) =>
   Deno.env.get(k) || (() => {
@@ -24,13 +25,6 @@ function genHex(n = 24) {
   return Array.from(b).map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 
-async function readDbSecret(supa: any): Promise<string | null> {
-  const { data } = await supa.from("bot_settings").select("setting_value").eq(
-    "setting_key",
-    "TELEGRAM_WEBHOOK_SECRET",
-  ).maybeSingle();
-  return (data?.setting_value as string) || null;
-}
 async function upsertDbSecret(supa: any, val: string) {
   const { error } = await supa.from("bot_settings").upsert({
     setting_key: "TELEGRAM_WEBHOOK_SECRET",
@@ -93,32 +87,33 @@ serve(async (req) => {
 
   // 3) Secret presence (ENV/DB)
   const envSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || null;
-  let dbSecret = await readDbSecret(supa);
-
+  let dbSecret = await readDbWebhookSecret();
+  
   // 4) Compute mismatches
   const mismatches: string[] = [];
   if (currentWebhook !== expectedWebhook) mismatches.push("webhook_url");
   if (currentMenuUrl !== expectedMini) mismatches.push("chat_menu_url");
   if (!botVer.ok) mismatches.push("bot_unreachable");
   if (!miniVer.ok) mismatches.push("mini_unreachable");
-  if (!envSecret && !dbSecret) mismatches.push("webhook_secret_missing");
+  const secret = dbSecret || envSecret;
+  if (!secret) mismatches.push("webhook_secret_missing");
 
   // 5) Optional fixes
   const actions: any[] = [];
   if (fix) {
     // Ensure we have a secret
-    if (!dbSecret && !envSecret) {
+    if (!secret) {
       dbSecret = genHex(24);
       await upsertDbSecret(supa, dbSecret);
       actions.push({ set: "db_secret" });
     }
-    const secret = dbSecret || envSecret!;
+    const secretVal = await expectedSecret();
 
     // Reapply webhook if needed
     if (currentWebhook !== expectedWebhook) {
       const set = await tg(token, "setWebhook", {
         url: expectedWebhook,
-        secret_token: secret,
+        secret_token: secretVal!,
         allowed_updates: ["message", "callback_query"],
         drop_pending_updates: false,
       });
@@ -127,7 +122,7 @@ serve(async (req) => {
 
     // Reset chat menu button if needed (add cache-busting v if requested)
     const ver = body?.version || String(Date.now());
-    const targetMenu = body?.no_version
+      const targetMenu = body?.no_version
       ? expectedMini
       : `${expectedMini}?v=${ver}`;
     if (currentMenuUrl !== targetMenu) {

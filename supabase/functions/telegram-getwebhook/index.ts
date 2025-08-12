@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { optionalEnv } from "../_shared/env.ts";
+import { expectedSecret } from "../_shared/telegram_secret.ts";
 
 const BOT = optionalEnv("TELEGRAM_BOT_TOKEN") || "";
-const SECRET = optionalEnv("TELEGRAM_WEBHOOK_SECRET") || "";
 const BASE = (optionalEnv("SUPABASE_URL") || "").replace(/\/$/, "");
 const FN = "telegram-webhook";
 const expected = BASE ? `${BASE}/functions/v1/${FN}` : null;
@@ -12,6 +12,7 @@ function red(s: string, keep = 4) {
 }
 
 serve(async () => {
+  const SECRET = await expectedSecret();
   if (!BOT) {
     return new Response(
       JSON.stringify({ ok: false, error: "BOT_TOKEN missing" }),

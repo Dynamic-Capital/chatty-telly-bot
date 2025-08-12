@@ -369,12 +369,11 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
           JSON.stringify((await loadAdminHandlers()).handleVersion()),
         );
         break;
-      case "/env":
-        await notifyUser(
-          chatId,
-          JSON.stringify((await loadAdminHandlers()).handleEnvStatus()),
-        );
+      case "/env": {
+        const envStatus = await (await loadAdminHandlers()).handleEnvStatus();
+        await notifyUser(chatId, JSON.stringify(envStatus));
         break;
+      }
       case "/reviewlist": {
         const { handleReviewList } = await loadAdminHandlers();
         const list = await handleReviewList();
@@ -457,7 +456,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
     );
     if (!envOk) {
       console.error("Missing env vars", missing);
-      return ok();
+      return oops("Missing env vars", missing);
     }
 
     const body = await extractTelegramUpdate(req);

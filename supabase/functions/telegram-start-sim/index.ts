@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { optionalEnv } from "../_shared/env.ts";
+import { expectedSecret } from "../_shared/telegram_secret.ts";
 
 serve(async (req) => {
   const headers = {
@@ -56,7 +57,7 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    const secret = optionalEnv("TELEGRAM_WEBHOOK_SECRET");
+    const secret = await expectedSecret();
     if (secret) {
       fetchHeaders["x-telegram-bot-api-secret-token"] = secret;
     }
