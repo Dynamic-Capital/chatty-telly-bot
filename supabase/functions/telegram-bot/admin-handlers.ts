@@ -1,6 +1,7 @@
 // Enhanced admin handlers for comprehensive table management
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { optionalEnv, requireEnv } from "../_shared/env.ts";
+import { expectedSecret } from "../_shared/telegram_secret.ts";
 
 const {
   SUPABASE_URL,
@@ -1542,14 +1543,14 @@ export function handleVersion() {
   return { version: optionalEnv("BOT_VERSION") || "unknown" };
 }
 
-export function handleEnvStatus() {
+export async function handleEnvStatus() {
   const base = requireEnv([
     "SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
     "TELEGRAM_BOT_TOKEN",
-    "TELEGRAM_WEBHOOK_SECRET",
   ]);
-  return base;
+  const secret = await expectedSecret();
+  return { ...base, TELEGRAM_WEBHOOK_SECRET: secret ? true : false };
 }
 
 export async function handleReviewList() {
