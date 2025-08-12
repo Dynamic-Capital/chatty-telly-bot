@@ -161,18 +161,14 @@ function getFileIdFromUpdate(update: TelegramUpdate | null): string | null {
   return null;
 }
 
-function isStartMessage(m?: TelegramMessage): boolean {
+function isStartMessage(m: any) {
   const t = m?.text ?? "";
   if (t.startsWith("/start")) return true;
-  // Fallback to entities scanning
-  const ents = (m as unknown as {
-    entities?: Array<{ offset: number; length: number; type: string }>;
-  })?.entities;
-  return Array.isArray(ents) &&
-    ents.some((e) =>
-      e.type === "bot_command" &&
-      t.slice(e.offset, e.length).startsWith("/start")
-    );
+  const ents = m?.entities;
+  return Array.isArray(ents) && ents.some((e: any) =>
+    e.type === "bot_command" &&
+    t.slice(e.offset, e.offset + e.length).startsWith("/start")
+  );
 }
 
 function logEvent(event: string, data: Record<string, unknown>): void {
@@ -461,8 +457,11 @@ export async function serveWebhook(req: Request): Promise<Response> {
     ) {
       return ok({ pong: true });
     }
-    const update = body as TelegramUpdate | null;
-    if (!update) return ok();
+    if (!body) {
+      console.log("telegram-bot: empty/invalid JSON");
+      return json({ ok: false, error: "Invalid JSON" }, 400);
+    }
+    const update = body as TelegramUpdate;
 
     // ---- BAN CHECK (short-circuit early) ----
     const supa = createClient(
