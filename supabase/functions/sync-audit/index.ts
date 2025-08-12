@@ -1,17 +1,18 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const need = (k: string) =>
-  Deno.env.get(k) || (() => {
-    throw new Error(`Missing env ${k}`);
-  })();
+import { expectedSecret, readDbWebhookSecret } from "../_shared/telegram_secret.ts";
+import { requireEnv, optionalEnv } from "../_shared/env.ts";
+import { json, mna, ok } from "../_shared/http.ts";
 
 function projectRef(): string {
-  const u = need("SUPABASE_URL");
+  const { SUPABASE_URL } = requireEnv(["SUPABASE_URL"] as const);
   try {
-    return new URL(u).hostname.split(".")[0];
+    return new URL(SUPABASE_URL).hostname.split(".")[0];
   } catch {
-    return need("SUPABASE_PROJECT_ID");
+    const { SUPABASE_PROJECT_ID } = requireEnv([
+      "SUPABASE_PROJECT_ID",
+    ] as const);
+    return SUPABASE_PROJECT_ID;
   }
 }
 function normUrl(u: string) {
@@ -24,13 +25,6 @@ function genHex(n = 24) {
   return Array.from(b).map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 
-async function readDbSecret(supa: any): Promise<string | null> {
-  const { data } = await supa.from("bot_settings").select("setting_value").eq(
-    "setting_key",
-    "TELEGRAM_WEBHOOK_SECRET",
-  ).maybeSingle();
-  return (data?.setting_value as string) || null;
-}
 async function upsertDbSecret(supa: any, val: string) {
   const { error } = await supa.from("bot_settings").upsert({
     setting_key: "TELEGRAM_WEBHOOK_SECRET",
@@ -50,22 +44,37 @@ async function tg(token: string, method: string, body?: unknown) {
 }
 
 serve(async (req) => {
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.pathname.endsWith("/version")) {
+    return ok({ name: "sync-audit", ts: new Date().toISOString() });
+  }
+  if (req.method === "HEAD") return new Response(null, { status: 200 });
   if (req.method !== "POST" && req.method !== "GET") {
-    return new Response("Method Not Allowed", { status: 405 });
+    return mna();
   }
   const ref = projectRef();
   const expectedWebhook = `https://${ref}.functions.supabase.co/telegram-bot`;
   const expectedMini = normUrl(
-    Deno.env.get("MINI_APP_URL") ||
+    optionalEnv("MINI_APP_URL") ||
       `https://${ref}.functions.supabase.co/miniapp/`,
   );
 
+  const {
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
+    TELEGRAM_BOT_TOKEN,
+  } = requireEnv([
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "TELEGRAM_BOT_TOKEN",
+  ] as const);
+
   const supa = createClient(
-    need("SUPABASE_URL"),
-    need("SUPABASE_SERVICE_ROLE_KEY"),
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
     { auth: { persistSession: false } },
   );
-  const token = need("TELEGRAM_BOT_TOKEN");
+  const token = TELEGRAM_BOT_TOKEN;
 
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const fix = Boolean(body?.fix);
@@ -93,32 +102,33 @@ serve(async (req) => {
 
   // 3) Secret presence (ENV/DB)
   const envSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || null;
-  let dbSecret = await readDbSecret(supa);
-
+  let dbSecret = await readDbWebhookSecret();
+  
   // 4) Compute mismatches
   const mismatches: string[] = [];
   if (currentWebhook !== expectedWebhook) mismatches.push("webhook_url");
   if (currentMenuUrl !== expectedMini) mismatches.push("chat_menu_url");
   if (!botVer.ok) mismatches.push("bot_unreachable");
   if (!miniVer.ok) mismatches.push("mini_unreachable");
-  if (!envSecret && !dbSecret) mismatches.push("webhook_secret_missing");
+  const secret = dbSecret || envSecret;
+  if (!secret) mismatches.push("webhook_secret_missing");
 
   // 5) Optional fixes
   const actions: any[] = [];
   if (fix) {
     // Ensure we have a secret
-    if (!dbSecret && !envSecret) {
+    if (!secret) {
       dbSecret = genHex(24);
       await upsertDbSecret(supa, dbSecret);
       actions.push({ set: "db_secret" });
     }
-    const secret = dbSecret || envSecret!;
+    const secretVal = await expectedSecret();
 
     // Reapply webhook if needed
     if (currentWebhook !== expectedWebhook) {
       const set = await tg(token, "setWebhook", {
         url: expectedWebhook,
-        secret_token: secret,
+        secret_token: secretVal!,
         allowed_updates: ["message", "callback_query"],
         drop_pending_updates: false,
       });
@@ -127,7 +137,7 @@ serve(async (req) => {
 
     // Reset chat menu button if needed (add cache-busting v if requested)
     const ver = body?.version || String(Date.now());
-    const targetMenu = body?.no_version
+      const targetMenu = body?.no_version
       ? expectedMini
       : `${expectedMini}?v=${ver}`;
     if (currentMenuUrl !== targetMenu) {
@@ -142,25 +152,17 @@ serve(async (req) => {
     }
   }
 
-  const ok = mismatches.length === 0;
-
-  return new Response(
-    JSON.stringify(
-      {
-        ok,
-        expected: { webhook: expectedWebhook, miniapp: expectedMini },
-        actual: { webhook: currentWebhook, chat_menu: currentMenuUrl },
-        reachability: { bot: botVer.ok, mini: miniVer.ok },
-        secret: { env: !!envSecret, db: !!dbSecret },
-        mismatches,
-        actions,
-      },
-      null,
-      2,
-    ),
+  const allGood = mismatches.length === 0;
+  return json(
     {
-      headers: { "content-type": "application/json" },
-      status: ok ? 200 : (fix ? 207 : 200),
+      ok: allGood,
+      expected: { webhook: expectedWebhook, miniapp: expectedMini },
+      actual: { webhook: currentWebhook, chat_menu: currentMenuUrl },
+      reachability: { bot: botVer.ok, mini: miniVer.ok },
+      secret: { env: !!envSecret, db: !!dbSecret },
+      mismatches,
+      actions,
     },
+    allGood ? 200 : (fix ? 207 : 200),
   );
 });

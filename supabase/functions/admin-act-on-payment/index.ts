@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyInitDataAndGetUser, isAdmin } from "../_shared/telegram.ts";
+import { ok, bad, nf, mna, unauth } from "../_shared/http.ts";
 
 type Body = { initData: string; payment_id: string; decision: "approve"|"reject"; months?: number; message?: string };
 
@@ -12,11 +13,11 @@ async function tgSend(token: string, chatId: string, text: string) {
 }
 
 serve(async (req) => {
-  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
-  let body: Body; try { body = await req.json(); } catch { return new Response("Bad JSON", { status: 400 }); }
+  if (req.method !== "POST") return mna();
+  let body: Body; try { body = await req.json(); } catch { return bad("Bad JSON"); }
 
   const u = await verifyInitDataAndGetUser(body.initData || "");
-  if (!u || !isAdmin(u.id)) return new Response("Unauthorized", { status: 401 });
+  if (!u || !isAdmin(u.id)) return unauth();
 
   const url = Deno.env.get("SUPABASE_URL")!;
   const svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -25,9 +26,9 @@ serve(async (req) => {
 
   // Load payment + user + plan
   const { data: p } = await supa.from("payments").select("id,status,user_id,plan_id,amount,currency,created_at").eq("id", body.payment_id).maybeSingle();
-  if (!p) return new Response("Payment not found", { status: 404 });
+  if (!p) return nf("Payment not found");
   const { data: user } = await supa.from("bot_users").select("id,telegram_id,subscription_expires_at,is_vip").eq("id", p.user_id).maybeSingle();
-  if (!user) return new Response("User not found", { status: 404 });
+  if (!user) return nf("User not found");
 
   if (body.decision === "reject") {
     await supa.from("payments").update({ status: "rejected" }).eq("id", p.id);
@@ -40,7 +41,7 @@ serve(async (req) => {
       affected_record_id: p.id,
       new_values: { status: "rejected" }
     });
-    return new Response(JSON.stringify({ ok:true, status:"rejected" }), { headers: { "content-type":"application/json" }});
+    return ok({ status: "rejected" });
   }
 
   // approve
@@ -71,5 +72,5 @@ serve(async (req) => {
     new_values: { is_vip: true, subscription_expires_at: expiresAt }
   });
 
-  return new Response(JSON.stringify({ ok:true, status:"completed", subscription_expires_at: expiresAt }), { headers: { "content-type":"application/json" }});
+  return ok({ status: "completed", subscription_expires_at: expiresAt });
 });

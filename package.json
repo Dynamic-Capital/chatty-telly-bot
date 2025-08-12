@@ -8,7 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "test": "deno test --no-npm --node-modules-dir=false --unsafely-ignore-certificate-errors=deno.land -A --no-check",
+    "test": "deno test --no-npm --node-modules-dir=false --unsafely-ignore-certificate-errors=deno.land,esm.sh -A --no-check",
     "preview": "vite preview",
     "setup:supabase": "bash scripts/setup-supabase-cli.sh"
   },
