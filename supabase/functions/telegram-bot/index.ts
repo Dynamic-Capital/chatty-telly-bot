@@ -116,21 +116,32 @@ async function notifyUser(chatId: number, text: string): Promise<void> {
   await sendMessage(chatId, text);
 }
 
+function isValidHttpsUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 async function sendMiniAppLink(chatId: number): Promise<void> {
   if (!BOT_TOKEN) return;
   const miniUrl = optionalEnv("MINI_APP_URL");
   const short = optionalEnv("MINI_APP_SHORT_NAME");
-  if (!miniUrl && !short) {
+  let openUrl: string | null = null;
+  if (miniUrl) {
+    openUrl = miniUrl.endsWith("/") ? miniUrl : miniUrl + "/";
+  } else if (short && botUsername) {
+    openUrl = `https://t.me/${botUsername}?startapp=1`;
+  }
+  if (!openUrl || !isValidHttpsUrl(openUrl)) {
     await sendMessage(
       chatId,
       "Welcome! Mini app is being configured. Please try again soon.",
     );
     return;
   }
-  const openUrl = miniUrl
-    ? (miniUrl.endsWith("/") ? miniUrl : miniUrl + "/")
-    : `https://t.me/${botUsername}?startapp=1`;
-
   await sendMessage(chatId, "Open the VIP Mini App:", {
     reply_markup: {
       inline_keyboard: [[{
