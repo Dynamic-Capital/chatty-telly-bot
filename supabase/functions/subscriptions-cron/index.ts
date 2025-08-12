@@ -1,9 +1,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getEnv } from "../_shared/env.ts";
+import { getEnv, EnvKey } from "../_shared/env.ts";
 
-function need(k: string) {
-  return getEnv(k as any);
+function need(k: EnvKey) {
+  return getEnv(k);
 }
 
 async function tgSend(token: string, chatId: string, text: string) {
@@ -26,10 +26,10 @@ serve(async (_req) => {
   const d1 = new Date(now);
   d1.setDate(now.getDate() + 1);
 
-  let { data: soon7 } = await supa.rpc("get_users_expiring_between", {
+  const { data: soon7 } = await supa.rpc("get_users_expiring_between", {
     start_ts: new Date(d7.setHours(0, 0, 0, 0)).toISOString(),
     end_ts: new Date(d7.setHours(23, 59, 59, 999)).toISOString(),
-  }).catch(() => ({ data: [] as any[] }));
+  }).catch(() => ({ data: [] as Array<Record<string, unknown>> }));
   for (const u of soon7 || []) {
     if (u.telegram_id) {
       await tgSend(
@@ -40,10 +40,10 @@ serve(async (_req) => {
     }
   }
 
-  let { data: soon1 } = await supa.rpc("get_users_expiring_between", {
+  const { data: soon1 } = await supa.rpc("get_users_expiring_between", {
     start_ts: new Date(d1.setHours(0, 0, 0, 0)).toISOString(),
     end_ts: new Date(d1.setHours(23, 59, 59, 999)).toISOString(),
-  }).catch(() => ({ data: [] as any[] }));
+  }).catch(() => ({ data: [] as Array<Record<string, unknown>> }));
   for (const u of soon1 || []) {
     if (u.telegram_id) {
       await tgSend(

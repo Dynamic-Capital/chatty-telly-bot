@@ -1,9 +1,14 @@
+interface ViteMeta {
+  env?: Record<string, string | undefined>;
+}
+
 export function functionUrl(name: string): string | null {
+  const meta = import.meta as ImportMeta & ViteMeta;
   const ref =
-    (import.meta as any).env?.VITE_SUPABASE_PROJECT_ID ||
+    meta.env?.VITE_SUPABASE_PROJECT_ID ||
     (() => {
       try {
-        const url = (import.meta as any).env?.VITE_SUPABASE_URL;
+        const url = meta.env?.VITE_SUPABASE_URL;
         return url ? new URL(url).hostname.split('.')[0] : null;
       } catch {
         return null;

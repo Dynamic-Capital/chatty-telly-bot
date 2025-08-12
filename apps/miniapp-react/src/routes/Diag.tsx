@@ -4,8 +4,7 @@ import { functionUrl } from "@/lib/edge";
 
 export default function Diag() {
   const { initData, user } = useTelegram();
-  // deno-lint-ignore no-explicit-any
-  const [out, setOut] = useState<any>(null);
+  const [out, setOut] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function run() {

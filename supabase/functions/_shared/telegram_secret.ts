@@ -1,7 +1,19 @@
 import { maybe, need } from "./env.ts";
 import { unauth } from "./http.ts";
 
-export async function readDbWebhookSecret(supa?: any): Promise<string | null> {
+interface SupabaseLike {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (key: string, value: string) => {
+        limit: (n: number) => { maybeSingle: () => Promise<{ data?: { setting_value?: unknown } }> };
+      };
+    };
+  };
+}
+
+export async function readDbWebhookSecret(
+  supa?: SupabaseLike,
+): Promise<string | null> {
   try {
     if (supa) {
       const { data } = await supa.from("bot_settings")
@@ -26,7 +38,9 @@ export async function readDbWebhookSecret(supa?: any): Promise<string | null> {
     return null;
   }
 }
-export async function expectedSecret(supa?: any): Promise<string | null> {
+export async function expectedSecret(
+  supa?: SupabaseLike,
+): Promise<string | null> {
   return (await readDbWebhookSecret(supa)) || maybe("TELEGRAM_WEBHOOK_SECRET");
 }
 export async function validateTelegramHeader(

@@ -21,7 +21,7 @@ if (!secret) {
 const explicitUrl = Deno.env.get("TELEGRAM_WEBHOOK_URL");
 const proj = Deno.env.get("SUPABASE_PROJECT_ID");
 
-let baseUrl =
+const baseUrl =
   explicitUrl ?? (proj ? `https://${proj}.functions.supabase.co/telegram-bot` : null);
 
 if (!baseUrl) {

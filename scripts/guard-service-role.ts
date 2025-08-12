@@ -38,7 +38,7 @@ async function scan(dir: string) {
 
     // Hard rule: no literal-looking service-role key (very naive pattern)
     // Matches long base64-like strings; adjust if you get false positives.
-    const highEntropy = /[A-Za-z0-9_\-]{40,}/g;
+    const highEntropy = /[A-Za-z0-9_-]{40,}/g;
     if (txt.match(highEntropy) && txt.includes("supabase")) {
       console.error(`Possible secret material in ${p}. Remove and rotate if real.`);
       bad = true;

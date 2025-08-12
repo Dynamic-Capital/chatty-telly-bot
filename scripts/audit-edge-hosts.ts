@@ -19,7 +19,7 @@ async function scan(dir: string) {
     const buf = await Deno.readFile(p).catch(() => null);
     if (!buf) continue;
     const txt = decoder.decode(buf);
-    const re = /https:\/\/([a-z0-9\-]+)\.functions\.supabase\.co\/[A-Za-z0-9_\-\/]+/g;
+    const re = /https:\/\/([a-z0-9-]+)\.functions\.supabase\.co\/[A-Za-z0-9_/-]+/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(txt))) {
       const url = m[0];

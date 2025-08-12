@@ -17,8 +17,7 @@ serve(async (req) => {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
-  // deno-lint-ignore no-explicit-any
-  let body: any = {};
+  let body: Record<string, unknown> = {};
   try {
     body = await req.json();
   } catch { /* ignore */ }

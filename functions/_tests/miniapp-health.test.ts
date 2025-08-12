@@ -6,7 +6,7 @@ import {
   assertEquals,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
-let mod: any = null;
+let mod: Record<string, unknown> | null = null;
 try {
   mod = await import("../../supabase/functions/miniapp-health/index.ts");
 } catch {

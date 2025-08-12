@@ -4,7 +4,7 @@ import { adminFetchLogs } from '@/services/api';
 
 export default function Logs() {
   const { initData } = useTelegram();
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<Record<string, unknown>[]>([]);
   useEffect(() => { (async () => {
     const j = await adminFetchLogs(initData || "", 50, 0);
     setItems(j.items || []);
