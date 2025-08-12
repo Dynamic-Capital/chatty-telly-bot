@@ -2,6 +2,10 @@ import React, { useEffect, useState } from "react";
 import { initTelegramThemeHandlers } from "./theme";
 import { verify } from "./api";
 
+const MINI_APP_URL = (
+  import.meta.env.VITE_MINI_APP_URL || window.location.origin + "/"
+).replace(/\/+$/, "/");
+
 type Auth = {
   token: string;
   uid: number;
@@ -18,10 +22,10 @@ function VipActive() {
         <div className="text-sm opacity-80">No recent activity</div>
       </div>
       <div className="flex flex-col gap-3">
-        <button className="py-3 rounded-lg bg-primary text-primary-foreground">
+        <button type="button" className="py-3 rounded-lg bg-primary text-primary-foreground">
           View Signals
         </button>
-        <button className="py-3 rounded-lg bg-primary text-primary-foreground">
+        <button type="button" className="py-3 rounded-lg bg-primary text-primary-foreground">
           Education Library
         </button>
       </div>
@@ -44,13 +48,13 @@ function VipInactive() {
       <div className="p-4 border border-border rounded-lg bg-card space-y-2">
         <div className="font-medium">VIP Plan - $49/mo</div>
         <div className="text-sm opacity-80">Full access for 30 days</div>
-        <button className="w-full py-3 rounded-lg bg-primary text-primary-foreground">
+        <button type="button" className="w-full py-3 rounded-lg bg-primary text-primary-foreground">
           Start now
         </button>
       </div>
       <div className="text-xs text-center">
         7-day refund guarantee.
-        <button className="underline ml-1">Chat with Support</button>
+        <button type="button" className="underline ml-1">Chat with Support</button>
       </div>
     </section>
   );
@@ -69,8 +73,19 @@ function Footer() {
     })();
   }, []);
   return (
-    <footer className="text-xs text-center opacity-70">
-      {version ? `v${version}` : "v0.0.0"} • Theme: auto
+    <footer className="text-xs text-center opacity-70 space-y-1">
+      <div>
+        <a className="underline" href={`${MINI_APP_URL}terms/`}>
+          Terms
+        </a>{" "}
+        •
+        <a className="underline ml-1" href={`${MINI_APP_URL}privacy/`}>
+          Privacy
+        </a>
+      </div>
+      <div>
+        {version ? `v${version}` : "v0.0.0"} • Theme: auto
+      </div>
     </footer>
   );
 }
@@ -92,7 +107,9 @@ function SharedSections() {
       </div>
       <div className="space-y-2">
         <div className="font-medium">FAQ / Help</div>
-        <button className="underline text-sm">Contact support</button>
+        <button type="button" className="underline text-sm">
+          Need help? We'll respond in minutes.
+        </button>
       </div>
       <Footer />
     </section>
@@ -140,22 +157,29 @@ export default function App() {
   const firstName = window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name;
   const greeting = firstName ? `Welcome back, ${firstName}` : "Welcome";
 
-  const vipBadge = auth.is_vip
-    ? `Active VIP • renews ${
-        auth.subscription_expires_at
-          ? new Date(auth.subscription_expires_at).toLocaleDateString()
-          : ""
-      }`
-    : "VIP inactive • unlock signals & lessons";
+  const vipBadge =
+    auth.is_vip === undefined
+      ? "VIP status unknown"
+      : auth.is_vip
+      ? `Active VIP • renews ${
+          auth.subscription_expires_at
+            ? new Date(auth.subscription_expires_at).toLocaleDateString()
+            : ""
+        }`
+      : "VIP inactive • unlock signals & lessons";
 
   function handlePrimaryCTA() {
     if (auth.is_vip) {
-      window.location.href = "/dashboard";
+      window.location.href = `${MINI_APP_URL}dashboard/`;
     } else {
       document
         .getElementById("plans")
         ?.scrollIntoView({ behavior: "smooth" });
     }
+  }
+
+  function openSection(path: string) {
+    window.location.href = `${MINI_APP_URL}${path}`;
   }
 
   return (
@@ -164,15 +188,34 @@ export default function App() {
         <h1 className="text-2xl font-bold">{greeting}</h1>
         <div className="text-sm opacity-80">{vipBadge}</div>
         <button
+          type="button"
           onClick={handlePrimaryCTA}
           className="w-full mt-3 py-3 rounded-lg bg-primary text-primary-foreground"
         >
           {auth.is_vip ? "Open Dashboard" : "Join VIP"}
         </button>
         <div className="flex justify-center gap-2 mt-4 text-sm">
-          <button className="px-3 py-1 rounded-full border">Signals</button>
-          <button className="px-3 py-1 rounded-full border">Education</button>
-          <button className="px-3 py-1 rounded-full border">Support</button>
+          <button
+            type="button"
+            onClick={() => openSection("signals/")}
+            className="px-3 py-1 rounded-full border"
+          >
+            Signals
+          </button>
+          <button
+            type="button"
+            onClick={() => openSection("education/")}
+            className="px-3 py-1 rounded-full border"
+          >
+            Education
+          </button>
+          <button
+            type="button"
+            onClick={() => openSection("support/")}
+            className="px-3 py-1 rounded-full border"
+          >
+            Support
+          </button>
         </div>
       </header>
       {auth.is_vip ? <VipActive /> : <VipInactive />}
