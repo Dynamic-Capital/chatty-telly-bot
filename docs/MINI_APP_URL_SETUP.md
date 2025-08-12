@@ -13,7 +13,7 @@ wasn’t redeployed after setting them).
    npx supabase login
    npx supabase link --project-ref <PROJECT_REF>
    # Provide either a full URL or a short name
-   npx supabase secrets set MINI_APP_URL=https://mini.dynamic.capital/
+   npx supabase secrets set MINI_APP_URL=https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/
    # or
    # npx supabase secrets set MINI_APP_SHORT_NAME=<short_name>
    npx supabase secrets set TELEGRAM_WEBHOOK_SECRET=<same value used in setWebhook>
@@ -31,7 +31,7 @@ wasn’t redeployed after setting them).
    ```bash
    export TELEGRAM_BOT_TOKEN=<token>
    # Either MINI_APP_URL or MINI_APP_SHORT_NAME
-   export MINI_APP_URL=https://mini.dynamic.capital/
+   export MINI_APP_URL=https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/
    # export MINI_APP_SHORT_NAME=<short_name>
    deno run -A scripts/set-chat-menu-button.ts
    ```
