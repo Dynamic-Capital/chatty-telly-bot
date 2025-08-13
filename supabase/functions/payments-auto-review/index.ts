@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { ok, mna, oops, unauth, bad, nf } from "../_shared/http.ts";
+import { verifyBinancePayment } from "./binance.ts";
 
 const need = (k: string) =>
   Deno.env.get(k) || (() => {
@@ -119,8 +120,14 @@ serve(async (req) => {
         !pass && Deno.env.get("BINANCE_ENABLED") === "true" &&
         p.payment_method === "binance_pay" && p.payment_provider_id
       ) {
-        // TODO: Implement live status check using BINANCE_API_KEY/SECRET and provider order id (p.payment_provider_id)
-        // If confirmed paid -> pass=true; reason="binance_ok"
+        try {
+          if (await verifyBinancePayment(p.payment_provider_id)) {
+            pass = true;
+            reason = "binance_ok";
+          }
+        } catch (err) {
+          console.error("Binance verification failed", err);
+        }
       }
 
       if (pass) {
