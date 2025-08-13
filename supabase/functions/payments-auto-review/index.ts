@@ -8,7 +8,11 @@ const need = (k: string) =>
     throw new Error(`Missing env ${k}`);
   })();
 
-async function approve(_supa: unknown, paymentId: string, monthsOverride?: number) {
+async function completePayment(
+  _supa: unknown,
+  paymentId: string,
+  monthsOverride?: number,
+) {
   // Reuse Phase 4 admin flow by calling the endpoint (keeps logic in one place)
   const admin = need("ADMIN_API_SECRET");
   const ref = new URL(need("SUPABASE_URL")).hostname.split(".")[0];
@@ -133,14 +137,14 @@ serve(async (req) => {
       if (pass) {
         await supa.from("admin_logs").insert({
           admin_telegram_id: "system",
-          action_type: "auto_approve",
+          action_type: "auto_complete",
           action_description:
-            `Auto-approved payment ${p.id} via ${p.payment_method} (${reason})`,
+            `Auto-completed payment ${p.id} via ${p.payment_method} (${reason})`,
           affected_table: "payments",
           affected_record_id: p.id,
         });
-        const okr = await approve(supa, p.id);
-        results.push({ id: p.id, action: "approved", ok: okr.ok });
+        const okr = await completePayment(supa, p.id);
+        results.push({ id: p.id, action: "completed", ok: okr.ok });
       } else {
         results.push({
           id: p.id,

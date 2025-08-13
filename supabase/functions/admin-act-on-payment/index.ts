@@ -66,8 +66,8 @@ serve(async (req) => {
   if (user.telegram_id) await tgSend(bot, String(user.telegram_id), `✅ <b>VIP Activated</b>\nValid until <b>${new Date(expiresAt).toLocaleDateString()}</b>.`);
   await supa.from("admin_logs").insert({
     admin_telegram_id: String(u.id),
-    action_type: "payment_approved",
-    action_description: `Payment ${p.id} approved; VIP until ${expiresAt}`,
+    action_type: "payment_completed",
+    action_description: `Payment ${p.id} completed; VIP until ${expiresAt}`,
     affected_table: "bot_users", affected_record_id: user.id,
     new_values: { is_vip: true, subscription_expires_at: expiresAt }
   });
