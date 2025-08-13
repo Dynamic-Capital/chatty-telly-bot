@@ -3,6 +3,7 @@ import { assertEquals } from "https://deno.land/std@0.224.0/testing/asserts.ts";
 Deno.test("webhook handles /start with params", async () => {
   Deno.env.set("TELEGRAM_BOT_TOKEN", "testtoken");
   Deno.env.set("MINI_APP_URL", "https://example.com/app");
+  Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "testsecret");
   const calls: Array<{ url: string; body: string }> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => {
@@ -13,7 +14,10 @@ Deno.test("webhook handles /start with params", async () => {
     const mod = await import("../supabase/functions/telegram-webhook/index.ts");
     const req = new Request("https://example.com", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Telegram-Bot-Api-Secret-Token": "testsecret",
+      },
       body: JSON.stringify({ message: { text: "/start deep", chat: { id: 1 } } }),
     });
     const res = await mod.handler(req);
@@ -35,6 +39,7 @@ Deno.test("webhook uses short name when URL absent", async () => {
   Deno.env.delete("MINI_APP_URL");
   Deno.env.set("MINI_APP_SHORT_NAME", "shorty");
   Deno.env.set("TELEGRAM_BOT_USERNAME", "mybot");
+  Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "testsecret");
   const calls: Array<{ url: string; body: string }> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => {
@@ -45,7 +50,10 @@ Deno.test("webhook uses short name when URL absent", async () => {
     const mod = await import("../supabase/functions/telegram-webhook/index.ts");
     const req = new Request("https://example.com", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Telegram-Bot-Api-Secret-Token": "testsecret",
+      },
       body: JSON.stringify({ message: { text: "/start", chat: { id: 1 } } }),
     });
     const res = await mod.handler(req);
@@ -64,6 +72,7 @@ Deno.test("webhook uses short name when URL absent", async () => {
 Deno.test("webhook falls back for invalid mini app url", async () => {
   Deno.env.set("TELEGRAM_BOT_TOKEN", "testtoken");
   Deno.env.set("MINI_APP_URL", "http://invalid-url");
+  Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "testsecret");
   const calls: Array<{ url: string; body: string }> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => {
@@ -74,7 +83,10 @@ Deno.test("webhook falls back for invalid mini app url", async () => {
     const mod = await import("../supabase/functions/telegram-webhook/index.ts");
     const req = new Request("https://example.com", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Telegram-Bot-Api-Secret-Token": "testsecret",
+      },
       body: JSON.stringify({ message: { text: "/start", chat: { id: 1 } } }),
     });
     const res = await mod.handler(req);
