@@ -27,6 +27,7 @@ PII; rate limits enabled.
 - SUPABASE_SERVICE_ROLE_KEY
 - TELEGRAM_BOT_TOKEN
 - TELEGRAM_WEBHOOK_SECRET
+- TELEGRAM_ADMIN_IDS _(comma-separated Telegram user IDs; spaces are ignored)_
 - MINI_APP_URL _(optional)_
 - AMOUNT_TOLERANCE _(optional)_
 - WINDOW_SECONDS _(optional)_
@@ -36,6 +37,16 @@ PII; rate limits enabled.
 
 Values are set in Supabase function secrets, GitHub Environments, or Codex
 project settings. Do not commit them.
+
+To troubleshoot `401 Unauthorized` from admin endpoints, generate a known-good
+`initData` string and verify it:
+
+```bash
+deno run --no-npm -A scripts/make-initdata.ts --id=<your_telegram_id>
+curl -X POST -H "Content-Type: application/json" \
+  -d "{\"initData\":\"$INITDATA\"}" \
+  "$SUPABASE_URL/functions/v1/verify-initdata"
+```
 
 ## Quick start
 

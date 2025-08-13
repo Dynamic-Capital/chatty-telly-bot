@@ -12,8 +12,18 @@
 ## Secrets
 
 - ADMIN_API_SECRET (hex)
-- TELEGRAM_ADMIN_IDS (comma-separated)
+- TELEGRAM_ADMIN_IDS (comma-separated; spaces are ignored)
+  - Example: `TELEGRAM_ADMIN_IDS=225513686,8411280111`
+  - A misformatted or missing ID results in a `401 Unauthorized`
 - TELEGRAM_BOT_TOKEN (for user notifications)
+
+To debug 401 responses from admin endpoints, generate a known-good `initData` via:
+
+```bash
+deno run --no-npm -A scripts/make-initdata.ts --id=<your_telegram_id>
+```
+
+Then pass that string to `/verify-initdata` to confirm the signature and admin check succeed.
 
 ## Flows
 
