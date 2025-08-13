@@ -40,7 +40,7 @@ async function verifySignature(
   return expectedSignatureHex === signature.toUpperCase();
 }
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -265,4 +265,6 @@ serve(async (req) => {
       },
     );
   }
-});
+}
+
+if (import.meta.main) serve(handler);

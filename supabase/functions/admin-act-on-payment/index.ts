@@ -12,7 +12,7 @@ async function tgSend(token: string, chatId: string, text: string) {
   }).catch(()=>{});
 }
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") return mna();
   let body: Body; try { body = await req.json(); } catch { return bad("Bad JSON"); }
 
@@ -73,4 +73,6 @@ serve(async (req) => {
   });
 
   return ok({ status: "completed", subscription_expires_at: expiresAt });
-});
+}
+
+if (import.meta.main) serve(handler);
