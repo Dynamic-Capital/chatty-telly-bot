@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { serveStatic } from "../_shared/static.ts";
 import { mna } from "../_shared/http.ts";
+import { INDEX_HTML } from "./index_html.ts";
 
 const ROOT = new URL("./static/", import.meta.url);
 
@@ -30,10 +31,13 @@ async function serveIndex(): Promise<Response> {
     return new Response(data, { headers: h });
   } catch (e) {
     console.error("miniapp index read failed", e);
-    return new Response(JSON.stringify({ ok: false, error: "index.html missing" }), {
-      status: 404,
-      headers: { "content-type": "application/json; charset=utf-8" },
+    const h = new Headers({
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-cache",
+      "x-frame-options": "ALLOWALL",
     });
+    for (const [k, v] of Object.entries(SECURITY)) h.set(k, v as string);
+    return new Response(INDEX_HTML, { headers: h });
   }
 }
 
