@@ -557,9 +557,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
   if (authResp) return authResp;
 
   try {
-    const { ok: envOk, missing } = requireEnvCheck(
-      REQUIRED_ENV_KEYS as unknown as string[],
-    );
+    const { ok: envOk, missing } = requireEnvCheck(REQUIRED_ENV_KEYS);
     if (!envOk) {
       console.error("Missing env vars", missing);
       return oops("Missing env vars", missing);
