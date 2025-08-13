@@ -80,23 +80,23 @@ serve(async (req) => {
     : null;
 
   if (body.decision === "reject") {
-    newStatus = "rejected";
+    newStatus = "failed";
     await supa.from("payments").update({ status: newStatus }).eq("id", p.id);
 
     if (prof.telegram_id) {
       const msg = body.message ||
-        "Your payment was rejected. Please contact support.";
+        "Your payment failed. Please contact support.";
       await tgSend(
         botToken,
         String(prof.telegram_id),
-        `❌ <b>Payment Rejected</b>\n${msg}`,
+        `❌ <b>Payment Failed</b>\\n${msg}`,
       );
     }
 
     await supa.from("admin_logs").insert({
       admin_telegram_id: adminId || "unknown",
-      action_type: "payment_rejected",
-      action_description: `Payment ${p.id} rejected`,
+      action_type: "payment_failed",
+      action_description: `Payment ${p.id} marked as failed`,
       affected_table: "payments",
       affected_record_id: p.id,
       new_values: { status: newStatus },

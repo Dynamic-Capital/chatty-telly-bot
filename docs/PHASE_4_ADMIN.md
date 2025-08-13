@@ -29,5 +29,5 @@ Then pass that string to `/verify-initdata` to confirm the signature and admin c
 
 - Approve: marks payment completed, extends expiry from current expiry or now,
   sets is_vip=true, logs to admin_logs, notifies user.
-- Reject: marks payment rejected, logs, notifies user.
+- Reject: marks payment failed, logs, notifies user.
 - Cron: reminders + auto-expire + logs.

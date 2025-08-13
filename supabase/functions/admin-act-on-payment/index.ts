@@ -31,17 +31,17 @@ serve(async (req) => {
   if (!user) return nf("User not found");
 
   if (body.decision === "reject") {
-    await supa.from("payments").update({ status: "rejected" }).eq("id", p.id);
-    if (user.telegram_id) await tgSend(bot, String(user.telegram_id), `❌ <b>Payment Rejected</b>\n${body.message || "Please contact support."}`);
+    await supa.from("payments").update({ status: "failed" }).eq("id", p.id);
+    if (user.telegram_id) await tgSend(bot, String(user.telegram_id), `❌ <b>Payment Failed</b>\\n${body.message || "Please contact support."}`);
     await supa.from("admin_logs").insert({
       admin_telegram_id: String(u.id),
-      action_type: "payment_rejected",
-      action_description: `Payment ${p.id} rejected`,
+      action_type: "payment_failed",
+      action_description: `Payment ${p.id} marked as failed`,
       affected_table: "payments",
       affected_record_id: p.id,
-      new_values: { status: "rejected" }
+      new_values: { status: "failed" }
     });
-    return ok({ status: "rejected" });
+    return ok({ status: "failed" });
   }
 
   // approve

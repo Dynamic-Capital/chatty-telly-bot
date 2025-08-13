@@ -181,7 +181,7 @@ interface Payment {
   user_id: string; // Links to bot_users
   plan_id: string; // Links to subscription_plans
   amount: number; // Payment amount
-  status: "pending" | "completed" | "failed"; // Payment status
+  status: "pending" | "completed" | "failed" | "refunded"; // Payment status
   payment_method: string; // "binance_pay", "manual", etc.
 }
 
