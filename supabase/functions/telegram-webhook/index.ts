@@ -34,7 +34,12 @@ async function sendMessage(
   extra?: Record<string, unknown>,
 ) {
   const token = optionalEnv("TELEGRAM_BOT_TOKEN");
-  if (!token) return;
+  if (!token) {
+    baseLogger.warn(
+      "TELEGRAM_BOT_TOKEN is not set; cannot send message",
+    );
+    return;
+  }
   try {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
