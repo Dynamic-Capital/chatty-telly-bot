@@ -1,10 +1,11 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { ok } from "../_shared/http.ts";
+import { getEnv } from "../_shared/env.ts";
 
 function svc() {
-  const url = Deno.env.get("SUPABASE_URL")!;
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const url = getEnv("SUPABASE_URL");
+  const key = getEnv("SUPABASE_SERVICE_ROLE_KEY");
   return createClient(url, key, { auth: { persistSession: false } });
 }
 function isoDay(d: Date) {

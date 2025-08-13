@@ -1,4 +1,4 @@
-import { optionalEnv } from "../_shared/env.ts";
+import { optionalEnv, getEnv } from "../_shared/env.ts";
 import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
@@ -197,8 +197,8 @@ function logEvent(event: string, data: Record<string, unknown>): void {
 }
 
 function supaSvc() {
-  const url = Deno.env.get("SUPABASE_URL")!;
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const url = getEnv("SUPABASE_URL");
+  const key = getEnv("SUPABASE_SERVICE_ROLE_KEY");
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
@@ -576,8 +576,8 @@ export async function serveWebhook(req: Request): Promise<Response> {
 
     // ---- BAN CHECK (short-circuit early) ----
     const supa = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      getEnv("SUPABASE_URL"),
+      getEnv("SUPABASE_SERVICE_ROLE_KEY"),
       { auth: { persistSession: false } },
     );
     const fromId = String(

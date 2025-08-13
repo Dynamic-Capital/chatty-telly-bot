@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isAdmin, verifyInitDataAndGetUser } from "../_shared/telegram.ts";
+import { requireEnv } from "../_shared/env.ts";
 
 serve(async (req) => {
   if (req.method !== "POST") {
@@ -24,9 +25,11 @@ serve(async (req) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } =
+    requireEnv(["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const);
   const supa = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
     { auth: { persistSession: false } },
   );
 

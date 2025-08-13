@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { ok } from "../_shared/http.ts";
+import { requireEnv } from "../_shared/env.ts";
 
 serve(async (req) => {
   const url = new URL(req.url);
@@ -8,9 +9,11 @@ serve(async (req) => {
     return ok({ name: "data-retention-cron", ts: new Date().toISOString() });
   }
   if (req.method === "HEAD") return new Response(null, { status: 200 });
+  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } =
+    requireEnv(["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const);
   const supa = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
     { auth: { persistSession: false } },
   );
   const days = Number(Deno.env.get("RETENTION_DAYS") ?? "90");

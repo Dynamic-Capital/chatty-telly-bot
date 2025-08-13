@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { ok, mna, unauth, oops } from "../_shared/http.ts";
+import { requireEnv } from "../_shared/env.ts";
 
 function genHex(n = 24) {
   const b = new Uint8Array(n);
@@ -33,10 +34,9 @@ serve(async (req) => {
       return unauth();
     }
 
-    const url = Deno.env.get("SUPABASE_URL")!,
-      svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: svc, TELEGRAM_BOT_TOKEN: token } =
+      requireEnv(["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "TELEGRAM_BOT_TOKEN"] as const);
     const supa = createClient(url, svc, { auth: { persistSession: false } });
-    const token = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
     const ref = (new URL(url)).hostname.split(".")[0];
     const expectedUrl = `https://${ref}.functions.supabase.co/telegram-bot`;
 
