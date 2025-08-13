@@ -1,12 +1,9 @@
-import { optionalEnv, getEnv } from "../_shared/env.ts";
+import { optionalEnv } from "../_shared/env.ts";
 import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
-import {
-  createClient,
-  type SupabaseClient,
-} from "https://esm.sh/@supabase/supabase-js@2";
+import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getBotContent } from "./database-utils.ts";
 
 interface TelegramMessage {
@@ -201,10 +198,12 @@ function logEvent(event: string, data: Record<string, unknown>): void {
   console.log(JSON.stringify({ event, sb_request_id, ...data }));
 }
 
-function supaSvc() {
-  const url = getEnv("SUPABASE_URL");
-  const key = getEnv("SUPABASE_SERVICE_ROLE_KEY");
-  return createClient(url, key, { auth: { persistSession: false } });
+async function supaSvc() {
+  const client = await getSupabase();
+  if (!client) {
+    throw new Error("Supabase client unavailable");
+  }
+  return client;
 }
 
 /** Persist one interaction for analytics. */
@@ -214,7 +213,7 @@ async function logInteraction(
   extra: unknown = null,
 ): Promise<void> {
   try {
-    const supa = supaSvc();
+    const supa = await supaSvc();
     await supa.from("user_interactions").insert({
       telegram_user_id: telegramUserId,
       interaction_type: kind,
@@ -229,7 +228,7 @@ async function logInteraction(
 async function handleStartPayload(msg: TelegramMessage): Promise<void> {
   const t = msg.text?.split(/\s+/)[1];
   if (!t) return;
-  const supa = supaSvc();
+  const supa = await supaSvc();
   const telegramId = String(msg.from?.id || msg.chat.id);
   const now = new Date().toISOString();
   let promo_data: Record<string, unknown> | null = null;
@@ -274,7 +273,7 @@ async function handleStartPayload(msg: TelegramMessage): Promise<void> {
 async function enforceRateLimit(
   telegramUserId: string,
 ): Promise<null | Response> {
-  const supa = supaSvc();
+  const supa = await supaSvc();
   const LIMIT = Number(Deno.env.get("RATE_LIMIT_PER_MINUTE") ?? "20");
 
   const now = new Date();
@@ -578,11 +577,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
     const update = body as TelegramUpdate;
 
     // ---- BAN CHECK (short-circuit early) ----
-    const supa = createClient(
-      getEnv("SUPABASE_URL"),
-      getEnv("SUPABASE_SERVICE_ROLE_KEY"),
-      { auth: { persistSession: false } },
-    );
+    const supa = await supaSvc();
     const fromId = String(
       update?.message?.from?.id ?? update?.callback_query?.from?.id ?? "",
     );
@@ -625,7 +620,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
     const errMsg = e instanceof Error ? e.message : String(e);
     console.log("telegram-bot fatal:", errMsg);
     await alertAdmins(`🚨 <b>Bot error</b>\n<code>${String(e)}</code>`);
-    const supa = supaSvc();
+    const supa = await supaSvc();
     await supa.from("admin_logs").insert({
       admin_telegram_id: "system",
       action_type: "bot_error",
