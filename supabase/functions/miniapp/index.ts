@@ -49,9 +49,9 @@ serve((req) => {
   if (req.method === "HEAD") {
     if (
       url.pathname === "/" ||
-      url.pathname === "/miniapp" ||
-      url.pathname === "/miniapp/" ||
-      url.pathname === "/miniapp/index.html"
+      url.pathname === "/miniapp/static" ||
+      url.pathname === "/miniapp/static/" ||
+      url.pathname === "/miniapp/static/index.html"
     ) {
       return new Response(null, { status: 200 });
     }
@@ -59,12 +59,12 @@ serve((req) => {
   }
   // Delegate GET/static & SPA roots
   if (req.method === "GET") {
-    if (url.pathname === "/" || url.pathname === "/miniapp" || url.pathname === "/miniapp/") {
+    if (url.pathname === "/" || url.pathname === "/miniapp/static " || url.pathname === "/miniapp/static") {
       return serveIndex();
     }
     return serveStatic(req, {
       rootDir: ROOT,
-      spaRoots: ["/", "/miniapp", "/miniapp/index.html"],
+      spaRoots: ["/", "/miniapp/static", "/miniapp/static/index.html"],
     });
   }
   return mna(); // 405 for others
