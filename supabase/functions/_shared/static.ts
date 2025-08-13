@@ -46,7 +46,9 @@ function mime(p: string) {
 
 async function readFileFrom(rootDir: URL, relPath: string): Promise<Response | null> {
   try {
-    const url = new URL(`./${relPath.replace(/^\/+/, "")}`, rootDir);
+    const rel = relPath.replace(/^\/+/, "");
+    const url = new URL(`./${rel}`, rootDir);
+    if (!url.pathname.startsWith(rootDir.pathname)) return null; // prevent path traversal
     const data = await Deno.readFile(url);
     const h = new Headers({
       "content-type": mime(relPath),
