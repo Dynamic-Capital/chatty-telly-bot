@@ -30,10 +30,13 @@ async function serveIndex(): Promise<Response> {
     return new Response(data, { headers: h });
   } catch (e) {
     console.error("miniapp index read failed", e);
-    return new Response(JSON.stringify({ ok: false, error: "index.html missing" }), {
-      status: 404,
-      headers: { "content-type": "application/json; charset=utf-8" },
-    });
+    return new Response(
+      JSON.stringify({ ok: false, error: "index.html missing" }),
+      {
+        status: 404,
+        headers: { "content-type": "application/json; charset=utf-8" },
+      },
+    );
   }
 }
 
@@ -44,7 +47,12 @@ serve((req) => {
     return serveStatic(req, { rootDir: ROOT });
   }
   if (req.method === "HEAD") {
-    if (url.pathname === "/" || url.pathname === "/miniapp" || url.pathname === "/miniapp/") {
+    if (
+      url.pathname === "/" ||
+      url.pathname === "/miniapp" ||
+      url.pathname === "/miniapp/" ||
+      url.pathname === "/miniapp/index.html"
+    ) {
       return new Response(null, { status: 200 });
     }
     return new Response(null, { status: 404 });
