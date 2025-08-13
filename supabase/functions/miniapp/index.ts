@@ -18,18 +18,17 @@ const SECURITY = {
     "frame-ancestors *;",
 } as const;
 
-async function serveIndex(): Promise<Response> {
-  try {
-    const data = await Deno.readFile(new URL("./static/index.html", import.meta.url));
-    const h = new Headers({
-      "content-type": "text/html; charset=utf-8",
-      "cache-control": "no-cache",
-      "x-frame-options": "ALLOWALL",
-    });
-    for (const [k, v] of Object.entries(SECURITY)) h.set(k, v as string);
-    return new Response(data, { headers: h });
-  } catch (e) {
-    console.error("miniapp index read failed", e);
+let INDEX_HTML = "";
+try {
+  INDEX_HTML = await Deno.readTextFile(
+    new URL("./static/index.html", import.meta.url),
+  );
+} catch (e) {
+  console.error("miniapp index preload failed", e);
+}
+
+function serveIndex(): Response {
+  if (!INDEX_HTML) {
     return new Response(
       JSON.stringify({ ok: false, error: "index.html missing" }),
       {
@@ -38,6 +37,13 @@ async function serveIndex(): Promise<Response> {
       },
     );
   }
+  const h = new Headers({
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-cache",
+    "x-frame-options": "ALLOWALL",
+  });
+  for (const [k, v] of Object.entries(SECURITY)) h.set(k, v as string);
+  return new Response(INDEX_HTML, { headers: h });
 }
 
 serve((req) => {
@@ -49,6 +55,8 @@ serve((req) => {
   if (req.method === "HEAD") {
     if (
       url.pathname === "/" ||
+      url.pathname === "/miniapp" ||
+      url.pathname === "/miniapp/" ||
       url.pathname === "/miniapp/static" ||
       url.pathname === "/miniapp/static/" ||
       url.pathname === "/miniapp/static/index.html"
@@ -59,7 +67,13 @@ serve((req) => {
   }
   // Delegate GET/static & SPA roots
   if (req.method === "GET") {
-    if (url.pathname === "/" || url.pathname === "/miniapp/static " || url.pathname === "/miniapp/static") {
+    if (
+      url.pathname === "/" ||
+      url.pathname === "/miniapp" ||
+      url.pathname === "/miniapp/" ||
+      url.pathname === "/miniapp/static" ||
+      url.pathname === "/miniapp/static/"
+    ) {
       return serveIndex();
     }
     return serveStatic(req, {
