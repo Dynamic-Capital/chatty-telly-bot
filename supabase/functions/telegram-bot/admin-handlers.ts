@@ -1085,7 +1085,6 @@ export async function handleTogglePlanLifetime(
     const updateData = {
       is_lifetime: newLifetimeStatus,
       duration_months: newLifetimeStatus ? 0 : (plan.duration_months || 1),
-      updated_at: new Date().toISOString(),
     };
 
     const { error: updateError } = await supabaseAdmin

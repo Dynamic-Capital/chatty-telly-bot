@@ -181,7 +181,6 @@ export async function setBotContent(
         content_key: contentKey,
         content_value: contentValue,
         last_modified_by: adminId,
-        updated_at: new Date().toISOString(),
       }, {
         onConflict: "content_key",
       });
@@ -236,7 +235,6 @@ export async function setBotSetting(
       .upsert({
         setting_key: settingKey,
         setting_value: settingValue,
-        updated_at: new Date().toISOString(),
       });
 
     if (!error) {
@@ -285,11 +283,10 @@ export async function resetBotSettings(
   adminId: string,
 ): Promise<boolean> {
   try {
-    const rows = Object.entries(defaultSettings).map(([key, value]) => ({
-      setting_key: key,
-      setting_value: value,
-      updated_at: new Date().toISOString(),
-    }));
+  const rows = Object.entries(defaultSettings).map(([key, value]) => ({
+    setting_key: key,
+    setting_value: value,
+  }));
 
     const { error } = await supabaseAdmin
       .from("bot_settings")
@@ -503,10 +500,9 @@ export async function processPlaneEditInput(
 
         const { error } = await supabaseAdmin
           .from("subscription_plans")
-          .update({
-            price: price,
-            updated_at: new Date().toISOString(),
-          })
+        .update({
+          price: price,
+        })
           .eq("id", planId);
 
         if (error) {
@@ -542,10 +538,9 @@ export async function processPlaneEditInput(
 
         const { error } = await supabaseAdmin
           .from("subscription_plans")
-          .update({
-            name: name,
-            updated_at: new Date().toISOString(),
-          })
+        .update({
+          name: name,
+        })
           .eq("id", planId);
 
         if (error) {
@@ -592,11 +587,10 @@ export async function processPlaneEditInput(
 
         const { error } = await supabaseAdmin
           .from("subscription_plans")
-          .update({
-            duration_months: durationMonths,
-            is_lifetime: isLifetime,
-            updated_at: new Date().toISOString(),
-          })
+        .update({
+          duration_months: durationMonths,
+          is_lifetime: isLifetime,
+        })
           .eq("id", planId);
 
         if (error) {
@@ -653,10 +647,9 @@ export async function processPlaneEditInput(
 
         const { error } = await supabaseAdmin
           .from("subscription_plans")
-          .update({
-            features: updatedFeatures,
-            updated_at: new Date().toISOString(),
-          })
+        .update({
+          features: updatedFeatures,
+        })
           .eq("id", planId);
 
         if (error) {
@@ -1010,7 +1003,6 @@ export async function updateUserActivity(
       .from("bot_users")
       .upsert({
         telegram_id: telegramUserId,
-        updated_at: new Date().toISOString(),
         follow_up_count: 0, // Reset follow-up count on activity
       }, {
         onConflict: "telegram_id",
