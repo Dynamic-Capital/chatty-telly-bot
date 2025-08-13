@@ -97,7 +97,12 @@ async function sendMessage(
   text: string,
   extra: Record<string, unknown> = {},
 ): Promise<void> {
-  if (!BOT_TOKEN) return;
+  if (!BOT_TOKEN) {
+    console.warn(
+      "TELEGRAM_BOT_TOKEN is not set; cannot send message",
+    );
+    return;
+  }
   try {
     const r = await fetch(
       `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
