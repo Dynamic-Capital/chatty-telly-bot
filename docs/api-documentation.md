@@ -416,7 +416,6 @@ async function updateUserVipStatus(
     .from("bot_users")
     .update({
       is_vip: isVip,
-      updated_at: new Date().toISOString(),
     })
     .eq("telegram_id", userId);
 
