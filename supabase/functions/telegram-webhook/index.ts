@@ -86,36 +86,44 @@ export async function handler(req: Request): Promise<Response> {
     const text = update?.message?.text?.trim();
     const chatId = update?.message?.chat?.id;
 
-    // Reply to /start messages (with optional parameters)
+    // Handle simple commands
     const command = text?.split(/\s+/)[0];
-    if (command === "/start" && typeof chatId === "number") {
-      try {
-        const miniUrl = optionalEnv("MINI_APP_URL");
-        const short = optionalEnv("MINI_APP_SHORT_NAME");
-        const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
-        let openUrl: string | null = null;
-        if (miniUrl) {
-          openUrl = miniUrl.endsWith("/") ? miniUrl : miniUrl + "/";
-        } else if (short && botUsername) {
-          openUrl = `https://t.me/${botUsername}/${short}`;
+    if (typeof chatId === "number") {
+      if (command === "/start") {
+        try {
+          const miniUrl = optionalEnv("MINI_APP_URL");
+          const short = optionalEnv("MINI_APP_SHORT_NAME");
+          const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
+          let openUrl: string | null = null;
+          if (miniUrl) {
+            openUrl = miniUrl.endsWith("/") ? miniUrl : miniUrl + "/";
+          } else if (short && botUsername) {
+            openUrl = `https://t.me/${botUsername}/${short}`;
+          }
+          if (!openUrl || !isValidHttpsUrl(openUrl)) {
+            await sendMessage(
+              chatId,
+              "Bot activated. Mini app is being configured. Please try again soon.",
+            );
+          } else {
+            await sendMessage(chatId, "Open the VIP Mini App:", {
+              reply_markup: {
+                inline_keyboard: [[{
+                  text: "Open VIP Mini App",
+                  web_app: { url: openUrl },
+                }]],
+              },
+            });
+          }
+        } catch (err) {
+          logger.error("error handling /start", err);
         }
-        if (!openUrl || !isValidHttpsUrl(openUrl)) {
-          await sendMessage(
-            chatId,
-            "Bot activated. Mini app is being configured. Please try again soon.",
-          );
-        } else {
-          await sendMessage(chatId, "Open the VIP Mini App:", {
-            reply_markup: {
-              inline_keyboard: [[{
-                text: "Open VIP Mini App",
-                web_app: { url: openUrl },
-              }]],
-            },
-          });
+      } else if (command === "/ping") {
+        try {
+          await sendMessage(chatId, JSON.stringify({ pong: true }));
+        } catch (err) {
+          logger.error("error handling /ping", err);
         }
-      } catch (err) {
-        logger.error("error handling /start", err);
       }
     }
 
