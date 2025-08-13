@@ -89,6 +89,8 @@ deno test -A
 
 ## Deployment
 
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for environment vars, tests, deployment, and troubleshooting.
+
 Deploy function:
 
 ```bash
