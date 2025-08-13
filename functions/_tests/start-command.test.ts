@@ -65,7 +65,7 @@ Deno.test("handler responds to /start offline", async () => {
       entities: [{ offset: 0, length: 6, type: "bot_command" }],
     },
   };
-  const req = new Request("http://local/telegram-bot?secret=test-secret", {
+  const req = new Request("http://local/telegram-bot", {
     method: "POST",
     headers: {
       "content-type": "application/json",

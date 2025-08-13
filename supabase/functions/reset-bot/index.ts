@@ -53,8 +53,7 @@ serve(async (req) => {
     console.log("Cleared pending updates:", clearUpdatesResult);
 
     // 3. Re-establish the webhook
-    const webhookUrl =
-      `${supabaseUrl}/functions/v1/telegram-bot?secret=${secret}`;
+    const webhookUrl = `${supabaseUrl}/functions/v1/telegram-bot`;
     const setWebhookResponse = await fetch(
       `https://api.telegram.org/bot${botToken}/setWebhook`,
       {

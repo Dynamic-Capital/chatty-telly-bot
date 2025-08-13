@@ -7,7 +7,7 @@ Usage: scripts/telegram-webhook.sh [delete|set|info]
 
 Environment variables required:
   TELEGRAM_BOT_TOKEN          # BotFather token
-  TELEGRAM_WEBHOOK_SECRET     # Secret query param appended to webhook URL (only for 'set')
+  TELEGRAM_WEBHOOK_SECRET     # Secret token for X-Telegram-Bot-Api-Secret-Token (only for 'set')
 
 Optional (one of):
   PROJECT_REF                 # Supabase project ref (e.g. qeejuomcapbdlhnjqjcc)
@@ -52,7 +52,7 @@ case "$cmd" in
     echo "[+] Setting webhook (URL hidden)..."
     # Do not echo the full URL to avoid leaking secrets
     curl -sS -X POST "${API_BASE}/setWebhook" \
-      -d "url=${FUNCTION_URL}?secret=${TELEGRAM_WEBHOOK_SECRET}" \
+      -d "url=${FUNCTION_URL}" \
       -d "secret_token=${TELEGRAM_WEBHOOK_SECRET}" | jq -r '.description // "ok"'
     ;;
   info)

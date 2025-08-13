@@ -52,9 +52,8 @@ serve(async (req) => {
       });
     }
 
-    // Set webhook URL to our edge function (includes ?secret= for compatibility)
-    const webhookUrl =
-      `${SUPABASE_URL}/functions/v1/telegram-bot?secret=${SECRET}`;
+    // Set webhook URL to our edge function (secret sent via header)
+    const webhookUrl = `${SUPABASE_URL}/functions/v1/telegram-bot`;
 
     console.log("🔗 Setting webhook...");
 
