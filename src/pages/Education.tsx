@@ -73,7 +73,15 @@ const Education: React.FC = () => {
       if (packagesError) throw packagesError;
 
       setCategories(categoriesData || []);
-      setPackages(packagesData || []);
+      // Normalize array fields to always be arrays
+      setPackages(
+        (packagesData || []).map((pkg) => ({
+          ...pkg,
+          features: pkg.features || [],
+          requirements: pkg.requirements || [],
+          learning_outcomes: pkg.learning_outcomes || [],
+        })),
+      );
     } catch (error) {
       console.error("Error fetching education data:", error);
       toast({

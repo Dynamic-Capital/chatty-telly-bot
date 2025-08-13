@@ -102,6 +102,7 @@ export function UserManagement() {
     package_id: "",
     expires_at: "",
     notes: "",
+    telegram_channels: [] as string[],
   });
 
   const loadData = useCallback(async () => {
@@ -135,7 +136,14 @@ export function UserManagement() {
         .order("assigned_at", { ascending: false });
 
       if (!assignmentsResponse.error) {
-        setAssignments((assignmentsResponse.data as PackageAssignment[]) || []);
+        const data = (assignmentsResponse.data as PackageAssignment[]) || [];
+        // Ensure telegram_channels is always an array
+        setAssignments(
+          data.map((a) => ({
+            ...a,
+            telegram_channels: a.telegram_channels || [],
+          })),
+        );
       }
     } catch (error) {
       console.error("Error loading data:", error);
