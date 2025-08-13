@@ -84,8 +84,7 @@
 ### ✅ **Trigger Functions**
 
 - ✅ `handle_new_user()` - Trigger for auth.users
-- ✅ `handle_updated_at()` - Trigger for timestamps
-- ✅ `update_updated_at_column()` - Trigger for timestamps
+ - ✅ `set_updated_at()` - Trigger for timestamps
 - ✅ `update_education_updated_at_column()` - Education-specific trigger
 - ✅ `update_daily_analytics()` - Analytics function
 
