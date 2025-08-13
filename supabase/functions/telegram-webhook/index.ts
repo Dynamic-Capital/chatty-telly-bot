@@ -86,44 +86,47 @@ export async function handler(req: Request): Promise<Response> {
     const text = update?.message?.text?.trim();
     const chatId = update?.message?.chat?.id;
 
-    // Handle simple commands
+    // Basic command dispatcher for simple health/admin commands
+    type CommandHandler = (chatId: number) => Promise<void>;
+
+    const handlers: Record<string, CommandHandler> = {
+      "/start": async (chatId) => {
+        const miniUrl = optionalEnv("MINI_APP_URL");
+        const short = optionalEnv("MINI_APP_SHORT_NAME");
+        const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
+        let openUrl: string | null = null;
+        if (miniUrl) {
+          openUrl = miniUrl.endsWith("/") ? miniUrl : miniUrl + "/";
+        } else if (short && botUsername) {
+          openUrl = `https://t.me/${botUsername}/${short}`;
+        }
+        if (!openUrl || !isValidHttpsUrl(openUrl)) {
+          await sendMessage(
+            chatId,
+            "Bot activated. Mini app is being configured. Please try again soon.",
+          );
+        } else {
+          await sendMessage(chatId, "Open the VIP Mini App:", {
+            reply_markup: {
+              inline_keyboard: [[{
+                text: "Open VIP Mini App",
+                web_app: { url: openUrl },
+              }]],
+            },
+          });
+        }
+      },
+      "/ping": async (chatId) => {
+        await sendMessage(chatId, JSON.stringify({ pong: true }));
+      },
+    };
+
     const command = text?.split(/\s+/)[0];
-    if (typeof chatId === "number") {
-      if (command === "/start") {
-        try {
-          const miniUrl = optionalEnv("MINI_APP_URL");
-          const short = optionalEnv("MINI_APP_SHORT_NAME");
-          const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
-          let openUrl: string | null = null;
-          if (miniUrl) {
-            openUrl = miniUrl.endsWith("/") ? miniUrl : miniUrl + "/";
-          } else if (short && botUsername) {
-            openUrl = `https://t.me/${botUsername}/${short}`;
-          }
-          if (!openUrl || !isValidHttpsUrl(openUrl)) {
-            await sendMessage(
-              chatId,
-              "Bot activated. Mini app is being configured. Please try again soon.",
-            );
-          } else {
-            await sendMessage(chatId, "Open the VIP Mini App:", {
-              reply_markup: {
-                inline_keyboard: [[{
-                  text: "Open VIP Mini App",
-                  web_app: { url: openUrl },
-                }]],
-              },
-            });
-          }
-        } catch (err) {
-          logger.error("error handling /start", err);
-        }
-      } else if (command === "/ping") {
-        try {
-          await sendMessage(chatId, JSON.stringify({ pong: true }));
-        } catch (err) {
-          logger.error("error handling /ping", err);
-        }
+    if (typeof chatId === "number" && command && handlers[command]) {
+      try {
+        await handlers[command](chatId);
+      } catch (err) {
+        logger.error(`error handling ${command}`, err);
       }
     }
 
