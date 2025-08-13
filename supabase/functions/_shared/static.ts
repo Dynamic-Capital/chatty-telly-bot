@@ -65,12 +65,18 @@ export async function serveStatic(req: Request, opts: StaticOpts): Promise<Respo
   const path = url.pathname.replace(/\/+$/, ""); // strip trailing slash for routing
   const sec = { ...DEFAULT_SECURITY, ...(opts.security || {}) };
 
+  const setSec = (resp: Response) => {
+    const h = new Headers(resp.headers);
+    for (const [k, v] of Object.entries(sec)) h.set(k, v);
+    return new Response(resp.body, { headers: h, status: resp.status });
+  };
+
   // HEAD allowed on roots
   if (req.method === "HEAD") {
     if (path === "" || path === "/" || path === "/miniapp" || path === "/miniapp/") {
-      return new Response(null, { status: 200 });
+      return setSec(new Response(null, { status: 200 }));
     }
-    return new Response(null, { status: 404 });
+    return setSec(new Response(null, { status: 404 }));
   }
 
   if (req.method !== "GET") return mna();
@@ -82,12 +88,6 @@ export async function serveStatic(req: Request, opts: StaticOpts): Promise<Respo
     for (const [k, v] of Object.entries(sec)) h.set(k, v);
     return new Response(await r.arrayBuffer(), { headers: h, status: r.status });
   }
-
-  const setSec = (resp: Response) => {
-    const h = new Headers(resp.headers);
-    for (const [k, v] of Object.entries(sec)) h.set(k, v);
-    return new Response(resp.body, { headers: h, status: resp.status });
-  };
 
   // Serve SPA index for roots
   const spaRoots = opts.spaRoots ?? ["/", "/miniapp"];
