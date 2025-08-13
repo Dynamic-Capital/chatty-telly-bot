@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { getEnv } from "../_shared/env.ts";
 import { createLogger } from "../_shared/logger.ts";
+import { expectedSecret } from "../_shared/telegram_secret.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,8 +12,7 @@ const corsHeaders = {
 function getLogger(req: Request) {
   return createLogger({
     function: "setup-webhook",
-    requestId:
-      req.headers.get("sb-request-id") ||
+    requestId: req.headers.get("sb-request-id") ||
       req.headers.get("x-request-id") ||
       crypto.randomUUID(),
   });
@@ -31,11 +31,16 @@ serve(async (req) => {
     logger.info("Setting up Telegram webhook...");
 
     const supabaseUrl = getEnv("SUPABASE_URL");
+    const secret = await expectedSecret();
+    if (!secret) {
+      throw new Error("TELEGRAM_WEBHOOK_SECRET not configured");
+    }
 
     // Get the webhook URL for our telegram-bot function
-    const webhookUrl = `${supabaseUrl}/functions/v1/telegram-bot`;
+    const webhookUrl =
+      `${supabaseUrl}/functions/v1/telegram-bot?secret=${secret}`;
 
-    logger.info("Webhook URL:", webhookUrl);
+    logger.info("Webhook URL prepared");
 
     // Delete any existing webhook first
     const deleteResponse = await fetch(
@@ -57,6 +62,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           url: webhookUrl,
+          secret_token: secret,
           allowed_updates: ["message", "callback_query", "inline_query"],
           drop_pending_updates: true,
         }),

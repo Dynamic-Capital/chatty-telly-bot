@@ -52,7 +52,8 @@ case "$cmd" in
     echo "[+] Setting webhook (URL hidden)..."
     # Do not echo the full URL to avoid leaking secrets
     curl -sS -X POST "${API_BASE}/setWebhook" \
-      -d "url=${FUNCTION_URL}?secret=${TELEGRAM_WEBHOOK_SECRET}" | jq -r '.description // "ok"'
+      -d "url=${FUNCTION_URL}?secret=${TELEGRAM_WEBHOOK_SECRET}" \
+      -d "secret_token=${TELEGRAM_WEBHOOK_SECRET}" | jq -r '.description // "ok"'
     ;;
   info)
     echo "[i] Webhook info:"
