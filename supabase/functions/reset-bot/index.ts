@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { getEnv } from "../_shared/env.ts";
+import { expectedSecret } from "../_shared/telegram_secret.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,6 +27,10 @@ serve(async (req) => {
     console.log("Resetting Telegram bot...");
 
     const supabaseUrl = getEnv("SUPABASE_URL");
+    const secret = await expectedSecret();
+    if (!secret) {
+      throw new Error("TELEGRAM_WEBHOOK_SECRET not configured");
+    }
 
     // 1. Delete the current webhook
     const deleteResponse = await fetch(
@@ -48,7 +53,8 @@ serve(async (req) => {
     console.log("Cleared pending updates:", clearUpdatesResult);
 
     // 3. Re-establish the webhook
-    const webhookUrl = `${supabaseUrl}/functions/v1/telegram-bot`;
+    const webhookUrl =
+      `${supabaseUrl}/functions/v1/telegram-bot?secret=${secret}`;
     const setWebhookResponse = await fetch(
       `https://api.telegram.org/bot${botToken}/setWebhook`,
       {
@@ -58,6 +64,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           url: webhookUrl,
+          secret_token: secret,
           allowed_updates: ["message", "callback_query", "inline_query"],
           drop_pending_updates: true,
         }),

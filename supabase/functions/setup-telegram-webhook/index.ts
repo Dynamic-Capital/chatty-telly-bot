@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { requireEnv } from "../_shared/env.ts";
+import { expectedSecret } from "../_shared/telegram_secret.ts";
 
 const { TELEGRAM_BOT_TOKEN: BOT_TOKEN, SUPABASE_URL } = requireEnv(
   [
@@ -42,10 +43,20 @@ serve(async (req) => {
       });
     }
 
-    // Set webhook URL to our edge function
-    const webhookUrl = `${SUPABASE_URL}/functions/v1/telegram-bot`;
+    const SECRET = await expectedSecret();
+    if (!SECRET) {
+      console.error("❌ TELEGRAM_WEBHOOK_SECRET not configured");
+      return new Response("Webhook secret not configured", {
+        status: 500,
+        headers: corsHeaders,
+      });
+    }
 
-    console.log(`🔗 Setting webhook to: ${webhookUrl}`);
+    // Set webhook URL to our edge function (includes ?secret= for compatibility)
+    const webhookUrl =
+      `${SUPABASE_URL}/functions/v1/telegram-bot?secret=${SECRET}`;
+
+    console.log("🔗 Setting webhook...");
 
     // First, delete any existing webhook
     console.log("🗑️ Deleting existing webhook...");
@@ -63,6 +74,7 @@ serve(async (req) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           url: webhookUrl,
+          secret_token: SECRET,
           allowed_updates: ["message", "callback_query"],
           drop_pending_updates: true, // Clear any pending updates
         }),
@@ -94,7 +106,7 @@ serve(async (req) => {
           {
             success: true,
             webhook_set: true,
-            webhook_url: webhookUrl,
+            webhook_url: `${SUPABASE_URL}/functions/v1/telegram-bot`,
             bot_info: botInfo.result,
             webhook_info: webhookInfo.result,
             message: "Webhook configured successfully!",
@@ -113,7 +125,7 @@ serve(async (req) => {
           {
             success: false,
             error: result.description,
-            webhook_url: webhookUrl,
+            webhook_url: `${SUPABASE_URL}/functions/v1/telegram-bot`,
             full_response: result,
           },
           null,
