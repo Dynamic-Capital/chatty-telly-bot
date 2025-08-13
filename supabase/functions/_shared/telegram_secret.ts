@@ -17,14 +17,17 @@ export async function readDbWebhookSecret(
   try {
     if (supa) {
       const { data } = await supa.from("bot_settings")
-        .select("setting_value").eq("setting_key", "TELEGRAM_WEBHOOK_SECRET")
-        .limit(1).maybeSingle();
+        .select("setting_value")
+        .eq("setting_key", "TELEGRAM_WEBHOOK_SECRET")
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
       return (data?.setting_value as string) || null;
     }
     const url = need("SUPABASE_URL");
     const key = need("SUPABASE_SERVICE_ROLE_KEY");
     const resp = await fetch(
-      `${url}/rest/v1/bot_settings?select=setting_value&setting_key=eq.TELEGRAM_WEBHOOK_SECRET&limit=1`,
+      `${url}/rest/v1/bot_settings?select=setting_value&setting_key=eq.TELEGRAM_WEBHOOK_SECRET&is_active=eq.true&limit=1`,
       {
         headers: {
           apikey: key,
@@ -46,10 +49,16 @@ export async function expectedSecret(
 export async function validateTelegramHeader(
   req: Request,
 ): Promise<Response | null> {
-  const got = req.headers.get("X-Telegram-Bot-Api-Secret-Token") ||
-    req.headers.get("x-telegram-bot-api-secret-token") || "";
+  const url = new URL(req.url);
+  if (
+    req.method === "GET" &&
+    (url.pathname.endsWith("/version") || url.pathname.endsWith("/echo"))
+  ) {
+    return null;
+  }
   const exp = await expectedSecret();
-  if (!exp) return null;
-  if (got !== exp) return unauth("Secret mismatch");
+  if (!exp) return unauth("missing secret");
+  const got = req.headers.get("x-telegram-bot-api-secret-token");
+  if (!got || got !== exp) return unauth("bad secret");
   return null;
 }
