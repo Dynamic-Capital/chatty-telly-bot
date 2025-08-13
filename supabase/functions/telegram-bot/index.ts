@@ -119,7 +119,12 @@ async function notifyUser(chatId: number, text: string): Promise<void> {
 }
 
 async function sendMiniAppLink(chatId: number) {
-  if (!BOT_TOKEN) return;
+  if (!BOT_TOKEN) {
+    console.error(
+      "TELEGRAM_BOT_TOKEN is not set; cannot send Mini App link",
+    );
+    return;
+  }
   const raw = (optionalEnv("MINI_APP_URL") || "").trim();
   let openUrl: string | null = null;
   if (raw) {
