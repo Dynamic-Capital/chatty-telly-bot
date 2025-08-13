@@ -151,7 +151,6 @@ export const WelcomeMessageEditor = () => {
         .update({
           content_value: editedMessage,
           last_modified_by: "admin",
-          updated_at: new Date().toISOString(),
         })
         .eq("id", welcomeMessage.id);
 
@@ -161,11 +160,10 @@ export const WelcomeMessageEditor = () => {
       setWelcomeMessage((prev) =>
         prev
           ? {
-            ...prev,
-            content_value: editedMessage,
-            updated_at: new Date().toISOString(),
-            last_modified_by: "admin",
-          }
+              ...prev,
+              content_value: editedMessage,
+              last_modified_by: "admin",
+            }
           : null
       );
 

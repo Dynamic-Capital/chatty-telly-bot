@@ -116,7 +116,6 @@ serve(async (req) => {
           status: "completed",
           payment_provider_id: transactionId,
           webhook_data: webhookData,
-          updated_at: new Date().toISOString(),
         })
         .eq("id", merchantTradeNo);
 
@@ -164,7 +163,6 @@ serve(async (req) => {
           is_vip: true,
           current_plan_id: payment.plan_id,
           subscription_expires_at: endDate.toISOString(),
-          updated_at: new Date().toISOString(),
         })
         .eq("telegram_id", payment.user_id);
 
@@ -179,7 +177,6 @@ serve(async (req) => {
           is_active: true,
           payment_status: "completed",
           payment_method: "binance_pay",
-          updated_at: new Date().toISOString(),
         });
 
       // Send success message to user via Telegram bot
@@ -237,7 +234,6 @@ serve(async (req) => {
                 telegram_user_id: payment.user_id,
                 is_active: true,
                 created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
                 added_at: new Date().toISOString(),
               }));
 

@@ -62,7 +62,6 @@ export const BotSettings = () => {
         .from("bot_settings")
         .update({
           setting_value: newValue,
-          updated_at: new Date().toISOString(),
         })
         .eq("setting_key", settingKey);
 
