@@ -67,9 +67,8 @@ export async function serveStatic(req: Request, opts: StaticOpts): Promise<Respo
 
   // HEAD allowed on roots
   if (req.method === "HEAD") {
-    if (path === "" || path === "/" || path === "/miniapp" || path === "/miniapp/") {
-      return new Response(null, { status: 200 });
-    }
+    const roots = new Set(["", "/miniapp"]);
+    if (roots.has(path)) return new Response(null, { status: 200 });
     return new Response(null, { status: 404 });
   }
 
