@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { getEnv } from "../_shared/env.ts";
+import { createLogger } from "../_shared/logger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,11 +11,23 @@ const corsHeaders = {
 // Keep-alive function to prevent cold starts
 let keepAliveTimer: number | null = null;
 
+const baseLogger = createLogger({ function: "keep-alive" });
+
+function getLogger(req: Request) {
+  return createLogger({
+    function: "keep-alive",
+    requestId:
+      req.headers.get("sb-request-id") ||
+      req.headers.get("x-request-id") ||
+      crypto.randomUUID(),
+  });
+}
+
 function startKeepAlive() {
   if (keepAliveTimer) return;
 
   keepAliveTimer = setInterval(() => {
-    console.log("Keep-alive ping:", new Date().toISOString());
+    baseLogger.info("Keep-alive ping:", new Date().toISOString());
   }, 4 * 60 * 1000); // Every 4 minutes
 }
 
@@ -30,13 +43,15 @@ serve((req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const logger = getLogger(req);
+
   try {
     // Start keep-alive on first request
     startKeepAlive();
 
     const botToken = getEnv("TELEGRAM_BOT_TOKEN");
 
-    console.log("Keep-alive service started for telegram bot");
+    logger.info("Keep-alive service started for telegram bot");
 
     return new Response(
       JSON.stringify({
@@ -51,7 +66,7 @@ serve((req) => {
       },
     );
   } catch (error) {
-    console.error("Error in keep-alive service:", error);
+    logger.error("Error in keep-alive service:", error);
     return new Response(
       JSON.stringify({
         error: error.message,
@@ -68,5 +83,5 @@ serve((req) => {
 // Cleanup on shutdown
 addEventListener("beforeunload", () => {
   stopKeepAlive();
-  console.log("Keep-alive service stopped");
+  baseLogger.info("Keep-alive service stopped");
 });

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { optionalEnv } from "../_shared/env.ts";
+import { createLogger } from "../_shared/logger.ts";
 
 const BOT_TOKEN = optionalEnv("TELEGRAM_BOT_TOKEN");
 
@@ -9,19 +10,30 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+function getLogger(req: Request) {
+  return createLogger({
+    function: "debug-bot",
+    requestId:
+      req.headers.get("sb-request-id") ||
+      req.headers.get("x-request-id") ||
+      crypto.randomUUID(),
+  });
+}
+
 serve(async (req) => {
-  console.log("🔧 Debug function called");
-  console.log("Method:", req.method);
-  console.log("URL:", req.url);
+  const logger = getLogger(req);
+  logger.info("🔧 Debug function called");
+  logger.info("Method:", req.method);
+  logger.info("URL:", req.url);
 
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log("🔑 Environment check:");
-    console.log("BOT_TOKEN exists:", !!BOT_TOKEN);
-    console.log("BOT_TOKEN length:", BOT_TOKEN?.length || 0);
+    logger.info("🔑 Environment check:");
+    logger.info("BOT_TOKEN exists:", !!BOT_TOKEN);
+    logger.info("BOT_TOKEN length:", BOT_TOKEN?.length || 0);
 
     if (!BOT_TOKEN) {
       return new Response(
@@ -39,28 +51,28 @@ serve(async (req) => {
     }
 
     // Test Telegram API connectivity
-    console.log("🤖 Testing Telegram API...");
+    logger.info("🤖 Testing Telegram API...");
     const botInfoResponse = await fetch(
       `https://api.telegram.org/bot${BOT_TOKEN}/getMe`,
     );
     const botInfo = await botInfoResponse.json();
 
-    console.log("🤖 Bot info response:", JSON.stringify(botInfo, null, 2));
+    logger.info("🤖 Bot info response:", JSON.stringify(botInfo, null, 2));
 
     // Get current webhook info
-    console.log("🔍 Getting webhook info...");
+    logger.info("🔍 Getting webhook info...");
     const webhookInfoResponse = await fetch(
       `https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo`,
     );
     const webhookInfo = await webhookInfoResponse.json();
 
-    console.log("🔍 Webhook info:", JSON.stringify(webhookInfo, null, 2));
+    logger.info("🔍 Webhook info:", JSON.stringify(webhookInfo, null, 2));
 
     // Test bot function URL
     const supabaseUrl = optionalEnv("SUPABASE_URL");
     const botFunctionUrl = `${supabaseUrl}/functions/v1/telegram-bot`;
 
-    console.log("🧪 Testing bot function URL:", botFunctionUrl);
+    logger.info("🧪 Testing bot function URL:", botFunctionUrl);
 
     let botFunctionTest;
     try {
@@ -101,7 +113,7 @@ serve(async (req) => {
       },
     );
   } catch (error) {
-    console.error("🚨 Debug error:", error);
+    logger.error("🚨 Debug error:", error);
     return new Response(
       JSON.stringify(
         {

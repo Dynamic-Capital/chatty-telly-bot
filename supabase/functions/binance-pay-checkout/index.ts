@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import { optionalEnv, requireEnv } from "../_shared/env.ts";
+import { createLogger } from "../_shared/logger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,15 +59,27 @@ function _generateNonce(): string {
   return crypto.randomUUID().replace(/-/g, "");
 }
 
+function getLogger(req: Request) {
+  return createLogger({
+    function: "binance-pay-checkout",
+    requestId:
+      req.headers.get("sb-request-id") ||
+      req.headers.get("x-request-id") ||
+      crypto.randomUUID(),
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const logger = getLogger(req);
+
   try {
-    console.log("Binance Pay checkout request started");
+    logger.info("Binance Pay checkout request started");
     const requestBody = await req.json().catch(() => ({}));
-    console.log("Request body:", requestBody);
+    logger.info("Request body:", requestBody);
 
     const {
       planId,
@@ -90,23 +103,23 @@ serve(async (req) => {
     const binanceApiKey = optionalEnv("BINANCE_API_KEY");
     const binanceSecretKey = optionalEnv("BINANCE_SECRET_KEY");
 
-    console.log("API Keys check:", {
+    logger.info("API Keys check:", {
       hasApiKey: !!binanceApiKey,
       hasSecretKey: !!binanceSecretKey,
       apiKeyLength: binanceApiKey ? binanceApiKey.length : 0,
     });
 
     if (!binanceApiKey || !binanceSecretKey) {
-      console.error("Missing Binance API credentials");
+      logger.error("Missing Binance API credentials");
       throw new Error("Binance API credentials not configured");
     }
 
     // Initialize Supabase client
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    console.log("Supabase client initialized");
+    logger.info("Supabase client initialized");
 
     // Get plan details
-    console.log("Fetching plan with ID:", planId);
+    logger.info("Fetching plan with ID:", planId);
     const { data: plan, error: planError } = await supabase
       .from("subscription_plans")
       .select("*")
@@ -114,16 +127,16 @@ serve(async (req) => {
       .single();
 
     if (planError) {
-      console.error("Plan fetch error:", planError);
+      logger.error("Plan fetch error:", planError);
       throw new Error(`Plan fetch error: ${planError.message}`);
     }
 
     if (!plan) {
-      console.error("Plan not found for ID:", planId);
+      logger.error("Plan not found for ID:", planId);
       throw new Error("Plan not found");
     }
 
-    console.log("Plan found:", plan);
+    logger.info("Plan found:", plan);
 
     // Create payment record
     const paymentData = {
@@ -135,7 +148,7 @@ serve(async (req) => {
       status: "pending",
     };
 
-    console.log("Creating payment with data:", paymentData);
+    logger.info("Creating payment with data:", paymentData);
 
     const { data: payment, error: paymentError } = await supabase
       .from("payments")
@@ -144,7 +157,7 @@ serve(async (req) => {
       .single();
 
     if (paymentError) {
-      console.error("Payment creation error:", paymentError);
+      logger.error("Payment creation error:", paymentError);
       throw new Error(`Payment creation error: ${paymentError.message}`);
     }
 
@@ -152,7 +165,7 @@ serve(async (req) => {
       throw new Error("Failed to create payment record");
     }
 
-    console.log("Payment record created:", payment);
+    logger.info("Payment record created:", payment);
 
     const orderPayload = {
       merchantId: _BINANCE_PAY_MERCHANT_ID,
@@ -189,7 +202,7 @@ serve(async (req) => {
     );
 
     const orderResult = await orderResponse.json();
-    console.log("Binance Pay order result:", orderResult);
+    logger.info("Binance Pay order result:", orderResult);
 
     if (orderResult.status !== "SUCCESS") {
       throw new Error(
@@ -210,7 +223,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error in binance-pay-checkout:", error);
+    logger.error("Error in binance-pay-checkout:", error);
     return new Response(
       JSON.stringify({
         error: error.message,

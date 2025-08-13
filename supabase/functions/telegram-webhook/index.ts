@@ -1,6 +1,7 @@
 import { optionalEnv } from "../_shared/env.ts";
 import { ok, mna, oops, bad } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
+import { createLogger } from "../_shared/logger.ts";
 
 interface TelegramMessage {
   text?: string;
@@ -9,6 +10,18 @@ interface TelegramMessage {
 
 interface TelegramUpdate {
   message?: TelegramMessage;
+}
+
+const baseLogger = createLogger({ function: "telegram-webhook" });
+
+function getLogger(req: Request) {
+  return createLogger({
+    function: "telegram-webhook",
+    requestId:
+      req.headers.get("sb-request-id") ||
+      req.headers.get("x-request-id") ||
+      crypto.randomUUID(),
+  });
 }
 
 /**
@@ -29,7 +42,7 @@ async function sendMessage(
       body: JSON.stringify({ chat_id: chatId, text, ...extra }),
     });
   } catch (err) {
-    console.error("sendMessage error", err);
+    baseLogger.error("sendMessage error", err);
   }
 }
 
@@ -43,6 +56,7 @@ function isValidHttpsUrl(url: string): boolean {
 }
 
 export async function handler(req: Request): Promise<Response> {
+  const logger = getLogger(req);
   try {
     const url = new URL(req.url);
 
@@ -65,7 +79,7 @@ export async function handler(req: Request): Promise<Response> {
     try {
       update = await req.json() as TelegramUpdate;
     } catch (err) {
-      console.error("failed to parse update", err);
+      logger.error("failed to parse update", err);
       return bad("Invalid JSON");
     }
 
@@ -101,13 +115,13 @@ export async function handler(req: Request): Promise<Response> {
           });
         }
       } catch (err) {
-        console.error("error handling /start", err);
+        logger.error("error handling /start", err);
       }
     }
 
     return ok({ ok: true });
   } catch (err) {
-    console.error("telegram-webhook handler error", err);
+    logger.error("telegram-webhook handler error", err);
     return oops("Internal Error", String(err));
   }
 }
