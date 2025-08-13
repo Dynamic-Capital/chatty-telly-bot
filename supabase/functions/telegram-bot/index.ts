@@ -617,7 +617,10 @@ export async function serveWebhook(req: Request): Promise<Response> {
     await handleCallback(update);
 
     const fileId = getFileIdFromUpdate(update);
-    if (fileId) startReceiptPipeline(update);
+    if (fileId) {
+      // Fire-and-forget: run receipt processing without delaying the response
+      void startReceiptPipeline(update);
+    }
 
     return ok({ handled: true });
   } catch (e) {
