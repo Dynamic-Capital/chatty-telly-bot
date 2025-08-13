@@ -23,6 +23,8 @@ PII; rate limits enabled.
 
 ## Environment variables
 
+Full list and usage notes: [docs/env.md](docs/env.md).
+
 - SUPABASE_URL
 - SUPABASE_SERVICE_ROLE_KEY
 - TELEGRAM_BOT_TOKEN
