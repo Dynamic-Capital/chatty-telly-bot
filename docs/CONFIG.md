@@ -19,6 +19,7 @@ The project relies on a shared set of environment keys. Set them in your local `
 | WINDOW_SECONDS            | ✅                           | ✅                               | ❌                          |
 | AMOUNT_TOLERANCE          | ✅                           | ✅                               | ❌                          |
 | MINI_APP_URL              | ✅                           | ✅                               | ✅                          |
+| LOGTAIL_SOURCE_TOKEN      | ✅                           | ❌                               | ❌                          |
 
 `✅` indicates where each key should be set.
 
