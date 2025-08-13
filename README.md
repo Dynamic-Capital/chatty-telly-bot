@@ -27,6 +27,7 @@ PII; rate limits enabled.
 - SUPABASE_SERVICE_ROLE_KEY
 - TELEGRAM_BOT_TOKEN
 - TELEGRAM_WEBHOOK_SECRET
+- TELEGRAM_ADMIN_IDS _(comma-separated Telegram user IDs)_
 - MINI_APP_URL _(optional)_
 - AMOUNT_TOLERANCE _(optional)_
 - WINDOW_SECONDS _(optional)_
