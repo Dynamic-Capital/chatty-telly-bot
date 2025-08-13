@@ -17,8 +17,10 @@ supabase start
 supabase functions serve telegram-bot --no-verify-jwt
 
 # Ping (expects 200)
-  curl -X POST "http://127.0.0.1:54321/functions/v1/telegram-bot?secret=$TELEGRAM_WEBHOOK_SECRET" \
-    -H "content-type: application/json" -d '{"test":"ping"}'
+  curl -X POST "http://127.0.0.1:54321/functions/v1/telegram-bot" \
+    -H "content-type: application/json" \
+    -H "X-Telegram-Bot-Api-Secret-Token: $TELEGRAM_WEBHOOK_SECRET" \
+    -d '{"test":"ping"}'
 ```
 
 ### Mini App launch options
@@ -42,8 +44,10 @@ Pay","web_app":{"short_name":"dynamic_pay"}}}'
 # Delete existing webhook
 curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/deleteWebhook"
 
-# Set webhook with secret gate (replace <PROJECT_REF>)
-curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook?url=https://<PROJECT_REF>.functions.supabase.co/telegram-bot?secret=$TELEGRAM_WEBHOOK_SECRET"
+# Set webhook with secret token (replace <PROJECT_REF>)
+curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+  -d "url=https://<PROJECT_REF>.functions.supabase.co/telegram-bot" \
+  -d "secret_token=$TELEGRAM_WEBHOOK_SECRET"
 
 # Inspect current webhook
 curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"

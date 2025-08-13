@@ -60,8 +60,10 @@ supabase start
 supabase functions serve telegram-bot --no-verify-jwt
 
 # Ping (expects 200)
-curl -X POST "http://127.0.0.1:54321/functions/v1/telegram-bot?secret=$TELEGRAM_WEBHOOK_SECRET" \
-  -H "content-type: application/json" -d '{"test":"ping"}'
+curl -X POST "http://127.0.0.1:54321/functions/v1/telegram-bot" \
+  -H "content-type: application/json" \
+  -H "X-Telegram-Bot-Api-Secret-Token: $TELEGRAM_WEBHOOK_SECRET" \
+  -d '{"test":"ping"}'
 ```
 
 Note: for OCR parsing, send an actual Telegram image to the bot; OCR runs only
@@ -89,7 +91,8 @@ deno test -A
 
 ## Deployment
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for environment vars, tests, deployment, and troubleshooting.
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for environment vars, tests,
+deployment, and troubleshooting.
 
 Deploy function:
 

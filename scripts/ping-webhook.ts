@@ -2,7 +2,6 @@
 /**
  * Sends a synthetic /start update to your deployed Edge function.
  * - Adds X-Telegram-Bot-Api-Secret-Token header (your webhook secret)
- * - Also appends ?secret=... to URL for handlers that expect query validation
  * - Body matches Telegram update shape for a /start command.
  *
  * Env:
@@ -21,16 +20,15 @@ if (!secret) {
 const explicitUrl = Deno.env.get("TELEGRAM_WEBHOOK_URL");
 const proj = Deno.env.get("SUPABASE_PROJECT_ID");
 
-const baseUrl =
-  explicitUrl ?? (proj ? `https://${proj}.functions.supabase.co/telegram-bot` : null);
+const baseUrl = explicitUrl ??
+  (proj ? `https://${proj}.functions.supabase.co/telegram-bot` : null);
 
 if (!baseUrl) {
   console.error("Provide TELEGRAM_WEBHOOK_URL or SUPABASE_PROJECT_ID");
   Deno.exit(1);
 }
 
-// Ensure the secret is also present as a query param for maximum compatibility
-const url = baseUrl.includes("?") ? `${baseUrl}&secret=${encodeURIComponent(secret)}` : `${baseUrl}?secret=${encodeURIComponent(secret)}`;
+const url = baseUrl;
 
 const update = {
   update_id: 999999,

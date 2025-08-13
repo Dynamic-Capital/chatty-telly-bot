@@ -37,8 +37,7 @@ serve(async (req) => {
     }
 
     // Get the webhook URL for our telegram-bot function
-    const webhookUrl =
-      `${supabaseUrl}/functions/v1/telegram-bot?secret=${secret}`;
+    const webhookUrl = `${supabaseUrl}/functions/v1/telegram-bot`;
 
     logger.info("Webhook URL prepared");
 

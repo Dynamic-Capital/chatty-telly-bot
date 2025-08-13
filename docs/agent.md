@@ -98,8 +98,8 @@ crash).
 
 ## 6) Telegram Webhook Behavior
 
-- **Secret check:** `?secret=` must match `TELEGRAM_WEBHOOK_SECRET`; on mismatch
-  respond **200** (skip processing).
+- **Secret check:** header `X-Telegram-Bot-Api-Secret-Token` must match
+  `TELEGRAM_WEBHOOK_SECRET`; on mismatch respond **200** (skip processing).
 - **Ping path:** if body is `{"test":"ping"}`, return `{"pong":true}` 200.
 - **OCR guard:** if no image/document, skip OCR and return 200.
 - **Errors:** Wrap handler in try/catch; log, then return 200 `{ ok: true }`.
@@ -144,11 +144,11 @@ crash).
 
 - **Local:**\
   `supabase start` → `supabase functions serve telegram-bot --no-verify-jwt` →\
-  `curl -X POST "http://127.0.0.1:54321/functions/v1/telegram-bot?secret=$TELEGRAM_WEBHOOK_SECRET" -H "content-type: application/json" -d '{"test":"ping"}'`
+  `curl -X POST "http://127.0.0.1:54321/functions/v1/telegram-bot" -H "content-type: application/json" -H "X-Telegram-Bot-Api-Secret-Token: $TELEGRAM_WEBHOOK_SECRET" -d '{"test":"ping"}'`
 - **Typecheck:**
   `deno check supabase/functions/telegram-bot/*.ts supabase/functions/telegram-bot/**/*.ts`
-- **Post-deploy smoke:** invoke ping; check `getWebhookInfo` has `?secret=` and
-  low pending updates.
+- **Post-deploy smoke:** invoke ping; check `getWebhookInfo` shows the correct
+  URL and low pending updates.
 
 ---
 
