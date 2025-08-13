@@ -59,7 +59,7 @@ export type Database = {
           is_active: boolean
           message_template: string
           name: string
-          trigger_type: string
+            trigger_type: Database["public"]["Enums"]["trigger_type_enum"]
           updated_at: string
         }
         Insert: {
@@ -70,7 +70,7 @@ export type Database = {
           is_active?: boolean
           message_template: string
           name: string
-          trigger_type: string
+            trigger_type: Database["public"]["Enums"]["trigger_type_enum"]
           updated_at?: string
         }
         Update: {
@@ -81,7 +81,7 @@ export type Database = {
           is_active?: boolean
           message_template?: string
           name?: string
-          trigger_type?: string
+            trigger_type?: Database["public"]["Enums"]["trigger_type_enum"]
           updated_at?: string
         }
         Relationships: []
@@ -125,7 +125,7 @@ export type Database = {
       bot_content: {
         Row: {
           content_key: string
-          content_type: string
+            content_type: Database["public"]["Enums"]["content_type_enum"]
           content_value: string
           created_at: string
           created_by: string | null
@@ -137,7 +137,7 @@ export type Database = {
         }
         Insert: {
           content_key: string
-          content_type?: string
+            content_type?: Database["public"]["Enums"]["content_type_enum"]
           content_value: string
           created_at?: string
           created_by?: string | null
@@ -149,7 +149,7 @@ export type Database = {
         }
         Update: {
           content_key?: string
-          content_type?: string
+            content_type?: Database["public"]["Enums"]["content_type_enum"]
           content_value?: string
           created_at?: string
           created_by?: string | null
@@ -1375,7 +1375,8 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      content_type_enum: "text" | "html" | "markdown"
+      trigger_type_enum: "keyword" | "regex" | "command"
     }
     CompositeTypes: {
       [_ in never]: never
