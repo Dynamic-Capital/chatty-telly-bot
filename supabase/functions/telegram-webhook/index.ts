@@ -91,10 +91,11 @@ export async function handler(req: Request): Promise<Response> {
     const text = update?.message?.text?.trim();
     const chatId = update?.message?.chat?.id;
 
-    // Reply to /start messages (with optional parameters)
-    const command = text?.split(/\s+/)[0];
-    if (command === "/start" && typeof chatId === "number") {
-      try {
+    // Basic command dispatcher for simple health/admin commands
+    type CommandHandler = (chatId: number) => Promise<void>;
+
+    const handlers: Record<string, CommandHandler> = {
+      "/start": async (chatId) => {
         const miniUrl = optionalEnv("MINI_APP_URL");
         const short = optionalEnv("MINI_APP_SHORT_NAME");
         const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
@@ -119,8 +120,18 @@ export async function handler(req: Request): Promise<Response> {
             },
           });
         }
+      },
+      "/ping": async (chatId) => {
+        await sendMessage(chatId, JSON.stringify({ pong: true }));
+      },
+    };
+
+    const command = text?.split(/\s+/)[0];
+    if (typeof chatId === "number" && command && handlers[command]) {
+      try {
+        await handlers[command](chatId);
       } catch (err) {
-        logger.error("error handling /start", err);
+        logger.error(`error handling ${command}`, err);
       }
     }
 
