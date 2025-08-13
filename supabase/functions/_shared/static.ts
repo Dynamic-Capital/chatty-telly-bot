@@ -7,8 +7,7 @@ export type StaticOpts = {
   security?: Record<string, string>;
   extraFiles?: string[]; // e.g., ["/favicon.svg", "/site.webmanifest"]
 };
-
-const DEFAULT_SECURITY = {
+export const DEFAULT_SECURITY = {
   "referrer-policy": "strict-origin-when-cross-origin",
   "x-content-type-options": "nosniff",
   "permissions-policy": "geolocation=(), microphone=(), camera=()",
