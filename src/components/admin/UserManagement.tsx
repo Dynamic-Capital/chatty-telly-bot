@@ -300,7 +300,7 @@ export function UserManagement() {
       const { error } = await supabase
         .from("user_subscriptions")
         .update({
-          payment_status: approve ? "approved" : "rejected",
+          payment_status: approve ? "completed" : "failed",
           is_active: approve,
           subscription_start_date: approve ? new Date().toISOString() : null,
           subscription_end_date: approve
@@ -314,7 +314,7 @@ export function UserManagement() {
       toast({
         title: "Success",
         description: `Payment ${
-          approve ? "approved" : "rejected"
+          approve ? "completed" : "failed"
         } successfully`,
       });
 

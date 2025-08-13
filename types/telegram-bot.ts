@@ -100,7 +100,7 @@ export interface UserSubscription {
   telegram_user_id: string;
   plan_id?: string;
   is_active: boolean;
-  payment_status: "pending" | "completed" | "failed" | "cancelled";
+  payment_status: PaymentStatus;
   payment_method?: string;
   subscription_start_date?: string;
   subscription_end_date?: string;
@@ -121,7 +121,7 @@ export interface Payment {
   currency: string;
   payment_method: string;
   payment_provider_id?: string;
-  status: "pending" | "completed" | "failed" | "cancelled";
+  status: PaymentStatus;
   webhook_data?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -170,7 +170,7 @@ export interface EducationEnrollment {
   student_email?: string;
   student_phone?: string;
   enrollment_status: "pending" | "active" | "completed" | "cancelled";
-  payment_status: "pending" | "completed" | "failed";
+  payment_status: PaymentStatus;
   payment_method?: string;
   payment_amount?: number;
   payment_reference?: string;
@@ -481,7 +481,19 @@ export type DatabaseTable =
   | "broadcast_messages"
   | "admin_logs";
 
-export type PaymentStatus = "pending" | "completed" | "failed" | "cancelled";
+export const PAYMENT_STATUSES = [
+  "pending",
+  "completed",
+  "failed",
+  "refunded",
+] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+export function isValidPaymentStatus(
+  status: string,
+): status is PaymentStatus {
+  return (PAYMENT_STATUSES as readonly string[]).includes(status);
+}
 export type SubscriptionStatus = "pending" | "active" | "expired" | "cancelled";
 export type BroadcastStatus =
   | "draft"

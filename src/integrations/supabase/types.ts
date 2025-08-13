@@ -800,7 +800,7 @@ export type Database = {
           payment_method: string
           payment_provider_id: string | null
           plan_id: string
-          status: string
+          status: "pending" | "completed" | "failed" | "refunded"
           updated_at: string
           user_id: string
           webhook_data: Json | null
@@ -813,7 +813,7 @@ export type Database = {
           payment_method: string
           payment_provider_id?: string | null
           plan_id: string
-          status?: string
+          status?: "pending" | "completed" | "failed" | "refunded"
           updated_at?: string
           user_id: string
           webhook_data?: Json | null
@@ -826,7 +826,7 @@ export type Database = {
           payment_method?: string
           payment_provider_id?: string | null
           plan_id?: string
-          status?: string
+          status?: "pending" | "completed" | "failed" | "refunded"
           updated_at?: string
           user_id?: string
           webhook_data?: Json | null
