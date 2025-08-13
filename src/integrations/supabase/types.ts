@@ -964,7 +964,7 @@ export type Database = {
           created_at: string
           current_uses: number | null
           description: string | null
-          discount_type: string
+          discount_type: Database["public"]["Enums"]["discount_type_enum"]
           discount_value: number
           id: string
           is_active: boolean | null
@@ -978,7 +978,7 @@ export type Database = {
           created_at?: string
           current_uses?: number | null
           description?: string | null
-          discount_type: string
+          discount_type: Database["public"]["Enums"]["discount_type_enum"]
           discount_value: number
           id?: string
           is_active?: boolean | null
@@ -992,7 +992,7 @@ export type Database = {
           created_at?: string
           current_uses?: number | null
           description?: string | null
-          discount_type?: string
+          discount_type?: Database["public"]["Enums"]["discount_type_enum"]
           discount_value?: number
           id?: string
           is_active?: boolean | null
@@ -1377,6 +1377,7 @@ export type Database = {
     Enums: {
       content_type_enum: "text" | "html" | "markdown"
       trigger_type_enum: "keyword" | "regex" | "command"
+      discount_type_enum: "percentage" | "fixed"
     }
     CompositeTypes: {
       [_ in never]: never

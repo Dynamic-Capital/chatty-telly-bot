@@ -15,7 +15,7 @@ import { calcFinalAmount, redeemKey } from "../supabase/functions/_shared/promo.
 import { makeReferralLink } from "../supabase/functions/referral-link/index.ts";
 
 registerTest("promo validation math", () => {
-  assertEquals(calcFinalAmount(100, "percent", 20), 80);
+  assertEquals(calcFinalAmount(100, "percentage", 20), 80);
   assertEquals(calcFinalAmount(100, "fixed", 30), 70);
 });
 

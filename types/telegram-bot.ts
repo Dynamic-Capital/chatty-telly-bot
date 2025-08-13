@@ -193,7 +193,7 @@ export interface Promotion {
   id: string;
   code: string;
   description?: string;
-  discount_type: "percentage" | "fixed";
+  discount_type: DiscountType;
   discount_value: number;
   max_uses?: number;
   current_uses: number;
