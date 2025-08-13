@@ -1,4 +1,4 @@
-import { optionalEnv, getEnv } from "../_shared/env.ts";
+import { getEnv, optionalEnv } from "../_shared/env.ts";
 import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
@@ -31,18 +31,6 @@ interface TelegramUpdate {
   [key: string]: unknown;
 }
 
-interface PaymentIntent {
-  id: string;
-  user_id: string;
-  method: string;
-  status: string;
-  expected_amount: number;
-  expected_beneficiary_account_last4?: string;
-  expected_beneficiary_name?: string;
-  created_at: string;
-  pay_code?: string | null;
-}
-
 const REQUIRED_ENV_KEYS = [
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
@@ -53,12 +41,6 @@ const SUPABASE_URL = optionalEnv("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = optionalEnv("SUPABASE_SERVICE_ROLE_KEY");
 const BOT_TOKEN = optionalEnv("TELEGRAM_BOT_TOKEN");
 
-// Optional feature flags (currently unused)
-const _OPENAI_ENABLED = optionalEnv("OPENAI_ENABLED") === "true";
-const _FAQ_ENABLED = optionalEnv("FAQ_ENABLED") === "true";
-const WINDOW_SECONDS = Number(optionalEnv("WINDOW_SECONDS") ?? "180");
-const AMOUNT_TOLERANCE = Number(optionalEnv("AMOUNT_TOLERANCE") ?? "0.02");
-const REQUIRE_PAY_CODE = optionalEnv("REQUIRE_PAY_CODE") === "true";
 let supabaseAdmin: SupabaseClient | null = null;
 async function getSupabase(): Promise<SupabaseClient | null> {
   if (supabaseAdmin) return supabaseAdmin;
@@ -196,11 +178,6 @@ function isStartMessage(m: TelegramMessage | undefined) {
   );
 }
 
-function logEvent(event: string, data: Record<string, unknown>): void {
-  const sb_request_id = optionalEnv("SB_REQUEST_ID");
-  console.log(JSON.stringify({ event, sb_request_id, ...data }));
-}
-
 function supaSvc() {
   const url = getEnv("SUPABASE_URL");
   const key = getEnv("SUPABASE_SERVICE_ROLE_KEY");
@@ -311,41 +288,6 @@ async function enforceRateLimit(
     return json({ ok: false, error: "Too Many Requests" }, 429);
   }
   return null;
-}
-
-async function downloadTelegramFile(
-  fileId: string,
-): Promise<{ blob: Blob; filePath: string } | null> {
-  const infoRes = await fetch(
-    `https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`,
-  );
-  const info = await infoRes.json();
-  const filePath = info.result?.file_path;
-  if (!filePath) return null;
-  const fileRes = await fetch(
-    `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`,
-  );
-  const blob = await fileRes.blob();
-  return { blob, filePath };
-}
-
-async function hashBytesToSha256(blob: Blob): Promise<string> {
-  const arrayBuffer = await blob.arrayBuffer();
-  const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
-  return Array.from(new Uint8Array(hashBuffer)).map((b) =>
-    b.toString(16).padStart(2, "0")
-  ).join("");
-}
-
-async function storeReceiptImage(
-  blob: Blob,
-  storagePath: string,
-): Promise<string> {
-  const supabase = await getSupabase();
-  await supabase?.storage.from("receipts").upload(storagePath, blob, {
-    contentType: blob.type || undefined,
-  });
-  return storagePath;
 }
 
 async function handleCommand(update: TelegramUpdate): Promise<void> {
