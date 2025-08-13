@@ -26,7 +26,7 @@ interface WelcomeContent {
   id: string;
   content_key: string;
   content_value: string;
-  content_type: string;
+  content_type: "text" | "html" | "markdown";
   description: string;
   is_active: boolean;
   updated_at: string;
