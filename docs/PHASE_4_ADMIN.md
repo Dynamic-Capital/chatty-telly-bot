@@ -13,6 +13,7 @@
 
 - ADMIN_API_SECRET (hex)
 - TELEGRAM_ADMIN_IDS (comma-separated)
+  - Example: `TELEGRAM_ADMIN_IDS=225513686,8411280111`
 - TELEGRAM_BOT_TOKEN (for user notifications)
 
 ## Flows
