@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyInitDataAndGetUser, isAdmin } from "../_shared/telegram.ts";
 import { ok, bad, nf, mna, unauth } from "../_shared/http.ts";
+import { requireEnv } from "../_shared/env.ts";
 
 type Body = { initData: string; payment_id: string; decision: "approve"|"reject"; months?: number; message?: string };
 
@@ -19,9 +20,8 @@ serve(async (req) => {
   const u = await verifyInitDataAndGetUser(body.initData || "");
   if (!u || !isAdmin(u.id)) return unauth();
 
-  const url = Deno.env.get("SUPABASE_URL")!;
-  const svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const bot = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
+  const { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: svc, TELEGRAM_BOT_TOKEN: bot } =
+    requireEnv(["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "TELEGRAM_BOT_TOKEN"] as const);
   const supa = createClient(url, svc, { auth: { persistSession: false } });
 
   // Load payment + user + plan

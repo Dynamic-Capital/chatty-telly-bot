@@ -1,13 +1,14 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { verifyInitDataAndGetUser, isAdmin } from "../_shared/telegram.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireEnv } from "../_shared/env.ts";
 
 serve(async (req) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
   let body: { initData?: string; limit?: number; offset?: number }; try { body = await req.json(); } catch { return new Response("Bad JSON", { status: 400 }); }
 
-  const url = Deno.env.get("SUPABASE_URL")!;
-  const srv = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: srv } =
+    requireEnv(["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const);
   const supa = createClient(url, srv, { auth: { persistSession: false } });
 
   const u = await verifyInitDataAndGetUser(body.initData || "");
