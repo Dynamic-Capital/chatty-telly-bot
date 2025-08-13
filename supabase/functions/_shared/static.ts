@@ -97,7 +97,7 @@ export async function serveStatic(req: Request, opts: StaticOpts): Promise<Respo
       const h = new Headers(idx.headers);
       h.set("x-frame-options", "ALLOWALL"); // Telegram WebView
       for (const [k, v] of Object.entries(sec)) h.set(k, v);
-      return new Response(await idx.arrayBuffer(), { headers: h, status: idx.status });
+      return new Response(idx.body, { headers: h, status: idx.status });
     }
     return nf("index.html missing");
   }
