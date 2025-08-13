@@ -2,12 +2,23 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import { optionalEnv, requireEnv } from "../_shared/env.ts";
+import { createLogger } from "../_shared/logger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+function getLogger(req: Request) {
+  return createLogger({
+    function: "binance-pay-webhook",
+    requestId:
+      req.headers.get("sb-request-id") ||
+      req.headers.get("x-request-id") ||
+      crypto.randomUUID(),
+  });
+}
 
 // Signature verification function
 async function verifySignature(
@@ -45,6 +56,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const logger = getLogger(req);
+
   try {
     const rawBody = await req.text();
     const webhookData = JSON.parse(rawBody);
@@ -65,7 +78,7 @@ serve(async (req) => {
         secretKey,
       );
       if (!isValid) {
-        console.error("Invalid webhook signature");
+        logger.error("Invalid webhook signature");
         return new Response(JSON.stringify({ error: "Invalid signature" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -73,7 +86,7 @@ serve(async (req) => {
       }
     }
 
-    console.log("Binance Pay webhook received:", webhookData);
+    logger.info("Binance Pay webhook received:", webhookData);
 
     // Initialize Supabase client
     const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = requireEnv(
@@ -105,7 +118,7 @@ serve(async (req) => {
         .single();
 
       if (paymentError || !payment) {
-        console.error("Payment not found:", merchantTradeNo);
+        logger.error("Payment not found:", merchantTradeNo);
         throw new Error("Payment not found");
       }
 
@@ -138,7 +151,7 @@ serve(async (req) => {
           .single();
 
         if (createError) {
-          console.error("Error creating bot user:", createError);
+          logger.error("Error creating bot user:", createError);
         } else {
           botUser = newBotUser;
         }
@@ -242,18 +255,18 @@ serve(async (req) => {
             }
           }
         } catch (error) {
-          console.error("Error sending Telegram notification:", error);
+          logger.error("Error sending Telegram notification:", error);
         }
       }
 
-      console.log(`Payment ${merchantTradeNo} completed successfully`);
+      logger.info(`Payment ${merchantTradeNo} completed successfully`);
     }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error in binance-pay-webhook:", error);
+    logger.error("Error in binance-pay-webhook:", error);
     return new Response(
       JSON.stringify({
         error: error.message,

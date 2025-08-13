@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { getEnv } from "../_shared/env.ts";
+import { createLogger } from "../_shared/logger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,22 +8,34 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+function getLogger(req: Request) {
+  return createLogger({
+    function: "setup-webhook",
+    requestId:
+      req.headers.get("sb-request-id") ||
+      req.headers.get("x-request-id") ||
+      crypto.randomUUID(),
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const logger = getLogger(req);
+
   try {
     const botToken = getEnv("TELEGRAM_BOT_TOKEN");
 
-    console.log("Setting up Telegram webhook...");
+    logger.info("Setting up Telegram webhook...");
 
     const supabaseUrl = getEnv("SUPABASE_URL");
 
     // Get the webhook URL for our telegram-bot function
     const webhookUrl = `${supabaseUrl}/functions/v1/telegram-bot`;
 
-    console.log("Webhook URL:", webhookUrl);
+    logger.info("Webhook URL:", webhookUrl);
 
     // Delete any existing webhook first
     const deleteResponse = await fetch(
@@ -32,7 +45,7 @@ serve(async (req) => {
       },
     );
     const deleteResult = await deleteResponse.json();
-    console.log("Delete webhook result:", deleteResult);
+    logger.info("Delete webhook result:", deleteResult);
 
     // Set the new webhook
     const response = await fetch(
@@ -51,7 +64,7 @@ serve(async (req) => {
     );
 
     const result = await response.json();
-    console.log("Webhook setup result:", result);
+    logger.info("Webhook setup result:", result);
 
     if (!result.ok) {
       throw new Error(`Failed to set webhook: ${result.description}`);
@@ -62,14 +75,14 @@ serve(async (req) => {
       `https://api.telegram.org/bot${botToken}/getWebhookInfo`,
     );
     const webhookInfo = await infoResponse.json();
-    console.log("Webhook info:", webhookInfo);
+    logger.info("Webhook info:", webhookInfo);
 
     // Test bot info
     const botInfoResponse = await fetch(
       `https://api.telegram.org/bot${botToken}/getMe`,
     );
     const botInfo = await botInfoResponse.json();
-    console.log("Bot info:", botInfo);
+    logger.info("Bot info:", botInfo);
 
     return new Response(
       JSON.stringify({
@@ -85,7 +98,7 @@ serve(async (req) => {
       },
     );
   } catch (error) {
-    console.error("Error setting up webhook:", error);
+    logger.error("Error setting up webhook:", error);
     return new Response(
       JSON.stringify({
         error: error.message,

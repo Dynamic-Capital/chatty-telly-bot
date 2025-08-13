@@ -1,16 +1,28 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createLogger } from "../_shared/logger.ts";
 import { optionalEnv } from "../_shared/env.ts";
 
 const BOT_TOKEN = optionalEnv("TELEGRAM_BOT_TOKEN");
 
+function getLogger(req: Request) {
+  return createLogger({
+    function: "test-webhook",
+    requestId:
+      req.headers.get("sb-request-id") ||
+      req.headers.get("x-request-id") ||
+      crypto.randomUUID(),
+  });
+}
+
 serve(async (req) => {
-  console.log("🔧 WEBHOOK TEST FUNCTION CALLED!");
-  console.log("Method:", req.method);
-  console.log("Headers:", Object.fromEntries(req.headers.entries()));
+  const logger = getLogger(req);
+  logger.info("🔧 WEBHOOK TEST FUNCTION CALLED!");
+  logger.info("Method:", req.method);
+  logger.info("Headers:", Object.fromEntries(req.headers.entries()));
 
   try {
     const body = await req.text();
-    console.log("Body:", body);
+    logger.info("Body:", body);
 
     // Test if bot token works
     if (BOT_TOKEN) {
@@ -18,14 +30,14 @@ serve(async (req) => {
         `https://api.telegram.org/bot${BOT_TOKEN}/getMe`,
       );
       const testResult = await testResponse.json();
-      console.log("Bot test result:", testResult);
+      logger.info("Bot test result:", testResult);
 
       // Get webhook info
       const webhookResponse = await fetch(
         `https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo`,
       );
       const webhookResult = await webhookResponse.json();
-      console.log("Current webhook:", webhookResult);
+      logger.info("Current webhook:", webhookResult);
     }
 
     return new Response(
@@ -41,7 +53,7 @@ serve(async (req) => {
       },
     );
   } catch (error) {
-    console.error("Error:", error);
+    logger.error("Error:", error);
     return new Response(
       JSON.stringify({
         error: error.message,
