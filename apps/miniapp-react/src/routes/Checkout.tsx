@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import CopyableText from '@/shared/CopyableText';
 import { useTelegram } from '@/shared/useTelegram';
 import {
   checkoutInit,
   requestReceiptUploadUrl,
   submitReceipt,
   type CheckoutInitResponse,
+  type BankAccount,
 } from '@/services/api';
 
 export default function Checkout() {
@@ -67,11 +69,36 @@ export default function Checkout() {
       )}
       {payment && (
         <div className="space-y-3">
-          <div className="text-sm opacity-80">Payment ID: {payment.payment_id}</div>
+          <div className="text-sm opacity-80 flex items-center gap-2">
+            <span>Payment ID:</span>
+            <CopyableText text={payment.payment_id} />
+          </div>
           {payment.instructions && (
-            <pre className="text-xs bg-slate-100 dark:bg-slate-800 p-2 rounded overflow-x-auto">
-              {JSON.stringify(payment.instructions, null, 2)}
-            </pre>
+            <div className="space-y-2 text-sm">
+              {payment.instructions.type === 'bank_transfer' &&
+                (payment.instructions.banks as (BankAccount & { amount?: number | string })[]).map((b) => (
+                  <div key={b.account_number} className="space-y-1">
+                    <div className="font-medium">{b.bank_name}</div>
+                    <div className="flex items-center gap-2">
+                      <span>Account Name:</span>
+                      <CopyableText text={b.account_name} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>Account Number:</span>
+                      <CopyableText text={b.account_number} />
+                    </div>
+                    {b.amount !== undefined && (
+                      <div className="flex items-center gap-2">
+                        <span>Amount:</span>
+                        <CopyableText text={String(b.amount)} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              {payment.instructions.type !== 'bank_transfer' && (
+                <CopyableText text={payment.instructions.note} />
+              )}
+            </div>
           )}
           <input
             type="file"
