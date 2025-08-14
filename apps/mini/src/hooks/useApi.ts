@@ -1,9 +1,13 @@
 export function useApi() {
+  const getInitData = () =>
+    (globalThis as unknown as { Telegram?: { WebApp?: { initData?: string } } })
+      .Telegram?.WebApp?.initData || "";
+
   const createIntent = async (payload: Record<string, unknown>) => {
     const res = await fetch("/api/intent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ initData: getInitData(), ...payload }),
     });
     return res.json();
   };
@@ -11,6 +15,7 @@ export function useApi() {
   const uploadReceipt = async (file: File) => {
     const form = new FormData();
     form.append("image", file);
+    form.append("initData", getInitData());
     const res = await fetch("/api/receipt", {
       method: "POST",
       body: form,
@@ -22,27 +27,39 @@ export function useApi() {
     const res = await fetch("/api/crypto-txid", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ initData: getInitData(), ...payload }),
     });
     return res.json();
   };
 
   const getReceipts = async (limit: number) => {
-    const res = await fetch(`/api/receipts?limit=${limit}`);
+    const initData = encodeURIComponent(getInitData());
+    const res = await fetch(`/api/receipts?limit=${limit}&initData=${initData}`);
     return res.json();
   };
 
   const getPending = async () => {
-    const res = await fetch("/api/receipts?status=manual_review");
+    const initData = encodeURIComponent(getInitData());
+    const res = await fetch(
+      `/api/receipts?status=manual_review&initData=${initData}`,
+    );
     return res.json();
   };
 
   const approve = async (id: string) => {
-    await fetch(`/api/receipt/${id}/approve`, { method: "POST" });
+    await fetch(`/api/receipt/${id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ initData: getInitData() }),
+    });
   };
 
   const reject = async (id: string) => {
-    await fetch(`/api/receipt/${id}/reject`, { method: "POST" });
+    await fetch(`/api/receipt/${id}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ initData: getInitData() }),
+    });
   };
 
   return {
