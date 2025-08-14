@@ -4,7 +4,7 @@
 -- 1) Extension required by gen_random_uuid()
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- 2) Fix invalid ARRAY columns (use jsonb)
+-- 2) Ensure array columns use text[]
 DO $$
 BEGIN
   IF EXISTS (
@@ -12,12 +12,24 @@ BEGIN
     WHERE table_schema='public' AND table_name='education_packages' AND column_name='features'
   ) THEN
     ALTER TABLE public.education_packages
-      ALTER COLUMN features TYPE jsonb USING
-        CASE WHEN features IS NULL THEN '[]'::jsonb ELSE features::jsonb END,
-      ALTER COLUMN requirements TYPE jsonb USING
-        CASE WHEN requirements IS NULL THEN '[]'::jsonb ELSE requirements::jsonb END,
-      ALTER COLUMN learning_outcomes TYPE jsonb USING
-        CASE WHEN learning_outcomes IS NULL THEN '[]'::jsonb ELSE learning_outcomes::jsonb END;
+      ALTER COLUMN features TYPE text[] USING
+        CASE
+          WHEN features IS NULL THEN ARRAY[]::text[]
+          WHEN pg_typeof(features)::text = 'jsonb' THEN ARRAY(SELECT jsonb_array_elements_text(features))
+          ELSE string_to_array(features::text, ',')
+        END,
+      ALTER COLUMN requirements TYPE text[] USING
+        CASE
+          WHEN requirements IS NULL THEN ARRAY[]::text[]
+          WHEN pg_typeof(requirements)::text = 'jsonb' THEN ARRAY(SELECT jsonb_array_elements_text(requirements))
+          ELSE string_to_array(requirements::text, ',')
+        END,
+      ALTER COLUMN learning_outcomes TYPE text[] USING
+        CASE
+          WHEN learning_outcomes IS NULL THEN ARRAY[]::text[]
+          WHEN pg_typeof(learning_outcomes)::text = 'jsonb' THEN ARRAY(SELECT jsonb_array_elements_text(learning_outcomes))
+          ELSE string_to_array(learning_outcomes::text, ',')
+        END;
   END IF;
 EXCEPTION WHEN others THEN NULL;
 END$$;
@@ -29,8 +41,29 @@ BEGIN
     WHERE table_schema='public' AND table_name='user_package_assignments' AND column_name='telegram_channels'
   ) THEN
     ALTER TABLE public.user_package_assignments
-      ALTER COLUMN telegram_channels TYPE jsonb USING
-        CASE WHEN telegram_channels IS NULL THEN '[]'::jsonb ELSE telegram_channels::jsonb END;
+      ALTER COLUMN telegram_channels TYPE text[] USING
+        CASE
+          WHEN telegram_channels IS NULL THEN ARRAY[]::text[]
+          WHEN pg_typeof(telegram_channels)::text = 'jsonb' THEN ARRAY(SELECT jsonb_array_elements_text(telegram_channels))
+          ELSE string_to_array(telegram_channels::text, ',')
+        END;
+  END IF;
+EXCEPTION WHEN others THEN NULL;
+END$$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='subscription_plans' AND column_name='features'
+  ) THEN
+    ALTER TABLE public.subscription_plans
+      ALTER COLUMN features TYPE text[] USING
+        CASE
+          WHEN features IS NULL THEN ARRAY[]::text[]
+          WHEN pg_typeof(features)::text = 'jsonb' THEN ARRAY(SELECT jsonb_array_elements_text(features))
+          ELSE string_to_array(features::text, ',')
+        END;
   END IF;
 EXCEPTION WHEN others THEN NULL;
 END$$;

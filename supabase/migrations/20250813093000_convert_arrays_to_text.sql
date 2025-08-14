@@ -38,3 +38,20 @@ BEGIN
   END IF;
 EXCEPTION WHEN others THEN NULL;
 END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='subscription_plans'
+      AND column_name='features'
+      AND data_type='jsonb'
+  ) THEN
+    ALTER TABLE public.subscription_plans
+      ALTER COLUMN features TYPE text[] USING
+        CASE WHEN features IS NULL THEN ARRAY[]::text[]
+             ELSE ARRAY(SELECT jsonb_array_elements_text(features)) END;
+  END IF;
+EXCEPTION WHEN others THEN NULL;
+END $$;
