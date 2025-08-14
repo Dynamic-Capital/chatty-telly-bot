@@ -25,7 +25,7 @@ if (mode === "get") {
   await call("setChatMenuButton", {
     menu_button: {
       type: "web_app",
-      text: "Open VIP Mini App",
+      text: "Join",
       web_app: { url: urlArg },
     },
   });

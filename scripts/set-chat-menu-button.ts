@@ -31,7 +31,7 @@ if (shortName) {
 const payload = {
   menu_button: {
     type: "web_app",
-    text: "Open VIP Mini App",
+    text: "Join",
     web_app: { url },
   },
 };

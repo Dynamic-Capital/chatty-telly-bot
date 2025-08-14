@@ -105,10 +105,10 @@ export async function handler(req: Request): Promise<Response> {
         }
 
         if (miniUrl) {
-          await sendMessage(chatId, "Open the VIP Mini App:", {
+          await sendMessage(chatId, "Join the VIP Mini App:", {
             reply_markup: {
               inline_keyboard: [[{
-                text: "Open VIP Mini App",
+                text: "Join",
                 web_app: { url: miniUrl },
               }]],
             },
@@ -120,7 +120,7 @@ export async function handler(req: Request): Promise<Response> {
           const deepLink = `https://t.me/${botUsername}/${short}`;
           await sendMessage(
             chatId,
-            `Open the VIP Mini App: ${deepLink}\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)`,
+            `Join the VIP Mini App: ${deepLink}\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)`,
           );
           return;
         }
