@@ -9,6 +9,7 @@ function setEnv() {
   Deno.env.set("SUPABASE_URL", "http://local");
   Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "svc");
   Deno.env.set("TELEGRAM_BOT_USERNAME", "mybot");
+  Deno.env.set("SUPABASE_ANON_KEY", "anon");
 }
 
 function cleanup() {
@@ -17,6 +18,7 @@ function cleanup() {
   Deno.env.delete("SUPABASE_URL");
   Deno.env.delete("SUPABASE_SERVICE_ROLE_KEY");
   Deno.env.delete("TELEGRAM_BOT_USERNAME");
+  Deno.env.delete("SUPABASE_ANON_KEY");
   supaState.tables = {} as Record<string, any[]>;
 }
 
