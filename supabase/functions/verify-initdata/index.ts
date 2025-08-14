@@ -41,9 +41,11 @@ export async function verifyFromRaw(
   return !(windowSec > 0 && (isNaN(auth) || age > windowSec));
 }
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") return bad("Use POST");
   const { initData } = await req.json().catch(() => ({}));
   const passed = await verifyFromRaw(initData || "");
   return ok({ ok: passed });
-});
+}
+
+serve(handler);

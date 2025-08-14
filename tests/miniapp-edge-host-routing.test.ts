@@ -12,6 +12,10 @@ Deno.test({
     assertEquals(resRoot.status, 200);
     await resRoot.arrayBuffer();
 
+    const resVersion = await fetch(`${base}/miniapp/version`);
+    assertEquals(resVersion.status, 200);
+    await resVersion.arrayBuffer();
+
     const resNotFound = await fetch(`${base}/miniapp/nope`);
     assertEquals(resNotFound.status, 404);
     await resNotFound.arrayBuffer();
