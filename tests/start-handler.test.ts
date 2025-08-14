@@ -61,10 +61,8 @@ Deno.test("/start shows menu buttons for new users", async () => {
     const first = JSON.parse(calls[0].body);
     assertEquals(first.text, "Welcome new user");
     const second = JSON.parse(calls[1].body);
-    assertEquals(
-      second.reply_markup.inline_keyboard[0][0].web_app.url,
-      "https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/",
-    );
+    assertEquals(second.text, "Welcome! Choose an option:");
+    assertEquals(second.reply_markup.inline_keyboard[0][0].text, "Home");
   } finally {
     globalThis.fetch = originalFetch;
     cleanup();

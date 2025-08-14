@@ -183,6 +183,17 @@ async function notifyUser(
   await sendMessage(chatId, text, extra);
 }
 
+function hasValidMiniAppUrl(): boolean {
+  const raw = optionalEnv("MINI_APP_URL") || "";
+  if (!raw) return false;
+  try {
+    const u = new URL(raw);
+    return u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export async function sendMiniAppLink(chatId: number) {
   if (!(await getFlag("mini_app_enabled"))) return;
   if (!BOT_TOKEN) return;
@@ -507,6 +518,7 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
   const text = msg.text?.trim();
   if (!text) return;
   const chatId = msg.chat.id;
+  const miniAppValid = hasValidMiniAppUrl();
 
   // Early match for /start variants like "/start", "/start@Bot", or "/start foo"
   if (isStartMessage(msg)) {
@@ -541,8 +553,11 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
       }
     }
     await handleStartPayload(msg);
-    await sendMiniAppLink(chatId);
-    await sendMainMenu(chatId);
+    if (miniAppValid) {
+      await sendMainMenu(chatId);
+    } else {
+      await sendMiniAppLink(chatId);
+    }
     return;
   }
 
@@ -559,7 +574,14 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
     switch (command) {
       case "/start":
       case "/app":
-        await sendMiniAppLink(chatId);
+        if (miniAppValid) {
+          await sendMainMenu(chatId);
+        } else {
+          await sendMiniAppLink(chatId);
+        }
+        break;
+      case "/menu":
+        await sendMainMenu(chatId);
         break;
       case "/help": {
         const msg = await getBotContent("help_message");
