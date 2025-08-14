@@ -119,7 +119,6 @@ scripts/cleanup/gate_supabase.sh,1014,sh,42
 scripts/cleanup/guard_rules.sh,1159,sh,57
 scripts/cleanup/find_orphans.sh,913,sh,28
 scripts/cleanup/report.sh,1294,sh,50
-scripts/cleanup/cleanup_pr.sh,1720,sh,61
 scripts/cleanup/utils.sh,420,sh,9
 scripts/cleanup/supabase_verify.sh,1108,sh,31
 scripts/cleanup/find_dupes.sh,1491,sh,48
