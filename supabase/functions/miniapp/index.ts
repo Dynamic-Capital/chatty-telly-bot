@@ -20,9 +20,22 @@ async function serveIndex(): Promise<Response> {
         new URL("./static/index.html", import.meta.url),
       );
     } catch (_) {
-      INDEX_HTML = await Deno.readTextFile(
-        new URL("./static/landing.html", import.meta.url),
-      );
+      try {
+        const landing = await Deno.readTextFile(
+          new URL("./static/landing.html", import.meta.url),
+        );
+        const h = new Headers({
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-cache",
+          "x-frame-options": "ALLOWALL",
+        });
+        for (const [k, v] of Object.entries(DEFAULT_SECURITY)) {
+          h.set(k, v as string);
+        }
+        return new Response(landing, { headers: h });
+      } catch (_) {
+        return new Response("Not Found", { status: 404 });
+      }
     }
   }
 
