@@ -477,7 +477,7 @@ interface PlanEditSession {
   awaiting_input?: string;
 }
 
-export async function processPlaneEditInput(
+export async function processPlanEditInput(
   userId: string,
   inputText: string,
   sessionData: PlanEditSession,
@@ -690,7 +690,7 @@ export async function processPlaneEditInput(
         };
     }
   } catch (error) {
-    console.error("Error in processPlaneEditInput:", error);
+    console.error("Error in processPlanEditInput:", error);
     return {
       success: false,
       message: "❌ Unexpected error occurred. Please try again.",
