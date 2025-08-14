@@ -50,6 +50,7 @@ const REQUIRED_ENV_KEYS = [
 const SUPABASE_URL = optionalEnv("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = optionalEnv("SUPABASE_SERVICE_ROLE_KEY");
 const BOT_TOKEN = optionalEnv("TELEGRAM_BOT_TOKEN");
+const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
 
 // Optional feature flags (currently unused)
 const _OPENAI_ENABLED = optionalEnv("OPENAI_ENABLED") === "true";
@@ -121,38 +122,47 @@ async function notifyUser(
 }
 
 async function sendMiniAppLink(chatId: number) {
-  if (!BOT_TOKEN) {
-    console.error(
-      "TELEGRAM_BOT_TOKEN is not set; cannot send Mini App link",
-    );
+  if (!BOT_TOKEN) return;
+
+  const rawUrl = optionalEnv("MINI_APP_URL") || "";
+  const short = optionalEnv("MINI_APP_SHORT_NAME") || "";
+
+  // Normalize MINI_APP_URL if present
+  let miniUrl: string | null = null;
+  if (rawUrl) {
+    try {
+      const u = new URL(rawUrl);
+      if (u.protocol !== "https:") throw new Error("Mini app URL must be HTTPS");
+      if (!u.pathname.endsWith("/")) u.pathname = u.pathname + "/";
+      miniUrl = u.toString();
+    } catch (e) {
+      console.error("MINI_APP_URL invalid:", (e as Error).message);
+      miniUrl = null;
+    }
+  }
+
+  if (miniUrl) {
+    await sendMessage(chatId, "Open the VIP Mini App:", {
+      reply_markup: {
+        inline_keyboard: [[{ text: "Open VIP Mini App", web_app: { url: miniUrl } }]],
+      },
+    });
     return;
   }
-  const raw = (optionalEnv("MINI_APP_URL") || "").trim();
-  let openUrl: string | null = null;
-  if (raw) {
-    try {
-      const u = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
-      if (u.protocol === "https:") {
-        if (!u.pathname.endsWith("/")) u.pathname += "/";
-        openUrl = u.toString();
-      }
-    } catch { /* ignore invalid */ }
-  }
-  if (!openUrl) {
+
+  if (short && botUsername) {
+    const deepLink = `https://t.me/${botUsername}/${short}`;
     await sendMessage(
       chatId,
-      "Welcome! Mini app is being configured. Please try again soon.",
+      `Open the VIP Mini App: ${deepLink}\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)`,
     );
     return;
   }
-  await sendMessage(chatId, "Open the VIP Mini App:", {
-    reply_markup: {
-      inline_keyboard: [[{
-        text: "Open VIP Mini App",
-        web_app: { url: openUrl },
-      }]],
-    },
-  });
+
+  await sendMessage(
+    chatId,
+    "Welcome! Mini app is being configured. Please try again soon.",
+  );
 }
 
 async function extractTelegramUpdate(
