@@ -274,7 +274,7 @@ export async function getAllBotSettings(): Promise<Record<string, string>> {
     }
 
     const settings: Record<string, string> = {};
-    data?.forEach((s: any) => {
+    (data ?? []).forEach((s: { setting_key: string; setting_value: string }) => {
       settings[s.setting_key] = s.setting_value;
     });
     return settings;

@@ -7,6 +7,7 @@ import { getBotContent, getFormattedVipPackages, insertReceiptRecord } from "./d
 import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
 import { getFlag } from "../../../src/utils/config.ts";
+import type { Promotion } from "../../../types/telegram-bot.ts";
 
 interface TelegramMessage {
   chat: { id: number; type?: string };
@@ -690,7 +691,7 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
             .or(`valid_until.is.null,valid_until.gt.${new Date().toISOString()}`)
             .limit(5);
           const lines = promos?.length
-            ? promos.map((p: any, i: number) => {
+            ? promos.map((p: Promotion, i: number) => {
                 const discount = p.discount_type === "percentage"
                   ? `${p.discount_value}%`
                   : `$${p.discount_value}`;
@@ -768,7 +769,7 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
 
           const promoLines = promos?.length
             ? promos
-              .map((p: any, i: number) => {
+              .map((p: Promotion, i: number) => {
                 const discount = p.discount_type === "percentage"
                   ? `${p.discount_value}%`
                   : `$${p.discount_value}`;
@@ -967,6 +968,9 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
           break;
         case "table_stats_overview":
           await handlers.handleTableStatsOverview(chatId, userId);
+          break;
+        case "export_all_tables":
+          await handlers.handleExportAllTables(chatId, userId);
           break;
         default:
           // Other callbacks can be added here

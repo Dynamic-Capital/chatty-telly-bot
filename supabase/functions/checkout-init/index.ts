@@ -66,8 +66,12 @@ serve(async (req) => {
     .select("id,created_at")
     .single();
   if (perr) {
+    const message =
+      typeof perr === "object" && perr && "message" in perr
+        ? String((perr as { message: string }).message)
+        : "Unknown error";
     return new Response(
-      JSON.stringify({ ok: false, error: (perr as any).message }),
+      JSON.stringify({ ok: false, error: message }),
       { status: 500 },
     );
   }
