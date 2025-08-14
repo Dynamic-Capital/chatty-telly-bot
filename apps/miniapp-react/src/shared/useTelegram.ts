@@ -20,7 +20,7 @@ export function useTelegram() {
     } catch {
       // ignore errors from Telegram initialization
     }
-  }, []);
+  }, [tg]);
   return useMemo(
     () => ({
       initData: tg?.initData || '',

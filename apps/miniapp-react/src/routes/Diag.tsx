@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTelegram } from "@/shared/useTelegram";
 import { functionUrl } from "@/lib/edge";
 
@@ -7,7 +7,7 @@ export default function Diag() {
   const [out, setOut] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function run() {
+  const run = useCallback(async () => {
     setLoading(true);
     try {
       const url = functionUrl("miniapp-smoke");
@@ -25,11 +25,11 @@ export default function Diag() {
       setOut({ ok: false, error: String(e) });
     }
     setLoading(false);
-  }
+  }, [initData, user?.id]);
 
   useEffect(() => {
     run();
-  }, [initData, user?.id]);
+  }, [run]);
 
   return (
     <section className="rounded-2xl shadow p-5 bg-white/80 dark:bg-slate-800/80 backdrop-blur space-y-3">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTelegram } from '@/shared/useTelegram';
 import { adminListPending, adminActOnPayment } from '@/services/api';
 
@@ -7,13 +7,13 @@ export default function Payments() {
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     const j = await adminListPending(initData || "", 50, 0);
     setItems(j.items || []);
     setLoading(false);
-  }
-  useEffect(() => { load(); }, [initData]);
+  }, [initData]);
+  useEffect(() => { load(); }, [load]);
 
   async function act(id: string, decision: "approve"|"reject") {
     const j = await adminActOnPayment(initData || "", id, decision);
