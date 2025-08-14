@@ -965,6 +965,42 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         case "manage_table_subscription_plans":
           await handlers.handleSubscriptionPlansManagement(chatId, userId);
           break;
+        case "manage_table_plan_channels":
+          await handlers.handlePlanChannelsManagement(chatId, userId);
+          break;
+        case "manage_table_education_packages":
+          await handlers.handleEducationPackagesManagement(chatId, userId);
+          break;
+        case "manage_table_promotions":
+          await handlers.handlePromotionsManagement(chatId, userId);
+          break;
+        case "manage_table_bot_content":
+          await handlers.handleContentManagement(chatId, userId);
+          break;
+        case "manage_table_bot_settings":
+          await handlers.handleBotSettingsManagement(chatId, userId);
+          break;
+        case "manage_table_daily_analytics":
+          await handlers.handleDailyAnalyticsManagement(chatId, userId);
+          break;
+        case "manage_table_user_sessions":
+          await handlers.handleUserSessionsManagement(chatId, userId);
+          break;
+        case "manage_table_payments":
+          await handlers.handlePaymentsManagement(chatId, userId);
+          break;
+        case "manage_table_broadcast_messages":
+          await handlers.handleBroadcastMessagesManagement(chatId, userId);
+          break;
+        case "manage_table_bank_accounts":
+          await handlers.handleBankAccountsManagement(chatId, userId);
+          break;
+        case "manage_table_auto_reply_templates":
+          await handlers.handleAutoReplyTemplatesManagement(chatId, userId);
+          break;
+        case "export_all_tables":
+          await handlers.handleExportAllTables(chatId, userId);
+          break;
         case "table_stats_overview":
           await handlers.handleTableStatsOverview(chatId, userId);
           break;
