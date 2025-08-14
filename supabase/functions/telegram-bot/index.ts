@@ -374,16 +374,34 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
   if (isStartMessage(msg)) {
     const supa = await getSupabase();
     let contentKey = "welcome_message";
+    let isNewUser = true;
     if (supa) {
       const { data } = await supa
         .from("bot_users")
         .select("id")
         .eq("telegram_id", msg.from?.id ?? chatId)
         .maybeSingle();
-      if (data) contentKey = "welcome_back_message";
+      if (data) {
+        contentKey = "welcome_back_message";
+        isNewUser = false;
+      }
     }
     const welcome = await getBotContent(contentKey);
-    if (welcome) await notifyUser(chatId, welcome);
+    if (welcome) {
+      if (isNewUser) {
+        await notifyUser(chatId, welcome, {
+          reply_markup: {
+            keyboard: [
+              [{ text: "/packages" }, { text: "/vip" }],
+              [{ text: "/help" }, { text: "/support" }],
+            ],
+            resize_keyboard: true,
+          },
+        });
+      } else {
+        await notifyUser(chatId, welcome);
+      }
+    }
     await handleStartPayload(msg);
     await sendMiniAppLink(chatId);
     return;
