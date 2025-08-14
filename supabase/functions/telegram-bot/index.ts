@@ -352,7 +352,17 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
 
   // Early match for /start variants like "/start", "/start@Bot", or "/start foo"
   if (isStartMessage(msg)) {
-    const welcome = await getBotContent("welcome_message");
+    const supa = await getSupabase();
+    let contentKey = "welcome_message";
+    if (supa) {
+      const { data } = await supa
+        .from("bot_users")
+        .select("id")
+        .eq("telegram_id", msg.from?.id ?? chatId)
+        .maybeSingle();
+      if (data) contentKey = "welcome_back_message";
+    }
+    const welcome = await getBotContent(contentKey);
     if (welcome) await notifyUser(chatId, welcome);
     await handleStartPayload(msg);
     await sendMiniAppLink(chatId);
