@@ -6,7 +6,6 @@ import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 import { getBotContent, getFormattedVipPackages, insertReceiptRecord } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
-import { getFlag } from "../../../src/utils/config.ts";
 
 interface TelegramMessage {
   chat: { id: number; type?: string };
@@ -71,6 +70,27 @@ async function getSupabase(): Promise<SupabaseClient | null> {
     supabaseAdmin = null;
   }
   return supabaseAdmin;
+}
+async function getFlag(name: string): Promise<boolean> {
+  const store = (globalThis as any).__CONFIG_MEM__ as Map<string, unknown> | undefined;
+  const snap = store?.get("features:published") as { data?: Record<string, boolean> } | undefined;
+  if (snap?.data && typeof snap.data[name] === "boolean") {
+    return snap.data[name];
+  }
+  try {
+    const supabase = await getSupabase();
+    if (!supabase) return false;
+    const { data, error } = await supabase
+      .from("kv_config")
+      .select("value")
+      .eq("key", "features:published")
+      .maybeSingle();
+    if (error) throw error;
+    const remote = (data?.value as { data?: Record<string, boolean> }) ?? {};
+    return Boolean(remote.data?.[name]);
+  } catch (_e) {
+    return false;
+  }
 }
 
 type AdminHandlers = typeof import("./admin-handlers.ts");
@@ -704,7 +724,7 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
           );
         } else {
           try {
-            const { data } = await supa.rpc("validate_promo_code", {
+            const { data } = await (supa as any).rpc("validate_promo_code", {
               p_code: code,
               p_telegram_user_id: String(chatId),
             });
@@ -964,6 +984,24 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
           break;
         case "manage_table_subscription_plans":
           await handlers.handleSubscriptionPlansManagement(chatId, userId);
+          break;
+        case "manage_table_user_sessions":
+          await handlers.handleUserSessionsManagement(chatId, userId);
+          break;
+        case "manage_table_payments":
+          await handlers.handlePaymentsManagement(chatId, userId);
+          break;
+        case "manage_table_broadcast_messages":
+          await handlers.handleBroadcastMessagesManagement(chatId, userId);
+          break;
+        case "manage_table_bank_accounts":
+          await handlers.handleBankAccountsManagement(chatId, userId);
+          break;
+        case "manage_table_auto_reply_templates":
+          await handlers.handleAutoReplyTemplatesManagement(chatId, userId);
+          break;
+        case "manage_table_daily_analytics":
+          await handlers.handleDailyAnalyticsManagement(chatId, userId);
           break;
         case "table_stats_overview":
           await handlers.handleTableStatsOverview(chatId, userId);
