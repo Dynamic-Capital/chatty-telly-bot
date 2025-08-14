@@ -833,13 +833,14 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
   const data = cb.data || "";
   const userId = String(cb.from.id);
   try {
+    // Always acknowledge the callback to avoid client retries
+    await answerCallbackQuery(cb.id);
     if (data.startsWith("menu:")) {
       const section = data.slice("menu:".length) as
         | "home"
         | "plans"
         | "status"
         | "support";
-      await answerCallbackQuery(cb.id);
       await showMainMenu(chatId, section);
       return;
     }
