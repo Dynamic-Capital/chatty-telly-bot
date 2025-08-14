@@ -1,4 +1,5 @@
 import { assertEquals, assertMatch } from "https://deno.land/std@0.224.0/testing/asserts.ts";
+import { setFlag, publish } from "../src/utils/config.ts";
 
 const supaState = { tables: {} as Record<string, any[]> };
 (globalThis as any).__SUPA_MOCK__ = supaState;
@@ -22,6 +23,8 @@ function cleanup() {
 
 Deno.test("/start shows menu buttons for new users", async () => {
   setEnv();
+  await setFlag("mini_app_enabled", true);
+  await publish();
   const calls: Array<{ url: string; body: string }> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => {
@@ -60,11 +63,15 @@ Deno.test("/start shows menu buttons for new users", async () => {
   } finally {
     globalThis.fetch = originalFetch;
     cleanup();
+    await setFlag("mini_app_enabled", false);
+    await publish();
   }
 });
 
 Deno.test("/start shows packages/promos for returning users", async () => {
   setEnv();
+  await setFlag("mini_app_enabled", true);
+  await publish();
   const calls: Array<{ url: string; body: string }> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => {
@@ -99,5 +106,7 @@ Deno.test("/start shows packages/promos for returning users", async () => {
   } finally {
     globalThis.fetch = originalFetch;
     cleanup();
+    await setFlag("mini_app_enabled", false);
+    await publish();
   }
 });

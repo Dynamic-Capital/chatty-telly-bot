@@ -1,4 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/testing/asserts.ts";
+import { setFlag, publish } from "../src/utils/config.ts";
 
 // compute HMAC SHA-512 signature for Binance headers
 async function sign(secret: string, timestamp: string, nonce: string, body: string) {
@@ -29,6 +30,8 @@ denoEnvCleanup();
 
 denoTest("binance webhook completes payment and updates DB", async () => {
   setEnv();
+  await setFlag("payments_enabled", true);
+  await publish();
   const { calls, restore } = mockTelegram();
   try {
     const payments = [{
@@ -72,11 +75,15 @@ denoTest("binance webhook completes payment and updates DB", async () => {
     restore();
     cleanup();
     await new Promise((r) => setTimeout(r, 0));
+    await setFlag("payments_enabled", false);
+    await publish();
   }
 });
 
 denoTest("binance webhook rejects invalid signature", async () => {
   setEnv();
+  await setFlag("payments_enabled", true);
+  await publish();
   const { restore } = mockTelegram();
   try {
     const payments = [{
@@ -112,11 +119,15 @@ denoTest("binance webhook rejects invalid signature", async () => {
     restore();
     cleanup();
     await new Promise((r) => setTimeout(r, 0));
+     await setFlag("payments_enabled", false);
+     await publish();
   }
 });
 
 denoTest("binance webhook errors when payment missing", async () => {
   setEnv();
+  await setFlag("payments_enabled", true);
+  await publish();
   const { restore } = mockTelegram();
   try {
     const payments: any[] = [];
@@ -145,6 +156,8 @@ denoTest("binance webhook errors when payment missing", async () => {
     restore();
     cleanup();
     await new Promise((r) => setTimeout(r, 0));
+    await setFlag("payments_enabled", false);
+    await publish();
   }
 });
 

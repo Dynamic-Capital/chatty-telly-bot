@@ -25,7 +25,8 @@ import {
   startWorker,
   stopWorker,
 } from "../src/queue/index.ts";
-import { planBroadcast, setBroadcastsEnabled } from "../src/broadcast/index.ts";
+import { planBroadcast } from "../src/broadcast/index.ts";
+import { setFlag, publish } from "../src/utils/config.ts";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -52,6 +53,8 @@ registerTest("retries until success", async () => {
 
 registerTest("chunking creates 8 jobs for 200 recipients", async () => {
   clearQueue();
+  await setFlag("broadcasts_enabled", true);
+  await publish();
   const ids = Array.from({ length: 200 }, (_, i) => i + 1);
   await planBroadcast({
     segment: ids,
@@ -70,8 +73,10 @@ registerTest("chunking creates 8 jobs for 200 recipients", async () => {
 
 registerTest("broadcasts disabled blocks planning", async () => {
   clearQueue();
-  setBroadcastsEnabled(false);
+  await setFlag("broadcasts_enabled", false);
+  await publish();
   const ids = [1, 2, 3];
   await assertRejects(() => planBroadcast({ segment: ids, text: "nope" }));
-  setBroadcastsEnabled(true);
+  await setFlag("broadcasts_enabled", true);
+  await publish();
 });
