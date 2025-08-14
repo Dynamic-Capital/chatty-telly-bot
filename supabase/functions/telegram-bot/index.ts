@@ -4,7 +4,12 @@ import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getBotContent, getFormattedVipPackages } from "./database-utils.ts";
+import {
+  getActivePromotions,
+  getBotContent,
+  getFormattedVipPackages,
+  getUserSubscriptionDetails,
+} from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 
 interface TelegramMessage {
@@ -374,16 +379,53 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
   if (isStartMessage(msg)) {
     const supa = await getSupabase();
     let contentKey = "welcome_message";
+    let isReturning = false;
     if (supa) {
       const { data } = await supa
         .from("bot_users")
         .select("id")
         .eq("telegram_id", msg.from?.id ?? chatId)
         .maybeSingle();
-      if (data) contentKey = "welcome_back_message";
+      if (data) {
+        contentKey = "welcome_back_message";
+        isReturning = true;
+      }
     }
-    const welcome = await getBotContent(contentKey);
-    if (welcome) await notifyUser(chatId, welcome);
+    const baseWelcome = await getBotContent(contentKey);
+    if (isReturning) {
+      const sub = await getUserSubscriptionDetails(String(msg.from?.id ?? chatId));
+      const promos = await getActivePromotions(String(msg.from?.id ?? chatId));
+      let message = baseWelcome ?? "";
+      message += `\n\n📊 *Subscription*: ${sub.isVip ? "Active" : "Inactive"}`;
+      if (sub.expiresAt) {
+        message += `\n🗓 *Expires*: ${new Date(sub.expiresAt).toLocaleDateString()}`;
+      }
+      if (promos.length > 0) {
+        message += "\n\n🎁 *Promotions:*\n";
+        for (const p of promos) {
+          const discount = p.discount_type === "percentage"
+            ? `${p.discount_value}%`
+            : `$${p.discount_value}`;
+          const expiry = p.valid_until
+            ? ` (until ${new Date(p.valid_until).toLocaleDateString()})`
+            : "";
+          message += `• ${p.code} - ${discount}${expiry}\n`;
+        }
+      }
+      const keyboard = {
+        inline_keyboard: [[
+          { text: "📦 Packages", callback_data: "cmd_packages" },
+          { text: "📊 Status", callback_data: "cmd_status" },
+          { text: "🎁 Promotions", callback_data: "cmd_promo" },
+        ]],
+      };
+      await notifyUser(chatId, message, {
+        parse_mode: "Markdown",
+        reply_markup: keyboard,
+      });
+    } else if (baseWelcome) {
+      await notifyUser(chatId, baseWelcome);
+    }
     await handleStartPayload(msg);
     await sendMiniAppLink(chatId);
     return;
@@ -506,6 +548,39 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
   const data = cb.data || "";
   const userId = String(cb.from.id);
   try {
+    if (data === "cmd_packages") {
+      const msg = await getFormattedVipPackages();
+      await notifyUser(chatId, msg, { parse_mode: "Markdown" });
+      return;
+    }
+    if (data === "cmd_status") {
+      const sub = await getUserSubscriptionDetails(String(chatId));
+      const vip = sub.isVip ? "VIP: active" : "VIP: inactive";
+      const expiry = sub.expiresAt
+        ? `Expiry: ${new Date(sub.expiresAt).toLocaleDateString()}`
+        : "Expiry: none";
+      await notifyUser(chatId, `${vip}\n${expiry}`);
+      return;
+    }
+    if (data === "cmd_promo") {
+      const promos = await getActivePromotions(String(chatId));
+      let text = "No active promotions.";
+      if (promos.length > 0) {
+        text = "🎁 *Active Promotions:*\n";
+        for (const p of promos) {
+          const discount = p.discount_type === "percentage"
+            ? `${p.discount_value}%`
+            : `$${p.discount_value}`;
+          const expiry = p.valid_until
+            ? ` (until ${new Date(p.valid_until).toLocaleDateString()})`
+            : "";
+          text += `• ${p.code} - ${discount}${expiry}\n`;
+        }
+      }
+      await notifyUser(chatId, text, { parse_mode: "Markdown" });
+      return;
+    }
+
     const handlers = await loadAdminHandlers();
     if (data.startsWith("toggle_flag_")) {
       const flag = data.replace("toggle_flag_", "");

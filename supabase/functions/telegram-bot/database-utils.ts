@@ -3,6 +3,69 @@ import { createClient } from "../_shared/client.ts";
 
 const supabaseAdmin = createClient();
 
+interface UserSubscriptionDetails {
+  isVip: boolean;
+  expiresAt: string | null;
+}
+
+interface PromotionInfo {
+  id: string;
+  code: string;
+  description?: string | null;
+  discount_type: string;
+  discount_value: number;
+  valid_until: string | null;
+}
+
+export async function getUserSubscriptionDetails(
+  telegramId: string,
+): Promise<UserSubscriptionDetails> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("bot_users")
+      .select("is_vip, subscription_expires_at")
+      .eq("telegram_id", telegramId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    return {
+      isVip: data?.is_vip ?? false,
+      expiresAt: data?.subscription_expires_at ?? null,
+    };
+  } catch (error) {
+    console.error("Error fetching user subscription:", error);
+    return { isVip: false, expiresAt: null };
+  }
+}
+
+export async function getActivePromotions(
+  telegramId: string,
+): Promise<PromotionInfo[]> {
+  try {
+    const now = new Date().toISOString();
+    const { data: promos, error } = await supabaseAdmin
+      .from("promotions")
+      .select("id, code, description, discount_type, discount_value, valid_until")
+      .eq("is_active", true)
+      .lte("valid_from", now)
+      .gte("valid_until", now);
+
+    if (error || !promos) return [];
+
+    const { data: used } = await supabaseAdmin
+      .from("promotion_usage")
+      .select("promotion_id")
+      .eq("telegram_user_id", telegramId);
+
+    const usedIds = new Set(used?.map((u) => u.promotion_id));
+    return promos.filter((p) => !usedIds.has(p.id));
+  } catch (error) {
+    console.error("Error fetching active promotions:", error);
+    return [];
+  }
+}
+
 interface VipPackage {
   id: string;
   name: string;
