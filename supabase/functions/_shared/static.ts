@@ -12,6 +12,7 @@ export const DEFAULT_SECURITY = {
   "referrer-policy": "strict-origin-when-cross-origin",
   "x-content-type-options": "nosniff",
   "permissions-policy": "geolocation=(), microphone=(), camera=()",
+  "x-frame-options": "SAMEORIGIN",
   "content-security-policy":
     "default-src 'self' https://*.telegram.org https://telegram.org; " +
     "script-src 'self' 'unsafe-inline' https://*.telegram.org; " +
@@ -102,7 +103,6 @@ export async function serveStatic(req: Request, opts: StaticOpts): Promise<Respo
     const idx = await readFileFrom(opts.rootDir, "index.html");
     if (idx) {
       const h = new Headers(idx.headers);
-      h.set("x-frame-options", "ALLOWALL"); // Telegram WebView
       for (const [k, v] of Object.entries(sec)) h.set(k, v);
       return new Response(idx.body, { headers: h, status: idx.status });
     }
