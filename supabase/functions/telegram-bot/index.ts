@@ -430,6 +430,11 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
     return;
   }
 
+  // Handle pending admin plan edits before command parsing
+  const userId = String(msg.from?.id ?? chatId);
+  const handlers = await loadAdminHandlers();
+  if (await handlers.handlePlanEditInput(chatId, userId, text)) return;
+
   // Extract the command without bot mentions and gather arguments
   const [firstToken, ...args] = text.split(/\s+/);
   const command = firstToken.split("@")[0];

@@ -11,7 +11,11 @@ const { TELEGRAM_BOT_TOKEN: BOT_TOKEN } = requireEnv([
 const supabaseAdmin = createClient();
 
 // Import utility functions
-import { getBotContent, logAdminAction } from "./database-utils.ts";
+import {
+  getBotContent,
+  logAdminAction,
+  processPlanEditInput,
+} from "./database-utils.ts";
 // Removed cross-import of config helpers; provide local flag helpers for Edge isolation
 // Simple implementation stores flags in bot_settings with keys prefixed by "flag_"
 
@@ -840,6 +844,56 @@ export async function handleAddPlanFeature(
       chatId,
       "❌ Error setting up feature addition. Please try again.",
     );
+  }
+}
+
+// Process text input for plan editing
+export async function handlePlanEditInput(
+  chatId: number,
+  userId: string,
+  text: string,
+): Promise<boolean> {
+  try {
+    const { data: session } = await supabaseAdmin
+      .from("user_sessions")
+      .select("awaiting_input, session_data")
+      .eq("telegram_user_id", userId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    const planId = session?.session_data?.plan_id as string | undefined;
+    const awaiting = session?.awaiting_input as string | undefined;
+
+    if (!planId || !awaiting) return false;
+
+    const result = await processPlanEditInput(userId, text, {
+      plan_id: planId,
+      awaiting_input: awaiting,
+    });
+
+    await sendMessage(chatId, result.message);
+
+    if (result.success) {
+      await supabaseAdmin
+        .from("user_sessions")
+        .update({
+          awaiting_input: null,
+          session_data: null,
+          is_active: false,
+          last_activity: new Date().toISOString(),
+        })
+        .eq("telegram_user_id", userId);
+
+      if (result.planId) {
+        await handleEditSpecificPlan(chatId, userId, result.planId);
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error in handlePlanEditInput:", error);
+    await sendMessage(chatId, "❌ Error processing input. Please try again.");
+    return false;
   }
 }
 
