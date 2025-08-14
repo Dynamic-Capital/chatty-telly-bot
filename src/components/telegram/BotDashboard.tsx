@@ -11,6 +11,7 @@ import {
   CreditCard,
   FileText,
   Gift,
+  Copy,
   HeadphonesIcon,
   MessageSquare,
   Package,
@@ -798,13 +799,28 @@ const BotDashboard = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="font-mono font-semibold">{promo.code}</p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      aria-label={`Copy promo code ${promo.code}`}
+                      title="Copy code"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(promo.code);
+                        toast({ description: "Promo code copied" });
+                      }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
                     <Badge
                       variant="outline"
-                      className={promo.status === "Active"
-                        ? "border-green-500 text-green-600"
-                        : promo.status === "Disabled"
-                        ? "border-orange-500 text-orange-600"
-                        : "border-red-500 text-red-600"}
+                      className={
+                        promo.status === "Active"
+                          ? "border-green-500 text-green-600"
+                          : promo.status === "Disabled"
+                          ? "border-orange-500 text-orange-600"
+                          : "border-red-500 text-red-600"
+                      }
                     >
                       {promo.status}
                     </Badge>
