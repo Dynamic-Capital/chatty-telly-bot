@@ -1649,11 +1649,11 @@ export async function handleUserSessionsManagement(
 
     const { count: total } = await supabaseAdmin
       .from("user_sessions")
-      .select("count", { count: "exact" });
+      .select("*", { count: "exact", head: true });
 
     const { count: active } = await supabaseAdmin
       .from("user_sessions")
-      .select("count", { count: "exact" })
+      .select("*", { count: "exact", head: true })
       .eq("is_active", true);
 
     const sessionMessage = buildMessage("💬 *User Sessions Management*", [
@@ -1717,11 +1717,11 @@ export async function handlePaymentsManagement(
 
     const { count: total } = await supabaseAdmin
       .from("payments")
-      .select("count", { count: "exact" });
+      .select("*", { count: "exact", head: true });
 
     const { count: completed } = await supabaseAdmin
       .from("payments")
-      .select("count", { count: "exact" })
+      .select("*", { count: "exact", head: true })
       .eq("status", "completed");
 
     const paymentMessage = buildMessage("💳 *Payments Management*", [
@@ -1785,11 +1785,11 @@ export async function handleBroadcastMessagesManagement(
 
     const { count: total } = await supabaseAdmin
       .from("broadcast_messages")
-      .select("count", { count: "exact" });
+      .select("*", { count: "exact", head: true });
 
     const { count: scheduled } = await supabaseAdmin
       .from("broadcast_messages")
-      .select("count", { count: "exact" })
+      .select("*", { count: "exact", head: true })
       .eq("delivery_status", "scheduled");
 
     const broadcastMessage = buildMessage(
@@ -1861,11 +1861,11 @@ export async function handleBankAccountsManagement(
 
     const { count: total } = await supabaseAdmin
       .from("bank_accounts")
-      .select("count", { count: "exact" });
+      .select("*", { count: "exact", head: true });
 
     const { count: active } = await supabaseAdmin
       .from("bank_accounts")
-      .select("count", { count: "exact" })
+      .select("*", { count: "exact", head: true })
       .eq("is_active", true);
 
     const accountsMessage = buildMessage("🏦 *Bank Accounts Management*", [
@@ -1929,11 +1929,11 @@ export async function handleAutoReplyTemplatesManagement(
 
     const { count: total } = await supabaseAdmin
       .from("auto_reply_templates")
-      .select("count", { count: "exact" });
+      .select("*", { count: "exact", head: true });
 
     const { count: active } = await supabaseAdmin
       .from("auto_reply_templates")
-      .select("count", { count: "exact" })
+      .select("*", { count: "exact", head: true })
       .eq("is_active", true);
 
     const templateMessage = buildMessage(
@@ -2005,7 +2005,7 @@ export async function handleDailyAnalyticsManagement(
 
     const { count: total } = await supabaseAdmin
       .from("daily_analytics")
-      .select("count", { count: "exact" });
+      .select("*", { count: "exact", head: true });
 
     const latestRevenue = analytics?.[0]?.revenue || 0;
 
