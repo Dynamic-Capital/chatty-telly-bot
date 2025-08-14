@@ -1,4 +1,4 @@
-import { maybe, need } from "./env.ts";
+import { maybe, need, optionalEnv } from "./env.ts";
 import { unauth } from "./http.ts";
 
 interface SupabaseLike {
@@ -48,7 +48,7 @@ export async function readDbWebhookSecret(
 export async function expectedSecret(
   supa?: SupabaseLike,
 ): Promise<string | null> {
-  return (await readDbWebhookSecret(supa)) || maybe("TELEGRAM_WEBHOOK_SECRET");
+  return (await readDbWebhookSecret(supa)) || optionalEnv("TELEGRAM_WEBHOOK_SECRET");
 }
 
 function genHex(n = 24) {
