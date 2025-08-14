@@ -101,3 +101,41 @@ export async function getReferralLink(session_token: string, telegram_id: number
   return await r.json();
 }
 /* <<< DC BLOCK: api-core (end) */
+
+export async function createIntent(payload: Record<string, unknown>) {
+  const res = await fetch(`${base}/functions/v1/intent`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+    },
+    body: JSON.stringify({ initData: getInitData(), ...payload }),
+  });
+  return await res.json();
+}
+
+export async function uploadReceipt(file: File) {
+  const form = new FormData();
+  form.append("image", file);
+  form.append("initData", getInitData());
+  const res = await fetch(`${base}/functions/v1/receipt`, {
+    method: "POST",
+    headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+    body: form,
+  });
+  return await res.json();
+}
+
+export async function submitTxid(payload: { txid: string }) {
+  const res = await fetch(`${base}/functions/v1/crypto-txid`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+    },
+    body: JSON.stringify({ initData: getInitData(), ...payload }),
+  });
+  return await res.json();
+}
