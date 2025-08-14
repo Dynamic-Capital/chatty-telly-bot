@@ -3,7 +3,11 @@ import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
-import { getBotContent, getFormattedVipPackages, insertReceiptRecord } from "./database-utils.ts";
+import {
+  getBotContent,
+  getFormattedVipPackages,
+  insertReceiptRecord,
+} from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
 import { getFlag } from "../../../src/utils/config.ts";
@@ -262,8 +266,7 @@ export async function sendMiniAppLink(chatId: number) {
 async function menuView(
   section: "home" | "plans" | "status" | "support",
   chatId?: number,
-): Promise<{ text: string; extra: Record<string, unknown> }>
-{
+): Promise<{ text: string; extra: Record<string, unknown> }> {
   const base = {
     reply_markup: {
       inline_keyboard: [
@@ -302,7 +305,10 @@ async function menuView(
     }
     case "support": {
       const msg = await getBotContent("support_message");
-      return { text: msg ?? "Support information is unavailable.", extra: base };
+      return {
+        text: msg ?? "Support information is unavailable.",
+        extra: base,
+      };
     }
     case "home":
     default:
@@ -687,15 +693,17 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
             .from("promotions")
             .select("code,discount_type,discount_value")
             .eq("is_active", true)
-            .or(`valid_until.is.null,valid_until.gt.${new Date().toISOString()}`)
+            .or(
+              `valid_until.is.null,valid_until.gt.${new Date().toISOString()}`,
+            )
             .limit(5);
           const lines = promos?.length
             ? promos.map((p: any, i: number) => {
-                const discount = p.discount_type === "percentage"
-                  ? `${p.discount_value}%`
-                  : `$${p.discount_value}`;
-                return `${i + 1}. ${p.code} - ${discount}`;
-              }).join("\n")
+              const discount = p.discount_type === "percentage"
+                ? `${p.discount_value}%`
+                : `$${p.discount_value}`;
+              return `${i + 1}. ${p.code} - ${discount}`;
+            }).join("\n")
             : "No active promotions.";
           await notifyUser(
             chatId,
@@ -704,7 +712,7 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
           );
         } else {
           try {
-            const { data } = await supa.rpc("validate_promo_code", {
+            const { data } = await (supa as any).rpc("validate_promo_code", {
               p_code: code,
               p_telegram_user_id: String(chatId),
             });
@@ -852,7 +860,8 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
         const id = args[0];
         if (id) {
           const { handleReplay } = await loadAdminHandlers();
-          await notifyUser(chatId, JSON.stringify(handleReplay(id)));
+          const result = await handleReplay(id, userId);
+          await notifyUser(chatId, JSON.stringify(result));
         }
         break;
       }
@@ -978,7 +987,9 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
   }
 }
 
-export async function startReceiptPipeline(update: TelegramUpdate): Promise<void> {
+export async function startReceiptPipeline(
+  update: TelegramUpdate,
+): Promise<void> {
   try {
     const chatId = update.message!.chat.id;
     if (!(await getFlag("vip_sync_enabled"))) {

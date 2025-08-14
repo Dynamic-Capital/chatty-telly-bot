@@ -4,9 +4,11 @@ import { optionalEnv, requireEnv } from "../_shared/env.ts";
 import { expectedSecret } from "../_shared/telegram_secret.ts";
 import { isAdmin as isEnvAdmin } from "../_shared/telegram.ts";
 
-const { TELEGRAM_BOT_TOKEN: BOT_TOKEN } = requireEnv([
-  "TELEGRAM_BOT_TOKEN",
-] as const);
+const { TELEGRAM_BOT_TOKEN: BOT_TOKEN } = requireEnv(
+  [
+    "TELEGRAM_BOT_TOKEN",
+  ] as const,
+);
 
 const supabaseAdmin = createClient();
 
@@ -14,8 +16,12 @@ const supabaseAdmin = createClient();
 import {
   getBotContent,
   logAdminAction,
+  markIntentApproved,
+  markIntentManualReview,
   processPlanEditInput,
 } from "./database-utils.ts";
+import { ocrTextFromBlob } from "./ocr.ts";
+import { parseBankSlip } from "./bank-parsers.ts";
 // Removed cross-import of config helpers; provide local flag helpers for Edge isolation
 // Simple implementation stores flags in bot_settings with keys prefixed by "flag_"
 
@@ -78,10 +84,12 @@ async function publishFlags(chatId: number, userId: string): Promise<void> {
       data: {},
     };
 
-    const { error: rollbackErr } = await supabaseAdmin.from("kv_config").upsert({
-      key: "features:rollback",
-      value: current,
-    });
+    const { error: rollbackErr } = await supabaseAdmin.from("kv_config").upsert(
+      {
+        key: "features:rollback",
+        value: current,
+      },
+    );
     if (rollbackErr) throw rollbackErr;
 
     const { error: publishErr } = await supabaseAdmin.from("kv_config").upsert({
@@ -115,8 +123,8 @@ async function rollbackFlags(chatId: number, userId: string): Promise<void> {
       .eq("key", "features:published")
       .maybeSingle();
     if (publishedErr) throw publishedErr;
-    const published =
-      (publishedRow?.value as { ts: number; data: FlagMap }) ?? {
+    const published = (publishedRow?.value as { ts: number; data: FlagMap }) ??
+      {
         ts: now,
         data: {},
       };
@@ -127,11 +135,10 @@ async function rollbackFlags(chatId: number, userId: string): Promise<void> {
       .eq("key", "features:rollback")
       .maybeSingle();
     if (rollbackErr) throw rollbackErr;
-    const previous =
-      (rollbackRow?.value as { ts: number; data: FlagMap }) ?? {
-        ts: now,
-        data: {},
-      };
+    const previous = (rollbackRow?.value as { ts: number; data: FlagMap }) ?? {
+      ts: now,
+      data: {},
+    };
 
     const { error: setPubErr } = await supabaseAdmin.from("kv_config").upsert({
       key: "features:published",
@@ -139,10 +146,11 @@ async function rollbackFlags(chatId: number, userId: string): Promise<void> {
     });
     if (setPubErr) throw setPubErr;
 
-    const { error: setRollbackErr } = await supabaseAdmin.from("kv_config").upsert({
-      key: "features:rollback",
-      value: published,
-    });
+    const { error: setRollbackErr } = await supabaseAdmin.from("kv_config")
+      .upsert({
+        key: "features:rollback",
+        value: published,
+      });
     if (setRollbackErr) throw setRollbackErr;
 
     // sync bot_settings with rolled-back snapshot
@@ -1752,9 +1760,79 @@ export async function handleReviewList() {
   return data || [];
 }
 
-export function handleReplay(receiptId: string) {
-  // Placeholder for reprocessing a receipt
-  return { ok: true, receiptId };
+export async function handleReplay(
+  receiptId: string,
+  adminId: string,
+): Promise<Record<string, unknown>> {
+  if (!supabaseAdmin) {
+    return { ok: false, error: "no_supabase" };
+  }
+  try {
+    const { data: receipt, error } = await supabaseAdmin
+      .from("receipts")
+      .select("*")
+      .eq("id", receiptId)
+      .maybeSingle();
+    if (error || !receipt) {
+      return { ok: false, error: "not_found" };
+    }
+
+    const { data: blob, error: downloadErr } = await (supabaseAdmin.storage
+      .from("receipts") as any)
+      .download(String(receipt.file_url));
+    if (downloadErr || !blob) {
+      return { ok: false, error: "download_failed" };
+    }
+
+    const text = await ocrTextFromBlob(blob);
+    const parsed = parseBankSlip(text);
+
+    let verdict: "approved" | "manual_review" = "manual_review";
+    let reason = "needs_review";
+    if (parsed.payCode && (parsed.status === "SUCCESS" || parsed.successWord)) {
+      verdict = "approved";
+      reason = "auto_ok";
+    }
+
+    const updatePayload = {
+      ocr_text: parsed.rawText,
+      ocr_amount: parsed.amount,
+      ocr_currency: parsed.currency,
+      ocr_timestamp: parsed.ocrTxnDateIso || parsed.ocrValueDateIso,
+      ocr_beneficiary: parsed.toName,
+      ocr_pay_code: parsed.payCode,
+      verdict,
+      reason,
+    } as Record<string, unknown>;
+
+    await supabaseAdmin.from("receipts").update(updatePayload).eq(
+      "id",
+      receiptId,
+    );
+
+    if (receipt.payment_id) {
+      if (verdict === "approved") {
+        await markIntentApproved(receipt.payment_id);
+      } else {
+        await markIntentManualReview(receipt.payment_id, reason);
+      }
+    }
+
+    await logAdminAction(
+      adminId,
+      "replay_receipt",
+      `Reprocessed receipt ${receiptId} -> ${verdict}`,
+      "receipts",
+      receiptId,
+      receipt as Record<string, unknown>,
+      updatePayload,
+    );
+
+    return { ok: true, receiptId, verdict };
+  } catch (e) {
+    console.error("handleReplay error", e);
+    return { ok: false, error: String(e) };
+  }
 }
 
 export async function handleWebhookInfo() {
