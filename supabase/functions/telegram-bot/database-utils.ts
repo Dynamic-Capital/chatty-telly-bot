@@ -54,7 +54,7 @@ async function createDefaultContent(
 📈 Get premium trading signals & education
 💎 Join our VIP community
 
-👇 Choose what you need:`,
+Use the buttons below or type /packages, /vip or /help to get started.`,
     "welcome_back_message": `👋 Welcome back to Dynamic Capital VIP Bot!
 
 🔥 VIP Packages:
