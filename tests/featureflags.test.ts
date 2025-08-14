@@ -22,7 +22,7 @@ import {
 } from "../src/utils/config.ts";
 
 registerTest("feature flag workflow", async () => {
-  const name = "payments_enabled";
+  const name = "test_flag";
   // ensure starting state
   assertEquals(await getFlag(name, false), false);
   await setFlag(name, true);
