@@ -60,9 +60,10 @@ WHERE cm.bot_user_id IS NULL
 DO $$
 BEGIN
   ALTER TABLE public.channel_memberships
-    ADD CONSTRAINT channel_memberships_bot_user_id_fkey
-    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id);
-EXCEPTION WHEN duplicate_object THEN NULL;
+    DROP CONSTRAINT IF EXISTS channel_memberships_bot_user_id_fkey,
+    ADD  CONSTRAINT channel_memberships_bot_user_id_fkey
+      FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) ON DELETE CASCADE;
+EXCEPTION WHEN others THEN NULL;
 END$$;
 
 -- 3b) user_package_assignments: add bot_user_id, backfill via profiles
@@ -79,9 +80,10 @@ WHERE upa.bot_user_id IS NULL
 DO $$
 BEGIN
   ALTER TABLE public.user_package_assignments
-    ADD CONSTRAINT user_package_assignments_bot_user_id_fkey
-    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id);
-EXCEPTION WHEN duplicate_object THEN NULL;
+    DROP CONSTRAINT IF EXISTS user_package_assignments_bot_user_id_fkey,
+    ADD  CONSTRAINT user_package_assignments_bot_user_id_fkey
+      FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) ON DELETE CASCADE;
+EXCEPTION WHEN others THEN NULL;
 END$$;
 
 -- 4) ON DELETE rules
@@ -90,7 +92,16 @@ BEGIN
   ALTER TABLE public.payments
     DROP CONSTRAINT IF EXISTS payments_user_id_fkey,
     ADD  CONSTRAINT payments_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES public.bot_users(id) ON DELETE RESTRICT;
+    FOREIGN KEY (user_id) REFERENCES public.bot_users(id) ON DELETE SET NULL;
+EXCEPTION WHEN others THEN NULL;
+END$$;
+
+DO $$
+BEGIN
+  ALTER TABLE public.payments
+    DROP CONSTRAINT IF EXISTS payments_plan_id_fkey,
+    ADD  CONSTRAINT payments_plan_id_fkey
+    FOREIGN KEY (plan_id) REFERENCES public.subscription_plans(id) ON DELETE SET NULL;
 EXCEPTION WHEN others THEN NULL;
 END$$;
 
@@ -109,6 +120,15 @@ BEGIN
     DROP CONSTRAINT IF EXISTS channel_memberships_package_id_fkey,
     ADD  CONSTRAINT channel_memberships_package_id_fkey
     FOREIGN KEY (package_id) REFERENCES public.subscription_plans(id) ON DELETE SET NULL;
+EXCEPTION WHEN others THEN NULL;
+END$$;
+
+DO $$
+BEGIN
+  ALTER TABLE public.channel_memberships
+    DROP CONSTRAINT IF EXISTS channel_memberships_user_id_fkey,
+    ADD  CONSTRAINT channel_memberships_user_id_fkey
+    FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
 EXCEPTION WHEN others THEN NULL;
 END$$;
 
