@@ -59,7 +59,7 @@ export type Database = {
           is_active: boolean
           message_template: string
           name: string
-          trigger_type: string
+          trigger_type: Database["public"]["Enums"]["auto_reply_trigger_type"]
           updated_at: string
         }
         Insert: {
@@ -70,7 +70,7 @@ export type Database = {
           is_active?: boolean
           message_template: string
           name: string
-          trigger_type: string
+          trigger_type: Database["public"]["Enums"]["auto_reply_trigger_type"]
           updated_at?: string
         }
         Update: {
@@ -81,7 +81,7 @@ export type Database = {
           is_active?: boolean
           message_template?: string
           name?: string
-          trigger_type?: string
+          trigger_type?: Database["public"]["Enums"]["auto_reply_trigger_type"]
           updated_at?: string
         }
         Relationships: []
@@ -299,7 +299,7 @@ export type Database = {
         Row: {
           content: string | null
           created_at: string | null
-          delivery_status: string | null
+          delivery_status: Database["public"]["Enums"]["broadcast_status_enum"] | null
           failed_deliveries: number | null
           id: string
           media_file_id: string | null
@@ -319,7 +319,7 @@ export type Database = {
         Insert: {
           content?: string | null
           created_at?: string | null
-          delivery_status?: string | null
+          delivery_status?: Database["public"]["Enums"]["broadcast_status_enum"] | null
           failed_deliveries?: number | null
           id?: string
           media_file_id?: string | null
@@ -339,7 +339,7 @@ export type Database = {
         Update: {
           content?: string | null
           created_at?: string | null
-          delivery_status?: string | null
+          delivery_status?: Database["public"]["Enums"]["broadcast_status_enum"] | null
           failed_deliveries?: number | null
           id?: string
           media_file_id?: string | null
@@ -579,14 +579,14 @@ export type Database = {
           completion_date: string | null
           created_at: string
           enrollment_date: string
-          enrollment_status: string
+          enrollment_status: Database["public"]["Enums"]["enrollment_status_enum"]
           id: string
           notes: string | null
           package_id: string
           payment_amount: number | null
           payment_method: string | null
           payment_reference: string | null
-          payment_status: string
+          payment_status: Database["public"]["Enums"]["payment_status_enum"]
           progress_percentage: number | null
           receipt_file_path: string | null
           receipt_telegram_file_id: string | null
@@ -603,14 +603,14 @@ export type Database = {
           completion_date?: string | null
           created_at?: string
           enrollment_date?: string
-          enrollment_status?: string
+          enrollment_status?: Database["public"]["Enums"]["enrollment_status_enum"]
           id?: string
           notes?: string | null
           package_id: string
           payment_amount?: number | null
           payment_method?: string | null
           payment_reference?: string | null
-          payment_status?: string
+          payment_status?: Database["public"]["Enums"]["payment_status_enum"]
           progress_percentage?: number | null
           receipt_file_path?: string | null
           receipt_telegram_file_id?: string | null
@@ -627,14 +627,14 @@ export type Database = {
           completion_date?: string | null
           created_at?: string
           enrollment_date?: string
-          enrollment_status?: string
+          enrollment_status?: Database["public"]["Enums"]["enrollment_status_enum"]
           id?: string
           notes?: string | null
           package_id?: string
           payment_amount?: number | null
           payment_method?: string | null
           payment_reference?: string | null
-          payment_status?: string
+          payment_status?: Database["public"]["Enums"]["payment_status_enum"]
           progress_percentage?: number | null
           receipt_file_path?: string | null
           receipt_telegram_file_id?: string | null
@@ -800,7 +800,7 @@ export type Database = {
           payment_method: string
           payment_provider_id: string | null
           plan_id: string
-          status: string
+          status: Database["public"]["Enums"]["payment_status_enum"]
           updated_at: string
           user_id: string
           webhook_data: Json | null
@@ -813,7 +813,7 @@ export type Database = {
           payment_method: string
           payment_provider_id?: string | null
           plan_id: string
-          status?: string
+          status?: Database["public"]["Enums"]["payment_status_enum"]
           updated_at?: string
           user_id: string
           webhook_data?: Json | null
@@ -826,7 +826,7 @@ export type Database = {
           payment_method?: string
           payment_provider_id?: string | null
           plan_id?: string
-          status?: string
+          status?: Database["public"]["Enums"]["payment_status_enum"]
           updated_at?: string
           user_id?: string
           webhook_data?: Json | null
@@ -1186,7 +1186,7 @@ export type Database = {
           is_active: boolean | null
           payment_instructions: string | null
           payment_method: string | null
-          payment_status: string | null
+          payment_status: Database["public"]["Enums"]["payment_status_enum"] | null
           plan_id: string | null
           receipt_file_path: string | null
           receipt_telegram_file_id: string | null
@@ -1203,7 +1203,7 @@ export type Database = {
           is_active?: boolean | null
           payment_instructions?: string | null
           payment_method?: string | null
-          payment_status?: string | null
+          payment_status?: Database["public"]["Enums"]["payment_status_enum"] | null
           plan_id?: string | null
           receipt_file_path?: string | null
           receipt_telegram_file_id?: string | null
@@ -1220,7 +1220,7 @@ export type Database = {
           is_active?: boolean | null
           payment_instructions?: string | null
           payment_method?: string | null
-          payment_status?: string | null
+          payment_status?: Database["public"]["Enums"]["payment_status_enum"] | null
           plan_id?: string | null
           receipt_file_path?: string | null
           receipt_telegram_file_id?: string | null
@@ -1375,7 +1375,12 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      auto_reply_trigger_type: "keyword" | "regex" | "command"
+      payment_status_enum: "pending" | "completed" | "failed" | "refunded"
+      enrollment_status_enum: "pending" | "active" | "completed" | "cancelled"
+      broadcast_status_enum: "draft" | "scheduled" | "sending" | "completed" | "failed"
+      payment_intent_status_enum: "pending" | "approved" | "manual_review" | "rejected"
+      receipt_verdict_enum: "approved" | "manual_review" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1502,6 +1507,13 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      auto_reply_trigger_type: ["keyword", "regex", "command"],
+      payment_status_enum: ["pending", "completed", "failed", "refunded"],
+      enrollment_status_enum: ["pending", "active", "completed", "cancelled"],
+      broadcast_status_enum: ["draft", "scheduled", "sending", "completed", "failed"],
+      payment_intent_status_enum: ["pending", "approved", "manual_review", "rejected"],
+      receipt_verdict_enum: ["approved", "manual_review", "rejected"],
+    },
   },
 } as const
