@@ -1,6 +1,6 @@
 // supabase/functions/_shared/static.ts
 import { mna, nf, ok } from "./http.ts";
-import { lookup } from "https://deno.land/std/media_types/mod.ts";
+import { lookup } from "https://deno.land/std@0.224.0/media_types/mod.ts";
 
 export type StaticOpts = {
   rootDir: URL; // e.g., new URL("../miniapp/static/", import.meta.url)
