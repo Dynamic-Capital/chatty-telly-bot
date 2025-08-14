@@ -55,6 +55,19 @@ async function createDefaultContent(
 💎 Join our VIP community
 
 👇 Choose what you need:`,
+    "welcome_back_message": `👋 Welcome back to Dynamic Capital VIP Bot!
+
+🔥 VIP Packages:
+• 1 Month – access to premium signals
+• 3 Months – best value plan
+• Lifetime – one-time payment for lifetime access
+
+Available commands:
+/start - Main menu
+/vip - View VIP packages
+/help - Show help
+/support - Contact support
+/about - About us`,
     "about_us": `🏢 About Dynamic Capital
 
 We are a leading trading education and signals provider with years of experience in financial markets.

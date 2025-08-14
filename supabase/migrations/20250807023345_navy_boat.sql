@@ -49,6 +49,30 @@ VALUES (
   'system'
 ) ON CONFLICT (content_key) DO NOTHING;
 
+-- Insert default welcome back message for returning users
+INSERT INTO bot_content (content_key, content_value, content_type, description, is_active, created_by, last_modified_by)
+VALUES (
+  'welcome_back_message',
+  '👋 Welcome back to Dynamic Capital VIP Bot!
+
+🔥 VIP Packages:
+• 1 Month – access to premium signals
+• 3 Months – best value plan
+• Lifetime – one-time payment for lifetime access
+
+Available commands:
+/start - Main menu
+/vip - View VIP packages
+/help - Show help
+/support - Contact support
+/about - About us',
+  'text',
+  'Welcome message for returning users',
+  true,
+  'system',
+  'system'
+) ON CONFLICT (content_key) DO NOTHING;
+
 -- Insert other essential content entries
 INSERT INTO bot_content (content_key, content_value, content_type, description, is_active, created_by, last_modified_by)
 VALUES 
