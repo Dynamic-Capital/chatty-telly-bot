@@ -93,12 +93,12 @@ async function sendMessage(
   chatId: number,
   text: string,
   extra: Record<string, unknown> = {},
-): Promise<void> {
+): Promise<number | null> {
   if (!BOT_TOKEN) {
     console.warn(
       "TELEGRAM_BOT_TOKEN is not set; cannot send message",
     );
-    return;
+    return null;
   }
   try {
     const r = await fetch(
@@ -109,10 +109,18 @@ async function sendMessage(
         body: JSON.stringify({ chat_id: chatId, text, ...extra }),
       },
     );
-    const out = await r.text();
-    console.log("sendMessage", r.status, out.slice(0, 200));
+    const outText = await r.text();
+    console.log("sendMessage", r.status, outText.slice(0, 200));
+    try {
+      const out = JSON.parse(outText);
+      const id = out?.result?.message_id;
+      return typeof id === "number" ? id : null;
+    } catch {
+      return null;
+    }
   } catch (e) {
     console.error("sendMessage error", e);
+    return null;
   }
 }
 
@@ -121,12 +129,12 @@ async function editMessage(
   messageId: number,
   text: string,
   extra: Record<string, unknown> = {},
-): Promise<void> {
+): Promise<boolean> {
   if (!BOT_TOKEN) {
     console.warn(
       "TELEGRAM_BOT_TOKEN is not set; cannot edit message",
     );
-    return;
+    return false;
   }
   try {
     const r = await fetch(
@@ -142,10 +150,17 @@ async function editMessage(
         }),
       },
     );
-    const out = await r.text();
-    console.log("editMessage", r.status, out.slice(0, 200));
+    const outText = await r.text();
+    console.log("editMessage", r.status, outText.slice(0, 200));
+    try {
+      const out = JSON.parse(outText);
+      return Boolean(out?.ok);
+    } catch {
+      return false;
+    }
   } catch (e) {
     console.error("editMessage error", e);
+    return false;
   }
 }
 
@@ -295,9 +310,60 @@ async function menuView(
   }
 }
 
-async function sendMainMenu(chatId: number): Promise<void> {
-  const view = await menuView("home", chatId);
-  await sendMessage(chatId, view.text, view.extra);
+async function getMenuMessageId(chatId: number): Promise<number | null> {
+  const supa = await getSupabase();
+  if (!supa) return null;
+  const { data } = await supa
+    .from("bot_users")
+    .select("menu_message_id")
+    .eq("telegram_id", chatId)
+    .maybeSingle();
+  return data?.menu_message_id ?? null;
+}
+
+async function setMenuMessageId(
+  chatId: number,
+  messageId: number | null,
+): Promise<void> {
+  const supa = await getSupabase();
+  if (!supa) return;
+  try {
+    await supa
+      .from("bot_users")
+      .update({ menu_message_id: messageId })
+      .eq("telegram_id", chatId);
+  } catch {
+    /* ignore */
+  }
+}
+
+async function sendMainMenu(
+  chatId: number,
+  section: "home" | "plans" | "status" | "support" = "home",
+): Promise<number | null> {
+  const view = await menuView(section, chatId);
+  const msgId = await sendMessage(chatId, view.text, view.extra);
+  if (msgId !== null) {
+    await setMenuMessageId(chatId, msgId);
+  }
+  return msgId;
+}
+
+async function showMainMenu(
+  chatId: number,
+  section: "home" | "plans" | "status" | "support" = "home",
+): Promise<void> {
+  const existing = await getMenuMessageId(chatId);
+  const view = await menuView(section, chatId);
+  if (existing) {
+    const ok = await editMessage(chatId, existing, view.text, view.extra);
+    if (!ok) {
+      await setMenuMessageId(chatId, null);
+      await sendMainMenu(chatId, section);
+    }
+  } else {
+    await sendMainMenu(chatId, section);
+  }
 }
 
 async function extractTelegramUpdate(
@@ -554,7 +620,7 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
     }
     await handleStartPayload(msg);
     if (miniAppValid) {
-      await sendMainMenu(chatId);
+      await showMainMenu(chatId);
     } else {
       await sendMiniAppLink(chatId);
     }
@@ -575,13 +641,13 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
       case "/start":
       case "/app":
         if (miniAppValid) {
-          await sendMainMenu(chatId);
+          await showMainMenu(chatId);
         } else {
           await sendMiniAppLink(chatId);
         }
         break;
       case "/menu":
-        await sendMainMenu(chatId);
+        await showMainMenu(chatId);
         break;
       case "/help": {
         const msg = await getBotContent("help_message");
@@ -774,11 +840,7 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         | "status"
         | "support";
       await answerCallbackQuery(cb.id);
-      const msgId = cb.message?.message_id;
-      if (msgId !== undefined) {
-        const view = await menuView(section, chatId);
-        await editMessage(chatId, msgId, view.text, view.extra);
-      }
+      await showMainMenu(chatId, section);
       return;
     }
 
@@ -956,8 +1018,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
       ? getFileIdFromUpdate(update)
       : null;
     if (fileId) {
-      // Fire-and-forget: run receipt processing without delaying the response
-      void startReceiptPipeline(update);
+      await startReceiptPipeline(update);
     }
 
     return ok({ handled: true });
