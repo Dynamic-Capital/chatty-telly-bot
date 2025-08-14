@@ -31,7 +31,7 @@ export async function handler(req: Request): Promise<Response> {
   if (!user) return nf("User not found");
 
   if (body.decision === "reject") {
-    await supa.from("payments").update({ status: "failed" }).eq("id", p.id);
+    await supa.from("payments").update({ status: "failed" }).eq("id", p.id).single();
     if (user.telegram_id) await tgSend(bot, String(user.telegram_id), `❌ <b>Payment Failed</b>\\n${body.message || "Please contact support."}`);
     await supa.from("admin_logs").insert({
       admin_telegram_id: String(u.id),
@@ -56,12 +56,12 @@ export async function handler(req: Request): Promise<Response> {
   const next = new Date(base); next.setMonth(next.getMonth() + (months || 1));
   const expiresAt = next.toISOString();
 
-  await supa.from("payments").update({ status: "completed" }).eq("id", p.id);
+  await supa.from("payments").update({ status: "completed" }).eq("id", p.id).single();
   await supa.from("user_subscriptions").upsert({
     telegram_user_id: user.telegram_id, plan_id: p.plan_id, payment_status: "completed",
     is_active: true, subscription_start_date: now.toISOString(), subscription_end_date: expiresAt
   }, { onConflict: "telegram_user_id" });
-  await supa.from("bot_users").update({ is_vip: true, subscription_expires_at: expiresAt }).eq("id", user.id);
+  await supa.from("bot_users").update({ is_vip: true, subscription_expires_at: expiresAt }).eq("id", user.id).single();
 
   if (user.telegram_id) await tgSend(bot, String(user.telegram_id), `✅ <b>VIP Activated</b>\nValid until <b>${new Date(expiresAt).toLocaleDateString()}</b>.`);
   await supa.from("admin_logs").insert({

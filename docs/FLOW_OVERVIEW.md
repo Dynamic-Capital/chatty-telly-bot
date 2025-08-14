@@ -14,11 +14,9 @@ flowchart LR
 sequenceDiagram
   participant User
   participant Bot
-  participant Edge as Edge Function: binance-pay-webhook
   participant DB as Supabase (DB)
   User->>Bot: Pay + Provide receipt
-  Bot->>Edge: /verify (admin) or webhook
-  Edge->>DB: payments.status=completed
-  DB-->>DB: trigger/logic updates user_subscriptions
-  Edge->>Bot: Invite link / access granted
+  Bot->>DB: store receipt, mark pending
+  Admin->>DB: approve payment
+  DB-->>Bot: Invite link / access granted
 ```

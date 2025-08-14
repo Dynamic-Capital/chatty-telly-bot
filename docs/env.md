@@ -43,9 +43,8 @@ This document lists environment variables used across the bot, mini app, and mai
 | `WINDOW_SECONDS` | Time window for receipt timestamps. | No | `180` | `supabase/functions/telegram-bot/index.ts` |
 | `RATE_LIMIT_PER_MINUTE` | Per-user rate limit for Telegram commands. | No | `20` | `supabase/functions/telegram-bot/index.ts` |
 | `BENEFICIARY_TABLE` | Override beneficiaries table name. | No | `beneficiaries` | `supabase/functions/telegram-bot/helpers/beneficiary.ts` |
-| `BINANCE_ENABLED` | Toggle Binance Pay integrations. | No | `true` | `supabase/functions/binancepay-webhook/index.ts`, `supabase/functions/payments-auto-review/index.ts` |
 | `BINANCE_API_KEY` | Binance Pay API key. | No | `binance-api-key` | `supabase/functions/binance-pay-checkout/index.ts` |
-| `BINANCE_SECRET_KEY` | Binance Pay secret key. | No | `binance-secret` | `supabase/functions/binance-pay-checkout/index.ts`, `supabase/functions/binance-pay-webhook/index.ts` |
+| `BINANCE_SECRET_KEY` | Binance Pay secret key. | No | `binance-secret` | `supabase/functions/binance-pay-checkout/index.ts` |
 | `RETENTION_DAYS` | Number of days to keep logs before purge. | No | `90` | `supabase/functions/data-retention-cron/index.ts` |
 | `ADMIN_API_SECRET` | Shared secret for privileged admin endpoints. | Yes for admin tasks | `hexstring` | `supabase/functions/rotate-webhook-secret/index.ts`, `supabase/functions/admin-review-payment/index.ts` |
 

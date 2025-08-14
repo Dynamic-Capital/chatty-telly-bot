@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
 import { ok, mna, oops, unauth, bad, nf } from "../_shared/http.ts";
-import { verifyBinancePayment } from "./binance.ts";
 
 const need = (k: string) =>
   Deno.env.get(k) || (() => {
@@ -115,19 +114,10 @@ serve(async (req) => {
           : `fail(conf=${ocr.confidence},within=${within},cur=${curOK},time=${timeOK})`;
       }
 
-      // Optional: provider hooks (Binance Pay) — only if enabled and we have provider id
-      if (
-        !pass && Deno.env.get("BINANCE_ENABLED") === "true" &&
-        p.payment_method === "binance_pay" && p.payment_provider_id
-      ) {
-        try {
-          if (await verifyBinancePayment(p.payment_provider_id)) {
-            pass = true;
-            reason = "binance_ok";
-          }
-        } catch (err) {
-          console.error("Binance verification failed", err);
-        }
+      // Auto-approve crypto payments (e.g., USDT transfers)
+      if (!pass && p.payment_method === "crypto") {
+        pass = true;
+        reason = "crypto_auto";
       }
 
       if (pass) {
