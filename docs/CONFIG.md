@@ -24,3 +24,9 @@ The project relies on a shared set of environment keys. Set them in your local `
 `✅` indicates where each key should be set.
 
 `MINI_APP_URL` should point to the deployed Telegram Mini App (for example, `https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/`). If set, the bot shows a Mini App button and will automatically append a trailing slash if missing to avoid redirect issues.
+
+## Feature flags
+
+Feature flags are stored in the `kv_config` table and can be toggled via the admin bot.
+The `vip_sync_enabled` flag controls synchronization of VIP data. When disabled,
+all VIP sync operations stop immediately.

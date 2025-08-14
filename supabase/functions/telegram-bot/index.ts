@@ -6,6 +6,7 @@ import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getBotContent, getFormattedVipPackages } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
+import { syncVipData } from "./vip-sync.ts";
 
 interface TelegramMessage {
   chat: { id: number; type?: string };
@@ -580,6 +581,26 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
         const { handleWebhookInfo } = await loadAdminHandlers();
         const info = await handleWebhookInfo();
         await notifyUser(chatId, JSON.stringify(info));
+        break;
+      }
+      case "/syncvip": {
+        const supa = await getSupabase();
+        if (supa) {
+          const { data: admin } = await supa
+            .from("bot_users")
+            .select("is_admin")
+            .eq("telegram_id", chatId)
+            .maybeSingle();
+          if (!admin?.is_admin) {
+            await notifyUser(chatId, "❌ Access denied.");
+            break;
+          }
+          const ran = await syncVipData(supa);
+          await notifyUser(
+            chatId,
+            ran ? "VIP sync completed." : "VIP sync disabled.",
+          );
+        }
         break;
       }
       case "/admin": {
