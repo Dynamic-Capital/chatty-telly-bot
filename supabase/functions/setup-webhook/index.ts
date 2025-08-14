@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { getEnv } from "../_shared/env.ts";
 import { createLogger } from "../_shared/logger.ts";
 import { ensureWebhookSecret } from "../_shared/telegram_secret.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,8 +32,7 @@ serve(async (req) => {
     logger.info("Setting up Telegram webhook...");
 
     const supabaseUrl = getEnv("SUPABASE_URL");
-    const serviceKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
-    const supa = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+    const supa = createClient();
     const secret = await ensureWebhookSecret(supa);
 
     // Get the webhook URL for our telegram-bot function

@@ -1,13 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/client.ts";
 import { ok } from "../_shared/http.ts";
-import { getEnv } from "../_shared/env.ts";
 
-function svc() {
-  const url = getEnv("SUPABASE_URL");
-  const key = getEnv("SUPABASE_SERVICE_ROLE_KEY");
-  return createClient(url, key, { auth: { persistSession: false } });
-}
 function isoDay(d: Date) {
   return d.toISOString().slice(0, 10);
 }
@@ -18,7 +12,7 @@ serve(async (req) => {
     return ok({ name: "analytics-collector", ts: new Date().toISOString() });
   }
   if (req.method === "HEAD") return new Response(null, { status: 200 });
-  const supa = svc();
+  const supa = createClient();
 
   // Define "day" as UTC day for simplicity; adjust if you prefer MVT (UTC+5).
   const today = new Date();

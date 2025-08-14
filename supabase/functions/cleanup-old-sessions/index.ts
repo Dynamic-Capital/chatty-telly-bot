@@ -1,22 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { createClient } from "../_shared/client.ts";
 import { requireEnv } from "../_shared/env.ts";
 
-const {
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY,
-  TELEGRAM_BOT_TOKEN: BOT_TOKEN,
-} = requireEnv(
-  [
-    "SUPABASE_URL",
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "TELEGRAM_BOT_TOKEN",
-  ] as const,
-);
+const { TELEGRAM_BOT_TOKEN: BOT_TOKEN } = requireEnv([
+  "TELEGRAM_BOT_TOKEN",
+] as const);
 
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false },
-});
+const supabaseAdmin = createClient();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

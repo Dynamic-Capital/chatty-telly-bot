@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getEnv } from "../_shared/env.ts";
+import { createClient } from "../_shared/client.ts";
 
 serve(async (_req) => {
   const report: Record<string, unknown> = { ok: true, checks: {} };
@@ -23,11 +22,7 @@ serve(async (_req) => {
 
   // DB ping
   try {
-    const supa = createClient(
-      getEnv("SUPABASE_URL"),
-      getEnv("SUPABASE_SERVICE_ROLE_KEY"),
-      { auth: { persistSession: false } },
-    );
+    const supa = createClient();
     const { data, error } = await supa.from("bot_users").select("id").limit(1);
     report.checks!["db"] = !error;
     if (error) report.ok = false;

@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/client.ts";
 import { verifyInitDataAndGetUser, isAdmin } from "../_shared/telegram.ts";
-import { requireEnv } from "../_shared/env.ts";
 
 serve(async (req) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
@@ -10,9 +9,7 @@ serve(async (req) => {
   const u = await verifyInitDataAndGetUser(body.initData || "");
   if (!u || !isAdmin(u.id)) return new Response("Unauthorized", { status: 401 });
 
-  const { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: svc } =
-    requireEnv(["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const);
-  const supa = createClient(url, svc, { auth: { persistSession: false } });
+  const supa = createClient();
 
   const limit = Math.min(Math.max(body.limit ?? 20, 1), 100);
   const offset = Math.max(body.offset ?? 0, 0);

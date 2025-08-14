@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/client.ts";
 import { unauth, ok } from "../_shared/http.ts";
 import { expectedSecret, readDbWebhookSecret } from "../_shared/telegram_secret.ts";
 
@@ -75,11 +75,7 @@ serve(async (req) => {
       `https://${ref}.functions.supabase.co/miniapp/`,
   );
 
-  const supa = createClient(
-    need("SUPABASE_URL"),
-    need("SUPABASE_SERVICE_ROLE_KEY"),
-    { auth: { persistSession: false } },
-  );
+  const supa = createClient();
   const token = need("TELEGRAM_BOT_TOKEN");
 
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};

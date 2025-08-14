@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/client.ts";
 import { ok, mna, oops, unauth, bad, nf } from "../_shared/http.ts";
 import { verifyBinancePayment } from "./binance.ts";
 
@@ -45,11 +45,7 @@ serve(async (req) => {
       return mna();
     }
 
-    const supa = createClient(
-      need("SUPABASE_URL"),
-      need("SUPABASE_SERVICE_ROLE_KEY"),
-      { auth: { persistSession: false } },
-    );
+    const supa = createClient();
 
     // Pull tolerance & window from bot_settings (fallbacks)
     const { data: tolRow } = await supa.from("bot_settings").select(

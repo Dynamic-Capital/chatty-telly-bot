@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { createClient } from "../_shared/client.ts";
 import { optionalEnv, requireEnv } from "../_shared/env.ts";
 import { createLogger } from "../_shared/logger.ts";
 
@@ -14,16 +14,10 @@ const corsHeaders = {
 const {
   BINANCE_API_KEY: _BINANCE_PAY_API_KEY,
   BINANCE_SECRET_KEY: _BINANCE_PAY_SECRET_KEY,
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY,
-} = requireEnv(
-  [
-    "BINANCE_API_KEY",
-    "BINANCE_SECRET_KEY",
-    "SUPABASE_URL",
-    "SUPABASE_SERVICE_ROLE_KEY",
-  ] as const,
-);
+} = requireEnv([
+  "BINANCE_API_KEY",
+  "BINANCE_SECRET_KEY",
+] as const);
 const _BINANCE_PAY_MERCHANT_ID = "59586072";
 const _BINANCE_PAY_BASE_URL = "https://bpay.binanceapi.com";
 
@@ -115,7 +109,7 @@ serve(async (req) => {
     }
 
     // Initialize Supabase client
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient();
     logger.info("Supabase client initialized");
 
     // Get plan details
