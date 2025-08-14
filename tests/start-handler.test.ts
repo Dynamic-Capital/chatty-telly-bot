@@ -158,7 +158,7 @@ Deno.test("/start deep-link used when MINI_APP_URL missing", async () => {
     const second = JSON.parse(calls[1].body);
     assertEquals(
       second.text,
-      "Open the VIP Mini App: https://t.me/mybot/shorty\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)",
+      "Join the VIP Mini App: https://t.me/mybot/shorty\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)",
     );
     assertEquals(second.reply_markup, undefined);
   } finally {

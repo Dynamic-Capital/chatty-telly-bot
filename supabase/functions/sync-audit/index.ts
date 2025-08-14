@@ -146,7 +146,7 @@ serve(async (req) => {
       const set = await tg(token, "setChatMenuButton", {
         menu_button: {
           type: "web_app",
-          text: "Open VIP Mini App",
+          text: "Join",
           web_app: { url: targetMenu },
         },
       });
