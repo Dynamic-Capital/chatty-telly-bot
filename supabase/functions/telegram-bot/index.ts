@@ -268,7 +268,7 @@ async function menuView(
     reply_markup: {
       inline_keyboard: [
         [{ text: "Home", callback_data: "menu:home" }],
-        [{ text: "Plans", callback_data: "menu:plans" }],
+        [{ text: "Packages", callback_data: "menu:plans" }],
         [{ text: "Status", callback_data: "menu:status" }],
         [{ text: "Support", callback_data: "menu:support" }],
       ],
@@ -672,6 +672,75 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
       case "/packages": {
         const msg = await getFormattedVipPackages();
         await notifyUser(chatId, msg, { parse_mode: "Markdown" });
+        break;
+      }
+      case "/promo": {
+        const parts = (msg.text || "").split(/\s+/);
+        const code = parts[1];
+        const supa = await getSupabase();
+        if (!supa) {
+          await notifyUser(chatId, "Promotions are currently unavailable.");
+          break;
+        }
+        if (!code) {
+          const { data: promos } = await supa
+            .from("promotions")
+            .select("code,discount_type,discount_value")
+            .eq("is_active", true)
+            .or(`valid_until.is.null,valid_until.gt.${new Date().toISOString()}`)
+            .limit(5);
+          const lines = promos?.length
+            ? promos.map((p: any, i: number) => {
+                const discount = p.discount_type === "percentage"
+                  ? `${p.discount_value}%`
+                  : `$${p.discount_value}`;
+                return `${i + 1}. ${p.code} - ${discount}`;
+              }).join("\n")
+            : "No active promotions.";
+          await notifyUser(
+            chatId,
+            `🎁 *Active Promotions:*\n${lines}\n\nUse /promo CODE to apply.`,
+            { parse_mode: "Markdown" },
+          );
+        } else {
+          try {
+            const { data } = await supa.rpc("validate_promo_code", {
+              p_code: code,
+              p_telegram_user_id: String(chatId),
+            });
+            const res = Array.isArray(data) ? data[0] : data;
+            if (res?.valid) {
+              const promo_data = { code } as Record<string, unknown>;
+              const { data: us } = await supa
+                .from("user_sessions")
+                .select("id")
+                .eq("telegram_user_id", String(chatId))
+                .limit(1)
+                .maybeSingle();
+              if (us?.id) {
+                await supa
+                  .from("user_sessions")
+                  .update({ promo_data })
+                  .eq("id", us.id);
+              } else {
+                await supa.from("user_sessions").insert({
+                  telegram_user_id: String(chatId),
+                  promo_data,
+                  last_activity: new Date().toISOString(),
+                  is_active: true,
+                });
+              }
+              await notifyUser(
+                chatId,
+                "✅ Promo code applied! It will be used at checkout.",
+              );
+            } else {
+              await notifyUser(chatId, "❌ Invalid or expired promo code.");
+            }
+          } catch {
+            await notifyUser(chatId, "❌ Error validating promo code.");
+          }
+        }
         break;
       }
       case "/dashboard": {

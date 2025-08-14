@@ -403,6 +403,7 @@ export async function getFormattedVipPackages(): Promise<string> {
 
   message +=
     `✅ *Ready to level up your trading?*\nSelect a package below to get started!`;
+  message += `\n\n🎁 Have a promo code? Use /promo CODE to apply it.`;
 
   return message;
 }
