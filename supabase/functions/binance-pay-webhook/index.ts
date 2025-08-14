@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
 import { optionalEnv } from "../_shared/env.ts";
 import { createLogger } from "../_shared/logger.ts";
+import { getFlag } from "../../../src/utils/config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,6 +58,14 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   const logger = getLogger(req);
+
+  if (!(await getFlag("payments_enabled"))) {
+    logger.info("Payments feature disabled");
+    return new Response(
+      JSON.stringify({ success: false, message: "Payments disabled" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
 
   try {
     const rawBody = await req.text();

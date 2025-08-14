@@ -1,4 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/testing/asserts.ts";
+import { setFlag, publish } from "../src/utils/config.ts";
 
 // helper to compute HMAC SHA-512 signature
 async function sign(secret: string, timestamp: string, nonce: string, body: string) {
@@ -28,6 +29,8 @@ function setupTelegramMock() {
 }
 
 Deno.test("binance webhook processes successful payment", async () => {
+  await setFlag("payments_enabled", true);
+  await publish();
   Deno.env.set("SUPABASE_URL", "https://supabase.test");
   Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "svc");
   Deno.env.set("TELEGRAM_BOT_TOKEN", "tbot");
@@ -76,10 +79,14 @@ Deno.test("binance webhook processes successful payment", async () => {
   } finally {
     restore();
     await new Promise((r) => setTimeout(r, 0));
+    await setFlag("payments_enabled", false);
+    await publish();
   }
 });
 
 Deno.test("binance webhook rejects invalid signature", async () => {
+  await setFlag("payments_enabled", true);
+  await publish();
   Deno.env.set("SUPABASE_URL", "https://supabase.test");
   Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "svc");
   Deno.env.set("TELEGRAM_BOT_TOKEN", "tbot");
@@ -113,5 +120,7 @@ Deno.test("binance webhook rejects invalid signature", async () => {
   } finally {
     restore();
     await new Promise((r) => setTimeout(r, 0));
+    await setFlag("payments_enabled", false);
+    await publish();
   }
 });

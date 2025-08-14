@@ -53,6 +53,8 @@ registerTest("retries until success", async () => {
 
 registerTest("chunking creates 8 jobs for 200 recipients", async () => {
   clearQueue();
+  await setFlag("broadcasts_enabled", true);
+  await publish();
   const ids = Array.from({ length: 200 }, (_, i) => i + 1);
   await setFlag("broadcasts_enabled", true);
   await publish();

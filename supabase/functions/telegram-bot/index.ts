@@ -6,6 +6,7 @@ import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getBotContent, getFormattedVipPackages } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
+import { getFlag } from "../../../src/utils/config.ts";
 
 interface TelegramMessage {
   chat: { id: number; type?: string };
@@ -123,7 +124,8 @@ async function notifyUser(
   await sendMessage(chatId, text, extra);
 }
 
-async function sendMiniAppLink(chatId: number) {
+export async function sendMiniAppLink(chatId: number) {
+  if (!(await getFlag("mini_app_enabled"))) return;
   if (!BOT_TOKEN) return;
 
   const rawUrl = optionalEnv("MINI_APP_URL") || "";
@@ -686,9 +688,13 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
   }
 }
 
-async function startReceiptPipeline(update: TelegramUpdate): Promise<void> {
+export async function startReceiptPipeline(update: TelegramUpdate): Promise<void> {
   try {
     const chatId = update.message!.chat.id;
+    if (!(await getFlag("vip_sync_enabled"))) {
+      await notifyUser(chatId, "VIP sync is currently disabled.");
+      return;
+    }
     await notifyUser(chatId, "Receipt processing is temporarily disabled.");
   } catch (err) {
     console.error("startReceiptPipeline error", err);
