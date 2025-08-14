@@ -5,33 +5,50 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  CheckCircle, 
-  XCircle, 
-  AlertTriangle, 
-  Loader2, 
+import {
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Loader2,
   RefreshCw,
-  Settings,
   Webhook,
   Bot
 } from "lucide-react";
 
+interface BotInfoData {
+  id: number;
+  username: string;
+  first_name: string;
+  can_read_all_group_messages: boolean;
+  supports_inline_queries: boolean;
+}
+
+interface WebhookInfoData {
+  url: string;
+  has_custom_certificate: boolean;
+  pending_update_count: number;
+  last_error_date?: number;
+  last_error_message?: string;
+  max_connections: number;
+  allowed_updates?: string[];
+}
+
 interface BotStatus {
   bot_info: {
     success: boolean;
-    data?: any;
-    error?: string;
+    data?: BotInfoData | null;
+    error?: string | null;
   };
   webhook_info: {
     success: boolean;
-    data?: any;
-    error?: string;
+    data?: WebhookInfoData | null;
+    error?: string | null;
   };
   secrets: {
     db_secret_exists: boolean;
     env_secret_exists: boolean;
     secrets_match: boolean;
-    db_secret_preview?: string;
+    db_secret_preview?: string | null;
   };
   database: {
     total_users: number;
@@ -49,10 +66,10 @@ export const BotDiagnostics = () => {
   const checkBotStatus = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('bot-status-check');
-      
+      const { data, error } = await supabase.functions.invoke<BotStatus>('bot-status-check');
+
       if (error) throw error;
-      
+
       setStatus(data);
       toast({
         title: "Status Check Complete",
@@ -72,7 +89,7 @@ export const BotDiagnostics = () => {
   const setupWebhook = async () => {
     setSetupLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('setup-webhook-helper');
+      const { data, error } = await supabase.functions.invoke<{ webhook_secret: string }>('setup-webhook-helper');
       
       if (error) throw error;
       
