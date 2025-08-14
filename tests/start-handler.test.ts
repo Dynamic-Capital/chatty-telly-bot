@@ -6,7 +6,10 @@ const supaState = { tables: {} as Record<string, any[]> };
 
 function setEnv() {
   Deno.env.set("TELEGRAM_BOT_TOKEN", "testtoken");
-  Deno.env.set("MINI_APP_URL", "https://example.com/app");
+  Deno.env.set(
+    "MINI_APP_URL",
+    "https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp",
+  );
   Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "testsecret");
   Deno.env.set("SUPABASE_URL", "http://local");
   Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "svc");
@@ -60,7 +63,7 @@ Deno.test("/start shows menu buttons for new users", async () => {
     const second = JSON.parse(calls[1].body);
     assertEquals(
       second.reply_markup.inline_keyboard[0][0].web_app.url,
-      "https://example.com/app/",
+      "https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/",
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -105,6 +108,61 @@ Deno.test("/start shows packages/promos for returning users", async () => {
     const first = JSON.parse(calls[0].body);
     assertMatch(first.text, /VIP Packages/);
     assertMatch(first.text, /promo/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    cleanup();
+    await setFlag("mini_app_enabled", false);
+    await publish();
+  }
+});
+
+Deno.test("/start deep-link used when MINI_APP_URL missing", async () => {
+  Deno.env.set("TELEGRAM_BOT_TOKEN", "testtoken");
+  Deno.env.delete("MINI_APP_URL");
+  Deno.env.set("MINI_APP_SHORT_NAME", "shorty");
+  Deno.env.set("TELEGRAM_BOT_USERNAME", "mybot");
+  Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "testsecret");
+  Deno.env.set("SUPABASE_URL", "http://local");
+  Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "svc");
+  Deno.env.set("SUPABASE_ANON_KEY", "anon");
+  await setFlag("mini_app_enabled", true);
+  await publish();
+  const calls: Array<{ url: string; body: string }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.startsWith("https://api.telegram.org")) {
+      calls.push({ url, body: init?.body ? String(init.body) : "" });
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }
+    return new Response("{}", { status: 200 });
+  };
+  try {
+    supaState.tables = {
+      bot_users: [],
+      bot_content: [
+        { content_key: "welcome_message", content_value: "Welcome new user", is_active: true },
+      ],
+    };
+    const mod = await import(`../supabase/functions/telegram-bot/index.ts?${Math.random()}`);
+    const req = new Request("https://example.com", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Telegram-Bot-Api-Secret-Token": "testsecret",
+      },
+      body: JSON.stringify({ message: { text: "/start", chat: { id: 1 }, from: { id: 1 } } }),
+    });
+    const res = await mod.serveWebhook(req);
+    assertEquals(res.status, 200);
+    const first = JSON.parse(calls[0].body);
+    assertEquals(first.text, "Welcome new user");
+    const second = JSON.parse(calls[1].body);
+    assertEquals(
+      second.text,
+      "Open the VIP Mini App: https://t.me/mybot/shorty\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)",
+    );
+    assertEquals(second.reply_markup, undefined);
   } finally {
     globalThis.fetch = originalFetch;
     cleanup();
