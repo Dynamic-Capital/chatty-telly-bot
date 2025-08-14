@@ -17,33 +17,55 @@ try {
 }
 
 function serveIndex(): Response {
+  console.log(`[miniapp] serveIndex called - INDEX_HTML available: ${!!INDEX_HTML}`);
+  
   if (!INDEX_HTML) {
+    console.error(`[miniapp] INDEX_HTML is empty or null`);
+    const errorResponse = {
+      ok: false, 
+      error: "index.html missing",
+      debug: {
+        indexHtmlLength: INDEX_HTML.length,
+        rootDir: ROOT.pathname,
+        timestamp: new Date().toISOString()
+      }
+    };
+    console.error(`[miniapp] Returning 404 error:`, errorResponse);
     return new Response(
-      JSON.stringify({ ok: false, error: "index.html missing" }),
+      JSON.stringify(errorResponse),
       {
         status: 404,
         headers: { "content-type": "application/json; charset=utf-8" },
       },
     );
   }
+  
+  console.log(`[miniapp] Serving index.html, size: ${INDEX_HTML.length} chars`);
   const h = new Headers({
     "content-type": "text/html; charset=utf-8",
     "cache-control": "no-cache",
     "x-frame-options": "ALLOWALL",
   });
   for (const [k, v] of Object.entries(DEFAULT_SECURITY)) h.set(k, v as string);
+  console.log(`[miniapp] Response headers set, returning HTML content`);
   return new Response(INDEX_HTML, { headers: h });
 }
 
 serve((req) => {
   const url = new URL(req.url);
   console.log(`[miniapp] ${req.method} ${url.pathname}`);
+  console.log(`[miniapp] Full URL: ${req.url}`);
+  console.log(`[miniapp] ROOT dir: ${ROOT.pathname}`);
+  console.log(`[miniapp] INDEX_HTML length: ${INDEX_HTML.length}`);
   
   // Keep /version public
   if (req.method === "GET" && url.pathname.endsWith("/version")) {
+    console.log(`[miniapp] Serving version endpoint`);
     return serveStatic(req, { rootDir: ROOT });
   }
+  
   if (req.method === "HEAD") {
+    console.log(`[miniapp] HEAD request for: ${url.pathname}`);
     if (
       url.pathname === "/" ||
       url.pathname === "/miniapp" ||
@@ -52,12 +74,17 @@ serve((req) => {
       url.pathname === "/miniapp/static/" ||
       url.pathname === "/miniapp/static/index.html"
     ) {
+      console.log(`[miniapp] HEAD allowed for: ${url.pathname}`);
       return new Response(null, { status: 200 });
     }
+    console.log(`[miniapp] HEAD not allowed for: ${url.pathname}`);
     return new Response(null, { status: 404 });
   }
+  
   // Delegate GET/static & SPA roots
   if (req.method === "GET") {
+    console.log(`[miniapp] GET request processing for: ${url.pathname}`);
+    
     if (
       url.pathname === "/" ||
       url.pathname === "/miniapp" ||
@@ -65,12 +92,20 @@ serve((req) => {
       url.pathname === "/miniapp/static" ||
       url.pathname === "/miniapp/static/"
     ) {
+      console.log(`[miniapp] Serving preloaded index for SPA root: ${url.pathname}`);
+      console.log(`[miniapp] INDEX_HTML available: ${!!INDEX_HTML}, length: ${INDEX_HTML.length}`);
       return serveIndex();
     }
+    
+    console.log(`[miniapp] Delegating to serveStatic for: ${url.pathname}`);
+    console.log(`[miniapp] serveStatic options - rootDir: ${ROOT.pathname}, spaRoots: ["/", "/miniapp/static", "/miniapp/static/index.html"]`);
+    
     return serveStatic(req, {
       rootDir: ROOT,
       spaRoots: ["/", "/miniapp/static", "/miniapp/static/index.html"],
     });
   }
+  
+  console.log(`[miniapp] Method not allowed: ${req.method}`);
   return mna(); // 405 for others
 });
