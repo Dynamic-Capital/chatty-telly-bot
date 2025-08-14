@@ -83,6 +83,48 @@ denoTest("telegram webhook handles malformed JSON", async () => {
   }
 });
 
+denoTest(
+  "telegram webhook rejects missing secret header",
+  async () => {
+    Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "correct");
+    const { calls, restore } = mockTelegram();
+    try {
+      const mod = await import("../supabase/functions/telegram-webhook/index.ts");
+      const body = await Deno.readTextFile(
+        new URL("./fixtures/telegram-start.json", import.meta.url),
+      );
+      const req = new Request("https://example.com/telegram-bot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body,
+      });
+      const res = await mod.handler(req);
+      assertEquals(res.status, 401);
+      assertEquals(calls.length, 0);
+    } finally {
+      restore();
+      cleanup();
+    }
+  },
+);
+
+denoTest("telegram webhook rejects GET requests", async () => {
+  const { restore } = mockTelegram();
+  try {
+    const mod = await import("../supabase/functions/telegram-webhook/index.ts");
+    const req = new Request("https://example.com/telegram-bot", {
+      method: "GET",
+    });
+    const res = await mod.handler(req);
+    assertEquals(res.status, 405);
+  } finally {
+    restore();
+    cleanup();
+  }
+});
+
 function cleanup() {
   Deno.env.delete("TELEGRAM_BOT_TOKEN");
   Deno.env.delete("MINI_APP_URL");
