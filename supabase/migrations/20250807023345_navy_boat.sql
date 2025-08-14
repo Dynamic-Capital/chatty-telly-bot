@@ -96,14 +96,15 @@ Our mission is to help traders succeed through:
 ),
 (
   'support_message',
-  '🛟 Need Help?
+  '🛟 *Need Help?*
 
-Our support team is here to assist you!
+Our support team is here for you!
 
-📞 Contact us:
-• Telegram: @DynamicCapital_Support
-• Response time: Within 24 hours
-• Available: Monday - Friday, 9 AM - 6 PM UTC',
+📧 Email: support@dynamiccapital.com
+💬 Telegram: @DynamicCapital_Support
+🕐 Support Hours: 24/7
+
+We typically respond within 2-4 hours.',
   'text',
   'Support contact information',
   true,
