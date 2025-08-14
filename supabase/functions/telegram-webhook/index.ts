@@ -51,15 +51,6 @@ async function sendMessage(
   }
 }
 
-function isValidHttpsUrl(url: string): boolean {
-  try {
-    const u = new URL(url);
-    return u.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
 export async function handler(req: Request): Promise<Response> {
   const logger = getLogger(req);
   try {
@@ -96,30 +87,48 @@ export async function handler(req: Request): Promise<Response> {
 
     const handlers: Record<string, CommandHandler> = {
       "/start": async (chatId) => {
-        const miniUrl = optionalEnv("MINI_APP_URL");
-        const short = optionalEnv("MINI_APP_SHORT_NAME");
+        const rawUrl = optionalEnv("MINI_APP_URL") || "";
+        const short = optionalEnv("MINI_APP_SHORT_NAME") || "";
         const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
-        let openUrl: string | null = null;
-        if (miniUrl) {
-          openUrl = miniUrl.endsWith("/") ? miniUrl : miniUrl + "/";
-        } else if (short && botUsername) {
-          openUrl = `https://t.me/${botUsername}/${short}`;
+
+        let miniUrl: string | null = null;
+        if (rawUrl) {
+          try {
+            const u = new URL(rawUrl);
+            if (u.protocol !== "https:") throw new Error("Mini app URL must be HTTPS");
+            if (!u.pathname.endsWith("/")) u.pathname += "/";
+            miniUrl = u.toString();
+          } catch (e) {
+            logger.error("MINI_APP_URL invalid", e);
+            miniUrl = null;
+          }
         }
-        if (!openUrl || !isValidHttpsUrl(openUrl)) {
-          await sendMessage(
-            chatId,
-            "Bot activated. Mini app is being configured. Please try again soon.",
-          );
-        } else {
+
+        if (miniUrl) {
           await sendMessage(chatId, "Open the VIP Mini App:", {
             reply_markup: {
               inline_keyboard: [[{
                 text: "Open VIP Mini App",
-                web_app: { url: openUrl },
+                web_app: { url: miniUrl },
               }]],
             },
           });
+          return;
         }
+
+        if (short && botUsername) {
+          const deepLink = `https://t.me/${botUsername}/${short}`;
+          await sendMessage(
+            chatId,
+            `Open the VIP Mini App: ${deepLink}\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)`,
+          );
+          return;
+        }
+
+        await sendMessage(
+          chatId,
+          "Bot activated. Mini app is being configured. Please try again soon.",
+        );
       },
       "/ping": async (chatId) => {
         await sendMessage(chatId, JSON.stringify({ pong: true }));

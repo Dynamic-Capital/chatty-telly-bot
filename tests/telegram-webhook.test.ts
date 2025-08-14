@@ -61,9 +61,10 @@ Deno.test("webhook uses short name when URL absent", async () => {
     assertEquals(calls.length, 1);
     const payload = JSON.parse(calls[0].body);
     assertEquals(
-      payload.reply_markup.inline_keyboard[0][0].web_app.url,
-      "https://t.me/mybot/shorty",
+      payload.text,
+      "Open the VIP Mini App: https://t.me/mybot/shorty\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)",
     );
+    assertEquals(payload.reply_markup, undefined);
   } finally {
     globalThis.fetch = originalFetch;
   }
