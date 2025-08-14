@@ -247,6 +247,7 @@ export type Database = {
           is_vip: boolean
           last_follow_up: string | null
           last_name: string | null
+          menu_message_id: number | null
           notes: string | null
           subscription_expires_at: string | null
           telegram_id: string
@@ -263,6 +264,7 @@ export type Database = {
           is_vip?: boolean
           last_follow_up?: string | null
           last_name?: string | null
+          menu_message_id?: number | null
           notes?: string | null
           subscription_expires_at?: string | null
           telegram_id: string
@@ -279,6 +281,7 @@ export type Database = {
           is_vip?: boolean
           last_follow_up?: string | null
           last_name?: string | null
+          menu_message_id?: number | null
           notes?: string | null
           subscription_expires_at?: string | null
           telegram_id?: string

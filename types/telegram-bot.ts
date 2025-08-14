@@ -20,6 +20,7 @@ export interface BotUser {
   username?: string;
   first_name?: string;
   last_name?: string;
+  menu_message_id?: number;
   is_admin: boolean;
   is_vip: boolean;
   current_plan_id?: string;
