@@ -1,13 +1,15 @@
 import { maybe, need, optionalEnv } from "./env.ts";
 import { unauth } from "./http.ts";
 
+interface Query {
+  eq: (key: string, value: string | boolean) => Query;
+  limit: (n: number) => Query;
+  maybeSingle: () => Promise<{ data?: { setting_value?: unknown } | null }>;
+}
+
 interface SupabaseLike {
   from: (table: string) => {
-    select: (columns: string) => {
-      eq: (key: string, value: string) => {
-        limit: (n: number) => { maybeSingle: () => Promise<{ data?: { setting_value?: unknown } }> };
-      };
-    };
+    select: (columns: string) => Query;
     upsert: (
       values: Record<string, unknown>,
       options: { onConflict: string },

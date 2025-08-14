@@ -67,7 +67,7 @@ serve(async (req) => {
     .single();
   if (perr) {
     return new Response(
-      JSON.stringify({ ok: false, error: perr.message }),
+      JSON.stringify({ ok: false, error: (perr as any).message }),
       { status: 500 },
     );
   }
@@ -85,7 +85,7 @@ serve(async (req) => {
   } else if (body.method === "binance_pay") {
     instructions = {
       type: "binance_pay",
-      note: "Open Binance Pay and pay to the presented QR/ID. Then upload receipt.",
+      note: "Use Binance Pay to send to Binance ID 59586072. Then upload receipt for manual admin verification.",
     };
   } else {
     instructions = {
