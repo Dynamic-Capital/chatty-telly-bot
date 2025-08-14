@@ -13,4 +13,8 @@ popd >/dev/null
 rm -rf "$EDGE_DIR"
 mkdir -p "$EDGE_DIR"
 cp -R "$OUT_DIR"/* "$EDGE_DIR/"
+if [ ! -s "$EDGE_DIR/index.html" ]; then
+  echo "Error: $EDGE_DIR/index.html is missing or empty" >&2
+  exit 1
+fi
 echo "Copied build to $EDGE_DIR"
