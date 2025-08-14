@@ -78,10 +78,26 @@ export async function serveStatic(req: Request, opts: StaticOpts): Promise<Respo
     return new Response(resp.body, { headers: h, status: resp.status });
   };
 
+  const extra = new Set(opts.extraFiles ?? [
+    "/favicon.svg",
+    "/favicon.ico",
+    "/vite.svg",
+    "/site.webmanifest",
+    "/robots.txt",
+  ]);
+
   // HEAD allowed on roots
   if (req.method === "HEAD") {
     if (path === "" || path === "/" || path === "/miniapp" || path === "/miniapp/") {
       return setSec(new Response(null, { status: 200 }));
+    }
+    if (extra.has(url.pathname) || url.pathname.startsWith("/assets/")) {
+      const f = await readFileFrom(opts.rootDir, url.pathname);
+      if (f) {
+        const h = new Headers(f.headers);
+        return setSec(new Response(null, { headers: h, status: f.status }));
+      }
+      return setSec(new Response(null, { status: 404 }));
     }
     return setSec(new Response(null, { status: 404 }));
   }
@@ -112,13 +128,6 @@ export async function serveStatic(req: Request, opts: StaticOpts): Promise<Respo
   }
 
   // Serve common root files (optional)
-  const extra = new Set(opts.extraFiles ?? [
-    "/favicon.svg",
-    "/favicon.ico",
-    "/vite.svg",
-    "/site.webmanifest",
-    "/robots.txt",
-  ]);
   if (extra.has(url.pathname)) {
     const f = await readFileFrom(opts.rootDir, url.pathname);
     return f ? setSec(f) : nf("Not Found");
