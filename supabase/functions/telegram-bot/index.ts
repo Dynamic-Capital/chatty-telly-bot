@@ -3,9 +3,9 @@ import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
-import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getBotContent, getFormattedVipPackages } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
+type SupabaseClient = ReturnType<typeof createClient>;
 import { getFlag } from "../../../src/utils/config.ts";
 
 interface TelegramMessage {
@@ -699,7 +699,7 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
 
           const promoLines = promos?.length
             ? promos
-              .map((p, i) => {
+              .map((p: any, i: number) => {
                 const discount = p.discount_type === "percentage"
                   ? `${p.discount_value}%`
                   : `$${p.discount_value}`;
@@ -978,9 +978,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
 
     // ---- BAN CHECK (short-circuit early) ----
     const supa = await supaSvc();
-    const fromId = String(
-      update?.message?.from?.id ?? update?.callback_query?.from?.id ?? "",
-    );
+    const fromId = String(update?.message?.from?.id ?? "");
     if (fromId) {
       try {
         const { data: ban } = await supa.from("abuse_bans")
@@ -1004,9 +1002,9 @@ export async function serveWebhook(req: Request): Promise<Response> {
       if (rl) return rl; // 429
       const isCmd = !!update?.message?.text?.startsWith("/");
       await logInteraction(
-        isCmd ? "command" : (update?.callback_query ? "callback" : "message"),
+        isCmd ? "command" : "message",
         tgId,
-        update?.message?.text ?? update?.callback_query?.data ?? null,
+        update?.message?.text ?? null,
       );
     }
 

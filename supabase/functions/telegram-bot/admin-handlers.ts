@@ -396,7 +396,7 @@ export async function handleUserTableManagement(
       },
       {
         title: "👤 *Recent Users (Last 10):*",
-        items: users?.map((user) => {
+        items: users?.map((user: any) => {
           const status = user.is_admin ? "🔑" : user.is_vip ? "💎" : "👤";
           return `${status} ${user.first_name || "Unknown"} (@${
             user.username || "N/A"
@@ -454,7 +454,7 @@ export async function handleSubscriptionPlansManagement(
     const planMessage = buildMessage("💎 *VIP Subscription Plans Management*", [
       {
         title: `📦 *Current Plans (${plans?.length || 0}):*`,
-        items: plans?.map((plan) => {
+        items: plans?.map((plan: any) => {
           const duration = plan.is_lifetime
             ? "Lifetime"
             : `${plan.duration_months} months`;
@@ -520,7 +520,7 @@ export async function handlePlanChannelsManagement(
     }
 
     let msg = `📢 *Plan Channels Management*\n\n`;
-    channels?.forEach((channel, index) => {
+    channels?.forEach((channel: any, index: number) => {
       msg += `${
         index + 1
       }. ${channel.channel_name} (${channel.channel_type})\n`;
@@ -577,7 +577,7 @@ export async function handleEditVipPlan(
 
     const editKeyboard = {
       inline_keyboard: [
-        ...plans.map((plan, index) => [{
+        ...plans.map((plan: any, index: number) => [{
           text: `${index + 1}. ${plan.name} ($${plan.price})`,
           callback_data: `edit_plan_${plan.id}`,
         }]),
@@ -1075,7 +1075,7 @@ export async function handleDeleteVipPlan(
 
     const deleteKeyboard = {
       inline_keyboard: [
-        ...plans.map((plan, index) => [{
+        ...plans.map((plan: any, index: number) => [{
           text: `🗑️ ${index + 1}. ${plan.name} ($${plan.price})`,
           callback_data: `confirm_delete_plan_${plan.id}`,
         }]),
@@ -1302,7 +1302,7 @@ export async function handleEducationPackagesManagement(
     let packageMessage = `🎓 *Education Packages Management*\n\n`;
     packageMessage += `📚 *Current Packages (${packages?.length || 0}):*\n\n`;
 
-    packages?.forEach((pkg, index) => {
+    packages?.forEach((pkg: any, index: number) => {
       const status = pkg.is_active ? "✅" : "❌";
       const featured = pkg.is_featured ? "⭐" : "";
       packageMessage += `${index + 1}. ${status}${featured} **${pkg.name}**\n`;
@@ -1387,7 +1387,7 @@ export async function handlePromotionsManagement(
     promoMessage += `• Total Promotions: ${promos?.length || 0}\n\n`;
 
     promoMessage += `🎁 *Recent Promotions:*\n`;
-    promos?.forEach((promo, index) => {
+    promos?.forEach((promo: any, index: number) => {
       const status = promo.is_active ? "🟢" : "🔴";
       const discount = promo.discount_type === "percentage"
         ? `${promo.discount_value}%`
