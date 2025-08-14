@@ -4,7 +4,7 @@ Deno.test("webhook handles /start with params", async () => {
   Deno.env.set("TELEGRAM_BOT_TOKEN", "testtoken");
   Deno.env.set(
     "MINI_APP_URL",
-    "https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp",
+    "https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/",
   );
   Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "testsecret");
   const calls: Array<{ url: string; body: string }> = [];

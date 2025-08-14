@@ -8,7 +8,7 @@ function setEnv() {
   Deno.env.set("TELEGRAM_BOT_TOKEN", "testtoken");
   Deno.env.set(
     "MINI_APP_URL",
-    "https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp",
+    "https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/",
   );
   Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "testsecret");
   Deno.env.set("SUPABASE_URL", "http://local");
