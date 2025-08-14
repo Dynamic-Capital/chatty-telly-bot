@@ -20,8 +20,9 @@ async function serveIndex(): Promise<Response> {
         new URL("./static/index.html", import.meta.url),
       );
     } catch (_) {
-      INDEX_HTML =
-        "<!doctype html><html><body>miniapp index missing</body></html>";
+      INDEX_HTML = await Deno.readTextFile(
+        new URL("./static/landing.html", import.meta.url),
+      );
     }
   }
 
