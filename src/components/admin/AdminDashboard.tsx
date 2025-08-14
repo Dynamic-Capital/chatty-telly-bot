@@ -18,6 +18,7 @@ import { ContactInfo } from "@/components/admin/ContactInfo";
 import { WelcomeMessageEditor } from "@/components/admin/WelcomeMessageEditor";
 import { SystemStatus } from "@/components/admin/SystemStatus";
 import { VipPlansManager } from "@/components/admin/VipPlansManager";
+import { BotDiagnostics } from "@/components/admin/BotDiagnostics";
 import {
   CreditCard,
   DollarSign,
@@ -339,8 +340,9 @@ export const AdminDashboard = () => {
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="bot-debug" className="space-y-4">
+      <Tabs defaultValue="bot-diagnostics" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="bot-diagnostics">🔍 Diagnostics</TabsTrigger>
           <TabsTrigger value="bot-debug">🔧 Bot Debug</TabsTrigger>
           <TabsTrigger value="system-status">📊 System Status</TabsTrigger>
           <TabsTrigger value="welcome-editor">💬 Welcome Message</TabsTrigger>
@@ -352,6 +354,10 @@ export const AdminDashboard = () => {
           <TabsTrigger value="contact">Contact Info</TabsTrigger>
           <TabsTrigger value="export">Export Data</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="bot-diagnostics" className="space-y-4">
+          <BotDiagnostics />
+        </TabsContent>
 
         <TabsContent value="bot-debug" className="space-y-4">
           <BotDebugger />

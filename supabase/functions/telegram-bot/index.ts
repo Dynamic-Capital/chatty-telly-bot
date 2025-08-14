@@ -555,7 +555,8 @@ export async function serveWebhook(req: Request): Promise<Response> {
   // Only validate webhook secret for POST requests
   const authResp = await validateTelegramHeader(req);
   if (authResp) {
-    console.log("Telegram webhook auth failed");
+    console.log("Telegram webhook auth failed - expected secret not found or mismatch");
+    console.log("Make sure TELEGRAM_WEBHOOK_SECRET is set correctly in Supabase secrets");
     return authResp;
   }
 

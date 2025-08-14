@@ -72,7 +72,10 @@ export const WelcomeMessageEditor = () => {
       }
 
       console.log("Welcome message loaded successfully:", data);
-      setWelcomeMessage(data);
+      setWelcomeMessage({
+        ...data,
+        content_type: (data.content_type as "text" | "html" | "markdown") || "text"
+      });
       setEditedMessage(data.content_value);
     } catch (error) {
       console.error("Error in fetchWelcomeMessage:", error);
@@ -119,7 +122,10 @@ export const WelcomeMessageEditor = () => {
       if (error) throw error;
 
       console.log("Default welcome message created:", data);
-      setWelcomeMessage(data);
+      setWelcomeMessage({
+        ...data,
+        content_type: (data.content_type as "text" | "html" | "markdown") || "text"
+      });
       setEditedMessage(data.content_value);
 
       toast({
