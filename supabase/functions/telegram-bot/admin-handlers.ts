@@ -2,6 +2,7 @@
 import { createClient } from "../_shared/client.ts";
 import { optionalEnv, requireEnv } from "../_shared/env.ts";
 import { expectedSecret } from "../_shared/telegram_secret.ts";
+import { isAdmin as isEnvAdmin } from "../_shared/telegram.ts";
 
 const { TELEGRAM_BOT_TOKEN: BOT_TOKEN } = requireEnv([
   "TELEGRAM_BOT_TOKEN",
@@ -120,11 +121,14 @@ function buildMessage(title: string, sections: MessageSection[]): string {
 }
 
 async function isAdmin(userId: string): Promise<boolean> {
+  if (isEnvAdmin(userId)) return true;
   try {
+    const numId = Number(userId);
+    const idFilter = Number.isFinite(numId) ? numId : userId;
     const { data } = await supabaseAdmin
       .from("bot_users")
       .select("is_admin")
-      .eq("telegram_id", userId)
+      .eq("telegram_id", idFilter)
       .maybeSingle();
     return data?.is_admin === true;
   } catch (_e) {
