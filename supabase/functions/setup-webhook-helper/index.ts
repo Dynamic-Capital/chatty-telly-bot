@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { need } from "../_shared/env.ts";
 import { ok, oops } from "../_shared/http.ts";
+import { ensureWebhookSecret } from "../_shared/telegram_secret.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,14 +24,16 @@ serve(async (req) => {
 
   try {
     const BOT_TOKEN = need("TELEGRAM_BOT_TOKEN");
-    const PROJECT_URL = need("SUPABASE_URL").replace("https://", "").replace(".supabase.co", "");
+    const SUPABASE_URL = need("SUPABASE_URL");
+    const SERVICE_KEY = need("SUPABASE_SERVICE_ROLE_KEY");
+    const PROJECT_URL = SUPABASE_URL.replace("https://", "").replace(".supabase.co", "");
     const WEBHOOK_URL = `https://${PROJECT_URL}.functions.supabase.co/telegram-bot`;
-    
-    // Generate a secure webhook secret
-    const WEBHOOK_SECRET = crypto.randomUUID();
-    
+
+    const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    const WEBHOOK_SECRET = await ensureWebhookSecret(supa);
+
     console.log(`Setting up webhook: ${WEBHOOK_URL}`);
-    console.log(`Generated webhook secret: ${WEBHOOK_SECRET}`);
+    console.log(`Using webhook secret: ${WEBHOOK_SECRET}`);
 
     // Set webhook with Telegram
     const telegramResponse = await fetch(
@@ -51,48 +55,14 @@ serve(async (req) => {
       console.error("Telegram webhook setup failed:", telegramResult);
       return oops("Failed to set webhook with Telegram", telegramResult);
     }
-
-    // Update bot_settings with the new webhook secret
-    const SUPABASE_URL = need("SUPABASE_URL");
-    const SERVICE_KEY = need("SUPABASE_SERVICE_ROLE_KEY");
-
-    const settingsResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/bot_settings`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SERVICE_KEY,
-          'Authorization': `Bearer ${SERVICE_KEY}`,
-          'Prefer': 'resolution=merge-duplicates'
-        },
-        body: JSON.stringify({
-          setting_key: 'TELEGRAM_WEBHOOK_SECRET',
-          setting_value: WEBHOOK_SECRET,
-          is_active: true,
-          description: 'Auto-generated webhook secret for Telegram bot'
-        })
-      }
-    );
-
-    if (!settingsResponse.ok) {
-      console.error("Failed to update bot settings");
-      return oops("Failed to save webhook secret to database");
-    }
-
-    // Also set the webhook secret as a Supabase secret
-    // Note: This would need to be done manually by the user in the Supabase dashboard
-
     const response = ok({
       success: true,
       webhook_url: WEBHOOK_URL,
       telegram_response: telegramResult,
-      message: "Webhook configured successfully! Please set TELEGRAM_WEBHOOK_SECRET in Supabase secrets.",
+      message: "Webhook configured successfully!",
       webhook_secret: WEBHOOK_SECRET,
       instructions: [
-        "1. Go to Supabase Dashboard > Edge Functions > Secrets",
-        "2. Add/Update TELEGRAM_WEBHOOK_SECRET with the provided value",
-        "3. The bot should start working immediately"
+        "If TELEGRAM_WEBHOOK_SECRET is not set in Supabase secrets, add it with the provided value"
       ]
     });
 
