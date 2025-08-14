@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { expectedSecret, readDbWebhookSecret } from "../_shared/telegram_secret.ts";
+import { ensureWebhookSecret, readDbWebhookSecret } from "../_shared/telegram_secret.ts";
 
 function requireEnv(k: string) {
   const v = Deno.env.get(k);
@@ -18,40 +18,6 @@ function projectRef(): string {
   const ref = Deno.env.get("SUPABASE_PROJECT_ID");
   if (!ref) throw new Error("Cannot derive SUPABASE project ref");
   return ref;
-}
-function genSecretHex(len = 24) {
-  const bytes = new Uint8Array(len);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-interface SupaUpsert {
-  from: (table: string) => {
-    upsert: (
-      values: Record<string, unknown>,
-      options: { onConflict: string },
-    ) => Promise<{ error?: { message: string } }>;
-  };
-}
-
-async function upsertDbSecret(supa: SupaUpsert, secret: string) {
-  const { error } = await supa
-    .from("bot_settings")
-    .upsert({ setting_key: "TELEGRAM_WEBHOOK_SECRET", setting_value: secret }, {
-      onConflict: "setting_key",
-    });
-  if (error) throw new Error("upsert bot_settings failed: " + error.message);
-}
-
-export async function decideSecret(
-  supa: SupaUpsert,
-  envSecret?: string | null,
-): Promise<string> {
-  let secret = envSecret ?? (await expectedSecret(supa));
-  if (secret) return secret;
-  secret = genSecretHex(24);
-  await upsertDbSecret(supa, secret);
-  return secret;
 }
 
 async function tgCall(token: string, method: string, body?: unknown) {
@@ -80,7 +46,7 @@ async function handler(req: Request): Promise<Response> {
   const supa = createClient(url, srv, { auth: { persistSession: false } });
 
   // 1) Determine secret precedence: DB -> ENV -> generate
-    const secret = await decideSecret(supa);
+  const secret = await ensureWebhookSecret(supa);
 
   // 2) Ping bot echo (helps surface downtime)
   let echoOK = false;
