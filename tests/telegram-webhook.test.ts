@@ -73,6 +73,8 @@ Deno.test("webhook uses short name when URL absent", async () => {
 Deno.test("webhook falls back for invalid mini app url", async () => {
   Deno.env.set("TELEGRAM_BOT_TOKEN", "testtoken");
   Deno.env.set("MINI_APP_URL", "http://invalid-url");
+  Deno.env.delete("MINI_APP_SHORT_NAME");
+  Deno.env.delete("TELEGRAM_BOT_USERNAME");
   Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "testsecret");
   const calls: Array<{ url: string; body: string }> = [];
   const originalFetch = globalThis.fetch;
