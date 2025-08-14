@@ -1636,6 +1636,430 @@ export async function handleBotSettingsManagement(
   }
 }
 
+export async function handleUserSessionsManagement(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  try {
+    const { data: sessions } = await supabaseAdmin
+      .from("user_sessions")
+      .select("id, telegram_user_id, is_active, last_activity")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    const { count: total } = await supabaseAdmin
+      .from("user_sessions")
+      .select("count", { count: "exact" });
+
+    const { count: active } = await supabaseAdmin
+      .from("user_sessions")
+      .select("count", { count: "exact" })
+      .eq("is_active", true);
+
+    const sessionMessage = buildMessage("💬 *User Sessions Management*", [
+      {
+        title: "📊 *Statistics:*",
+        items: [
+          `Total Sessions: ${total || 0}`,
+          `Active Sessions: ${active || 0}`,
+        ],
+      },
+      {
+        title: "🕒 *Recent Sessions (Last 10):*",
+        items:
+          sessions?.map((s: any) =>
+            `User: ${s.telegram_user_id} | ${
+              s.is_active ? "🟢 Active" : "🔴 Ended"
+            }\nLast: ${new Date(s.last_activity).toLocaleString()}`
+          ) || [],
+        numbered: true,
+      },
+    ]);
+
+    const sessionKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "👁️ View", callback_data: "view_user_sessions" },
+          { text: "➕ Create", callback_data: "create_user_session" },
+        ],
+        [
+          { text: "✏️ Edit", callback_data: "edit_user_session" },
+          { text: "🗑️ Delete", callback_data: "delete_user_session" },
+        ],
+        [{ text: "📤 Export", callback_data: "export_user_sessions" }],
+        [
+          { text: "🔄 Refresh", callback_data: "manage_table_user_sessions" },
+          { text: "🔙 Back", callback_data: "manage_tables" },
+        ],
+      ],
+    };
+
+    await sendMessage(chatId, sessionMessage, sessionKeyboard);
+  } catch (error) {
+    console.error("Error in user sessions management:", error);
+    await sendMessage(
+      chatId,
+      "❌ Error fetching user session data. Please try again.",
+    );
+  }
+}
+
+export async function handlePaymentsManagement(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  try {
+    const { data: payments } = await supabaseAdmin
+      .from("payments")
+      .select("id, amount, currency, status, created_at")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    const { count: total } = await supabaseAdmin
+      .from("payments")
+      .select("count", { count: "exact" });
+
+    const { count: completed } = await supabaseAdmin
+      .from("payments")
+      .select("count", { count: "exact" })
+      .eq("status", "completed");
+
+    const paymentMessage = buildMessage("💳 *Payments Management*", [
+      {
+        title: "📊 *Statistics:*",
+        items: [
+          `Total Payments: ${total || 0}`,
+          `Completed Payments: ${completed || 0}`,
+        ],
+      },
+      {
+        title: "💸 *Recent Payments (Last 10):*",
+        items:
+          payments?.map((p: any) =>
+            `#${p.id} - ${p.currency || ""} ${p.amount} (${p.status})\n${
+              new Date(p.created_at).toLocaleDateString()
+            }`
+          ) || [],
+        numbered: true,
+      },
+    ]);
+
+    const paymentKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "👁️ View", callback_data: "view_payments" },
+          { text: "➕ Create", callback_data: "create_payment" },
+        ],
+        [
+          { text: "✏️ Edit", callback_data: "edit_payment" },
+          { text: "🗑️ Delete", callback_data: "delete_payment" },
+        ],
+        [{ text: "📤 Export", callback_data: "export_payments" }],
+        [
+          { text: "🔄 Refresh", callback_data: "manage_table_payments" },
+          { text: "🔙 Back", callback_data: "manage_tables" },
+        ],
+      ],
+    };
+
+    await sendMessage(chatId, paymentMessage, paymentKeyboard);
+  } catch (error) {
+    console.error("Error in payments management:", error);
+    await sendMessage(
+      chatId,
+      "❌ Error fetching payment data. Please try again.",
+    );
+  }
+}
+
+export async function handleBroadcastMessagesManagement(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  try {
+    const { data: messages } = await supabaseAdmin
+      .from("broadcast_messages")
+      .select("id, title, delivery_status, scheduled_at, sent_at")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    const { count: total } = await supabaseAdmin
+      .from("broadcast_messages")
+      .select("count", { count: "exact" });
+
+    const { count: scheduled } = await supabaseAdmin
+      .from("broadcast_messages")
+      .select("count", { count: "exact" })
+      .eq("delivery_status", "scheduled");
+
+    const broadcastMessage = buildMessage(
+      "📢 *Broadcast Messages Management*",
+      [
+        {
+          title: "📊 *Statistics:*",
+          items: [
+            `Total Messages: ${total || 0}`,
+            `Scheduled Messages: ${scheduled || 0}`,
+          ],
+        },
+        {
+          title: "📝 *Recent Messages (Last 10):*",
+          items:
+            messages?.map((m: any) =>
+              `${m.title} - ${m.delivery_status}\nScheduled: ${
+                m.scheduled_at
+                  ? new Date(m.scheduled_at).toLocaleString()
+                  : "N/A"
+              }`
+            ) || [],
+          numbered: true,
+        },
+      ],
+    );
+
+    const broadcastKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "👁️ View", callback_data: "view_broadcast_messages" },
+          { text: "➕ Create", callback_data: "create_broadcast_message" },
+        ],
+        [
+          { text: "✏️ Edit", callback_data: "edit_broadcast_message" },
+          { text: "🗑️ Delete", callback_data: "delete_broadcast_message" },
+        ],
+        [{ text: "📤 Export", callback_data: "export_broadcast_messages" }],
+        [
+          {
+            text: "🔄 Refresh",
+            callback_data: "manage_table_broadcast_messages",
+          },
+          { text: "🔙 Back", callback_data: "manage_tables" },
+        ],
+      ],
+    };
+
+    await sendMessage(chatId, broadcastMessage, broadcastKeyboard);
+  } catch (error) {
+    console.error("Error in broadcast messages management:", error);
+    await sendMessage(
+      chatId,
+      "❌ Error fetching broadcast data. Please try again.",
+    );
+  }
+}
+
+export async function handleBankAccountsManagement(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  try {
+    const { data: accounts } = await supabaseAdmin
+      .from("bank_accounts")
+      .select("id, bank_name, account_name, account_number, currency, is_active")
+      .order("display_order", { ascending: true })
+      .limit(10);
+
+    const { count: total } = await supabaseAdmin
+      .from("bank_accounts")
+      .select("count", { count: "exact" });
+
+    const { count: active } = await supabaseAdmin
+      .from("bank_accounts")
+      .select("count", { count: "exact" })
+      .eq("is_active", true);
+
+    const accountsMessage = buildMessage("🏦 *Bank Accounts Management*", [
+      {
+        title: "📊 *Statistics:*",
+        items: [
+          `Total Accounts: ${total || 0}`,
+          `Active Accounts: ${active || 0}`,
+        ],
+      },
+      {
+        title: "🏦 *Recent Accounts:*",
+        items:
+          accounts?.map((a: any) =>
+            `${a.bank_name} - ${a.currency} ${a.account_number.slice(-4)} ${
+              a.is_active ? "🟢" : "🔴"
+            }`
+          ) || [],
+        numbered: true,
+      },
+    ]);
+
+    const accountsKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "👁️ View", callback_data: "view_bank_accounts" },
+          { text: "➕ Create", callback_data: "create_bank_account" },
+        ],
+        [
+          { text: "✏️ Edit", callback_data: "edit_bank_account" },
+          { text: "🗑️ Delete", callback_data: "delete_bank_account" },
+        ],
+        [{ text: "📤 Export", callback_data: "export_bank_accounts" }],
+        [
+          { text: "🔄 Refresh", callback_data: "manage_table_bank_accounts" },
+          { text: "🔙 Back", callback_data: "manage_tables" },
+        ],
+      ],
+    };
+
+    await sendMessage(chatId, accountsMessage, accountsKeyboard);
+  } catch (error) {
+    console.error("Error in bank accounts management:", error);
+    await sendMessage(
+      chatId,
+      "❌ Error fetching bank account data. Please try again.",
+    );
+  }
+}
+
+export async function handleAutoReplyTemplatesManagement(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  try {
+    const { data: templates } = await supabaseAdmin
+      .from("auto_reply_templates")
+      .select("id, name, trigger_type, is_active, updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(10);
+
+    const { count: total } = await supabaseAdmin
+      .from("auto_reply_templates")
+      .select("count", { count: "exact" });
+
+    const { count: active } = await supabaseAdmin
+      .from("auto_reply_templates")
+      .select("count", { count: "exact" })
+      .eq("is_active", true);
+
+    const templateMessage = buildMessage(
+      "📝 *Auto Reply Templates Management*",
+      [
+        {
+          title: "📊 *Statistics:*",
+          items: [
+            `Total Templates: ${total || 0}`,
+            `Active Templates: ${active || 0}`,
+          ],
+        },
+        {
+          title: "📝 *Recent Templates (Last 10):*",
+          items:
+            templates?.map((t: any) =>
+              `${t.name} (${t.trigger_type}) ${
+                t.is_active ? "🟢" : "🔴"
+              }\nUpdated: ${
+                new Date(t.updated_at).toLocaleDateString()
+              }`
+            ) || [],
+          numbered: true,
+        },
+      ],
+    );
+
+    const templateKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "👁️ View", callback_data: "view_auto_reply_templates" },
+          { text: "➕ Create", callback_data: "create_auto_reply_template" },
+        ],
+        [
+          { text: "✏️ Edit", callback_data: "edit_auto_reply_template" },
+          { text: "🗑️ Delete", callback_data: "delete_auto_reply_template" },
+        ],
+        [{ text: "📤 Export", callback_data: "export_auto_reply_templates" }],
+        [
+          {
+            text: "🔄 Refresh",
+            callback_data: "manage_table_auto_reply_templates",
+          },
+          { text: "🔙 Back", callback_data: "manage_tables" },
+        ],
+      ],
+    };
+
+    await sendMessage(chatId, templateMessage, templateKeyboard);
+  } catch (error) {
+    console.error("Error in auto reply templates management:", error);
+    await sendMessage(
+      chatId,
+      "❌ Error fetching template data. Please try again.",
+    );
+  }
+}
+
+export async function handleDailyAnalyticsManagement(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  try {
+    const { data: analytics } = await supabaseAdmin
+      .from("daily_analytics")
+      .select("date, revenue, new_users, total_users")
+      .order("date", { ascending: false })
+      .limit(10);
+
+    const { count: total } = await supabaseAdmin
+      .from("daily_analytics")
+      .select("count", { count: "exact" });
+
+    const latestRevenue = analytics?.[0]?.revenue || 0;
+
+    const analyticsMessage = buildMessage("📈 *Daily Analytics Management*", [
+      {
+        title: "📊 *Statistics:*",
+        items: [
+          `Total Days: ${total || 0}`,
+          `Latest Revenue: ${latestRevenue}`,
+        ],
+      },
+      {
+        title: "📆 *Recent Entries (Last 10):*",
+        items:
+          analytics?.map((a: any) =>
+            `${a.date} - Revenue: ${a.revenue ?? 0} | New Users: ${
+              a.new_users ?? 0
+            }`
+          ) || [],
+        numbered: true,
+      },
+    ]);
+
+    const analyticsKeyboard = {
+      inline_keyboard: [
+        [
+          { text: "👁️ View", callback_data: "view_daily_analytics" },
+          { text: "➕ Create", callback_data: "create_daily_analytics" },
+        ],
+        [
+          { text: "✏️ Edit", callback_data: "edit_daily_analytics" },
+          { text: "🗑️ Delete", callback_data: "delete_daily_analytics" },
+        ],
+        [{ text: "📤 Export", callback_data: "export_daily_analytics" }],
+        [
+          {
+            text: "🔄 Refresh",
+            callback_data: "manage_table_daily_analytics",
+          },
+          { text: "🔙 Back", callback_data: "manage_tables" },
+        ],
+      ],
+    };
+
+    await sendMessage(chatId, analyticsMessage, analyticsKeyboard);
+  } catch (error) {
+    console.error("Error in daily analytics management:", error);
+    await sendMessage(
+      chatId,
+      "❌ Error fetching analytics data. Please try again.",
+    );
+  }
+}
+
 // Quick stats overview for all tables
 export async function handleTableStatsOverview(
   chatId: number,
