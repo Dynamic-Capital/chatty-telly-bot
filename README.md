@@ -75,6 +75,21 @@ on images.
 - Launch via Web App button inside Telegram.
 - All UI images should be 1:1 (square).
 
+## Updating bot content
+
+Greeting text and VIP package summaries are stored in the `bot_content` table.
+Update them with the `setBotContent` helper when packages change:
+
+```ts
+import { setBotContent } from "./supabase/functions/telegram-bot/database-utils.ts";
+
+await setBotContent("welcome_message", "new welcome", "<admin_id>");
+await setBotContent("welcome_back_message", "welcome again", "<admin_id>");
+await setBotContent("package_summary", "🎁 VIP Packages...", "<admin_id>");
+```
+
+Changes take effect immediately for `/start` greetings and the appended package list.
+
 ## CI / checks
 
 Type check:

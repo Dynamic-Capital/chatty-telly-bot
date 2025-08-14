@@ -4,7 +4,7 @@ import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getBotContent } from "./database-utils.ts";
+import { getBotContent, updateUserActivity } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 
 interface TelegramMessage {
@@ -352,8 +352,26 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
 
   // Early match for /start variants like "/start", "/start@Bot", or "/start foo"
   if (isStartMessage(msg)) {
-    const welcome = await getBotContent("welcome_message");
-    if (welcome) await notifyUser(chatId, welcome);
+    const supa = await getSupabase();
+    let key = "welcome_message";
+    if (supa) {
+      const { data } = await supa
+        .from("bot_users")
+        .select("id")
+        .eq("telegram_id", chatId)
+        .maybeSingle();
+      if (data) key = "welcome_back_message";
+    }
+
+    const [greeting, pkgSummary] = await Promise.all([
+      getBotContent(key),
+      getBotContent("package_summary"),
+    ]);
+
+    const text = [greeting, pkgSummary].filter(Boolean).join("\n\n");
+    if (text) await notifyUser(chatId, text);
+
+    await updateUserActivity(String(chatId));
     await handleStartPayload(msg);
     await sendMiniAppLink(chatId);
     return;
