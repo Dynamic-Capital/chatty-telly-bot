@@ -61,12 +61,122 @@ async function setFlag(name: string, value: boolean): Promise<void> {
   }
 }
 
-async function publishFlags(userId: string): Promise<void> {
-  console.log("publishFlags invoked by", userId);
+async function publishFlags(chatId: number, userId: string): Promise<void> {
+  try {
+    const draft = await preview();
+    const now = Date.now();
+
+    const { data: currentRow, error: currentErr } = await supabaseAdmin
+      .from("kv_config")
+      .select("value")
+      .eq("key", "features:published")
+      .maybeSingle();
+    if (currentErr) throw currentErr;
+
+    const current = (currentRow?.value as { ts: number; data: FlagMap }) ?? {
+      ts: now,
+      data: {},
+    };
+
+    const { error: rollbackErr } = await supabaseAdmin.from("kv_config").upsert({
+      key: "features:rollback",
+      value: current,
+    });
+    if (rollbackErr) throw rollbackErr;
+
+    const { error: publishErr } = await supabaseAdmin.from("kv_config").upsert({
+      key: "features:published",
+      value: { ts: now, data: draft.data },
+    });
+    if (publishErr) throw publishErr;
+
+    await logAdminAction(
+      userId,
+      "publish_flags",
+      "Published feature flags",
+      "kv_config",
+    );
+    await sendMessage(chatId, "✅ Flags published successfully.");
+  } catch (e) {
+    console.error("publishFlags error", e);
+    await sendMessage(
+      chatId,
+      `❌ Failed to publish flags: ${e instanceof Error ? e.message : e}`,
+    );
+  }
 }
 
-async function rollbackFlags(userId: string): Promise<void> {
-  console.log("rollbackFlags invoked by", userId);
+async function rollbackFlags(chatId: number, userId: string): Promise<void> {
+  try {
+    const now = Date.now();
+    const { data: publishedRow, error: publishedErr } = await supabaseAdmin
+      .from("kv_config")
+      .select("value")
+      .eq("key", "features:published")
+      .maybeSingle();
+    if (publishedErr) throw publishedErr;
+    const published =
+      (publishedRow?.value as { ts: number; data: FlagMap }) ?? {
+        ts: now,
+        data: {},
+      };
+
+    const { data: rollbackRow, error: rollbackErr } = await supabaseAdmin
+      .from("kv_config")
+      .select("value")
+      .eq("key", "features:rollback")
+      .maybeSingle();
+    if (rollbackErr) throw rollbackErr;
+    const previous =
+      (rollbackRow?.value as { ts: number; data: FlagMap }) ?? {
+        ts: now,
+        data: {},
+      };
+
+    const { error: setPubErr } = await supabaseAdmin.from("kv_config").upsert({
+      key: "features:published",
+      value: previous,
+    });
+    if (setPubErr) throw setPubErr;
+
+    const { error: setRollbackErr } = await supabaseAdmin.from("kv_config").upsert({
+      key: "features:rollback",
+      value: published,
+    });
+    if (setRollbackErr) throw setRollbackErr;
+
+    // sync bot_settings with rolled-back snapshot
+    const rows = Object.entries(previous.data).map(([name, val]) => ({
+      setting_key: `${FLAG_PREFIX}${name}`,
+      setting_value: val ? "true" : "false",
+      is_active: true,
+    }));
+    const { error: delErr } = await supabaseAdmin
+      .from("bot_settings")
+      .delete()
+      .like("setting_key", `${FLAG_PREFIX}%`);
+    if (delErr) throw delErr;
+    if (rows.length) {
+      const { error: insErr } = await supabaseAdmin.from("bot_settings").insert(
+        rows,
+      );
+      if (insErr) throw insErr;
+    }
+
+    await logAdminAction(
+      userId,
+      "rollback_flags",
+      "Rolled back feature flags",
+      "kv_config",
+    );
+    await sendMessage(chatId, "✅ Flags rolled back.");
+  } catch (e) {
+    console.error("rollbackFlags error", e);
+    await sendMessage(
+      chatId,
+      `❌ Failed to rollback flags: ${e instanceof Error ? e.message : e}`,
+    );
+  }
 }
 
 export async function sendMessage(
@@ -1723,7 +1833,7 @@ export async function handlePublishFlagsConfirm(
   chatId: number,
   userId: string,
 ): Promise<void> {
-  await publishFlags(userId);
+  await publishFlags(chatId, userId);
   await handleFeatureFlags(chatId, userId);
 }
 
@@ -1743,6 +1853,6 @@ export async function handleRollbackFlagsConfirm(
   chatId: number,
   userId: string,
 ): Promise<void> {
-  await rollbackFlags(userId);
+  await rollbackFlags(chatId, userId);
   await handleFeatureFlags(chatId, userId);
 }
