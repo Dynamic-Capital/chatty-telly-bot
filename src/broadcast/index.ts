@@ -1,4 +1,5 @@
 import { enqueue } from "../queue/index.ts";
+import { getFlag } from "../utils/config.ts";
 
 export interface PlanBroadcastOptions {
   segment: number[] | { userIds: number[] };
@@ -6,11 +7,6 @@ export interface PlanBroadcastOptions {
   media?: string;
   chunkSize?: number;
   pauseMs?: number;
-}
-
-const featureFlags = { broadcasts_enabled: true };
-export function setBroadcastsEnabled(v: boolean) {
-  featureFlags.broadcasts_enabled = v;
 }
 
 export async function resolveTargets(
@@ -28,7 +24,7 @@ function sleep(ms: number) {
 }
 
 export async function planBroadcast(opts: PlanBroadcastOptions) {
-  if (!featureFlags.broadcasts_enabled) {
+  if (!(await getFlag("broadcasts_enabled"))) {
     throw new Error("Broadcasts disabled");
   }
   const { segment, text, media, chunkSize = 25, pauseMs = 500 } = opts;
