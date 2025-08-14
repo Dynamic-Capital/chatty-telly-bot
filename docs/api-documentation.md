@@ -231,15 +231,25 @@ async function handleHelpCommand(chatId: number): Promise<void> {
 }
 ```
 
+#### `/packages`
+
+Show available VIP packages and subscription options
+
+```typescript
+async function handlePackagesCommand(chatId: number): Promise<void> {
+  const vipPackages = await getFormattedVipPackages();
+  await sendMessage(chatId, vipPackages);
+}
+```
+
 #### `/vip`
 
-Show VIP plans and subscription options
+Display VIP membership benefits
 
 ```typescript
 async function handleVipCommand(chatId: number): Promise<void> {
-  const vipPackages = await getFormattedVipPackages();
-  const keyboard = await getVipPackagesKeyboard();
-  await sendMessage(chatId, vipPackages, keyboard);
+  const msg = await getBotContent("vip_benefits");
+  await sendMessage(chatId, msg);
 }
 ```
 

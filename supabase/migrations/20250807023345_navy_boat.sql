@@ -62,7 +62,8 @@ VALUES (
 
 Available commands:
 /start - Main menu
-/vip - View VIP packages
+/packages - View VIP packages
+/vip - VIP benefits
 /help - Show help
 /support - Contact support
 /about - About us',
@@ -115,7 +116,8 @@ Our support team is here to assist you!
 
 Available commands:
 /start - Main menu
-/vip - View VIP packages
+/packages - View VIP packages
+/vip - VIP benefits
 /help - Show this help
 /support - Contact support
 /about - About us

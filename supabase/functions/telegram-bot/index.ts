@@ -4,7 +4,7 @@ import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getBotContent } from "./database-utils.ts";
+import { getBotContent, getFormattedVipPackages } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 
 interface TelegramMessage {
@@ -112,8 +112,12 @@ async function sendMessage(
   }
 }
 
-async function notifyUser(chatId: number, text: string): Promise<void> {
-  await sendMessage(chatId, text);
+async function notifyUser(
+  chatId: number,
+  text: string,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
+  await sendMessage(chatId, text, extra);
 }
 
 async function sendMiniAppLink(chatId: number) {
@@ -224,7 +228,8 @@ async function logInteraction(
 async function handleStartPayload(msg: TelegramMessage): Promise<void> {
   const t = msg.text?.split(/\s+/)[1];
   if (!t) return;
-  const supa = await supaSvc();
+  const supa = await supaSvc().catch(() => null);
+  if (!supa) return;
   const telegramId = String(msg.from?.id || msg.chat.id);
   const now = new Date().toISOString();
   let promo_data: Record<string, unknown> | null = null;
@@ -269,41 +274,46 @@ async function handleStartPayload(msg: TelegramMessage): Promise<void> {
 async function enforceRateLimit(
   telegramUserId: string,
 ): Promise<null | Response> {
-  const supa = await supaSvc();
-  const LIMIT = Number(Deno.env.get("RATE_LIMIT_PER_MINUTE") ?? "20");
+  try {
+    const supa = await supaSvc();
+    const LIMIT = Number(Deno.env.get("RATE_LIMIT_PER_MINUTE") ?? "20");
 
-  const now = new Date();
-  const { data: row } = await supa
-    .from("user_sessions")
-    .select("id,follow_up_count,last_activity")
-    .eq("telegram_user_id", telegramUserId)
-    .limit(1)
-    .maybeSingle();
+    const now = new Date();
+    const { data: row } = await supa
+      .from("user_sessions")
+      .select("id,follow_up_count,last_activity")
+      .eq("telegram_user_id", telegramUserId)
+      .limit(1)
+      .maybeSingle();
 
-  let count = 1;
-  if (
-    row?.last_activity &&
-    (now.getTime() - new Date(row.last_activity).getTime()) < 60_000
-  ) {
-    count = (row.follow_up_count ?? 0) + 1;
-  }
+    let count = 1;
+    if (
+      row?.last_activity &&
+      (now.getTime() - new Date(row.last_activity).getTime()) < 60_000
+    ) {
+      count = (row.follow_up_count ?? 0) + 1;
+    }
 
-  const up = {
-    telegram_user_id: telegramUserId,
-    last_activity: now.toISOString(),
-    follow_up_count: count,
-    is_active: true,
-  };
+    const up = {
+      telegram_user_id: telegramUserId,
+      last_activity: now.toISOString(),
+      follow_up_count: count,
+      is_active: true,
+    };
 
-  if (row?.id) await supa.from("user_sessions").update(up).eq("id", row.id);
-  else await supa.from("user_sessions").insert(up);
+    if (row?.id) await supa.from("user_sessions").update(up).eq("id", row.id);
+    else await supa.from("user_sessions").insert(up);
 
-  if (count > LIMIT) {
-    await logInteraction("rate_limited", telegramUserId, {
-      count,
-      limit: LIMIT,
-    });
-    return json({ ok: false, error: "Too Many Requests" }, 429);
+    if (count > LIMIT) {
+      await logInteraction("rate_limited", telegramUserId, {
+        count,
+        limit: LIMIT,
+      });
+      return json({ ok: false, error: "Too Many Requests" }, 429);
+    }
+  } catch {
+    // Ignore rate limit failures when Supabase is unavailable
+    return null;
   }
   return null;
 }
@@ -397,6 +407,11 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
       case "/vip": {
         const msg = await getBotContent("vip_benefits");
         await notifyUser(chatId, msg ?? "VIP information is unavailable.");
+        break;
+      }
+      case "/packages": {
+        const msg = await getFormattedVipPackages();
+        await notifyUser(chatId, msg, { parse_mode: "Markdown" });
         break;
       }
       case "/faq": {
@@ -593,15 +608,19 @@ export async function serveWebhook(req: Request): Promise<Response> {
       update?.message?.from?.id ?? update?.callback_query?.from?.id ?? "",
     );
     if (fromId) {
-      const { data: ban } = await supa.from("abuse_bans")
-        .select("expires_at")
-        .eq("telegram_id", fromId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (ban && (!ban.expires_at || new Date(ban.expires_at) > new Date())) {
-        // optional: send a one-time notice
-        return json({ ok: false, error: "Forbidden" }, 403);
+      try {
+        const { data: ban } = await supa.from("abuse_bans")
+          .select("expires_at")
+          .eq("telegram_id", fromId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (ban && (!ban.expires_at || new Date(ban.expires_at) > new Date())) {
+          // optional: send a one-time notice
+          return json({ ok: false, error: "Forbidden" }, 403);
+        }
+      } catch {
+        /* swallow */
       }
     }
 
@@ -631,12 +650,16 @@ export async function serveWebhook(req: Request): Promise<Response> {
     const errMsg = e instanceof Error ? e.message : String(e);
     console.log("telegram-bot fatal:", errMsg);
     await alertAdmins(`🚨 <b>Bot error</b>\n<code>${String(e)}</code>`);
-    const supa = await supaSvc();
-    await supa.from("admin_logs").insert({
-      admin_telegram_id: "system",
-      action_type: "bot_error",
-      action_description: String(e),
-    });
+    try {
+      const supa = await supaSvc();
+      await supa.from("admin_logs").insert({
+        admin_telegram_id: "system",
+        action_type: "bot_error",
+        action_description: String(e),
+      });
+    } catch {
+      /* swallow */
+    }
     return oops("Internal Error");
   }
 }
