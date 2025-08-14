@@ -909,6 +909,11 @@ export async function serveWebhook(req: Request): Promise<Response> {
     }
     const update = body as TelegramUpdate;
 
+    if (update.callback_query) {
+      await handleCallback(update);
+      return ok({ handled: true, kind: "callback_query" });
+    }
+
     // ---- BAN CHECK (short-circuit early) ----
     const supa = await supaSvc();
     const fromId = String(
@@ -943,8 +948,9 @@ export async function serveWebhook(req: Request): Promise<Response> {
       );
     }
 
-    await handleCommand(update);
-    await handleCallback(update);
+    if (!update.callback_query) {
+      await handleCommand(update);
+    }
 
     const fileId = isDirectMessage(update.message)
       ? getFileIdFromUpdate(update)
