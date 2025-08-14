@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { initTelegramThemeHandlers } from "./theme";
 import { verify } from "./api";
+import Bank from "./Bank";
+import Crypto from "./Crypto";
 
 const MINI_APP_URL = (
   import.meta.env.VITE_MINI_APP_URL || window.location.origin + "/"
@@ -119,6 +121,7 @@ function SharedSections() {
 export default function App() {
   const [auth, setAuth] = useState<Auth | null>(null);
   const [error, setError] = useState(false);
+  const [page, setPage] = useState<"home" | "bank" | "crypto">("home");
 
   useEffect(() => {
     window.Telegram?.WebApp?.ready?.();
@@ -153,6 +156,9 @@ export default function App() {
       </div>
     );
   if (!auth) return <div className="p-4">Loading...</div>;
+
+  if (page === "bank") return <Bank onBack={() => setPage("home")} />;
+  if (page === "crypto") return <Crypto onBack={() => setPage("home")} />;
 
   const firstName = window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name;
   const greeting = firstName ? `Welcome back, ${firstName}` : "Welcome";
@@ -215,6 +221,22 @@ export default function App() {
             className="px-3 py-1 rounded-full border"
           >
             Support
+          </button>
+        </div>
+        <div className="flex justify-center gap-2 mt-2 text-sm">
+          <button
+            type="button"
+            onClick={() => setPage("bank")}
+            className="px-3 py-1 rounded-full border"
+          >
+            Bank Deposit
+          </button>
+          <button
+            type="button"
+            onClick={() => setPage("crypto")}
+            className="px-3 py-1 rounded-full border"
+          >
+            Crypto Deposit
           </button>
         </div>
       </header>
