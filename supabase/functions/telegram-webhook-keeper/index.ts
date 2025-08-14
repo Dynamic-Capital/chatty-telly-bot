@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { ensureWebhookSecret, readDbWebhookSecret } from "../_shared/telegram_secret.ts";
+import { createClient } from "../_shared/client.ts";
 
 function requireEnv(k: string) {
   const v = Deno.env.get(k);
@@ -36,14 +37,10 @@ async function handler(req: Request): Promise<Response> {
   }
 
   // Supabase + Telegram pre-reqs
-  const url = requireEnv("SUPABASE_URL");
-  const srv = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
   const token = requireEnv("TELEGRAM_BOT_TOKEN");
   const ref = projectRef();
   const expectedUrl = `https://${ref}.functions.supabase.co/telegram-bot`;
-
-  const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-  const supa = createClient(url, srv, { auth: { persistSession: false } });
+  const supa = createClient();
 
   // 1) Determine secret precedence: DB -> ENV -> generate
   const secret = await ensureWebhookSecret(supa);

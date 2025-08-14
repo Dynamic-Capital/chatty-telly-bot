@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { requireEnv } from "../_shared/env.ts";
+import { createClient } from "../_shared/client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,17 +20,7 @@ serve(async (req) => {
   try {
     logStep("Analytics data request started");
 
-    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = requireEnv(
-      [
-        "SUPABASE_URL",
-        "SUPABASE_SERVICE_ROLE_KEY",
-      ] as const,
-    );
-    const supabaseClient = createClient(
-      SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY,
-      { auth: { persistSession: false } },
-    );
+    const supabaseClient = createClient();
 
     const { timeframe } = await req.json().catch(() => ({
       timeframe: "today",

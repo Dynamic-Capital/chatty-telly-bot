@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { need } from "../_shared/env.ts";
 import { ok, oops } from "../_shared/http.ts";
 import { ensureWebhookSecret } from "../_shared/telegram_secret.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/client.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,11 +25,10 @@ serve(async (req) => {
   try {
     const BOT_TOKEN = need("TELEGRAM_BOT_TOKEN");
     const SUPABASE_URL = need("SUPABASE_URL");
-    const SERVICE_KEY = need("SUPABASE_SERVICE_ROLE_KEY");
     const PROJECT_URL = SUPABASE_URL.replace("https://", "").replace(".supabase.co", "");
     const WEBHOOK_URL = `https://${PROJECT_URL}.functions.supabase.co/telegram-bot`;
 
-    const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    const supa = createClient();
     const WEBHOOK_SECRET = await ensureWebhookSecret(supa);
 
     console.log(`Setting up webhook: ${WEBHOOK_URL}`);

@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/client.ts";
 import { getEnv, optionalEnv } from "../_shared/env.ts";
 import { ok } from "../_shared/http.ts";
 
@@ -55,9 +55,7 @@ serve(async (req) => {
     return new Response("Admin not allowed", { status: 403 });
   }
 
-  const url = getEnv("SUPABASE_URL");
-  const svc = getEnv("SUPABASE_SERVICE_ROLE_KEY");
-  const supa = createClient(url, svc, { auth: { persistSession: false } });
+  const supa = createClient();
   const botToken = getEnv("TELEGRAM_BOT_TOKEN");
 
   const { data: p, error: perr } = await supa

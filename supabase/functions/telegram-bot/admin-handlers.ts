@@ -1,25 +1,13 @@
 // Enhanced admin handlers for comprehensive table management
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "../_shared/client.ts";
 import { optionalEnv, requireEnv } from "../_shared/env.ts";
 import { expectedSecret } from "../_shared/telegram_secret.ts";
 
-const {
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY,
-  TELEGRAM_BOT_TOKEN: BOT_TOKEN,
-} = requireEnv(
-  [
-    "SUPABASE_URL",
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "TELEGRAM_BOT_TOKEN",
-  ] as const,
-);
+const { TELEGRAM_BOT_TOKEN: BOT_TOKEN } = requireEnv([
+  "TELEGRAM_BOT_TOKEN",
+] as const);
 
-const supabaseAdmin = createClient(
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false } },
-);
+const supabaseAdmin = createClient();
 
 // Import utility functions
 import { getBotContent, logAdminAction } from "./database-utils.ts";

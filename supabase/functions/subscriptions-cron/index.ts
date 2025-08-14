@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/client.ts";
 import { getEnv, EnvKey } from "../_shared/env.ts";
 
 function need(k: EnvKey) {
@@ -15,10 +15,8 @@ async function tgSend(token: string, chatId: string, text: string) {
 }
 
 serve(async (_req) => {
-  const url = need("SUPABASE_URL");
-  const svc = need("SUPABASE_SERVICE_ROLE_KEY");
   const bot = need("TELEGRAM_BOT_TOKEN");
-  const supa = createClient(url, svc, { auth: { persistSession: false } });
+  const supa = createClient();
 
   const now = new Date();
   const d7 = new Date(now);

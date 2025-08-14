@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { getEnv } from "../_shared/env.ts";
+import { createClient } from "../_shared/client.ts";
 
 interface SupabaseLike {
   from: (table: string) => {
@@ -50,12 +50,7 @@ async function handler(req: Request): Promise<Response> {
   const tg = String(body.telegram_id || "").trim();
   if (!tg) return new Response("Missing telegram_id", { status: 400 });
 
-  const url = getEnv("SUPABASE_URL");
-  const srv = getEnv("SUPABASE_SERVICE_ROLE_KEY");
-  const { createClient } = await import(
-    "https://esm.sh/@supabase/supabase-js@2"
-  );
-  const supa = createClient(url, srv, { auth: { persistSession: false } });
+  const supa = createClient();
 
   let isVip: boolean | null = null;
   try {

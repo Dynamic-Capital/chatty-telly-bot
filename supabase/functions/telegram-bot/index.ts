@@ -5,6 +5,7 @@ import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getBotContent } from "./database-utils.ts";
+import { createClient } from "../_shared/client.ts";
 
 interface TelegramMessage {
   chat: { id: number };
@@ -61,12 +62,7 @@ async function getSupabase(): Promise<SupabaseClient | null> {
   if (supabaseAdmin) return supabaseAdmin;
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
   try {
-    const { createClient } = await import(
-      "https://esm.sh/@supabase/supabase-js@2"
-    );
-    supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { persistSession: false },
-    });
+    supabaseAdmin = createClient();
   } catch (_e) {
     supabaseAdmin = null;
   }

@@ -1,19 +1,7 @@
 // Database utility functions for the Telegram bot
-import { createClient } from "jsr:@supabase/supabase-js@2";
-import { requireEnv } from "../_shared/env.ts";
+import { createClient } from "../_shared/client.ts";
 
-const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = requireEnv(
-  [
-    "SUPABASE_URL",
-    "SUPABASE_SERVICE_ROLE_KEY",
-  ] as const,
-);
-
-const supabaseAdmin = createClient(
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false } },
-);
+const supabaseAdmin = createClient();
 
 interface VipPackage {
   id: string;

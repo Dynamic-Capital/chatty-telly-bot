@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
-import { optionalEnv, requireEnv } from "../_shared/env.ts";
+import { createClient } from "../_shared/client.ts";
+import { optionalEnv } from "../_shared/env.ts";
 import { createLogger } from "../_shared/logger.ts";
 
 const corsHeaders = {
@@ -89,13 +89,7 @@ export async function handler(req: Request): Promise<Response> {
     logger.info("Binance Pay webhook received:", webhookData);
 
     // Initialize Supabase client
-    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = requireEnv(
-      [
-        "SUPABASE_URL",
-        "SUPABASE_SERVICE_ROLE_KEY",
-      ] as const,
-    );
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient();
 
     const { bizType, data } = webhookData;
 

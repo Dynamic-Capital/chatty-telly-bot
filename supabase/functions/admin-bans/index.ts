@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/client.ts";
 import { isAdmin, verifyInitDataAndGetUser } from "../_shared/telegram.ts";
-import { requireEnv } from "../_shared/env.ts";
 
 serve(async (req) => {
   if (req.method !== "POST") {
@@ -25,13 +24,7 @@ serve(async (req) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } =
-    requireEnv(["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const);
-  const supa = createClient(
-    SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { persistSession: false } },
-  );
+  const supa = createClient();
 
   if (body.op === "list") {
     const { data } = await supa.from("abuse_bans").select(

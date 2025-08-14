@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/client.ts";
 
 type Body = { payment_id: string };
 
@@ -60,11 +60,7 @@ serve(async (req) => {
     return new Response("Bad JSON", { status: 400 });
   }
 
-  const supa = createClient(
-    need("SUPABASE_URL"),
-    need("SUPABASE_SERVICE_ROLE_KEY"),
-    { auth: { persistSession: false } },
-  );
+  const supa = createClient();
 
   // Load payment + plan + receipt path
   const { data: p } = await supa.from("payments")

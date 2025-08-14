@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { getEnv } from "../_shared/env.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "../_shared/client.ts";
 
 type Body = {
   telegram_id: string;
@@ -20,9 +19,7 @@ serve(async (req) => {
     return new Response("Bad JSON", { status: 400 });
   }
 
-  const url = getEnv("SUPABASE_URL");
-  const srv = getEnv("SUPABASE_SERVICE_ROLE_KEY");
-  const supa = createClient(url, srv, { auth: { persistSession: false } });
+  const supa = createClient();
 
   const key = `receipts/${body.telegram_id}/${crypto.randomUUID()}-${body.filename}`;
   const { data: signed, error } = await supa.storage
