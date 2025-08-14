@@ -1,5 +1,6 @@
 // supabase/functions/_shared/static.ts
 import { mna, nf, ok } from "./http.ts";
+import { lookup } from "https://deno.land/std/media_types/mod.ts";
 
 export type StaticOpts = {
   rootDir: URL; // e.g., new URL("../miniapp/static/", import.meta.url)
@@ -22,25 +23,7 @@ export const DEFAULT_SECURITY = {
 } as const;
 
 function mime(p: string) {
-  return p.endsWith(".js")
-    ? "text/javascript"
-    : p.endsWith(".css")
-    ? "text/css"
-    : p.endsWith(".svg")
-    ? "image/svg+xml"
-    : p.endsWith(".png")
-    ? "image/png"
-    : p.endsWith(".jpg") || p.endsWith(".jpeg")
-    ? "image/jpeg"
-    : p.endsWith(".webp")
-    ? "image/webp"
-    : p.endsWith(".json")
-    ? "application/json"
-    : p.endsWith(".ico")
-    ? "image/x-icon"
-    : p.endsWith(".webmanifest")
-    ? "application/manifest+json"
-    : "application/octet-stream";
+  return lookup(p) ?? "application/octet-stream";
 }
 
 async function readFileFrom(rootDir: URL, relPath: string): Promise<Response | null> {
