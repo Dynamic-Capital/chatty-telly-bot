@@ -59,7 +59,7 @@ export type Database = {
           is_active: boolean
           message_template: string
           name: string
-            trigger_type: Database["public"]["Enums"]["trigger_type_enum"]
+          trigger_type: string
           updated_at: string
         }
         Insert: {
@@ -70,7 +70,7 @@ export type Database = {
           is_active?: boolean
           message_template: string
           name: string
-            trigger_type: Database["public"]["Enums"]["trigger_type_enum"]
+          trigger_type: string
           updated_at?: string
         }
         Update: {
@@ -81,7 +81,7 @@ export type Database = {
           is_active?: boolean
           message_template?: string
           name?: string
-            trigger_type?: Database["public"]["Enums"]["trigger_type_enum"]
+          trigger_type?: string
           updated_at?: string
         }
         Relationships: []
@@ -125,7 +125,7 @@ export type Database = {
       bot_content: {
         Row: {
           content_key: string
-            content_type: Database["public"]["Enums"]["content_type_enum"]
+          content_type: string
           content_value: string
           created_at: string
           created_by: string | null
@@ -137,7 +137,7 @@ export type Database = {
         }
         Insert: {
           content_key: string
-            content_type?: Database["public"]["Enums"]["content_type_enum"]
+          content_type?: string
           content_value: string
           created_at?: string
           created_by?: string | null
@@ -149,7 +149,7 @@ export type Database = {
         }
         Update: {
           content_key?: string
-            content_type?: Database["public"]["Enums"]["content_type_enum"]
+          content_type?: string
           content_value?: string
           created_at?: string
           created_by?: string | null
@@ -800,7 +800,7 @@ export type Database = {
           payment_method: string
           payment_provider_id: string | null
           plan_id: string
-          status: "pending" | "completed" | "failed" | "refunded"
+          status: string
           updated_at: string
           user_id: string
           webhook_data: Json | null
@@ -813,7 +813,7 @@ export type Database = {
           payment_method: string
           payment_provider_id?: string | null
           plan_id: string
-          status?: "pending" | "completed" | "failed" | "refunded"
+          status?: string
           updated_at?: string
           user_id: string
           webhook_data?: Json | null
@@ -826,7 +826,7 @@ export type Database = {
           payment_method?: string
           payment_provider_id?: string | null
           plan_id?: string
-          status?: "pending" | "completed" | "failed" | "refunded"
+          status?: string
           updated_at?: string
           user_id?: string
           webhook_data?: Json | null
@@ -964,7 +964,7 @@ export type Database = {
           created_at: string
           current_uses: number | null
           description: string | null
-          discount_type: Database["public"]["Enums"]["discount_type_enum"]
+          discount_type: string
           discount_value: number
           id: string
           is_active: boolean | null
@@ -978,7 +978,7 @@ export type Database = {
           created_at?: string
           current_uses?: number | null
           description?: string | null
-          discount_type: Database["public"]["Enums"]["discount_type_enum"]
+          discount_type: string
           discount_value: number
           id?: string
           is_active?: boolean | null
@@ -992,7 +992,7 @@ export type Database = {
           created_at?: string
           current_uses?: number | null
           description?: string | null
-          discount_type?: Database["public"]["Enums"]["discount_type_enum"]
+          discount_type?: string
           discount_value?: number
           id?: string
           is_active?: boolean | null
@@ -1375,9 +1375,7 @@ export type Database = {
       }
     }
     Enums: {
-      content_type_enum: "text" | "html" | "markdown"
-      trigger_type_enum: "keyword" | "regex" | "command"
-      discount_type_enum: "percentage" | "fixed"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
