@@ -19,6 +19,9 @@ import { WelcomeMessageEditor } from "@/components/admin/WelcomeMessageEditor";
 import { SystemStatus } from "@/components/admin/SystemStatus";
 import { VipPlansManager } from "@/components/admin/VipPlansManager";
 import { BotDiagnostics } from "@/components/admin/BotDiagnostics";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { preview, setFlag, publish, rollback } from "@/utils/config";
 import {
   CreditCard,
   DollarSign,
@@ -63,6 +66,13 @@ interface Payment {
   };
 }
 
+const FLAG_LABELS: Record<string, string> = {
+  payments_enabled: "Payments",
+  vip_sync_enabled: "VIP Sync",
+  broadcasts_enabled: "Broadcasts",
+  mini_app_enabled: "Mini App",
+};
+
 export const AdminDashboard = () => {
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
@@ -78,10 +88,42 @@ export const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcasting, setBroadcasting] = useState(false);
+  const [flags, setFlags] = useState<Record<string, boolean>>({
+    payments_enabled: true,
+    vip_sync_enabled: true,
+    broadcasts_enabled: true,
+    mini_app_enabled: true,
+  });
 
   useEffect(() => {
     fetchDashboardData();
+    loadFlags();
   }, []);
+
+  const loadFlags = async () => {
+    const snap = await preview();
+    setFlags({
+      payments_enabled: !!snap.data.payments_enabled,
+      vip_sync_enabled: !!snap.data.vip_sync_enabled,
+      broadcasts_enabled: !!snap.data.broadcasts_enabled,
+      mini_app_enabled: !!snap.data.mini_app_enabled,
+    });
+  };
+
+  const handleToggleFlag = async (name: string, value: boolean) => {
+    setFlags((prev) => ({ ...prev, [name]: value }));
+    await setFlag(name, value);
+  };
+
+  const handlePublish = async () => {
+    await publish();
+    await loadFlags();
+  };
+
+  const handleRollback = async () => {
+    await rollback();
+    await loadFlags();
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -346,11 +388,18 @@ export const AdminDashboard = () => {
           <TabsTrigger value="bot-debug">🔧 Bot Debug</TabsTrigger>
           <TabsTrigger value="system-status">📊 System Status</TabsTrigger>
           <TabsTrigger value="welcome-editor">💬 Welcome Message</TabsTrigger>
-          <TabsTrigger value="vip-plans">💎 VIP Plans</TabsTrigger>
+          <TabsTrigger value="vip-plans" disabled={!flags.vip_sync_enabled}>
+            💎 VIP Plans
+          </TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="payments" disabled={!flags.payments_enabled}>
+            Payments
+          </TabsTrigger>
           <TabsTrigger value="settings">Bot Settings</TabsTrigger>
-          <TabsTrigger value="broadcast">Broadcast</TabsTrigger>
+          <TabsTrigger value="broadcast" disabled={!flags.broadcasts_enabled}>
+            Broadcast
+          </TabsTrigger>
+          <TabsTrigger value="feature-flags">Feature Flags</TabsTrigger>
           <TabsTrigger value="contact">Contact Info</TabsTrigger>
           <TabsTrigger value="export">Export Data</TabsTrigger>
         </TabsList>
@@ -371,9 +420,11 @@ export const AdminDashboard = () => {
           <WelcomeMessageEditor />
         </TabsContent>
 
-        <TabsContent value="vip-plans" className="space-y-4">
-          <VipPlansManager />
-        </TabsContent>
+        {flags.vip_sync_enabled && (
+          <TabsContent value="vip-plans" className="space-y-4">
+            <VipPlansManager />
+          </TabsContent>
+        )}
 
         <TabsContent value="users" className="space-y-4">
           <Card>
@@ -415,84 +466,119 @@ export const AdminDashboard = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="payments" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Payments</CardTitle>
-              <CardDescription>Latest payment transactions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-96">
-                <div className="space-y-2">
-                  {payments.map((payment) => (
-                    <div
-                      key={payment.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          ${payment.amount} {payment.currency}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {payment.subscription_plans?.name} •{" "}
-                          {payment.payment_method}
-                        </p>
+        {flags.payments_enabled && (
+          <TabsContent value="payments" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Payments</CardTitle>
+                <CardDescription>Latest payment transactions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-96">
+                  <div className="space-y-2">
+                    {payments.map((payment) => (
+                      <div
+                        key={payment.id}
+                        className="flex items-center justify-between p-3 border rounded-lg"
+                      >
+                        <div>
+                          <p className="font-medium">
+                            ${payment.amount} {payment.currency}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {payment.subscription_plans?.name} •{" "}
+                            {payment.payment_method}
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge
+                            variant={payment.status === "completed"
+                              ? "default"
+                              : "secondary"}
+                          >
+                            {payment.status}
+                          </Badge>
+                          <Badge variant="outline">
+                            {new Date(payment.created_at).toLocaleDateString()}
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge
-                          variant={payment.status === "completed"
-                            ? "default"
-                            : "secondary"}
-                        >
-                          {payment.status}
-                        </Badge>
-                        <Badge variant="outline">
-                          {new Date(payment.created_at).toLocaleDateString()}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
-        <TabsContent value="broadcast" className="space-y-4">
+        {flags.broadcasts_enabled && (
+          <TabsContent value="broadcast" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Broadcast Message</CardTitle>
+                <CardDescription>Send messages to all bot users</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <textarea
+                  className="w-full h-32 p-3 border rounded-lg resize-none"
+                  placeholder="Enter your broadcast message..."
+                  value={broadcastMessage}
+                  onChange={(e) => setBroadcastMessage(e.target.value)}
+                />
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={sendBroadcast}
+                    disabled={!broadcastMessage.trim() || broadcasting}
+                  >
+                    <Send className="w-4 h-4 mr-2" />
+                    {broadcasting ? "Sending..." : "Send Broadcast"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setBroadcastMessage("")}
+                  >
+                    Clear
+                  </Button>
+                </div>
+                <Alert>
+                  <MessageSquare className="h-4 w-4" />
+                  <AlertDescription>
+                    This will send the message to all {stats.totalUsers}{" "}
+                    registered users.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        <TabsContent value="feature-flags" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Broadcast Message</CardTitle>
-              <CardDescription>Send messages to all bot users</CardDescription>
+              <CardTitle>Feature Flags</CardTitle>
+              <CardDescription>Enable or disable features</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <textarea
-                className="w-full h-32 p-3 border rounded-lg resize-none"
-                placeholder="Enter your broadcast message..."
-                value={broadcastMessage}
-                onChange={(e) => setBroadcastMessage(e.target.value)}
-              />
+              {Object.entries(FLAG_LABELS).map(([key, label]) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between space-x-2"
+                >
+                  <Label htmlFor={key}>{label}</Label>
+                  <Switch
+                    id={key}
+                    checked={flags[key]}
+                    onCheckedChange={(checked) =>
+                      handleToggleFlag(key, checked)}
+                  />
+                </div>
+              ))}
               <div className="flex space-x-2">
-                <Button
-                  onClick={sendBroadcast}
-                  disabled={!broadcastMessage.trim() || broadcasting}
-                >
-                  <Send className="w-4 h-4 mr-2" />
-                  {broadcasting ? "Sending..." : "Send Broadcast"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setBroadcastMessage("")}
-                >
-                  Clear
+                <Button onClick={handlePublish}>Publish</Button>
+                <Button variant="outline" onClick={handleRollback}>
+                  Rollback
                 </Button>
               </div>
-              <Alert>
-                <MessageSquare className="h-4 w-4" />
-                <AlertDescription>
-                  This will send the message to all {stats.totalUsers}{" "}
-                  registered users.
-                </AlertDescription>
-              </Alert>
             </CardContent>
           </Card>
         </TabsContent>
