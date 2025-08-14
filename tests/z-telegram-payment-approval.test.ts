@@ -32,6 +32,7 @@ function setupTelegramMock() {
 Deno.test("admin approves payment via telegram", async () => {
   Deno.env.set("SUPABASE_URL", "https://supabase.test");
   Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "svc");
+  Deno.env.set("SUPABASE_ANON_KEY", "anon");
   Deno.env.set("TELEGRAM_BOT_TOKEN", "tbot");
   Deno.env.set("TELEGRAM_ADMIN_IDS", "999");
 
@@ -58,6 +59,7 @@ Deno.test("admin approves payment via telegram", async () => {
     assertEquals(user_subscriptions.length, 1);
   } finally {
     restore();
+    Deno.env.delete("SUPABASE_ANON_KEY");
     await new Promise((r) => setTimeout(r, 0));
   }
 });

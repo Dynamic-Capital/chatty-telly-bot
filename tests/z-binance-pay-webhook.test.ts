@@ -34,6 +34,7 @@ Deno.test("binance webhook processes successful payment", async () => {
   Deno.env.set("SUPABASE_URL", "https://supabase.test");
   Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "svc");
   Deno.env.set("TELEGRAM_BOT_TOKEN", "tbot");
+  Deno.env.set("SUPABASE_ANON_KEY", "anon");
   Deno.env.set("BINANCE_SECRET_KEY", "shhh");
 
   const payments = [{
@@ -78,6 +79,7 @@ Deno.test("binance webhook processes successful payment", async () => {
     assertEquals(bot_users[0].is_vip, true);
   } finally {
     restore();
+    Deno.env.delete("SUPABASE_ANON_KEY");
     await new Promise((r) => setTimeout(r, 0));
     await setFlag("payments_enabled", false);
     await publish();
@@ -90,6 +92,7 @@ Deno.test("binance webhook rejects invalid signature", async () => {
   Deno.env.set("SUPABASE_URL", "https://supabase.test");
   Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "svc");
   Deno.env.set("TELEGRAM_BOT_TOKEN", "tbot");
+  Deno.env.set("SUPABASE_ANON_KEY", "anon");
   Deno.env.set("BINANCE_SECRET_KEY", "shhh");
   const payments = [{ id: "p1", user_id: 100, plan_id: "plan1", status: "pending", subscription_plans: { is_lifetime: false, duration_months: 1, name: "Basic" } }];
   const bot_users = [{ id: "u1", telegram_id: 100, is_vip: false, current_plan_id: null, subscription_expires_at: null }];
@@ -119,6 +122,7 @@ Deno.test("binance webhook rejects invalid signature", async () => {
     assertEquals(bot_users[0].is_vip, false);
   } finally {
     restore();
+    Deno.env.delete("SUPABASE_ANON_KEY");
     await new Promise((r) => setTimeout(r, 0));
     await setFlag("payments_enabled", false);
     await publish();

@@ -116,6 +116,65 @@ async function sendMessage(
   }
 }
 
+async function editMessage(
+  chatId: number,
+  messageId: number,
+  text: string,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
+  if (!BOT_TOKEN) {
+    console.warn(
+      "TELEGRAM_BOT_TOKEN is not set; cannot edit message",
+    );
+    return;
+  }
+  try {
+    const r = await fetch(
+      `https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          message_id: messageId,
+          text,
+          ...extra,
+        }),
+      },
+    );
+    const out = await r.text();
+    console.log("editMessage", r.status, out.slice(0, 200));
+  } catch (e) {
+    console.error("editMessage error", e);
+  }
+}
+
+async function answerCallbackQuery(
+  cbId: string,
+  opts: Record<string, unknown> = {},
+): Promise<void> {
+  if (!BOT_TOKEN) {
+    console.warn(
+      "TELEGRAM_BOT_TOKEN is not set; cannot answer callback query",
+    );
+    return;
+  }
+  try {
+    const r = await fetch(
+      `https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callback_query_id: cbId, ...opts }),
+      },
+    );
+    const out = await r.text();
+    console.log("answerCallbackQuery", r.status, out.slice(0, 200));
+  } catch (e) {
+    console.error("answerCallbackQuery error", e);
+  }
+}
+
 async function notifyUser(
   chatId: number,
   text: string,
@@ -172,6 +231,62 @@ export async function sendMiniAppLink(chatId: number) {
     chatId,
     "Welcome! Mini app is being configured. Please try again soon.",
   );
+}
+
+async function menuView(
+  section: "home" | "plans" | "status" | "support",
+  chatId?: number,
+): Promise<{ text: string; extra: Record<string, unknown> }>
+{
+  const base = {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "Home", callback_data: "menu:home" }],
+        [{ text: "Plans", callback_data: "menu:plans" }],
+        [{ text: "Status", callback_data: "menu:status" }],
+        [{ text: "Support", callback_data: "menu:support" }],
+      ],
+    },
+  };
+
+  switch (section) {
+    case "plans": {
+      const msg = await getFormattedVipPackages();
+      return { text: msg, extra: { ...base, parse_mode: "Markdown" } };
+    }
+    case "status": {
+      if (chatId) {
+        const supa = await getSupabase();
+        if (supa) {
+          const { data } = await supa
+            .from("bot_users")
+            .select("is_vip,subscription_expires_at")
+            .eq("telegram_id", chatId)
+            .maybeSingle();
+          const vip = data?.is_vip ? "VIP: active" : "VIP: inactive";
+          const expiry = data?.subscription_expires_at
+            ? `Expiry: ${
+              new Date(data.subscription_expires_at).toLocaleDateString()
+            }`
+            : "Expiry: none";
+          return { text: `${vip}\n${expiry}`, extra: base };
+        }
+      }
+      return { text: "Status information is unavailable.", extra: base };
+    }
+    case "support": {
+      const msg = await getBotContent("support_message");
+      return { text: msg ?? "Support information is unavailable.", extra: base };
+    }
+    case "home":
+    default:
+      return { text: "Welcome! Choose an option:", extra: base };
+  }
+}
+
+async function sendMainMenu(chatId: number): Promise<void> {
+  const view = await menuView("home", chatId);
+  await sendMessage(chatId, view.text, view.extra);
 }
 
 async function extractTelegramUpdate(
@@ -427,6 +542,7 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
     }
     await handleStartPayload(msg);
     await sendMiniAppLink(chatId);
+    await sendMainMenu(chatId);
     return;
   }
 
@@ -629,6 +745,21 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
   const data = cb.data || "";
   const userId = String(cb.from.id);
   try {
+    if (data.startsWith("menu:")) {
+      const section = data.slice("menu:".length) as
+        | "home"
+        | "plans"
+        | "status"
+        | "support";
+      await answerCallbackQuery(cb.id);
+      const msgId = cb.message?.message_id;
+      if (msgId !== undefined) {
+        const view = await menuView(section, chatId);
+        await editMessage(chatId, msgId, view.text, view.extra);
+      }
+      return;
+    }
+
     const handlers = await loadAdminHandlers();
     if (data.startsWith("toggle_flag_")) {
       const flag = data.replace("toggle_flag_", "");
