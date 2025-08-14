@@ -16,30 +16,37 @@ try {
   console.error("miniapp static dir:", new URL("./static/", import.meta.url).pathname);
 }
 
-function serveIndex(): Response {
+async function serveIndex(): Promise<Response> {
   console.log(`[miniapp] serveIndex called - INDEX_HTML available: ${!!INDEX_HTML}`);
-  
+
   if (!INDEX_HTML) {
-    console.error(`[miniapp] INDEX_HTML is empty or null`);
-    const errorResponse = {
-      ok: false, 
-      error: "index.html missing",
-      debug: {
-        indexHtmlLength: INDEX_HTML.length,
-        rootDir: ROOT.pathname,
-        timestamp: new Date().toISOString()
-      }
-    };
-    console.error(`[miniapp] Returning 404 error:`, errorResponse);
-    return new Response(
-      JSON.stringify(errorResponse),
-      {
-        status: 404,
-        headers: { "content-type": "application/json; charset=utf-8" },
-      },
-    );
+    try {
+      const indexPath = new URL("./static/index.html", import.meta.url);
+      console.log(`[miniapp] Reloading index.html from: ${indexPath.pathname}`);
+      INDEX_HTML = await Deno.readTextFile(indexPath);
+      console.log(`[miniapp] Reload successful, size: ${INDEX_HTML.length}`);
+    } catch (e) {
+      console.error(`[miniapp] INDEX_HTML is empty or null and reload failed`, e);
+      const errorResponse = {
+        ok: false,
+        error: "index.html missing",
+        debug: {
+          indexHtmlLength: INDEX_HTML.length,
+          rootDir: ROOT.pathname,
+          timestamp: new Date().toISOString(),
+        },
+      };
+      console.error(`[miniapp] Returning 404 error:`, errorResponse);
+      return new Response(
+        JSON.stringify(errorResponse),
+        {
+          status: 404,
+          headers: { "content-type": "application/json; charset=utf-8" },
+        },
+      );
+    }
   }
-  
+
   console.log(`[miniapp] Serving index.html, size: ${INDEX_HTML.length} chars`);
   const h = new Headers({
     "content-type": "text/html; charset=utf-8",
