@@ -552,8 +552,12 @@ export async function serveWebhook(req: Request): Promise<Response> {
   }
   if (req.method !== "POST") return mna();
 
+  // Only validate webhook secret for POST requests
   const authResp = await validateTelegramHeader(req);
-  if (authResp) return authResp;
+  if (authResp) {
+    console.log("Telegram webhook auth failed");
+    return authResp;
+  }
 
   try {
     const { ok: envOk, missing } = requireEnvCheck(REQUIRED_ENV_KEYS);

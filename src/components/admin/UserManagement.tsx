@@ -235,6 +235,7 @@ export function UserManagement() {
         package_id: "",
         expires_at: "",
         notes: "",
+        telegram_channels: [],
       });
       setIsAssignPackageOpen(false);
       loadData();

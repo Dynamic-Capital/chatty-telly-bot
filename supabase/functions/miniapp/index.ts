@@ -7,11 +7,13 @@ const ROOT = new URL("./static/", import.meta.url);
 
 let INDEX_HTML = "";
 try {
-  INDEX_HTML = await Deno.readTextFile(
-    new URL("./static/index.html", import.meta.url),
-  );
+  const indexPath = new URL("./static/index.html", import.meta.url);
+  console.log(`[miniapp] Attempting to preload index.html from: ${indexPath.pathname}`);
+  INDEX_HTML = await Deno.readTextFile(indexPath);
+  console.log(`[miniapp] Successfully preloaded index.html, size: ${INDEX_HTML.length}`);
 } catch (e) {
   console.error("miniapp index preload failed", e);
+  console.error("miniapp static dir:", new URL("./static/", import.meta.url).pathname);
 }
 
 function serveIndex(): Response {
@@ -35,6 +37,8 @@ function serveIndex(): Response {
 
 serve((req) => {
   const url = new URL(req.url);
+  console.log(`[miniapp] ${req.method} ${url.pathname}`);
+  
   // Keep /version public
   if (req.method === "GET" && url.pathname.endsWith("/version")) {
     return serveStatic(req, { rootDir: ROOT });

@@ -48,6 +48,8 @@ async function readFileFrom(rootDir: URL, relPath: string): Promise<Response | n
     const rel = relPath.replace(/^\/+/, "");
     const url = new URL(`./${rel}`, rootDir);
     if (!url.pathname.startsWith(rootDir.pathname)) return null; // prevent path traversal
+    
+    console.log(`[static] Attempting to read file: ${url.pathname}`);
     const data = await Deno.readFile(url);
     const h = new Headers({
       "content-type": mime(relPath),
@@ -55,8 +57,10 @@ async function readFileFrom(rootDir: URL, relPath: string): Promise<Response | n
         ? "no-cache"
         : "public, max-age=31536000, immutable",
     });
+    console.log(`[static] Successfully read file: ${url.pathname}, size: ${data.length}`);
     return new Response(data, { headers: h });
-  } catch {
+  } catch (e) {
+    console.error(`[static] Failed to read file: ${relPath}`, e);
     return null;
   }
 }
@@ -65,6 +69,8 @@ export async function serveStatic(req: Request, opts: StaticOpts): Promise<Respo
   const url = new URL(req.url);
   const path = url.pathname.replace(/\/+$/, ""); // strip trailing slash for routing
   const sec = { ...DEFAULT_SECURITY, ...(opts.security || {}) };
+
+  console.log(`[static] Request: ${req.method} ${url.pathname}`);
 
   const setSec = (resp: Response) => {
     const h = new Headers(resp.headers);
@@ -93,6 +99,7 @@ export async function serveStatic(req: Request, opts: StaticOpts): Promise<Respo
   // Serve SPA index for roots
   const spaRoots = opts.spaRoots ?? ["/", "/miniapp"];
   if (spaRoots.includes(url.pathname) || spaRoots.includes(path) || url.pathname === "/miniapp/") {
+    console.log(`[static] Serving index.html for SPA root: ${url.pathname}`);
     const idx = await readFileFrom(opts.rootDir, "index.html");
     if (idx) {
       const h = new Headers(idx.headers);
@@ -100,6 +107,7 @@ export async function serveStatic(req: Request, opts: StaticOpts): Promise<Respo
       for (const [k, v] of Object.entries(sec)) h.set(k, v);
       return new Response(idx.body, { headers: h, status: idx.status });
     }
+    console.error(`[static] index.html not found in rootDir: ${opts.rootDir.pathname}`);
     return nf("index.html missing");
   }
 
@@ -123,5 +131,6 @@ export async function serveStatic(req: Request, opts: StaticOpts): Promise<Respo
   }
 
   // Unknown path → 404
+  console.log(`[static] Path not found: ${url.pathname}`);
   return nf("Not Found");
 }
