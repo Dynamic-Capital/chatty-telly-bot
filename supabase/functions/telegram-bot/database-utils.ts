@@ -64,6 +64,7 @@ async function createDefaultContent(
 
 Available commands:
 /start - Main menu
+/dashboard - View account dashboard
 /packages - View VIP packages
 /vip - VIP benefits
 /help - Show help
@@ -90,6 +91,7 @@ Our support team is here to assist you!
 
 Available commands:
 /start - Main menu
+/dashboard - View account dashboard
 /packages - View VIP packages
 /vip - VIP benefits
 /help - Show this help

@@ -424,6 +424,81 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
         await notifyUser(chatId, msg, { parse_mode: "Markdown" });
         break;
       }
+      case "/dashboard": {
+        const supa = await getSupabase();
+        if (supa) {
+          const { data: user } = await supa
+            .from("bot_users")
+            .select("is_vip,subscription_expires_at")
+            .eq("telegram_id", chatId)
+            .maybeSingle();
+
+          const vipStatus = user?.is_vip ? "✅ Active" : "❌ Inactive";
+          const expiry = user?.subscription_expires_at
+            ? new Date(user.subscription_expires_at).toLocaleDateString()
+            : "N/A";
+
+          const { data: promos } = await supa
+            .from("promotions")
+            .select("code,discount_type,discount_value")
+            .eq("is_active", true)
+            .or(
+              `valid_until.is.null,valid_until.gt.${new Date().toISOString()}`,
+            )
+            .limit(3);
+
+          const promoLines = promos?.length
+            ? promos
+              .map((p, i) => {
+                const discount =
+                  p.discount_type === "percentage"
+                    ? `${p.discount_value}%`
+                    : `$${p.discount_value}`;
+                return `${i + 1}. ${p.code} - ${discount}`;
+              })
+              .join("\n")
+            : "No active promotions.";
+
+          const { data: interactions } = await supa
+            .from("user_interactions")
+            .select("interaction_data")
+            .eq("interaction_type", "command")
+            .limit(1000);
+
+          const counts = new Map<string, number>();
+          for (const row of interactions ?? []) {
+            const cmd = (row.interaction_data as string || "").split(" ")[0];
+            if (!cmd) continue;
+            counts.set(cmd, (counts.get(cmd) ?? 0) + 1);
+          }
+          const topCmds = [...counts.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3);
+          const cmdLines = topCmds.length
+            ? topCmds
+              .map(([c, n], i) => `${i + 1}. ${c} (${n})`)
+              .join("\n")
+            : "No commands yet.";
+
+          const message =
+            `📊 *Dashboard*\n\n👤 *Subscription:* ${vipStatus}\n` +
+            `📅 *Expires:* ${expiry}\n\n` +
+            `🎁 *Active Promotions:*\n${promoLines}\n\n` +
+            `🔥 *Top Commands:*\n${cmdLines}`;
+
+          await notifyUser(chatId, message, {
+            parse_mode: "Markdown",
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "View Packages", callback_data: "dashboard_packages" }],
+                [{ text: "Redeem Promo", callback_data: "dashboard_redeem" }],
+                [{ text: "Help", callback_data: "dashboard_help" }],
+              ],
+            },
+          });
+        }
+        break;
+      }
       case "/faq": {
         const msg = await getBotContent("faq_general");
         await notifyUser(chatId, msg ?? "FAQ is unavailable.");
@@ -512,6 +587,19 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
       await handlers.handleToggleFeatureFlag(chatId, userId, flag);
     } else {
       switch (data) {
+        case "dashboard_packages": {
+          const msg = await getFormattedVipPackages();
+          await notifyUser(chatId, msg, { parse_mode: "Markdown" });
+          break;
+        }
+        case "dashboard_redeem":
+          await sendMiniAppLink(chatId);
+          break;
+        case "dashboard_help": {
+          const msg = await getBotContent("help_message");
+          await notifyUser(chatId, msg ?? "Help is coming soon.");
+          break;
+        }
         case "admin_dashboard":
           await handlers.handleAdminDashboard(chatId, userId);
           break;
