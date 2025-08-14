@@ -189,9 +189,13 @@ Expected additional functions may be:
 - **User lookups**: `idx_bot_users_telegram_id`
 - **Active sessions**: `idx_bot_sessions_active`
 - **Payment status**: `idx_payments_status`
+- **Payment lookups**: `idx_payments_user_id`, `idx_payments_plan_id`
 - **VIP users**: `idx_bot_users_vip`
 - **Admin users**: `idx_bot_users_admin_vip`
 - **Subscription status**: `idx_user_subscriptions_active`
+- **Subscription lookups**: `idx_user_subscriptions_telegram_user_id`, `idx_user_subscriptions_plan_id`
+- **Enrollment packages**: `idx_education_enrollments_package_id`
+- **Package assignments**: `idx_user_package_assignments_bot_user_id`
 
 ### ✅ **Composite Indexes**
 
