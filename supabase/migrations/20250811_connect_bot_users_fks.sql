@@ -86,68 +86,68 @@ WHERE sv.bot_user_id IS NULL AND bu.telegram_id = sv.telegram_user_id;
 DO $$ BEGIN
   ALTER TABLE public.promo_analytics
     ADD CONSTRAINT promo_analytics_plan_id_fkey
-    FOREIGN KEY (plan_id) REFERENCES public.subscription_plans(id) NOT VALID;
+    FOREIGN KEY (plan_id) REFERENCES public.subscription_plans(id) ON DELETE SET NULL NOT VALID;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE public.user_surveys
     ADD CONSTRAINT user_surveys_recommended_plan_id_fkey
-    FOREIGN KEY (recommended_plan_id) REFERENCES public.subscription_plans(id) NOT VALID;
+    FOREIGN KEY (recommended_plan_id) REFERENCES public.subscription_plans(id) ON DELETE SET NULL NOT VALID;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 4) Add FKs to bot_users (use NOT VALID, then VALIDATE after backfill)
 DO $$ BEGIN
   ALTER TABLE public.user_subscriptions
     ADD CONSTRAINT user_subscriptions_bot_user_id_fkey
-    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) NOT VALID;
+    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) ON DELETE CASCADE NOT VALID;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE public.conversion_tracking
     ADD CONSTRAINT conversion_tracking_bot_user_fkey
-    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) NOT VALID;
+    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) ON DELETE CASCADE NOT VALID;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE public.promo_analytics
     ADD CONSTRAINT promo_analytics_bot_user_fkey
-    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) NOT VALID;
+    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) ON DELETE CASCADE NOT VALID;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE public.promotion_usage
     ADD CONSTRAINT promotion_usage_bot_user_fkey
-    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) NOT VALID;
+    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) ON DELETE CASCADE NOT VALID;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE public.user_interactions
     ADD CONSTRAINT user_interactions_bot_user_fkey
-    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) NOT VALID;
+    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) ON DELETE CASCADE NOT VALID;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE public.user_sessions
     ADD CONSTRAINT user_sessions_bot_user_fkey
-    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) NOT VALID;
+    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) ON DELETE CASCADE NOT VALID;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE public.channel_memberships
     ADD CONSTRAINT channel_memberships_bot_user_fkey
-    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) NOT VALID;
+    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) ON DELETE CASCADE NOT VALID;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE public.education_enrollments
     ADD CONSTRAINT education_enrollments_bot_user_fkey
-    FOREIGN KEY (student_bot_user_id) REFERENCES public.bot_users(id) NOT VALID;
+    FOREIGN KEY (student_bot_user_id) REFERENCES public.bot_users(id) ON DELETE CASCADE NOT VALID;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE public.user_surveys
     ADD CONSTRAINT user_surveys_bot_user_fkey
-    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) NOT VALID;
+    FOREIGN KEY (bot_user_id) REFERENCES public.bot_users(id) ON DELETE CASCADE NOT VALID;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 5) Validate new FKs (will fail if orphans remain; keep NOT VALID in that case)
