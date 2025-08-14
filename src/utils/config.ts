@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 // In-memory fallback map when kv_config table is unavailable
 const memStore = new Map<string, unknown>();
+(globalThis as any).__CONFIG_MEM__ = memStore;
 
 let supabase: SupabaseClient | null | undefined = undefined;
 async function getClient(): Promise<SupabaseClient | null> {
