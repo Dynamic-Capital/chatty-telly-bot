@@ -1,0 +1,9 @@
+{
+  "bizType": "PAY_SUCCESS",
+  "data": {
+    "merchantTradeNo": "p1",
+    "transactionId": "tx123",
+    "payerInfo": {},
+    "transactionTime": "0"
+  }
+}
