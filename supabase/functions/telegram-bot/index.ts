@@ -4,7 +4,7 @@ import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getBotContent } from "./database-utils.ts";
+import { getBotContent, getFormattedVipPackages } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 
 interface TelegramMessage {
@@ -397,6 +397,11 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
       case "/vip": {
         const msg = await getBotContent("vip_benefits");
         await notifyUser(chatId, msg ?? "VIP information is unavailable.");
+        break;
+      }
+      case "/packages": {
+        const msg = await getFormattedVipPackages();
+        await notifyUser(chatId, msg);
         break;
       }
       case "/faq": {
