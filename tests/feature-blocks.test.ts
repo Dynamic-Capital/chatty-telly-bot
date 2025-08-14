@@ -13,26 +13,6 @@ if (typeof Deno !== "undefined") {
 
 import { setFlag, publish } from "../src/utils/config.ts";
 
-registerTest("payments flag blocks webhook", async () => {
-  await setFlag("payments_enabled", false);
-  await publish();
-  (globalThis as any).__TEST_ENV__ = {
-    SUPABASE_URL: "x",
-    SUPABASE_ANON_KEY: "x",
-    SUPABASE_SERVICE_ROLE_KEY: "x",
-  };
-  const { handler } = await import(
-    "../supabase/functions/binance-pay-webhook/index.ts"
-  );
-  const req = new Request("https://example.com", { method: "POST", body: "{}" });
-  const res = await handler(req);
-  const data = await res.json();
-  assertEquals(data.success, false);
-  delete (globalThis as any).__TEST_ENV__;
-  await setFlag("payments_enabled", true);
-  await publish();
-});
-
 registerTest("mini app flag blocks link", async () => {
   if (typeof Deno !== "undefined") {
     Deno.env.set("TELEGRAM_BOT_TOKEN", "tbot");

@@ -3,7 +3,7 @@ import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
-import { getBotContent, getFormattedVipPackages } from "./database-utils.ts";
+import { getBotContent, getFormattedVipPackages, insertReceiptRecord } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
 import { getFlag } from "../../../src/utils/config.ts";
@@ -985,7 +985,44 @@ export async function startReceiptPipeline(update: TelegramUpdate): Promise<void
       await notifyUser(chatId, "VIP sync is currently disabled.");
       return;
     }
-    await notifyUser(chatId, "Receipt processing is temporarily disabled.");
+    const fileId = getFileIdFromUpdate(update);
+    if (!fileId) {
+      await notifyUser(chatId, "No receipt image found.");
+      return;
+    }
+    if (!BOT_TOKEN) {
+      await notifyUser(chatId, "Receipt processing unavailable.");
+      return;
+    }
+    const fileInfo = await fetch(
+      `https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`,
+    ).then((r) => r.json()).catch(() => null);
+    const path = fileInfo?.result?.file_path;
+    if (!path) {
+      await notifyUser(chatId, "Cannot fetch receipt.");
+      return;
+    }
+    const blob = await fetch(
+      `https://api.telegram.org/file/bot${BOT_TOKEN}/${path}`,
+    ).then((r) => r.blob());
+    const hash = await hashBytesToSha256(blob);
+    const storagePath = `receipts/${chatId}/${hash}`;
+    await storeReceiptImage(blob, storagePath);
+    const supa = await getSupabase();
+    const { data: user } = await supa?.from("bot_users")
+      .select("id")
+      .eq("telegram_id", chatId)
+      .maybeSingle() ?? { data: null };
+    if (!user?.id) {
+      await notifyUser(chatId, "Please use /start before sending receipts.");
+      return;
+    }
+    await insertReceiptRecord({
+      user_id: user.id,
+      file_url: storagePath,
+      image_sha256: hash,
+    });
+    await notifyUser(chatId, "✅ Receipt received. We'll review it shortly.");
   } catch (err) {
     console.error("startReceiptPipeline error", err);
   }

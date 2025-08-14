@@ -213,7 +213,6 @@ Expected additional functions may be:
 - ✅ `test-bot-status` (Available)
 - ✅ `reset-bot` (Available)
 - ✅ `binance-pay-checkout` (Available)
-- ✅ `binance-pay-webhook` (Available)
 
 ### ⚠️ **Function Analysis**
 
