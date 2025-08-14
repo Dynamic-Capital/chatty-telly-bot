@@ -2,7 +2,10 @@ import { assertEquals } from "https://deno.land/std@0.224.0/testing/asserts.ts";
 
 Deno.test("webhook handles /start with params", async () => {
   Deno.env.set("TELEGRAM_BOT_TOKEN", "testtoken");
-  Deno.env.set("MINI_APP_URL", "https://example.com/app");
+  Deno.env.set(
+    "MINI_APP_URL",
+    "https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/",
+  );
   Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "testsecret");
   const calls: Array<{ url: string; body: string }> = [];
   const originalFetch = globalThis.fetch;
@@ -27,7 +30,7 @@ Deno.test("webhook handles /start with params", async () => {
     const payload = JSON.parse(calls[0].body);
     assertEquals(
       payload.reply_markup.inline_keyboard[0][0].web_app.url,
-      "https://example.com/app/",
+      "https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/",
     );
   } finally {
     globalThis.fetch = originalFetch;

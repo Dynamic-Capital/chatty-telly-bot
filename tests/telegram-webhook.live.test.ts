@@ -14,7 +14,10 @@ denoEnvCleanup();
 
 denoTest("telegram webhook responds to /start", async () => {
   Deno.env.set("TELEGRAM_BOT_TOKEN", "testtoken");
-  Deno.env.set("MINI_APP_URL", "https://example.com/app");
+  Deno.env.set(
+    "MINI_APP_URL",
+    "https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/",
+  );
   Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "testsecret");
   const { calls, restore } = mockTelegram();
   try {
@@ -33,6 +36,10 @@ denoTest("telegram webhook responds to /start", async () => {
     assertEquals(calls.length, 1);
     const payload = JSON.parse(calls[0].body);
     assertEquals(payload.chat_id, 1);
+    assertEquals(
+      payload.reply_markup.inline_keyboard[0][0].web_app.url,
+      "https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/",
+    );
   } finally {
     restore();
     cleanup();
