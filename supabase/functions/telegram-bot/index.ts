@@ -8,11 +8,13 @@ import { getBotContent, getFormattedVipPackages } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 
 interface TelegramMessage {
-  chat: { id: number };
-  from?: { id?: number };
+  chat: { id: number; type?: string };
+  from?: { id?: number; username?: string };
   text?: string;
+  caption?: string;
   photo?: { file_id: string }[];
   document?: { file_id: string; mime_type?: string };
+  reply_to_message?: TelegramMessage;
   [key: string]: unknown;
 }
 
@@ -132,7 +134,9 @@ async function sendMiniAppLink(chatId: number) {
   if (rawUrl) {
     try {
       const u = new URL(rawUrl);
-      if (u.protocol !== "https:") throw new Error("Mini app URL must be HTTPS");
+      if (u.protocol !== "https:") {
+        throw new Error("Mini app URL must be HTTPS");
+      }
       if (!u.pathname.endsWith("/")) u.pathname = u.pathname + "/";
       miniUrl = u.toString();
     } catch (e) {
@@ -144,7 +148,10 @@ async function sendMiniAppLink(chatId: number) {
   if (miniUrl) {
     await sendMessage(chatId, "Open the VIP Mini App:", {
       reply_markup: {
-        inline_keyboard: [[{ text: "Open VIP Mini App", web_app: { url: miniUrl } }]],
+        inline_keyboard: [[{
+          text: "Open VIP Mini App",
+          web_app: { url: miniUrl },
+        }]],
       },
     });
     return;
@@ -173,6 +180,20 @@ async function extractTelegramUpdate(
   } catch {
     return null;
   }
+}
+
+function isDirectMessage(msg: TelegramMessage | undefined): boolean {
+  if (!msg) return false;
+  const chatType = msg.chat.type;
+  if (chatType === "private") return true;
+  const bot = botUsername.toLowerCase();
+  if (bot) {
+    const text = `${msg.text ?? ""} ${msg.caption ?? ""}`.toLowerCase();
+    if (text.includes(`@${bot}`)) return true;
+    const replyUser = msg.reply_to_message?.from?.username?.toLowerCase();
+    if (replyUser === bot) return true;
+  }
+  return false;
 }
 
 function getFileIdFromUpdate(update: TelegramUpdate | null): string | null {
@@ -468,10 +489,9 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
           const promoLines = promos?.length
             ? promos
               .map((p, i) => {
-                const discount =
-                  p.discount_type === "percentage"
-                    ? `${p.discount_value}%`
-                    : `$${p.discount_value}`;
+                const discount = p.discount_type === "percentage"
+                  ? `${p.discount_value}%`
+                  : `$${p.discount_value}`;
                 return `${i + 1}. ${p.code} - ${discount}`;
               })
               .join("\n")
@@ -508,7 +528,10 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
             parse_mode: "Markdown",
             reply_markup: {
               inline_keyboard: [
-                [{ text: "View Packages", callback_data: "dashboard_packages" }],
+                [{
+                  text: "View Packages",
+                  callback_data: "dashboard_packages",
+                }],
                 [{ text: "Redeem Promo", callback_data: "dashboard_redeem" }],
                 [{ text: "Help", callback_data: "dashboard_help" }],
               ],
@@ -692,8 +715,12 @@ export async function serveWebhook(req: Request): Promise<Response> {
   // Only validate webhook secret for POST requests
   const authResp = await validateTelegramHeader(req);
   if (authResp) {
-    console.log("Telegram webhook auth failed - expected secret not found or mismatch");
-    console.log("Make sure TELEGRAM_WEBHOOK_SECRET is set correctly in Supabase secrets");
+    console.log(
+      "Telegram webhook auth failed - expected secret not found or mismatch",
+    );
+    console.log(
+      "Make sure TELEGRAM_WEBHOOK_SECRET is set correctly in Supabase secrets",
+    );
     return authResp;
   }
 
@@ -755,7 +782,9 @@ export async function serveWebhook(req: Request): Promise<Response> {
     await handleCommand(update);
     await handleCallback(update);
 
-    const fileId = getFileIdFromUpdate(update);
+    const fileId = isDirectMessage(update.message)
+      ? getFileIdFromUpdate(update)
+      : null;
     if (fileId) {
       // Fire-and-forget: run receipt processing without delaying the response
       void startReceiptPipeline(update);
