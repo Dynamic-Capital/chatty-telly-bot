@@ -4,6 +4,14 @@ import { optionalEnv, requireEnv } from "../_shared/env.ts";
 import { expectedSecret } from "../_shared/telegram_secret.ts";
 import { isAdmin as isEnvAdmin } from "../_shared/telegram.ts";
 
+import type {
+  BotUser,
+  EducationPackage,
+  PlanChannel,
+  Promotion,
+  SubscriptionPlan,
+} from "../../../types/telegram-bot.ts";
+
 const { TELEGRAM_BOT_TOKEN: BOT_TOKEN } = requireEnv([
   "TELEGRAM_BOT_TOKEN",
 ] as const);
@@ -396,7 +404,7 @@ export async function handleUserTableManagement(
       },
       {
         title: "👤 *Recent Users (Last 10):*",
-        items: users?.map((user: any) => {
+        items: users?.map((user: BotUser) => {
           const status = user.is_admin ? "🔑" : user.is_vip ? "💎" : "👤";
           return `${status} ${user.first_name || "Unknown"} (@${
             user.username || "N/A"
@@ -454,7 +462,7 @@ export async function handleSubscriptionPlansManagement(
     const planMessage = buildMessage("💎 *VIP Subscription Plans Management*", [
       {
         title: `📦 *Current Plans (${plans?.length || 0}):*`,
-        items: plans?.map((plan: any) => {
+        items: plans?.map((plan: SubscriptionPlan) => {
           const duration = plan.is_lifetime
             ? "Lifetime"
             : `${plan.duration_months} months`;
@@ -520,7 +528,7 @@ export async function handlePlanChannelsManagement(
     }
 
     let msg = `📢 *Plan Channels Management*\n\n`;
-    channels?.forEach((channel: any, index: number) => {
+    channels?.forEach((channel: PlanChannel, index: number) => {
       msg += `${
         index + 1
       }. ${channel.channel_name} (${channel.channel_type})\n`;
@@ -577,7 +585,7 @@ export async function handleEditVipPlan(
 
     const editKeyboard = {
       inline_keyboard: [
-        ...plans.map((plan: any, index: number) => [{
+        ...plans.map((plan: SubscriptionPlan, index: number) => [{
           text: `${index + 1}. ${plan.name} ($${plan.price})`,
           callback_data: `edit_plan_${plan.id}`,
         }]),
@@ -1075,7 +1083,7 @@ export async function handleDeleteVipPlan(
 
     const deleteKeyboard = {
       inline_keyboard: [
-        ...plans.map((plan: any, index: number) => [{
+        ...plans.map((plan: SubscriptionPlan, index: number) => [{
           text: `🗑️ ${index + 1}. ${plan.name} ($${plan.price})`,
           callback_data: `confirm_delete_plan_${plan.id}`,
         }]),
@@ -1302,7 +1310,11 @@ export async function handleEducationPackagesManagement(
     let packageMessage = `🎓 *Education Packages Management*\n\n`;
     packageMessage += `📚 *Current Packages (${packages?.length || 0}):*\n\n`;
 
-    packages?.forEach((pkg: any, index: number) => {
+    packages?.forEach(
+      (
+        pkg: EducationPackage & { category?: { name?: string } },
+        index: number,
+      ) => {
       const status = pkg.is_active ? "✅" : "❌";
       const featured = pkg.is_featured ? "⭐" : "";
       packageMessage += `${index + 1}. ${status}${featured} **${pkg.name}**\n`;
@@ -1387,7 +1399,7 @@ export async function handlePromotionsManagement(
     promoMessage += `• Total Promotions: ${promos?.length || 0}\n\n`;
 
     promoMessage += `🎁 *Recent Promotions:*\n`;
-    promos?.forEach((promo: any, index: number) => {
+    promos?.forEach((promo: Promotion, index: number) => {
       const status = promo.is_active ? "🟢" : "🔴";
       const discount = promo.discount_type === "percentage"
         ? `${promo.discount_value}%`
@@ -1719,6 +1731,75 @@ export async function handleTableStatsOverview(
       chatId,
       "❌ Error fetching database statistics. Please try again.",
     );
+  }
+}
+
+// Export all tables as a JSON file
+export async function handleExportAllTables(
+  chatId: number,
+  userId: string,
+): Promise<void> {
+  try {
+    // Optional admin check in case handler is invoked directly
+    if (!(await isAdmin(userId))) {
+      await sendMessage(chatId, "❌ Access denied.");
+      return;
+    }
+
+    const tables = [
+      "bot_users",
+      "subscription_plans",
+      "plan_channels",
+      "education_packages",
+      "promotions",
+      "bot_content",
+      "bot_settings",
+      "daily_analytics",
+      "user_sessions",
+      "user_interactions",
+      "payments",
+      "broadcast_messages",
+      "bank_accounts",
+      "auto_reply_templates",
+    ];
+
+    const exportData: Record<string, unknown[]> = {};
+    for (const table of tables) {
+      try {
+        const { data, error } = await supabaseAdmin.from(table).select("*");
+        if (error) {
+          console.error(`Error exporting ${table}:`, error);
+          exportData[table] = [];
+        } else {
+          exportData[table] = data ?? [];
+        }
+      } catch (err) {
+        console.error(`Unexpected error exporting ${table}:`, err);
+        exportData[table] = [];
+      }
+    }
+
+    const json = JSON.stringify(exportData, null, 2);
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    form.append(
+      "document",
+      new Blob([json], { type: "application/json" }),
+      "tables-export.json",
+    );
+    form.append("caption", "📁 Exported table data");
+
+    const resp = await fetch(
+      `https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`,
+      { method: "POST", body: form },
+    );
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Telegram sendDocument failed: ${text}`);
+    }
+  } catch (error) {
+    console.error("handleExportAllTables error", error);
+    await sendMessage(chatId, "❌ Failed to export tables.");
   }
 }
 
