@@ -17,6 +17,8 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Allow Vite to resolve Deno's JSR imports during bundling
+      "jsr:@supabase/supabase-js@2": "@supabase/supabase-js",
     },
   },
 }));
