@@ -420,7 +420,7 @@ export async function handleUserTableManagement(
         ],
         [
           { text: "🔄 Refresh", callback_data: "manage_table_bot_users" },
-          { text: "🔙 Back", callback_data: "manage_tables" },
+          { text: "🔙 Back", callback_data: "table_management" },
         ],
       ],
     };
@@ -485,7 +485,7 @@ export async function handleSubscriptionPlansManagement(
             text: "🔄 Refresh",
             callback_data: "manage_table_subscription_plans",
           },
-          { text: "🔙 Back", callback_data: "manage_tables" },
+          { text: "🔙 Back", callback_data: "table_management" },
         ],
       ],
     };
@@ -535,7 +535,7 @@ export async function handlePlanChannelsManagement(
       inline_keyboard: [
         [
           { text: "🔄 Refresh", callback_data: "manage_table_plan_channels" },
-          { text: "🔙 Back", callback_data: "manage_tables" },
+          { text: "🔙 Back", callback_data: "table_management" },
         ],
       ],
     };
@@ -1350,7 +1350,7 @@ export async function handleEducationPackagesManagement(
             text: "🔄 Refresh",
             callback_data: "manage_table_education_packages",
           },
-          { text: "🔙 Back", callback_data: "manage_tables" },
+          { text: "🔙 Back", callback_data: "table_management" },
         ],
       ],
     };
@@ -1421,7 +1421,7 @@ export async function handlePromotionsManagement(
         ],
         [
           { text: "🔄 Refresh", callback_data: "manage_table_promotions" },
-          { text: "🔙 Back", callback_data: "manage_tables" },
+          { text: "🔙 Back", callback_data: "table_management" },
         ],
       ],
     };
@@ -1531,7 +1531,7 @@ export async function handleContentManagement(
         ],
         [
           { text: "🔄 Refresh", callback_data: "manage_table_bot_content" },
-          { text: "🔙 Back", callback_data: "manage_tables" },
+          { text: "🔙 Back", callback_data: "table_management" },
         ],
       ],
     };
@@ -1618,7 +1618,7 @@ export async function handleBotSettingsManagement(
         ],
         [
           { text: "🔄 Refresh", callback_data: "manage_table_bot_settings" },
-          { text: "🔙 Back", callback_data: "manage_tables" },
+          { text: "🔙 Back", callback_data: "table_management" },
         ],
         [
           { text: "🚦 Feature Flags", callback_data: "feature_flags" },
@@ -1707,7 +1707,7 @@ export async function handleTableStatsOverview(
           { text: "📈 Growth Report", callback_data: "growth_report" },
         ],
         [
-          { text: "🔙 Back to Tables", callback_data: "manage_tables" },
+          { text: "🔙 Back to Tables", callback_data: "table_management" },
         ],
       ],
     };
