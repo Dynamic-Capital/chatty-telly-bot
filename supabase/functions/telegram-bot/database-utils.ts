@@ -51,10 +51,30 @@ async function createDefaultContent(
   const defaultContents: Record<string, string> = {
     "welcome_message": `🎯 Welcome to Dynamic Capital VIP Bot!
 
-📈 Get premium trading signals & education
-💎 Join our VIP community
+Unlock premium trading signals and education.
 
-👇 Choose what you need:`,
+Use these commands anytime:
+/vip - View VIP packages
+/help - Show help
+/support - Contact support
+/about - About us
+
+🔥 Here are our VIP packages:`,
+    "welcome_back_message": `👋 Welcome back to Dynamic Capital!
+
+Use these commands to explore:
+/vip - View VIP packages
+/help - Show help
+/support - Contact support
+/about - About us
+
+🔥 Current VIP packages:`,
+    "package_summary": `🎁 VIP Packages
+• Starter — 1 month of premium signals
+• Pro — 6 months with advanced insights
+• Elite — Lifetime access & exclusive perks
+
+Run /vip for full details.`,
     "about_us": `🏢 About Dynamic Capital
 
 We are a leading trading education and signals provider with years of experience in financial markets.
