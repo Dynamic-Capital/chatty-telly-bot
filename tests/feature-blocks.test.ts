@@ -29,15 +29,19 @@ registerTest("mini app flag blocks link", async () => {
   const { sendMiniAppLink } = await import(
     "../supabase/functions/telegram-bot/index.ts"
   );
-  let called = false;
+  let text = "";
   const orig = globalThis.fetch;
-  globalThis.fetch = async () => {
-    called = true;
+  globalThis.fetch = async (_input, init) => {
+    const body = JSON.parse(init?.body ?? "{}");
+    text = body.text;
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   };
   try {
     await sendMiniAppLink(123);
-    assertEquals(called, false);
+    assertEquals(
+      text,
+      "Checkout is currently unavailable. Please try again later.",
+    );
   } finally {
     globalThis.fetch = orig;
     delete (globalThis as any).__TEST_ENV__;
