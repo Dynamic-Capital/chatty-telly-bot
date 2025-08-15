@@ -3,10 +3,15 @@ import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
-import { getBotContent, getFormattedVipPackages, insertReceiptRecord } from "./database-utils.ts";
+import {
+  getBotContent,
+  getFormattedVipPackages,
+  getVipPackages,
+  insertReceiptRecord,
+} from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
-import { getFlag } from "../../../src/utils/config.ts";
+import { getFlag } from "../_shared/config.ts";
 // Type definition moved inline to avoid import issues
 interface Promotion {
   code: string;
@@ -284,7 +289,16 @@ async function menuView(
   switch (section) {
     case "plans": {
       const msg = await getFormattedVipPackages();
-      return { text: msg, extra: { ...base, parse_mode: "Markdown" } };
+      const pkgs = await getVipPackages();
+      const inline_keyboard = pkgs.map((pkg) => [{
+        text: pkg.name,
+        callback_data: "buy:" + pkg.id,
+      }]);
+      inline_keyboard.push([{ text: "Back", callback_data: "menu:home" }]);
+      return {
+        text: msg,
+        extra: { reply_markup: { inline_keyboard }, parse_mode: "Markdown" },
+      };
     }
     case "status": {
       if (chatId) {
@@ -917,6 +931,11 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         | "status"
         | "support";
       await showMainMenu(chatId, section);
+      return;
+    }
+    if (data.startsWith("buy:")) {
+      await notifyUser(chatId, "Opening checkout...");
+      await sendMiniAppLink(chatId);
       return;
     }
 
