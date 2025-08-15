@@ -27,6 +27,8 @@ Full list and usage notes: [docs/env.md](docs/env.md).
 
 - SUPABASE_URL
 - SUPABASE_SERVICE_ROLE_KEY
+- VITE_SUPABASE_URL
+- VITE_SUPABASE_KEY
 - TELEGRAM_BOT_TOKEN
 - TELEGRAM_WEBHOOK_SECRET
 - TELEGRAM_ADMIN_IDS _(comma-separated Telegram user IDs; spaces are ignored)_
