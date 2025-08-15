@@ -12,6 +12,8 @@ import NotFound from "./pages/NotFound";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { WelcomeMessage } from "./components/welcome/WelcomeMessage";
 import BotStatus from "./pages/BotStatus";
+import Checkout from "./pages/Checkout";
+import PaymentStatus from "./pages/PaymentStatus";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +32,8 @@ const App = () => (
               <Route path="/education" element={<Education />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/bot-status" element={<BotStatus />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/payment-status" element={<PaymentStatus />} />
               <Route path="/welcome" element={<WelcomeMessage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
