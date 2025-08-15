@@ -1,10 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
-import { requireEnv } from "../_shared/env.ts";
+import { optionalEnv, requireEnv } from "../_shared/env.ts";
 
-const { TELEGRAM_BOT_TOKEN: BOT_TOKEN } = requireEnv([
-  "TELEGRAM_BOT_TOKEN",
-] as const);
+const { TELEGRAM_BOT_TOKEN: BOT_TOKEN } = requireEnv(
+  [
+    "TELEGRAM_BOT_TOKEN",
+  ] as const,
+);
 
 const supabaseAdmin = createClient();
 
@@ -15,9 +17,15 @@ const corsHeaders = {
 };
 
 // Session timeout settings
-const SESSION_TIMEOUT_MINUTES = 30;
-const FOLLOW_UP_DELAY_MINUTES = 10;
-const MAX_FOLLOW_UPS = 3;
+const SESSION_TIMEOUT_MINUTES = Number(
+  optionalEnv("SESSION_TIMEOUT_MINUTES") ?? "30",
+);
+const FOLLOW_UP_DELAY_MINUTES = Number(
+  optionalEnv("FOLLOW_UP_DELAY_MINUTES") ?? "10",
+);
+const MAX_FOLLOW_UPS = Number(
+  optionalEnv("MAX_FOLLOW_UPS") ?? "3",
+);
 
 async function sendTelegramMessage(chatId: number, text: string) {
   try {
