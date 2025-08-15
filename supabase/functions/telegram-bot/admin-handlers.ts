@@ -2245,11 +2245,20 @@ export async function handleAutoReplyTemplatesManagement(
   _userId: string,
 ): Promise<void> {
   try {
-    const { data: templates, error: _err } = await supabaseAdmin
+    const { data: templates, error } = await supabaseAdmin
       .from("auto_reply_templates")
       .select("id,name,trigger_type,is_active,created_at")
       .order("created_at", { ascending: false })
       .limit(10);
+
+    if (error) {
+      console.error("Error fetching auto reply templates:", error);
+      await sendMessage(
+        chatId,
+        "❌ Error fetching auto reply templates. Please try again.",
+      );
+      return;
+    }
 
     const total = await supabaseAdmin
       .from("auto_reply_templates")
