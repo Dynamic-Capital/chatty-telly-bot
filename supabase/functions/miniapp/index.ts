@@ -11,7 +11,8 @@ try {
 }
 
 const SECURITY_HEADERS = {
-  "x-frame-options": "ALLOWALL", // Allow embedding in Telegram
+  // Rely on the Content Security Policy's frame-ancestors directive for
+  // controlling embedding rather than the deprecated x-frame-options header.
   "content-security-policy":
     "default-src 'self' https://*.telegram.org https://telegram.org; " +
     "script-src 'self' 'unsafe-inline' https://*.telegram.org; " +
