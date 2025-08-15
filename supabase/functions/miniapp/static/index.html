@@ -1,25 +1,31 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
-    <meta
-      name="description"
-      content="Dynamic Capital VIP mini app for Telegram"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="Dynamic Capital VIP mini app for Telegram" />
     <title>Dynamic Capital — VIP</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script type="module" crossorigin src="/assets/index-Bk2FwymL.js"></script>
-    <link
-      rel="stylesheet"
-      crossorigin
-      href="/assets/index-C5v_qR4X.css"
-    />
+    <style>
+      body { margin: 0; padding: 20px; background: #0f172a; color: white; font-family: system-ui; }
+      .container { max-width: 400px; margin: 0 auto; text-align: center; }
+      .title { font-size: 24px; margin-bottom: 20px; color: #2fd2c5; }
+      .btn { display: block; padding: 16px; margin: 10px 0; background: #2fd2c5; color: #0b3d3a; text-decoration: none; border-radius: 8px; }
+    </style>
   </head>
-  <body class="bg-slate-50 dark:bg-slate-900">
-    <div id="root"></div>
+  <body>
+    <div class="container">
+      <h1 class="title">Dynamic Capital VIP</h1>
+      <p>Welcome to Dynamic Capital VIP Platform</p>
+      <a href="#" class="btn">💳 Bank Deposit</a>
+      <a href="#" class="btn">🪙 Crypto Deposit</a>
+      <a href="#" class="btn">👤 My Account</a>
+    </div>
+    <script>
+      if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+      }
+    </script>
   </body>
 </html>
