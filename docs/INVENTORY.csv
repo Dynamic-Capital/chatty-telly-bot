@@ -67,7 +67,6 @@ supabase/migrations/20250808054000_add_index_advisor_extension.sql,161,sql,4
 supabase/migrations/20250808055000_enforce_unique_promo_usage.sql,505,sql,13
 supabase/migrations/20250808060000_seed_bank_accounts.sql,557,sql,12
 supabase/config.toml,911,toml,55
-tests/placeholder.test.ts,385,ts,12
 tests/broadcast-queue.test.ts,2108,ts,77
 tests/telegram-webhook.test.ts,1104,ts,25
 tests/featureflags.test.ts,1222,ts,44

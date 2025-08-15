@@ -168,8 +168,8 @@ tests/
   - verify.yml — trigger: pull_request, workflow_dispatch; jobs: verify
 
 ## 7) Tests & Coverage Hints
-- Test files: 7 — tests/placeholder.test.ts, tests/broadcast-queue.test.ts, tests/telegram-webhook.test.ts, tests/featureflags.test.ts, tests/retry.test.ts, tests/cache.test.ts, tests/circuit.test.ts
-- `Deno.test` count: 7
+- Test files: 6 — tests/broadcast-queue.test.ts, tests/telegram-webhook.test.ts, tests/featureflags.test.ts, tests/retry.test.ts, tests/cache.test.ts, tests/circuit.test.ts
+- `Deno.test` count: 6
 - Gaps/opportunities:
   - Add integration tests for payment flows and edge functions
   - Expand coverage around Supabase client utilities
