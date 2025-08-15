@@ -1,13 +1,44 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
-// Load the full mini app HTML from the static bundle on startup
-let INDEX_HTML: string | undefined;
-try {
-  INDEX_HTML = await Deno.readTextFile(
-    new URL("./static/index.html", import.meta.url),
-  );
-} catch (err) {
-  console.error("Failed to read mini app HTML:", err);
+// Path to the mini app's bundled HTML file.
+const INDEX_PATH = new URL("./static/index.html", import.meta.url);
+
+/**
+ * Load the mini app HTML from disk. If the file cannot be read, a detailed
+ * error is logged and rethrown so that the function fails fast on startup.
+ */
+async function loadIndexHtml(): Promise<string> {
+  try {
+    return await Deno.readTextFile(INDEX_PATH);
+  } catch (err) {
+    const envInfo = {
+      denoDeployId: Deno.env.get("DENO_DEPLOYMENT_ID"),
+      denoRegion: Deno.env.get("DENO_REGION"),
+    };
+    console.error(
+      `Failed to read mini app HTML at ${INDEX_PATH.href}. ` +
+        `cwd: ${Deno.cwd()} env: ${JSON.stringify(envInfo)}`,
+      err,
+    );
+    throw err;
+  }
+}
+
+// Load the HTML on startup to ensure it is packaged with the function.
+const INDEX_HTML: string = await loadIndexHtml();
+
+/**
+ * Get the mini app HTML, re-reading from disk on each request. If the runtime
+ * read fails (e.g. transient I/O error), fall back to the cached startup
+ * content.
+ */
+async function getIndexHtml(): Promise<string> {
+  try {
+    return await Deno.readTextFile(INDEX_PATH);
+  } catch (err) {
+    console.error("Failed to re-read mini app HTML; using cached version", err);
+    return INDEX_HTML;
+  }
 }
 
 const SECURITY_HEADERS = {
@@ -23,7 +54,7 @@ const SECURITY_HEADERS = {
     "frame-ancestors *;",
 };
 
-serve((req) => {
+serve(async (req) => {
   const url = new URL(req.url);
   if (
     url.pathname === "/" ||
@@ -39,19 +70,8 @@ serve((req) => {
         },
       });
     }
-    if (!INDEX_HTML) {
-      return new Response(
-        "Internal Server Error: Unable to load mini app HTML",
-        {
-          status: 500,
-          headers: {
-            "content-type": "text/plain; charset=utf-8",
-            ...SECURITY_HEADERS,
-          },
-        },
-      );
-    }
-    return new Response(INDEX_HTML, {
+    const html = await getIndexHtml();
+    return new Response(html, {
       headers: {
         "content-type": "text/html; charset=utf-8",
         ...SECURITY_HEADERS,
