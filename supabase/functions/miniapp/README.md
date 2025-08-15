@@ -9,14 +9,14 @@ npm install
 npm run dev
 ```
 
-The app lives under `apps/mini`. It relies on existing Edge Function endpoints:
+The app lives under `supabase/functions/miniapp`. It relies on existing Edge Function endpoints:
 
 - `POST /api/intent` for creating bank/crypto intents
 - `POST /api/receipt` for uploading deposit receipts
 - `POST /api/crypto-txid` for submitting crypto transactions
 - `GET /api/receipts` for recent receipts
 
-SVG placeholders live in `apps/mini/public` for the logo, bank tiles and QR
+SVG placeholders live in `supabase/functions/miniapp/public` for the logo, bank tiles and QR
 frame; replace them with production assets as needed.
 
 ## Icons

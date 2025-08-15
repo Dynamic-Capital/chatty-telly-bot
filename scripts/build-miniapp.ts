@@ -2,12 +2,12 @@
 
 /**
  * Build script for the mini app
- * This builds the React app in apps/mini and copies it to supabase/functions/miniapp/static
+ * This builds the React app in supabase/functions/miniapp and copies it to supabase/functions/miniapp/static
  */
 
 import { join } from "https://deno.land/std@0.224.0/path/mod.ts";
 
-const MINI_APP_DIR = "apps/mini";
+const MINI_APP_DIR = "supabase/functions/miniapp";
 const OUTPUT_DIR = "supabase/functions/miniapp/static";
 
 async function runCommand(cmd: string[], cwd?: string) {

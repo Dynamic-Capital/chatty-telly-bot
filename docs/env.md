@@ -7,7 +7,7 @@ This document lists environment variables used across the bot, mini app, and mai
 | Key | Purpose | Required | Example | Used in |
 | --- | --- | --- | --- | --- |
 | `SUPABASE_URL` | Base URL of the Supabase project. | Yes | `https://xyz.supabase.co` | `src/utils/config.ts`, `supabase/functions/telegram-bot/index.ts` |
-| `SUPABASE_ANON_KEY` | Public anon key for client-side calls. | Yes | `eyJ...` | `supabase/functions/theme-get/index.ts`, `apps/mini/src/lib/edge.ts` |
+| `SUPABASE_ANON_KEY` | Public anon key for client-side calls. | Yes | `eyJ...` | `supabase/functions/theme-get/index.ts`, `supabase/functions/miniapp/src/lib/edge.ts` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key for privileged Supabase access. | Yes | `service-role-key` | `src/utils/config.ts`, `supabase/functions/telegram-bot/index.ts` |
 | `SUPABASE_PROJECT_ID` | Supabase project reference used to build URLs in scripts. | No | `abcd1234` | `scripts/ping-webhook.ts`, `scripts/miniapp-health-check.ts` |
 | `SUPABASE_ACCESS_TOKEN` | Token for Supabase CLI operations. | No | `sbp_at...` | Supabase CLI only |
