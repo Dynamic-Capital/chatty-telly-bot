@@ -5,6 +5,9 @@ set -euo pipefail
 DENO_BIN="$(bash scripts/deno_bin.sh)"
 export DENO_TLS_CA_STORE="${DENO_TLS_CA_STORE:-system}"
 export DENO_NO_UPDATE_CHECK=1
+export SESSION_TIMEOUT_MINUTES="${SESSION_TIMEOUT_MINUTES:-30}"
+export FOLLOW_UP_DELAY_MINUTES="${FOLLOW_UP_DELAY_MINUTES:-10}"
+export MAX_FOLLOW_UPS="${MAX_FOLLOW_UPS:-3}"
 
 echo "== deno fmt =="
 $DENO_BIN fmt --check .

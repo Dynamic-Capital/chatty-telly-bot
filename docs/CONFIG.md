@@ -1,6 +1,8 @@
 # Configuration
 
-The project relies on a shared set of environment keys. Set them in your local `.env`, Supabase function secrets, and GitHub Actions secrets as indicated below.
+The project relies on a shared set of environment keys. Set them in your local
+`.env`, Supabase function secrets, and GitHub Actions secrets as indicated
+below.
 
 | Key                       | Codex project settings (dev) | Supabase function secrets (prod) | GitHub Actions secrets (CI) |
 | ------------------------- | ---------------------------- | -------------------------------- | --------------------------- |
@@ -18,9 +20,15 @@ The project relies on a shared set of environment keys. Set them in your local `
 | FAQ_ENABLED               | ✅                           | ✅                               | ❌                          |
 | WINDOW_SECONDS            | ✅                           | ✅                               | ❌                          |
 | AMOUNT_TOLERANCE          | ✅                           | ✅                               | ❌                          |
+| SESSION_TIMEOUT_MINUTES   | ✅                           | ✅                               | ❌                          |
+| FOLLOW_UP_DELAY_MINUTES   | ✅                           | ✅                               | ❌                          |
+| MAX_FOLLOW_UPS            | ✅                           | ✅                               | ❌                          |
 | MINI_APP_URL              | ✅                           | ✅                               | ✅                          |
 | LOGTAIL_SOURCE_TOKEN      | ✅                           | ❌                               | ❌                          |
 
 `✅` indicates where each key should be set.
 
-`MINI_APP_URL` should point to the deployed Telegram Mini App (for example, `https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/`). If set, the bot shows a Mini App button and will automatically append a trailing slash if missing to avoid redirect issues.
+`MINI_APP_URL` should point to the deployed Telegram Mini App (for example,
+`https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/`). If set, the bot
+shows a Mini App button and will automatically append a trailing slash if
+missing to avoid redirect issues.

@@ -24,7 +24,10 @@ export type EnvKey =
   | "AMOUNT_TOLERANCE"
   | "REQUIRE_PAY_CODE"
   | "SB_REQUEST_ID"
-  | "BENEFICIARY_TABLE";
+  | "BENEFICIARY_TABLE"
+  | "SESSION_TIMEOUT_MINUTES"
+  | "FOLLOW_UP_DELAY_MINUTES"
+  | "MAX_FOLLOW_UPS";
 
 /** Test-only env injection type */
 type TestEnv = Partial<Record<EnvKey, string>>;
