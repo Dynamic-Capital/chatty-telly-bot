@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -19,8 +20,132 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export const WelcomeMessage = () => {
+  interface Plan {
+    id: string;
+    duration_months: number | null;
+    is_lifetime: boolean | null;
+  }
+
+  interface Bank {
+    bank_name: string;
+    account_name: string;
+    account_number: string;
+    currency: string;
+  }
+
+  type Instructions =
+    | { type: "bank_transfer"; banks: Bank[] }
+    | { type: string; note: string };
+
+  interface PlansResponse {
+    plans?: Plan[];
+  }
+
+  const [planIds, setPlanIds] = useState<{ monthly?: string; lifetime?: string }>({});
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("plans", {
+          method: "GET",
+        });
+        if (error) {
+          console.error("Error fetching plans", error);
+          return;
+        }
+        const plans = (data as PlansResponse)?.plans || [];
+        const monthly = plans.find(
+          (p) => p.duration_months === 1 && !p.is_lifetime,
+        );
+        const lifetime = plans.find((p) => p.is_lifetime);
+        setPlanIds({ monthly: monthly?.id, lifetime: lifetime?.id });
+      } catch (err) {
+        console.error("Error fetching plans", err);
+      }
+    };
+    fetchPlans();
+  }, []);
+
+  const handleFree = () => {
+    localStorage.setItem("selectedPlanId", "free");
+    toast({
+      title: "Free Plan Selected",
+      description: "You're all set! Enjoy the basic features.",
+    });
+  };
+
+  const handleCheckout = async (type: "monthly" | "lifetime") => {
+    const planId = planIds[type];
+    if (!planId) {
+      toast({
+        title: "Plan unavailable",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+      return;
+    }
+    localStorage.setItem("selectedPlanId", planId);
+    type TelegramWindow = {
+      Telegram?: {
+        WebApp?: { initDataUnsafe?: { user?: { id?: number } } };
+      };
+    };
+    const telegramId =
+      ((window as unknown as TelegramWindow).Telegram?.WebApp?.
+        initDataUnsafe?.user?.id ?? "") as number | string;
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "checkout-init",
+        {
+          body: {
+            telegram_id: String(telegramId),
+            plan_id: planId,
+            method: "bank_transfer",
+          },
+        },
+      );
+      if (error || !data || !(data as { ok: boolean }).ok) {
+        toast({
+          title: "Checkout failed",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const { payment_id, instructions } = data as {
+        payment_id: string;
+        instructions: Instructions;
+      };
+      localStorage.setItem("paymentId", payment_id);
+      if (instructions.type === "bank_transfer") {
+        const message = instructions.banks
+          .map(
+            (b) =>
+              `${b.bank_name} (${b.currency})\n${b.account_name} - ${b.account_number}`,
+          )
+          .join("\n\n");
+        toast({ title: "Bank Transfer Instructions", description: message });
+      } else {
+        toast({
+          title: "Payment Instructions",
+          description: (instructions as { note: string }).note,
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Checkout error",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background/80 to-primary/5">
       <div className="container mx-auto px-4 py-12">
@@ -211,7 +336,7 @@ export const WelcomeMessage = () => {
                   <li>✓ Educational content</li>
                   <li>✓ Community access</li>
                 </ul>
-                <Button className="w-full" variant="outline">
+                <Button className="w-full" variant="outline" onClick={handleFree}>
                   Get Started
                 </Button>
               </CardContent>
@@ -238,7 +363,9 @@ export const WelcomeMessage = () => {
                   <li>✓ Priority support</li>
                   <li>✓ Exclusive content</li>
                 </ul>
-                <Button className="w-full">Upgrade Now</Button>
+                <Button className="w-full" onClick={() => handleCheckout("monthly")}>
+                  Upgrade Now
+                </Button>
               </CardContent>
             </Card>
 
@@ -260,7 +387,11 @@ export const WelcomeMessage = () => {
                   <li>✓ 1-on-1 consultations</li>
                   <li>✓ Custom strategies</li>
                 </ul>
-                <Button className="w-full" variant="outline">
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => handleCheckout("lifetime")}
+                >
                   Get Lifetime
                 </Button>
               </CardContent>
