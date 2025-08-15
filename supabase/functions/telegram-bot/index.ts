@@ -963,7 +963,15 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
     if (data.startsWith("pay:")) {
       await notifyUser(chatId, "Opening checkout...");
       const url = await sendMiniAppLink(chatId);
-      await answerCallbackQuery(cb.id, url ? { url } : {});
+      if (!url) {
+        await notifyUser(
+          chatId,
+          "Checkout unavailable—please try again later or contact support",
+        );
+        await answerCallbackQuery(cb.id);
+      } else {
+        await answerCallbackQuery(cb.id, { url });
+      }
       return;
     }
     // Acknowledge other callbacks promptly to avoid client retries
