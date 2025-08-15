@@ -8,7 +8,7 @@ KEEPERS=".out/dupe_keepers.txt"; : > "$KEEPERS"
 REMOVALS=".out/dupe_remove_candidates.txt"; : > "$REMOVALS"
 
 say "Scanning for duplicate files by SHA-256 (with safeguards)"
-FILES=$(git ls-files | grep -E '^(public|miniapp/public|miniapp/assets|assets|static|docs)/' || true)
+FILES=$(git ls-files | grep -E '^(public|miniapp/static|miniapp/assets|assets|static|docs)/' || true)
 
 : > .out/_hash_map.txt
 for f in $FILES; do

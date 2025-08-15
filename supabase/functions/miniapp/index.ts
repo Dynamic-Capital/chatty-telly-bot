@@ -12,9 +12,15 @@ serve((req) => {
   return serveStatic(req, {
     rootDir: ROOT,
     spaRoots: ["/", "/miniapp", "/miniapp/"],
+    extraFiles: [
+      "/img/logo-dynamic-capital.svg",
+      "/img/tile-bml.svg",
+      "/img/tile-mib.svg",
+      "/img/qr-frame.svg",
+    ],
     security: {
       "x-frame-options": "ALLOWALL", // Allow embedding in Telegram
-      "content-security-policy": 
+      "content-security-policy":
         "default-src 'self' https://*.telegram.org https://telegram.org; " +
         "script-src 'self' 'unsafe-inline' https://*.telegram.org; " +
         "style-src 'self' 'unsafe-inline'; " +

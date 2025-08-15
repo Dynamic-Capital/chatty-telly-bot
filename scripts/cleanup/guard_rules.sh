@@ -13,7 +13,7 @@ PROTECTED_GLOBS=(
 
 # Preferred canonical locations when duplicates exist (keep these)
 PREFERRED_CANON=(
-  "miniapp/public/**"
+  "miniapp/static/**"
   "public/**"
   "miniapp/assets/**"
 )
