@@ -76,7 +76,7 @@ tests/cache.test.ts,1498,ts,53
 tests/circuit.test.ts,1342,ts,47
 tsconfig.app.json,652,json,30
 bun.lockb,198351,lockb,386
-public/placeholder.svg,3912,svg,100
+public/placeholder.svg,348,svg,6
 public/favicon.ico,7645,ico,31
 public/robots.txt,160,txt,14
 package.json,2970,json,88
