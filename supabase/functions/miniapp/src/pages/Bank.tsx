@@ -36,6 +36,7 @@ export default function Bank() {
   const handleSubmit = async () => {
     if (file) {
       await api.uploadReceipt(file);
+      globalThis.location.href = "/status";
     }
   };
 

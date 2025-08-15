@@ -20,7 +20,10 @@ export default function Crypto() {
   }, [network, api]);
 
   const handleSubmit = async () => {
-    if (txid) await api.submitTxid({ txid });
+    if (txid) {
+      await api.submitTxid({ txid });
+      globalThis.location.href = "/status";
+    }
   };
 
   useTelegramMainButton(!!txid, "Submit TXID", handleSubmit);
