@@ -6,8 +6,13 @@ import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 import { getBotContent, getFormattedVipPackages, insertReceiptRecord } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
-import { getFlag } from "../../../src/utils/config.ts";
-import type { Promotion } from "../../../types/telegram-bot.ts";
+import { getFlag } from "../_shared/config.ts";
+// Type definition moved inline to avoid import issues
+interface Promotion {
+  code: string;
+  discount_type: "percentage" | "fixed";
+  discount_value: number;
+}
 
 interface TelegramMessage {
   chat: { id: number; type?: string };
