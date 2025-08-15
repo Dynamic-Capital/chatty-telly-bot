@@ -140,12 +140,12 @@ async function editMessage(
   messageId: number,
   text: string,
   extra: Record<string, unknown> = {},
-): Promise<boolean> {
+): Promise<number | null> {
   if (!BOT_TOKEN) {
     console.warn(
       "TELEGRAM_BOT_TOKEN is not set; cannot edit message",
     );
-    return false;
+    return null;
   }
   try {
     const r = await fetch(
@@ -165,13 +165,14 @@ async function editMessage(
     console.log("editMessage", r.status, outText.slice(0, 200));
     try {
       const out = JSON.parse(outText);
-      return Boolean(out?.ok);
+      const id = out?.result?.message_id;
+      return typeof id === "number" ? id : null;
     } catch {
-      return false;
+      return null;
     }
   } catch (e) {
     console.error("editMessage error", e);
-    return false;
+    return null;
   }
 }
 
@@ -402,8 +403,10 @@ async function showMainMenu(
   const existing = await getMenuMessageId(chatId);
   const view = await menuView(section, chatId);
   if (existing) {
-    const ok = await editMessage(chatId, existing, view.text, view.extra);
-    if (!ok) {
+    const newId = await editMessage(chatId, existing, view.text, view.extra);
+    if (newId !== null) {
+      await setMenuMessageId(chatId, newId);
+    } else {
       await setMenuMessageId(chatId, null);
       await sendMainMenu(chatId, section);
     }
