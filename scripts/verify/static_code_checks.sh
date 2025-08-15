@@ -37,11 +37,11 @@ check_flag "uses_rest_templates" "bot_message_templates\\?|rest\\/v1\\/bot_messa
 check_flag "uses_rest_settings" "bot_settings\\?|rest\\/v1\\/bot_settings" "${WEBHOOK_FILE:-}"
 
 # Mini app presence
-MINI_DIR=$( [ -d miniapp/src ] && echo "miniapp/src" || echo "" )
+MINI_DIR=$( [ -d supabase/functions/miniapp/src ] && echo "supabase/functions/miniapp/src" || echo "" )
 if [ -n "$MINI_DIR" ]; then
-  echo "miniapp_dir=miniapp/src" >> "$R"
+  echo "miniapp_dir=$MINI_DIR" >> "$R"
   # Telegram SDK present?
-  if grep -q "telegram-web-app.js" miniapp/index.html 2>/dev/null; then echo "miniapp_sdk=PASS" >> "$R"; else echo "miniapp_sdk=FAIL" >> "$R"; fi
+  if grep -q "telegram-web-app.js" supabase/functions/miniapp/static/index.html 2>/dev/null; then echo "miniapp_sdk=PASS" >> "$R"; else echo "miniapp_sdk=FAIL" >> "$R"; fi
 else
   echo "miniapp_dir=UNKNOWN" >> "$R"
 fi

@@ -239,7 +239,7 @@ miniapp/src/App.tsx,1790,tsx,63
 miniapp/src/theme.ts,903,ts,37
 miniapp/src/main.tsx,251,tsx,10
 miniapp/postcss.config.js,181,js,7
-miniapp/index.html,367,html,13
+supabase/functions/miniapp/static/index.html,6173,html,199
 docs/api-documentation.md,13941,md,599
 docs/supabase-audit-report.md,8586,md,314
 docs/index-advisor.md,719,md,28
