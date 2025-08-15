@@ -3,27 +3,18 @@ import { serveStatic } from "../_shared/static.ts";
 
 const rootDir = new URL("./static/", import.meta.url);
 
-async function loadIndexHtml() {
-  await Deno.readFile(new URL("./index.html", rootDir));
-}
-
-const errorPage = new Response("<h1>Internal Server Error</h1>", {
-  status: 500,
-  headers: { "content-type": "text/html" },
-});
-
 let handler: (req: Request) => Response | Promise<Response>;
 
 try {
-  await loadIndexHtml();
+  await Deno.readTextFile(new URL("./index.html", rootDir));
   handler = (req) =>
     serveStatic(req, {
       rootDir,
       spaRoots: ["/", "/miniapp"],
     });
 } catch {
-  console.error("[miniapp] failed to load index.html");
-  handler = () => errorPage;
+  console.warn("[miniapp] index.html not found");
+  handler = () => new Response("Index file not found", { status: 404 });
 }
 
 if (import.meta.main) {
