@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
-const INDEX_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>Dynamic Capital VIP</title></head><body><h1>Dynamic Capital VIP Miniapp</h1></body></html>`;
+// Load the full mini app HTML from the static bundle on startup
+const INDEX_HTML = await Deno.readTextFile(
+  new URL("./static/index.html", import.meta.url),
+);
 
 const SECURITY_HEADERS = {
   "x-frame-options": "ALLOWALL", // Allow embedding in Telegram
@@ -16,10 +19,33 @@ const SECURITY_HEADERS = {
 
 serve((req) => {
   const url = new URL(req.url);
-  if (url.pathname === "/" || url.pathname === "/miniapp" || url.pathname === "/miniapp/") {
+  if (
+    url.pathname === "/" ||
+    url.pathname === "/miniapp" ||
+    url.pathname === "/miniapp/"
+  ) {
+    if (req.method !== "GET") {
+      return new Response("Method Not Allowed", {
+        status: 405,
+        headers: {
+          allow: "GET",
+          ...SECURITY_HEADERS,
+        },
+      });
+    }
     return new Response(INDEX_HTML, {
       headers: {
         "content-type": "text/html; charset=utf-8",
+        ...SECURITY_HEADERS,
+      },
+    });
+  }
+
+  if (url.pathname === "/miniapp/version") {
+    return new Response(JSON.stringify({ version: "1.0.0" }), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
         ...SECURITY_HEADERS,
       },
     });
