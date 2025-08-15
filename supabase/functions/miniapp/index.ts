@@ -68,7 +68,7 @@ async function indexHtml(): Promise<Response> {
   return new Response(await r.arrayBuffer(), { headers: h, status: r.status });
 }
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method === "GET") {
     const url = new URL(req.url);
     if (url.pathname.endsWith("/version")) {
@@ -103,5 +103,9 @@ serve(async (req) => {
     resp = nf("Not Found");
   }
   return resp;
-});
+}
+
+if (import.meta.main) {
+  serve(handler);
+}
 

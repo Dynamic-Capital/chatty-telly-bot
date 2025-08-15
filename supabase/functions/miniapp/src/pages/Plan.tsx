@@ -22,7 +22,7 @@ interface BankAccount {
 
 type Instructions =
   | { type: "bank_transfer"; banks: BankAccount[] }
-  | { type: string; note: string };
+  | { type: "binance_pay" | "crypto"; note: string };
 
 export default function Plan() {
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -121,7 +121,7 @@ export default function Plan() {
         <div className="space-y-4">
           {instructions.type === "bank_transfer" ? (
             <div className="space-y-2">
-              {instructions.banks.map((b, idx) => (
+              {instructions.banks.map((b: BankAccount, idx: number) => (
                 <GlassPanel key={idx} className="text-sm">
                   <p className="font-medium">{b.bank_name}</p>
                   <p>Account Name: {b.account_name}</p>

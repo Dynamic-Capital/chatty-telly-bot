@@ -1,17 +1,18 @@
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assertEquals,
+  assertStringIncludes,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 
-Deno.test("returns 404 when index.html fails to load", async () => {
-  const original = Deno.readTextFile;
-  (Deno as unknown as { readTextFile: typeof Deno.readTextFile }).readTextFile =
-    () => {
-      throw new Error("boom");
-    };
+Deno.test("serves fallback HTML when index.html fails to load", async () => {
+  const original = Deno.readFile;
+  (Deno as unknown as { readFile: typeof Deno.readFile }).readFile = () => {
+    throw new Error("boom");
+  };
 
   const { handler } = await import("./index.ts");
-  (Deno as unknown as { readTextFile: typeof Deno.readTextFile }).readTextFile =
-    original;
-
   const res = await handler(new Request("http://example.com/"));
-  assertEquals(res.status, 404);
-  assertEquals(await res.text(), "Index file not found");
+  (Deno as unknown as { readFile: typeof Deno.readFile }).readFile = original;
+  assertEquals(res.status, 200);
+  const body = await res.text();
+  assertStringIncludes(body, "Static <code>index.html</code> not found");
 });
