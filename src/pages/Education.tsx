@@ -8,6 +8,23 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Clock, GraduationCap, Star, Target, Users } from "lucide-react";
 import Header from "@/components/layout/Header";
@@ -45,12 +62,37 @@ interface EducationPackage {
   enrollment_deadline: string | null;
 }
 
+type PaymentMethod = "bank_transfer" | "binance_pay" | "crypto";
+
+interface BankAccount {
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+  currency: string;
+  is_active: boolean;
+}
+
+type BankInstructions = { type: "bank_transfer"; banks: BankAccount[] };
+type NoteInstructions = { type: "binance_pay" | "crypto"; note: string };
+type CheckoutInstructions = BankInstructions | NoteInstructions;
+
 const Education: React.FC = () => {
   const [categories, setCategories] = useState<EducationCategory[]>([]);
   const [packages, setPackages] = useState<EducationPackage[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  const [selectedPackage, setSelectedPackage] =
+    useState<EducationPackage | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] =
+    useState<PaymentMethod>("bank_transfer");
+  const [telegramId, setTelegramId] = useState("");
+  const [instructions, setInstructions] =
+    useState<CheckoutInstructions | null>(null);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
 
   const fetchEducationData = useCallback(async () => {
     try {
@@ -116,13 +158,53 @@ const Education: React.FC = () => {
         return "bg-gray-100 text-gray-800";
     }
   };
+  const openEnrollDialog = (pkg: EducationPackage) => {
+    setSelectedPackage(pkg);
+    setDialogOpen(true);
+    setPaymentMethod("bank_transfer");
+    setTelegramId("");
+    setInstructions(null);
+    setPaymentId(null);
+  };
 
-  const handleEnrollClick = (_packageData: EducationPackage) => {
-    toast({
-      title: "Enrollment Available",
-      description:
-        "Contact our Telegram bot @DynamicCapital_Support to enroll in this program.",
-    });
+  const handleEnrollClick = async () => {
+    if (!selectedPackage) return;
+    setEnrolling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke<{
+        ok: boolean;
+        payment_id: string;
+        instructions: CheckoutInstructions;
+        error?: string;
+      }>("checkout-init", {
+        body: {
+          telegram_id: telegramId,
+          plan_id: selectedPackage.id,
+          method: paymentMethod,
+        },
+      });
+
+      if (error || !data?.ok) {
+        throw new Error(data?.error || error?.message || "Checkout failed");
+      }
+
+      setPaymentId(data.payment_id);
+      setInstructions(data.instructions);
+      try {
+        localStorage.setItem("pending_payment_id", data.payment_id);
+      } catch {
+        /* ignore */
+      }
+    } catch (err) {
+      console.error("Error initiating checkout:", err);
+      toast({
+        title: "Error",
+        description: "Failed to start checkout. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setEnrolling(false);
+    }
   };
 
   if (loading) {
@@ -136,6 +218,89 @@ const Education: React.FC = () => {
 
   return (
     <>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {instructions ? "Payment Instructions" : "Confirm Enrollment"}
+            </DialogTitle>
+            {!instructions && selectedPackage && (
+              <DialogDescription>
+                Confirm your enrollment for {selectedPackage.name}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          {instructions ? (
+            <div className="space-y-4">
+              {instructions.type === "bank_transfer" ? (
+                <div className="space-y-4">
+                  {instructions.banks.map((bank, idx) => (
+                    <div
+                      key={idx}
+                      className="border rounded-md p-3 text-sm space-y-1"
+                    >
+                      <p className="font-medium">{bank.bank_name}</p>
+                      <p>Account Name: {bank.account_name}</p>
+                      <p>Account Number: {bank.account_number}</p>
+                      <p>Currency: {bank.currency}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm">{instructions.note}</p>
+              )}
+              <DialogFooter>
+                {paymentId && (
+                  <Button asChild>
+                    <a href={`/receipt-upload?payment_id=${paymentId}`}>
+                      Upload Receipt
+                    </a>
+                  </Button>
+                )}
+              </DialogFooter>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="telegram_id">Telegram ID</Label>
+                  <Input
+                    id="telegram_id"
+                    value={telegramId}
+                    onChange={(e) => setTelegramId(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Payment Method</Label>
+                  <Select
+                    value={paymentMethod}
+                    onValueChange={(v) =>
+                      setPaymentMethod(v as PaymentMethod)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                      <SelectItem value="binance_pay">Binance Pay</SelectItem>
+                      <SelectItem value="crypto">Crypto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={handleEnrollClick}
+                  disabled={!telegramId || enrolling}
+                >
+                  {enrolling ? "Loading..." : "Confirm"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
       <Header />
       <div className="min-h-screen bg-gradient-to-br from-background to-background/80">
         {/* Hero Section */}
@@ -255,7 +420,7 @@ const Education: React.FC = () => {
                         </div>
 
                         <Button
-                          onClick={() => handleEnrollClick(pkg)}
+                          onClick={() => openEnrollDialog(pkg)}
                           className="w-full"
                           size="lg"
                         >
@@ -358,7 +523,7 @@ const Education: React.FC = () => {
                           </div>
 
                           <Button
-                            onClick={() => handleEnrollClick(pkg)}
+                            onClick={() => openEnrollDialog(pkg)}
                             className="w-full"
                           >
                             Learn More
