@@ -56,4 +56,3 @@ verify_jwt = false
 
 [functions.miniapp]
 verify_jwt = false
-included_files = ["supabase/functions/miniapp/static/**"]
