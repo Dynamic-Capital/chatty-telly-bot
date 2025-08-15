@@ -221,8 +221,14 @@ function hasValidMiniAppUrl(): boolean {
 }
 
 export async function sendMiniAppLink(chatId: number) {
-  if (!(await getFlag("mini_app_enabled"))) return;
   if (!BOT_TOKEN) return;
+  if (!(await getFlag("mini_app_enabled"))) {
+    await sendMessage(
+      chatId,
+      "Checkout is currently unavailable. Please try again later.",
+    );
+    return;
+  }
 
   const rawUrl = optionalEnv("MINI_APP_URL") || "";
   const short = optionalEnv("MINI_APP_SHORT_NAME") || "";
