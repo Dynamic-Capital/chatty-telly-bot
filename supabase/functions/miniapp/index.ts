@@ -1,33 +1,32 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { serveStatic } from "../_shared/static.ts";
 
-const ROOT = new URL("./static/", import.meta.url);
+const INDEX_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>Dynamic Capital VIP</title></head><body><h1>Dynamic Capital VIP Miniapp</h1></body></html>`;
 
-console.log(`[miniapp] Starting miniapp server, static root: ${ROOT.pathname}`);
+const SECURITY_HEADERS = {
+  "x-frame-options": "ALLOWALL", // Allow embedding in Telegram
+  "content-security-policy":
+    "default-src 'self' https://*.telegram.org https://telegram.org; " +
+    "script-src 'self' 'unsafe-inline' https://*.telegram.org; " +
+    "style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: https:; " +
+    "connect-src 'self' https://*.functions.supabase.co https://*.supabase.co wss://*.supabase.co; " +
+    "font-src 'self' data:; " +
+    "frame-ancestors *;",
+};
 
 serve((req) => {
   const url = new URL(req.url);
-  console.log(`[miniapp] Request: ${req.method} ${url.pathname}`);
+  if (url.pathname === "/" || url.pathname === "/miniapp" || url.pathname === "/miniapp/") {
+    return new Response(INDEX_HTML, {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        ...SECURITY_HEADERS,
+      },
+    });
+  }
 
-  return serveStatic(req, {
-    rootDir: ROOT,
-    spaRoots: ["/", "/miniapp", "/miniapp/"],
-    extraFiles: [
-      "/img/logo-dynamic-capital.svg",
-      "/img/tile-bml.svg",
-      "/img/tile-mib.svg",
-      "/img/qr-frame.svg",
-    ],
-    security: {
-      "x-frame-options": "ALLOWALL", // Allow embedding in Telegram
-      "content-security-policy":
-        "default-src 'self' https://*.telegram.org https://telegram.org; " +
-        "script-src 'self' 'unsafe-inline' https://*.telegram.org; " +
-        "style-src 'self' 'unsafe-inline'; " +
-        "img-src 'self' data: https:; " +
-        "connect-src 'self' https://*.functions.supabase.co https://*.supabase.co wss://*.supabase.co; " +
-        "font-src 'self' data:; " +
-        "frame-ancestors *;",
-    },
+  return new Response(JSON.stringify({ ok: false, error: "Not Found" }), {
+    status: 404,
+    headers: { "content-type": "application/json" },
   });
 });

@@ -21,4 +21,8 @@
     ]
   },
   "importMap": "./supabase/functions/telegram-bot/vendor/import_map.json"
+  ,
+  "deploy": {
+    "include": ["supabase/functions/miniapp/static/**"]
+  }
 }
