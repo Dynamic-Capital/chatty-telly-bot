@@ -70,6 +70,6 @@ serve((req) => {
 
   return new Response(JSON.stringify({ ok: false, error: "Not Found" }), {
     status: 404,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...SECURITY_HEADERS },
   });
 });
