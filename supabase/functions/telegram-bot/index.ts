@@ -306,7 +306,7 @@ async function menuView(
         if (supa) {
           const { data } = await supa
             .from("bot_users")
-            .select("is_vip,subscription_expires_at")
+            .select("id,is_vip,subscription_expires_at")
             .eq("telegram_id", chatId)
             .maybeSingle();
           const vip = data?.is_vip ? "VIP: active" : "VIP: inactive";
@@ -315,7 +315,21 @@ async function menuView(
               new Date(data.subscription_expires_at).toLocaleDateString()
             }`
             : "Expiry: none";
-          return { text: `${vip}\n${expiry}`, extra: base };
+          let payment = "";
+          if (data?.id) {
+            const { data: p } = await supa
+              .from("payments")
+              .select("status")
+              .eq("user_id", data.id)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (p?.status) {
+              payment = `Payment: ${p.status}`;
+            }
+          }
+          const text = [vip, expiry, payment].filter(Boolean).join("\n");
+          return { text, extra: base };
         }
       }
       return { text: "Status information is unavailable.", extra: base };
@@ -934,6 +948,24 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
       return;
     }
     if (data.startsWith("buy:")) {
+      const planId = data.slice("buy:".length);
+      const pkgs = await getVipPackages();
+      const plan = pkgs.find((p) => p.id === planId);
+      if (plan) {
+        await notifyUser(chatId, `Confirm purchase of ${plan.name}?`, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Pay now", callback_data: "pay:" + plan.id }],
+              [{ text: "Back", callback_data: "menu:plans" }],
+            ],
+          },
+        });
+      } else {
+        await notifyUser(chatId, "Plan not found.");
+      }
+      return;
+    }
+    if (data.startsWith("pay:")) {
       await notifyUser(chatId, "Opening checkout...");
       await sendMiniAppLink(chatId);
       return;

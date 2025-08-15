@@ -21,6 +21,20 @@ export default function Home() {
 
         {/* Quick Actions */}
         <div className="grid gap-4 mb-8">
+          <Link to="/plan">
+            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur hover:bg-slate-800/70 transition-colors">
+              <CardHeader className="text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <Star className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-white">Choose Plan</CardTitle>
+                </div>
+                <CardDescription className="text-slate-400">
+                  Confirm your VIP subscription
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
           <Link to="/bank">
             <Card className="bg-slate-800/50 border-slate-700 backdrop-blur hover:bg-slate-800/70 transition-colors">
               <CardHeader className="text-center">
@@ -34,7 +48,7 @@ export default function Home() {
               </CardHeader>
             </Card>
           </Link>
-          
+
           <Link to="/crypto">
             <Card className="bg-slate-800/50 border-slate-700 backdrop-blur hover:bg-slate-800/70 transition-colors">
               <CardHeader className="text-center">
@@ -48,7 +62,7 @@ export default function Home() {
               </CardHeader>
             </Card>
           </Link>
-          
+
           <Link to="/me">
             <Card className="bg-slate-800/50 border-slate-700 backdrop-blur hover:bg-slate-800/70 transition-colors">
               <CardHeader className="text-center">
