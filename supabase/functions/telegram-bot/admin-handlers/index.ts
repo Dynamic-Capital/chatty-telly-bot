@@ -1,8 +1,7 @@
 // Enhanced admin handlers for comprehensive table management
-import { createClient } from "../_shared/client.ts";
-import { optionalEnv, requireEnv } from "../_shared/env.ts";
-import { expectedSecret } from "../_shared/telegram_secret.ts";
-import { isAdmin as isEnvAdmin } from "../_shared/telegram.ts";
+import { optionalEnv, requireEnv } from "../../_shared/env.ts";
+import { expectedSecret } from "../../_shared/telegram_secret.ts";
+import { isAdmin as isEnvAdmin } from "../../_shared/telegram.ts";
 
 import type {
   BotUser,
@@ -10,20 +9,30 @@ import type {
   PlanChannel,
   Promotion,
   SubscriptionPlan,
-} from "../../../types/telegram-bot.ts";
+} from "../../../../types/telegram-bot.ts";
 
-const { TELEGRAM_BOT_TOKEN: BOT_TOKEN } = requireEnv([
-  "TELEGRAM_BOT_TOKEN",
-] as const);
-
-const supabaseAdmin = createClient();
+import { supabaseAdmin, sendMessage } from "./common.ts";
+export { sendMessage } from "./common.ts";
+export { handleContentManagement } from "./bot-content.ts";
+export {
+  handleBotSettingsManagement,
+  handleConfigSessionSettings,
+  handleConfigFollowupSettings,
+  handleToggleMaintenanceMode,
+  handleConfigAutoFeatures,
+  handleConfigNotifications,
+  handleConfigPerformance,
+  handleAddNewSetting,
+  handleBackupBotSettings,
+} from "./bot-settings.ts";
+export { handleAutoReplyTemplatesManagement } from "./auto-reply.ts";
 
 // Import utility functions
 import {
   getBotContent,
   logAdminAction,
   processPlanEditInput,
-} from "./database-utils.ts";
+} from "../database-utils.ts";
 // Removed cross-import of config helpers; provide local flag helpers for Edge isolation
 // Simple implementation stores flags in bot_settings with keys prefixed by "flag_"
 
@@ -112,10 +121,10 @@ async function publishFlags(chatId: number, userId: string): Promise<void> {
       `❌ Failed to publish flags: ${e instanceof Error ? e.message : e}`,
     );
   }
-}
+  }
 
 async function rollbackFlags(chatId: number, userId: string): Promise<void> {
-  try {
+    try {
     const now = Date.now();
     const { data: publishedRow, error: publishedErr } = await supabaseAdmin
       .from("kv_config")
@@ -184,39 +193,6 @@ async function rollbackFlags(chatId: number, userId: string): Promise<void> {
       chatId,
       `❌ Failed to rollback flags: ${e instanceof Error ? e.message : e}`,
     );
-  }
-}
-
-export async function sendMessage(
-  chatId: number,
-  text: string,
-  replyMarkup?: Record<string, unknown>,
-) {
-  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-  const payload = {
-    chat_id: chatId,
-    text: text,
-    reply_markup: replyMarkup,
-    parse_mode: "Markdown",
-  };
-
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error("❌ Telegram API error:", errorData);
-      return null;
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error("❌ Error sending message:", error);
-    return null;
   }
 }
 
@@ -1448,424 +1424,7 @@ export async function handlePromotionsManagement(
   }
 }
 
-export async function handleContentManagement(
-  chatId: number,
-  _userId: string,
-): Promise<void> {
-  try {
-    const { data: content, error } = await supabaseAdmin
-      .from("bot_content")
-      .select("*")
-      .order("content_key", { ascending: true });
 
-    if (error) {
-      console.error("Error fetching bot content:", error);
-      await sendMessage(
-        chatId,
-        "❌ Error fetching content data. Please try again.",
-      );
-      return;
-    }
-
-    let contentMessage = `📱 *Bot Content Management*\n\n`;
-    contentMessage += `📝 *Editable Content (${
-      content?.length || 0
-    } items):*\n\n`;
-
-    const contentTypes: Record<string, string> = {
-      "welcome_message": "🚀 Welcome Message",
-      "about_us": "🏢 About Us",
-      "support_message": "🛟 Support Info",
-      "terms_conditions": "📋 Terms & Conditions",
-      "faq_general": "❓ FAQ Content",
-      "maintenance_message": "🔧 Maintenance Notice",
-      "vip_benefits": "💎 VIP Benefits",
-      "payment_instructions": "💳 Payment Instructions",
-      "help_message": "❓ Help Content",
-    };
-
-    content?.forEach(
-      (
-        item: {
-          content_key: keyof typeof contentTypes;
-          is_active: boolean;
-          content_value: string;
-          updated_at: string;
-        },
-        index: number,
-      ) => {
-        const displayName = contentTypes[item.content_key] ||
-          `📄 ${item.content_key}`;
-        const status = item.is_active ? "🟢" : "🔴";
-        const preview = item.content_value.substring(0, 50) + "...";
-
-        contentMessage += `${index + 1}. ${status} ${displayName}\n`;
-        contentMessage += `   📄 Preview: ${preview}\n`;
-        contentMessage += `   🕐 Updated: ${
-          new Date(item.updated_at).toLocaleDateString()
-        }\n\n`;
-      },
-    );
-
-    const contentKeyboard = {
-      inline_keyboard: [
-        [
-          {
-            text: "🚀 Welcome Msg",
-            callback_data: "edit_content_welcome_message",
-          },
-          { text: "🏢 About Us", callback_data: "edit_content_about_us" },
-        ],
-        [
-          { text: "🛟 Support", callback_data: "edit_content_support_message" },
-          { text: "📋 Terms", callback_data: "edit_content_terms_conditions" },
-        ],
-        [
-          { text: "❓ FAQ", callback_data: "edit_content_faq_general" },
-          {
-            text: "🔧 Maintenance",
-            callback_data: "edit_content_maintenance_message",
-          },
-        ],
-        [
-          {
-            text: "💎 VIP Benefits",
-            callback_data: "edit_content_vip_benefits",
-          },
-          {
-            text: "💳 Payment Info",
-            callback_data: "edit_content_payment_instructions",
-          },
-        ],
-        [
-          { text: "➕ Add Content", callback_data: "add_new_content" },
-          { text: "👀 Preview All", callback_data: "preview_all_content" },
-        ],
-        [
-          { text: "🔄 Refresh", callback_data: "manage_table_bot_content" },
-          { text: "🔙 Back", callback_data: "table_management" },
-        ],
-      ],
-    };
-
-    await sendMessage(chatId, contentMessage, contentKeyboard);
-  } catch (error) {
-    console.error("Error in content management:", error);
-    await sendMessage(
-      chatId,
-      "❌ Error fetching content data. Please try again.",
-    );
-  }
-}
-
-export async function handleBotSettingsManagement(
-  chatId: number,
-  _userId: string,
-): Promise<void> {
-  try {
-    const { data: settings, error: _error } = await supabaseAdmin
-      .from("bot_settings")
-      .select("*")
-      .order("setting_key", { ascending: true });
-
-    let settingsMessage = `⚙️ *Bot Settings Management*\n\n`;
-    settingsMessage += `🔧 *Current Settings (${
-      settings?.length || 0
-    } items):*\n\n`;
-
-    const settingTypes: Record<string, string> = {
-      "session_timeout_minutes": "🕐 Session Timeout",
-      "follow_up_delay_minutes": "📬 Follow-up Delay",
-      "max_follow_ups": "🔢 Max Follow-ups",
-      "maintenance_mode": "🔧 Maintenance Mode",
-      "auto_welcome": "🚀 Auto Welcome",
-      "admin_notifications": "🔔 Admin Notifications",
-    };
-
-    settings?.forEach(
-      (
-        setting: {
-          setting_key: keyof typeof settingTypes;
-          is_active: boolean;
-          setting_value: string;
-          updated_at: string;
-        },
-        index: number,
-      ) => {
-        const displayName = settingTypes[setting.setting_key] ||
-          `⚙️ ${setting.setting_key}`;
-        const status = setting.is_active ? "🟢" : "🔴";
-
-        settingsMessage += `${index + 1}. ${status} ${displayName}\n`;
-        settingsMessage += `   📄 Value: \`${setting.setting_value}\`\n`;
-        settingsMessage += `   🕐 Updated: ${
-          new Date(setting.updated_at).toLocaleDateString()
-        }\n\n`;
-      },
-    );
-
-    const settingsKeyboard = {
-      inline_keyboard: [
-        [
-          {
-            text: "🕐 Session Config",
-            callback_data: "config_session_settings",
-          },
-          {
-            text: "📬 Follow-up Setup",
-            callback_data: "config_followup_settings",
-          },
-        ],
-        [
-          { text: "🔧 Maintenance", callback_data: "toggle_maintenance_mode" },
-          { text: "🚀 Auto Features", callback_data: "config_auto_features" },
-        ],
-        [
-          { text: "🔔 Notifications", callback_data: "config_notifications" },
-          { text: "⚡ Performance", callback_data: "config_performance" },
-        ],
-        [
-          { text: "➕ Add Setting", callback_data: "add_new_setting" },
-          { text: "💾 Backup Config", callback_data: "backup_bot_settings" },
-        ],
-        [
-          { text: "🔄 Refresh", callback_data: "manage_table_bot_settings" },
-          { text: "🔙 Back", callback_data: "table_management" },
-        ],
-        [
-          { text: "🚦 Feature Flags", callback_data: "feature_flags" },
-        ],
-      ],
-    };
-
-    await sendMessage(chatId, settingsMessage, settingsKeyboard);
-  } catch (error) {
-    console.error("Error in bot settings management:", error);
-    await sendMessage(
-      chatId,
-      "❌ Error fetching bot settings. Please try again.",
-    );
-  }
-}
-
-export async function handleConfigSessionSettings(
-  chatId: number,
-  _userId: string,
-): Promise<void> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("bot_settings")
-      .select("setting_key, setting_value")
-      .in("setting_key", ["session_timeout_minutes"]);
-    if (error) throw error;
-    let msg = "🕐 *Session Settings*\n\n";
-    (data || []).forEach((row) => {
-      msg += `• ${row.setting_key}: \`${row.setting_value}\`\n`;
-    });
-    const keyboard = {
-      inline_keyboard: [[
-        { text: "⬅️ Back", callback_data: "manage_table_bot_settings" },
-      ]],
-    };
-    await sendMessage(chatId, msg, keyboard);
-  } catch (err) {
-    console.error("Error in handleConfigSessionSettings:", err);
-    await sendMessage(chatId, "❌ Error fetching session settings.");
-  }
-}
-
-export async function handleConfigFollowupSettings(
-  chatId: number,
-  _userId: string,
-): Promise<void> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("bot_settings")
-      .select("setting_key, setting_value")
-      .in("setting_key", ["follow_up_delay_minutes", "max_follow_ups"]);
-    if (error) throw error;
-    let msg = "📬 *Follow-up Settings*\n\n";
-    (data || []).forEach((row) => {
-      msg += `• ${row.setting_key}: \`${row.setting_value}\`\n`;
-    });
-    const keyboard = {
-      inline_keyboard: [[
-        { text: "⬅️ Back", callback_data: "manage_table_bot_settings" },
-      ]],
-    };
-    await sendMessage(chatId, msg, keyboard);
-  } catch (err) {
-    console.error("Error in handleConfigFollowupSettings:", err);
-    await sendMessage(chatId, "❌ Error fetching follow-up settings.");
-  }
-}
-
-export async function handleToggleMaintenanceMode(
-  chatId: number,
-  userId: string,
-): Promise<void> {
-  try {
-    const { data } = await supabaseAdmin
-      .from("bot_settings")
-      .select("id, setting_value")
-      .eq("setting_key", "maintenance_mode")
-      .maybeSingle();
-    const current = (data?.setting_value || "false").toLowerCase() === "true";
-    await supabaseAdmin
-      .from("bot_settings")
-      .update({ setting_value: current ? "false" : "true" })
-      .eq("id", data?.id);
-    await logAdminAction(
-      userId,
-      "toggle_maintenance_mode",
-      `maintenance_mode=${current ? "false" : "true"}`,
-      "bot_settings",
-    );
-    const msg = `Maintenance mode ${current ? "disabled" : "enabled"}.`;
-    const keyboard = {
-      inline_keyboard: [[
-        { text: "⬅️ Back", callback_data: "manage_table_bot_settings" },
-      ]],
-    };
-    await sendMessage(chatId, msg, keyboard);
-  } catch (err) {
-    console.error("Error in handleToggleMaintenanceMode:", err);
-    await sendMessage(chatId, "❌ Error toggling maintenance mode.");
-  }
-}
-
-export async function handleConfigAutoFeatures(
-  chatId: number,
-  _userId: string,
-): Promise<void> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("bot_settings")
-      .select("setting_key, setting_value")
-      .in("setting_key", ["auto_welcome"]);
-    if (error) throw error;
-    let msg = "🚀 *Auto Features*\n\n";
-    (data || []).forEach((row) => {
-      msg += `• ${row.setting_key}: \`${row.setting_value}\`\n`;
-    });
-    const keyboard = {
-      inline_keyboard: [[
-        { text: "⬅️ Back", callback_data: "manage_table_bot_settings" },
-      ]],
-    };
-    await sendMessage(chatId, msg, keyboard);
-  } catch (err) {
-    console.error("Error in handleConfigAutoFeatures:", err);
-    await sendMessage(chatId, "❌ Error fetching auto feature settings.");
-  }
-}
-
-export async function handleConfigNotifications(
-  chatId: number,
-  _userId: string,
-): Promise<void> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("bot_settings")
-      .select("setting_key, setting_value")
-      .in("setting_key", ["admin_notifications"]);
-    if (error) throw error;
-    let msg = "🔔 *Notification Settings*\n\n";
-    (data || []).forEach((row) => {
-      msg += `• ${row.setting_key}: \`${row.setting_value}\`\n`;
-    });
-    const keyboard = {
-      inline_keyboard: [[
-        { text: "⬅️ Back", callback_data: "manage_table_bot_settings" },
-      ]],
-    };
-    await sendMessage(chatId, msg, keyboard);
-  } catch (err) {
-    console.error("Error in handleConfigNotifications:", err);
-    await sendMessage(chatId, "❌ Error fetching notification settings.");
-  }
-}
-
-export async function handleConfigPerformance(
-  chatId: number,
-  _userId: string,
-): Promise<void> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("bot_settings")
-      .select("setting_key, setting_value")
-      .in("setting_key", ["auto_delete_delay_seconds"]);
-    if (error) throw error;
-    let msg = "⚡ *Performance Settings*\n\n";
-    (data || []).forEach((row) => {
-      msg += `• ${row.setting_key}: \`${row.setting_value}\`\n`;
-    });
-    const keyboard = {
-      inline_keyboard: [[
-        { text: "⬅️ Back", callback_data: "manage_table_bot_settings" },
-      ]],
-    };
-    await sendMessage(chatId, msg, keyboard);
-  } catch (err) {
-    console.error("Error in handleConfigPerformance:", err);
-    await sendMessage(chatId, "❌ Error fetching performance settings.");
-  }
-}
-
-export async function handleAddNewSetting(
-  chatId: number,
-  _userId: string,
-): Promise<void> {
-  try {
-    const { count } = await supabaseAdmin
-      .from("bot_settings")
-      .select("id", { count: "exact", head: true });
-    const msg =
-      `➕ *Add New Setting*\n\nCurrent settings: ${count ?? 0}.\nSend new setting in the format \`key=value\`.`;
-    const keyboard = {
-      inline_keyboard: [[
-        { text: "⬅️ Back", callback_data: "manage_table_bot_settings" },
-      ]],
-    };
-    await sendMessage(chatId, msg, keyboard);
-  } catch (err) {
-    console.error("Error in handleAddNewSetting:", err);
-    await sendMessage(chatId, "❌ Error preparing to add setting.");
-  }
-}
-
-export async function handleBackupBotSettings(
-  chatId: number,
-  userId: string,
-): Promise<void> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("bot_settings")
-      .select("setting_key, setting_value, is_active")
-      .order("setting_key", { ascending: true });
-    if (error) throw error;
-    const backup = JSON.stringify(data ?? [], null, 2);
-    const keyboard = {
-      inline_keyboard: [[
-        { text: "⬅️ Back", callback_data: "manage_table_bot_settings" },
-      ]],
-    };
-    await sendMessage(
-      chatId,
-      `💾 *Bot Settings Backup*\n\n\`\`\`json\n${backup}\n\`\`\``,
-      keyboard,
-    );
-    await logAdminAction(
-      userId,
-      "backup_bot_settings",
-      "Exported bot settings",
-      "bot_settings",
-    );
-  } catch (err) {
-    console.error("Error in handleBackupBotSettings:", err);
-    await sendMessage(chatId, "❌ Error backing up settings.");
-  }
-}
 
 // ===========================================================================
 // Additional table management handlers
@@ -2240,87 +1799,6 @@ export async function handleBankAccountsManagement(
   }
 }
 
-export async function handleAutoReplyTemplatesManagement(
-  chatId: number,
-  _userId: string,
-): Promise<void> {
-  try {
-    const { data: templates, error } = await supabaseAdmin
-      .from("auto_reply_templates")
-      .select("id,name,trigger_type,is_active,created_at")
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    if (error) {
-      console.error("Error fetching auto reply templates:", error);
-      await sendMessage(
-        chatId,
-        "❌ Error fetching auto reply templates. Please try again.",
-      );
-      return;
-    }
-
-    const total = await supabaseAdmin
-      .from("auto_reply_templates")
-      .select("count", { count: "exact" });
-    const active = await supabaseAdmin
-      .from("auto_reply_templates")
-      .select("count", { count: "exact" })
-      .eq("is_active", true);
-
-    let msg = `📝 *Auto Reply Templates Management*\n\n`;
-    msg += `📊 *Statistics:*\n`;
-    msg += `• Total Templates: ${total.count || 0}\n`;
-    msg += `• Active Templates: ${active.count || 0}\n\n`;
-    msg += `🕒 *Recent Templates:*\n`;
-    templates?.forEach(
-      (
-        t: {
-          name?: string;
-          trigger_type?: string;
-          is_active?: boolean;
-        },
-        idx: number,
-      ) => {
-        const status = t.is_active ? "🟢" : "🔴";
-        msg += `${idx + 1}. ${status} ${t.name || "(untitled)"} — ${
-          t.trigger_type || ""
-        }\n`;
-      },
-    );
-
-    const keyboard = {
-      inline_keyboard: [
-        [
-          { text: "🔍 View", callback_data: "view_auto_reply" },
-          { text: "➕ Create", callback_data: "create_auto_reply" },
-        ],
-        [
-          { text: "✏️ Edit", callback_data: "edit_auto_reply" },
-          { text: "🗑️ Delete", callback_data: "delete_auto_reply" },
-        ],
-        [
-          { text: "📤 Export", callback_data: "export_auto_reply_templates" },
-        ],
-        [
-          {
-            text: "🔄 Refresh",
-            callback_data: "manage_table_auto_reply_templates",
-          },
-          { text: "🔙 Back", callback_data: "table_management" },
-        ],
-      ],
-    };
-
-    await sendMessage(chatId, msg, keyboard);
-  } catch (error) {
-    console.error("Error in auto reply templates management:", error);
-    await sendMessage(
-      chatId,
-      "❌ Error fetching auto reply templates. Please try again.",
-    );
-  }
-}
 
 // Quick stats overview for all tables
 export async function handleTableStatsOverview(

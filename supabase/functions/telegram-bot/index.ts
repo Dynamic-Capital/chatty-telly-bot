@@ -84,12 +84,12 @@ async function getSupabase(): Promise<SupabaseClient | null> {
   return supabaseAdmin;
 }
 
-type AdminHandlers = typeof import("./admin-handlers.ts");
+type AdminHandlers = typeof import("./admin-handlers/index.ts");
 
 let adminHandlers: AdminHandlers | null = null;
 async function loadAdminHandlers(): Promise<AdminHandlers> {
   if (!adminHandlers) {
-    adminHandlers = await import("./admin-handlers.ts");
+    adminHandlers = await import("./admin-handlers/index.ts");
   }
   return adminHandlers;
 }
