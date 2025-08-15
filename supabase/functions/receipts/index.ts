@@ -28,7 +28,14 @@ serve(async (req) => {
   if (status) query = query.eq("verdict", status);
   // In a real implementation, we'd filter by user here. For tests we fetch all.
   const { data } = await query.catch(() => ({ data: [] }));
-  const items = (data || []).map((r: any) => ({
+  interface ReceiptRow {
+    id: string;
+    ocr_amount: unknown;
+    verdict: string;
+    created_at: string;
+  }
+
+  const items = (data || []).map((r: ReceiptRow) => ({
     id: r.id,
     amount: Number(r.ocr_amount) || 0,
     status: r.verdict,

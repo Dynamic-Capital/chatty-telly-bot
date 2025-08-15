@@ -19,10 +19,33 @@ const SECURITY_HEADERS = {
 
 serve((req) => {
   const url = new URL(req.url);
-  if (url.pathname === "/" || url.pathname === "/miniapp" || url.pathname === "/miniapp/") {
+  if (
+    url.pathname === "/" ||
+    url.pathname === "/miniapp" ||
+    url.pathname === "/miniapp/"
+  ) {
+    if (req.method !== "GET") {
+      return new Response("Method Not Allowed", {
+        status: 405,
+        headers: {
+          allow: "GET",
+          ...SECURITY_HEADERS,
+        },
+      });
+    }
     return new Response(INDEX_HTML, {
       headers: {
         "content-type": "text/html; charset=utf-8",
+        ...SECURITY_HEADERS,
+      },
+    });
+  }
+
+  if (url.pathname === "/miniapp/version") {
+    return new Response(JSON.stringify({ version: "1.0.0" }), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
         ...SECURITY_HEADERS,
       },
     });

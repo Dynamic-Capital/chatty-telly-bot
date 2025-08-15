@@ -1029,9 +1029,6 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         case "table_stats_overview":
           await handlers.handleTableStatsOverview(chatId, userId);
           break;
-        case "export_all_tables":
-          await handlers.handleExportAllTables(chatId, userId);
-          break;
         default:
           // Other callbacks can be added here
           break;
