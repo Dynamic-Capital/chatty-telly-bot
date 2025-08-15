@@ -7,25 +7,194 @@
     <title>Dynamic Capital — VIP</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-      body { margin: 0; padding: 20px; background: #0f172a; color: white; font-family: system-ui; }
-      .container { max-width: 400px; margin: 0 auto; text-align: center; }
-      .title { font-size: 24px; margin-bottom: 20px; color: #2fd2c5; }
-      .btn { display: block; padding: 16px; margin: 10px 0; background: #2fd2c5; color: #0b3d3a; text-decoration: none; border-radius: 8px; }
+      body {
+        margin: 0;
+        padding: 20px;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+        color: white;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        min-height: 100vh;
+      }
+      .container {
+        max-width: 400px;
+        margin: 0 auto;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 16px;
+        backdrop-filter: blur(16px);
+        transition: all 0.2s ease;
+      }
+      .card:hover {
+        background: rgba(255, 255, 255, 0.08);
+        transform: translateY(-2px);
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 32px;
+      }
+      .title {
+        font-size: 28px;
+        font-weight: bold;
+        background: linear-gradient(135deg, #2fd2c5, #10d07a, #9aa8ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 8px;
+      }
+      .subtitle {
+        color: #94a3b8;
+        font-size: 16px;
+      }
+      .btn {
+        display: block;
+        width: 100%;
+        padding: 16px;
+        background: #2fd2c5;
+        color: #0b3d3a;
+        text-decoration: none;
+        border-radius: 12px;
+        font-weight: 600;
+        text-align: center;
+        margin-bottom: 12px;
+        transition: all 0.2s ease;
+        border: none;
+        cursor: pointer;
+      }
+      .btn:hover {
+        background: #26c4b8;
+        transform: scale(0.98);
+      }
+      .btn-secondary {
+        background: #10d07a;
+      }
+      .btn-tertiary {
+        background: #9aa8ff;
+      }
+      .features {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .feature {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #cbd5e1;
+      }
+      .icon {
+        width: 20px;
+        height: 20px;
+        color: #2fd2c5;
+      }
+      .status {
+        text-align: center;
+        padding: 12px;
+        background: rgba(16, 208, 122, 0.1);
+        border: 1px solid rgba(16, 208, 122, 0.3);
+        border-radius: 8px;
+        color: #10d07a;
+        margin-bottom: 20px;
+      }
     </style>
   </head>
   <body>
     <div class="container">
-      <h1 class="title">Dynamic Capital VIP</h1>
-      <p>Welcome to Dynamic Capital VIP Platform</p>
-      <a href="#" class="btn">💳 Bank Deposit</a>
-      <a href="#" class="btn">🪙 Crypto Deposit</a>
-      <a href="#" class="btn">👤 My Account</a>
+      <div class="status" id="status">
+        🟢 Mini App is working!
+      </div>
+
+      <div class="header">
+        <h1 class="title">Dynamic Capital VIP</h1>
+        <p class="subtitle">Premium Trading & Investment Platform</p>
+      </div>
+
+      <div class="card">
+        <h2 style="margin-top: 0; color: white;">Quick Actions</h2>
+        <button class="btn" onclick="handleAction('bank')">💳 Bank Deposit</button>
+        <button class="btn btn-secondary" onclick="handleAction('crypto')">🪙 Crypto Deposit</button>
+        <button class="btn btn-tertiary" onclick="handleAction('account')">👤 My Account</button>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top: 0; color: white;">VIP Benefits</h3>
+        <div class="features">
+          <div class="feature">
+            <span class="icon">⭐</span>
+            <span>Exclusive trading signals</span>
+          </div>
+          <div class="feature">
+            <span class="icon">📈</span>
+            <span>Daily market analysis</span>
+          </div>
+          <div class="feature">
+            <span class="icon">👥</span>
+            <span>Private VIP community</span>
+          </div>
+          <div class="feature">
+            <span class="icon">🎯</span>
+            <span>85%+ signal accuracy</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top: 0; color: white;">App Info</h3>
+        <p style="color: #94a3b8; margin: 0;">Version: 1.0.0</p>
+        <p style="color: #94a3b8; margin: 8px 0 0 0;">Status: <span style="color: #10d07a;">Online</span></p>
+      </div>
     </div>
+
     <script>
+      // Initialize Telegram WebApp
       if (window.Telegram?.WebApp) {
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        
+        // Set theme colors
+        tg.setHeaderColor('#0f172a');
+        tg.setBackgroundColor('#0f172a');
+        
+        console.log('Telegram WebApp initialized successfully');
+        console.log('User data:', tg.initDataUnsafe);
+        
+        document.getElementById('status').innerHTML = '🟢 Connected to Telegram!';
+      } else {
+        console.log('Running outside Telegram WebApp');
+        document.getElementById('status').innerHTML = '🟡 Preview mode (outside Telegram)';
       }
+
+      function handleAction(action) {
+        console.log('Action clicked:', action);
+        
+        if (window.Telegram?.WebApp) {
+          const tg = window.Telegram.WebApp;
+          
+          switch(action) {
+            case 'bank':
+              tg.showAlert('Bank deposit feature coming soon! You will be able to upload payment receipts here.');
+              break;
+            case 'crypto':
+              tg.showAlert('Crypto payment feature coming soon! Support for Bitcoin, USDT, and more.');
+              break;
+            case 'account':
+              tg.showAlert('Account management coming soon! Track your VIP subscription and receipts.');
+              break;
+            default:
+              tg.showAlert('Feature coming soon!');
+          }
+        } else {
+          alert(`${action.charAt(0).toUpperCase() + action.slice(1)} feature coming soon!`);
+        }
+      }
+
+      // Add some debugging
+      console.log('Mini app loaded successfully');
+      console.log('Location:', window.location.href);
     </script>
   </body>
 </html>
