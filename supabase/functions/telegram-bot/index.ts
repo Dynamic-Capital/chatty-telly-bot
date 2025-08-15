@@ -1005,6 +1005,30 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         case "manage_table_bot_settings":
           await handlers.handleBotSettingsManagement(chatId, userId);
           break;
+        case "config_session_settings":
+          await handlers.handleConfigSessionSettings(chatId, userId);
+          break;
+        case "config_followup_settings":
+          await handlers.handleConfigFollowupSettings(chatId, userId);
+          break;
+        case "toggle_maintenance_mode":
+          await handlers.handleToggleMaintenanceMode(chatId, userId);
+          break;
+        case "config_auto_features":
+          await handlers.handleConfigAutoFeatures(chatId, userId);
+          break;
+        case "config_notifications":
+          await handlers.handleConfigNotifications(chatId, userId);
+          break;
+        case "config_performance":
+          await handlers.handleConfigPerformance(chatId, userId);
+          break;
+        case "add_new_setting":
+          await handlers.handleAddNewSetting(chatId, userId);
+          break;
+        case "backup_bot_settings":
+          await handlers.handleBackupBotSettings(chatId, userId);
+          break;
         case "manage_table_daily_analytics":
           await handlers.handleDailyAnalyticsManagement(chatId, userId);
           break;
