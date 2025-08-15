@@ -27,7 +27,9 @@ type Instructions =
 export default function Plan() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [method, setMethod] = useState<"bank_transfer" | "binance_pay" | "crypto">(
+  const [method, setMethod] = useState<
+    "bank_transfer" | "binance_pay" | "crypto"
+  >(
     "bank_transfer",
   );
   const [instructions, setInstructions] = useState<Instructions | null>(null);
@@ -44,9 +46,12 @@ export default function Plan() {
 
   const getTelegramId = () => {
     try {
-      return String(
-        (globalThis as any).Telegram?.WebApp?.initDataUnsafe?.user?.id || "",
-      );
+      const tgId = (globalThis as unknown as {
+        Telegram?: {
+          WebApp?: { initDataUnsafe?: { user?: { id?: unknown } } };
+        };
+      }).Telegram?.WebApp?.initDataUnsafe?.user?.id;
+      return String(tgId || "");
     } catch {
       return "";
     }
@@ -81,7 +86,9 @@ export default function Plan() {
           {plans.map((p) => (
             <GlassPanel
               key={p.id}
-              className={`cursor-pointer${selected === p.id ? " ring-1 ring-primary" : ""}`}
+              className={`cursor-pointer${
+                selected === p.id ? " ring-1 ring-primary" : ""
+              }`}
               onClick={() => setSelected(p.id)}
             >
               <div className="flex items-center justify-between">
@@ -96,12 +103,16 @@ export default function Plan() {
             <SecondaryButton
               label="Bank"
               onClick={() => setMethod("bank_transfer")}
-              className={method === "bank_transfer" ? "opacity-100" : "opacity-60"}
+              className={method === "bank_transfer"
+                ? "opacity-100"
+                : "opacity-60"}
             />
             <SecondaryButton
               label="Binance Pay"
               onClick={() => setMethod("binance_pay")}
-              className={method === "binance_pay" ? "opacity-100" : "opacity-60"}
+              className={method === "binance_pay"
+                ? "opacity-100"
+                : "opacity-60"}
             />
             <SecondaryButton
               label="Crypto"
@@ -119,20 +130,20 @@ export default function Plan() {
       )}
       {instructions && (
         <div className="space-y-4">
-          {instructions.type === "bank_transfer" ? (
-            <div className="space-y-2">
-              {instructions.banks.map((b, idx) => (
-                <GlassPanel key={idx} className="text-sm">
-                  <p className="font-medium">{b.bank_name}</p>
-                  <p>Account Name: {b.account_name}</p>
-                  <p>Account Number: {b.account_number}</p>
-                  <p>Currency: {b.currency}</p>
-                </GlassPanel>
-              ))}
-            </div>
-          ) : (
-            <GlassPanel className="text-sm">{instructions.note}</GlassPanel>
-          )}
+          {"banks" in instructions
+            ? (
+              <div className="space-y-2">
+                {instructions.banks.map((b: BankAccount, idx: number) => (
+                  <GlassPanel key={idx} className="text-sm">
+                    <p className="font-medium">{b.bank_name}</p>
+                    <p>Account Name: {b.account_name}</p>
+                    <p>Account Number: {b.account_number}</p>
+                    <p>Currency: {b.currency}</p>
+                  </GlassPanel>
+                ))}
+              </div>
+            )
+            : <GlassPanel className="text-sm">{instructions.note}</GlassPanel>}
           {paymentId && (
             <PrimaryButton
               label="View Status"
@@ -146,4 +157,3 @@ export default function Plan() {
     </div>
   );
 }
-
