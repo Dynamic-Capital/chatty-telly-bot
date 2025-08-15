@@ -21,7 +21,7 @@ Deno.test("table management menu responds when env vars set", async () => {
   };
 
   try {
-    const mod = await import("../supabase/functions/telegram-bot/admin-handlers.ts");
+    const mod = await import("../supabase/functions/telegram-bot/admin-handlers/index.ts");
     await mod.handleTableManagement(1, "user");
     assert(calls.some((c) => c.url.includes("api.telegram.org")), "sendMessage not called");
   } finally {
