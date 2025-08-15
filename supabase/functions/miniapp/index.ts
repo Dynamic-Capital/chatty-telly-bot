@@ -81,8 +81,8 @@ serve(async (req) => {
   let resp: Response;
   if (url.pathname === "/" || url.pathname === "/miniapp" || url.pathname === "/miniapp/") {
     resp = await indexHtml();
-  } else if (url.pathname.startsWith("/assets/")) {
-    const rel = url.pathname.replace(/^\//, "");
+  } else if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/miniapp/assets/")) {
+    const rel = url.pathname.replace(/^\/(miniapp\/)?/, "");
     resp = await file(
       rel,
       rel.endsWith(".js")
