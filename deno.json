@@ -10,7 +10,7 @@
     "ci": "bash scripts/ci.sh",
     "fix:repo": "bash scripts/fix_and_check.sh",
     "miniapp:build": "deno run -A scripts/build-miniapp.ts",
-    "miniapp:dev": "cd apps/mini && npm run dev",
+    "miniapp:dev": "cd supabase/functions/miniapp && npm run dev",
     "miniapp:check": "deno run -A scripts/miniapp-health-check.ts",
     "miniapp:deploy": "deno task miniapp:build && npx supabase functions deploy miniapp"
   },

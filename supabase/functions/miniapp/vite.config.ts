@@ -10,7 +10,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../../supabase/functions/miniapp/static',
+    outDir: './static',
     emptyOutDir: true,
     rollupOptions: {
       output: {
