@@ -12,6 +12,8 @@ This document lists environment variables used across the bot, mini app, and mai
 | `SUPABASE_PROJECT_ID` | Supabase project reference used to build URLs in scripts. | No | `abcd1234` | `scripts/ping-webhook.ts`, `scripts/miniapp-health-check.ts` |
 | `SUPABASE_ACCESS_TOKEN` | Token for Supabase CLI operations. | No | `sbp_at...` | Supabase CLI only |
 | `SUPABASE_DB_PASSWORD` | Postgres password for local or CI usage. | No | `super-secret` | Supabase CLI only |
+| `VITE_SUPABASE_URL` | Base URL for the frontend Supabase client. | Yes | `https://xyz.supabase.co` | `src/integrations/supabase/client.ts` |
+| `VITE_SUPABASE_KEY` | Public anon key for the frontend client. | Yes | `eyJ...` | `src/integrations/supabase/client.ts` |
 
 ## Telegram
 
