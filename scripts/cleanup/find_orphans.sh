@@ -7,7 +7,7 @@ REF=".out/ref_map.txt"
 REPORT=".out/orphans.txt"; : > "$REPORT"
 
 say "Scanning for orphan assets (with safeguards)"
-CANDS=$(git ls-files | grep -E '^(public|miniapp/public|miniapp/assets|assets|static|docs|\.github)/' || true)
+CANDS=$(git ls-files | grep -E '^(public|miniapp/static|miniapp/assets|assets|static|docs|\.github)/' || true)
 
 awk '{print $0}' "$REF" 2>/dev/null | sed 's#^\./##' | sort -u > .out/_refs_all.txt || true
 awk -F/ '{print $NF}' .out/_refs_all.txt 2>/dev/null | sort -u > .out/_refs_names.txt || true

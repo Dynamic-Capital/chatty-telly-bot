@@ -16,8 +16,8 @@ The app lives under `supabase/functions/miniapp`. It relies on existing Edge Fun
 - `POST /api/crypto-txid` for submitting crypto transactions
 - `GET /api/receipts` for recent receipts
 
-SVG placeholders live in `supabase/functions/miniapp/public` for the logo, bank tiles and QR
-frame; replace them with production assets as needed.
+SVG placeholders live in `supabase/functions/miniapp/static/img` for the logo, bank tiles and
+QR frame; replace them with production assets as needed.
 
 ## Icons
 

@@ -1,5 +1,5 @@
 import { assertEquals, assertMatch } from "https://deno.land/std@0.224.0/testing/asserts.ts";
-import { setFlag, publish } from "../src/utils/config.ts";
+import { setConfig } from "../supabase/functions/_shared/config.ts";
 
 const supaState = { tables: {} as Record<string, any[]> };
 (globalThis as any).__SUPA_MOCK__ = supaState;
@@ -28,8 +28,7 @@ function cleanup() {
 
 Deno.test("/start shows menu buttons for new users", async () => {
   setEnv();
-  await setFlag("mini_app_enabled", true);
-  await publish();
+  await setConfig("features:published", { ts: Date.now(), data: { mini_app_enabled: true } });
   const calls: Array<{ url: string; body: string }> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => {
@@ -66,15 +65,13 @@ Deno.test("/start shows menu buttons for new users", async () => {
   } finally {
     globalThis.fetch = originalFetch;
     cleanup();
-    await setFlag("mini_app_enabled", false);
-    await publish();
+    await setConfig("features:published", { ts: Date.now(), data: { mini_app_enabled: false } });
   }
 });
 
 Deno.test("/start shows packages/promos for returning users", async () => {
   setEnv();
-  await setFlag("mini_app_enabled", true);
-  await publish();
+  await setConfig("features:published", { ts: Date.now(), data: { mini_app_enabled: true } });
   const calls: Array<{ url: string; body: string }> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => {
@@ -109,8 +106,7 @@ Deno.test("/start shows packages/promos for returning users", async () => {
   } finally {
     globalThis.fetch = originalFetch;
     cleanup();
-    await setFlag("mini_app_enabled", false);
-    await publish();
+    await setConfig("features:published", { ts: Date.now(), data: { mini_app_enabled: false } });
   }
 });
 
@@ -123,8 +119,7 @@ Deno.test("/start deep-link used when MINI_APP_URL missing", async () => {
   Deno.env.set("SUPABASE_URL", "http://local");
   Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "svc");
   Deno.env.set("SUPABASE_ANON_KEY", "anon");
-  await setFlag("mini_app_enabled", true);
-  await publish();
+  await setConfig("features:published", { ts: Date.now(), data: { mini_app_enabled: true } });
   const calls: Array<{ url: string; body: string }> = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => {
@@ -164,7 +159,6 @@ Deno.test("/start deep-link used when MINI_APP_URL missing", async () => {
   } finally {
     globalThis.fetch = originalFetch;
     cleanup();
-    await setFlag("mini_app_enabled", false);
-    await publish();
+    await setConfig("features:published", { ts: Date.now(), data: { mini_app_enabled: false } });
   }
 });

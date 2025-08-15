@@ -45,7 +45,7 @@ export default function Crypto() {
             />
           </div>
           <img
-            src="/qr-frame.svg"
+            src="/img/qr-frame.svg"
             alt="QR code"
             className="mx-auto mt-2 w-32 h-32"
           />

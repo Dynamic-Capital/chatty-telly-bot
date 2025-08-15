@@ -80,10 +80,10 @@ public/placeholder.svg,3912,svg,100
 public/favicon.ico,7645,ico,31
 public/robots.txt,160,txt,14
 package.json,2970,json,88
-supabase/functions/miniapp/public/tile-mib.svg,199,svg,4
-supabase/functions/miniapp/public/logo-dynamic-capital.svg,203,svg,5
-supabase/functions/miniapp/public/qr-frame.svg,149,svg,3
-supabase/functions/miniapp/public/tile-bml.svg,199,svg,4
+supabase/functions/miniapp/static/img/tile-mib.svg,199,svg,4
+supabase/functions/miniapp/static/img/logo-dynamic-capital.svg,203,svg,5
+supabase/functions/miniapp/static/img/qr-frame.svg,149,svg,3
+supabase/functions/miniapp/static/img/tile-bml.svg,199,svg,4
 supabase/functions/miniapp/src/router.tsx,539,tsx,18
 supabase/functions/miniapp/src/pages/Me.tsx,986,tsx,39
 supabase/functions/miniapp/src/pages/Crypto.tsx,2167,tsx,72
