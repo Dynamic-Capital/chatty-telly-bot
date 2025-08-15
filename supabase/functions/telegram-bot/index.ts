@@ -220,14 +220,14 @@ function hasValidMiniAppUrl(): boolean {
   }
 }
 
-export async function sendMiniAppLink(chatId: number) {
-  if (!BOT_TOKEN) return;
+export async function sendMiniAppLink(chatId: number): Promise<string | null> {
+  if (!BOT_TOKEN) return null;
   if (!(await getFlag("mini_app_enabled"))) {
     await sendMessage(
       chatId,
       "Checkout is currently unavailable. Please try again later.",
     );
-    return;
+    return null;
   }
 
   const rawUrl = optionalEnv("MINI_APP_URL") || "";
@@ -250,7 +250,7 @@ export async function sendMiniAppLink(chatId: number) {
   }
 
   if (miniUrl) {
-    await sendMessage(chatId, "Join the VIP Mini App:", {
+    const sent = await sendMessage(chatId, "Join the VIP Mini App:", {
       reply_markup: {
         inline_keyboard: [[{
           text: "Join",
@@ -258,7 +258,10 @@ export async function sendMiniAppLink(chatId: number) {
         }]],
       },
     });
-    return;
+    if (sent === null) {
+      await sendMessage(chatId, `Open checkout here: ${miniUrl}`);
+    }
+    return miniUrl;
   }
 
   if (short && botUsername) {
@@ -267,13 +270,14 @@ export async function sendMiniAppLink(chatId: number) {
       chatId,
       `Join the VIP Mini App: ${deepLink}\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)`,
     );
-    return;
+    return deepLink;
   }
 
   await sendMessage(
     chatId,
     "Welcome! Mini app is being configured. Please try again soon.",
   );
+  return null;
 }
 
 async function menuView(
@@ -942,7 +946,13 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
   const data = cb.data || "";
   const userId = String(cb.from.id);
   try {
-    // Always acknowledge the callback to avoid client retries
+    if (data.startsWith("pay:")) {
+      await notifyUser(chatId, "Opening checkout...");
+      const url = await sendMiniAppLink(chatId);
+      await answerCallbackQuery(cb.id, url ? { url } : {});
+      return;
+    }
+    // Acknowledge other callbacks promptly to avoid client retries
     await answerCallbackQuery(cb.id);
     if (data.startsWith("menu:")) {
       const section = data.slice("menu:".length) as
@@ -971,12 +981,6 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
       }
       return;
     }
-    if (data.startsWith("pay:")) {
-      await notifyUser(chatId, "Opening checkout...");
-      await sendMiniAppLink(chatId);
-      return;
-    }
-
     const handlers = await loadAdminHandlers();
     if (data.startsWith("toggle_flag_")) {
       const flag = data.replace("toggle_flag_", "");
