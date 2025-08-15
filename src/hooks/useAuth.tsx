@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Check admin status when user changes
         if (session?.user) {
-          setTimeout(async () => {
+          (async () => {
             try {
               const { data: profile } = await supabase
                 .from("profiles")
@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.error("Error checking admin status:", error);
               setIsAdmin(false);
             }
-          }, 0);
+          })();
         } else {
           setIsAdmin(false);
         }
