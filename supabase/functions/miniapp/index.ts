@@ -1,9 +1,14 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 // Load the full mini app HTML from the static bundle on startup
-const INDEX_HTML = await Deno.readTextFile(
-  new URL("./static/index.html", import.meta.url),
-);
+let INDEX_HTML: string | undefined;
+try {
+  INDEX_HTML = await Deno.readTextFile(
+    new URL("./static/index.html", import.meta.url),
+  );
+} catch (err) {
+  console.error("Failed to read mini app HTML:", err);
+}
 
 const SECURITY_HEADERS = {
   "x-frame-options": "ALLOWALL", // Allow embedding in Telegram
@@ -32,6 +37,18 @@ serve((req) => {
           ...SECURITY_HEADERS,
         },
       });
+    }
+    if (!INDEX_HTML) {
+      return new Response(
+        "Internal Server Error: Unable to load mini app HTML",
+        {
+          status: 500,
+          headers: {
+            "content-type": "text/plain; charset=utf-8",
+            ...SECURITY_HEADERS,
+          },
+        },
+      );
     }
     return new Response(INDEX_HTML, {
       headers: {
