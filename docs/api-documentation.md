@@ -233,12 +233,22 @@ async function handleHelpCommand(chatId: number): Promise<void> {
 
 #### `/packages`
 
-Show available VIP packages and subscription options
+Show available VIP packages and subscription options with interactive buttons
+that let the user start the checkout flow.
 
 ```typescript
 async function handlePackagesCommand(chatId: number): Promise<void> {
-  const vipPackages = await getFormattedVipPackages();
-  await sendMessage(chatId, vipPackages);
+  const msg = await getFormattedVipPackages();
+  const pkgs = await getVipPackages();
+  const inline_keyboard = pkgs.map((pkg) => [{
+    text: pkg.name,
+    callback_data: "buy:" + pkg.id,
+  }]);
+  inline_keyboard.push([{ text: "Back", callback_data: "menu:home" }]);
+  await sendMessage(chatId, msg, {
+    parse_mode: "Markdown",
+    reply_markup: { inline_keyboard },
+  });
 }
 ```
 

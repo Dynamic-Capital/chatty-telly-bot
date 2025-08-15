@@ -717,7 +717,16 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
       }
       case "/packages": {
         const msg = await getFormattedVipPackages();
-        await notifyUser(chatId, msg, { parse_mode: "Markdown" });
+        const pkgs = await getVipPackages();
+        const inline_keyboard = pkgs.map((pkg) => [{
+          text: pkg.name,
+          callback_data: "buy:" + pkg.id,
+        }]);
+        inline_keyboard.push([{ text: "Back", callback_data: "menu:home" }]);
+        await notifyUser(chatId, msg, {
+          reply_markup: { inline_keyboard },
+          parse_mode: "Markdown",
+        });
         break;
       }
       case "/promo": {
