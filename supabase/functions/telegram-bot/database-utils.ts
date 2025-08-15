@@ -64,7 +64,7 @@ Use the buttons below or type /packages, /vip or /help to get started.`,
 
 Available commands:
 /start - Main menu
-/dashboard - View account dashboard
+/dashboard or /account - View account dashboard
 /packages - View VIP packages
 /vip - VIP benefits
 /help - Show help
@@ -92,7 +92,7 @@ We typically respond within 2-4 hours.`,
 
 Available commands:
 /start - Main menu
-/dashboard - View account dashboard
+/dashboard or /account - View account dashboard
 /packages - View VIP packages
 /vip - VIP benefits
 /help - Show this help
@@ -274,9 +274,11 @@ export async function getAllBotSettings(): Promise<Record<string, string>> {
     }
 
     const settings: Record<string, string> = {};
-    (data ?? []).forEach((s: { setting_key: string; setting_value: string }) => {
-      settings[s.setting_key] = s.setting_value;
-    });
+    (data ?? []).forEach(
+      (s: { setting_key: string; setting_value: string }) => {
+        settings[s.setting_key] = s.setting_value;
+      },
+    );
     return settings;
   } catch (error) {
     console.error("Exception in getAllBotSettings:", error);
@@ -289,10 +291,10 @@ export async function resetBotSettings(
   adminId: string,
 ): Promise<boolean> {
   try {
-  const rows = Object.entries(defaultSettings).map(([key, value]) => ({
-    setting_key: key,
-    setting_value: value,
-  }));
+    const rows = Object.entries(defaultSettings).map(([key, value]) => ({
+      setting_key: key,
+      setting_value: value,
+    }));
 
     const { error } = await supabaseAdmin
       .from("bot_settings")
@@ -507,9 +509,9 @@ export async function processPlanEditInput(
 
         const { error } = await supabaseAdmin
           .from("subscription_plans")
-        .update({
-          price: price,
-        })
+          .update({
+            price: price,
+          })
           .eq("id", planId);
 
         if (error) {
@@ -545,9 +547,9 @@ export async function processPlanEditInput(
 
         const { error } = await supabaseAdmin
           .from("subscription_plans")
-        .update({
-          name: name,
-        })
+          .update({
+            name: name,
+          })
           .eq("id", planId);
 
         if (error) {
@@ -594,10 +596,10 @@ export async function processPlanEditInput(
 
         const { error } = await supabaseAdmin
           .from("subscription_plans")
-        .update({
-          duration_months: durationMonths,
-          is_lifetime: isLifetime,
-        })
+          .update({
+            duration_months: durationMonths,
+            is_lifetime: isLifetime,
+          })
           .eq("id", planId);
 
         if (error) {
@@ -654,9 +656,9 @@ export async function processPlanEditInput(
 
         const { error } = await supabaseAdmin
           .from("subscription_plans")
-        .update({
-          features: updatedFeatures,
-        })
+          .update({
+            features: updatedFeatures,
+          })
           .eq("id", planId);
 
         if (error) {

@@ -283,8 +283,7 @@ export async function sendMiniAppLink(chatId: number): Promise<string | null> {
 async function menuView(
   section: "home" | "plans" | "status" | "support",
   chatId?: number,
-): Promise<{ text: string; extra: Record<string, unknown> }>
-{
+): Promise<{ text: string; extra: Record<string, unknown> }> {
   const base = {
     reply_markup: {
       inline_keyboard: [
@@ -346,7 +345,10 @@ async function menuView(
     }
     case "support": {
       const msg = await getBotContent("support_message");
-      return { text: msg ?? "Support information is unavailable.", extra: base };
+      return {
+        text: msg ?? "Support information is unavailable.",
+        extra: base,
+      };
     }
     case "home":
     default:
@@ -731,15 +733,17 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
             .from("promotions")
             .select("code,discount_type,discount_value")
             .eq("is_active", true)
-            .or(`valid_until.is.null,valid_until.gt.${new Date().toISOString()}`)
+            .or(
+              `valid_until.is.null,valid_until.gt.${new Date().toISOString()}`,
+            )
             .limit(5);
           const lines = promos?.length
             ? promos.map((p: Promotion, i: number) => {
-                const discount = p.discount_type === "percentage"
-                  ? `${p.discount_value}%`
-                  : `$${p.discount_value}`;
-                return `${i + 1}. ${p.code} - ${discount}`;
-              }).join("\n")
+              const discount = p.discount_type === "percentage"
+                ? `${p.discount_value}%`
+                : `$${p.discount_value}`;
+              return `${i + 1}. ${p.code} - ${discount}`;
+            }).join("\n")
             : "No active promotions.";
           await notifyUser(
             chatId,
@@ -912,6 +916,7 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
         await handleAdminDashboard(chatId, userId);
         break;
       }
+      case "/account":
       case "/status": {
         const supa = await getSupabase();
         if (supa) {
@@ -1105,7 +1110,9 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
   }
 }
 
-export async function startReceiptPipeline(update: TelegramUpdate): Promise<void> {
+export async function startReceiptPipeline(
+  update: TelegramUpdate,
+): Promise<void> {
   try {
     const chatId = update.message!.chat.id;
     if (!(await getFlag("vip_sync_enabled"))) {
