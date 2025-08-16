@@ -1,16 +1,20 @@
-export type MenuSection = "home" | "plans" | "status" | "support";
+export type MenuSection = "dashboard" | "plans" | "support";
 
 export function buildMainMenu(section: MenuSection) {
-  const mk = (sect: MenuSection, label: string) => [{
-    text: `${sect === section ? "✅ " : ""}${label}`,
-    callback_data: `menu:${sect}`,
-  }];
   return {
-    inline_keyboard: [
-      mk("home", "Home"),
-      mk("plans", "Packages"),
-      mk("status", "Status"),
-      mk("support", "Support"),
-    ],
+    inline_keyboard: [[
+      {
+        text: `${section === "dashboard" ? "✅ " : ""}Dashboard`,
+        callback_data: "nav:dashboard",
+      },
+      {
+        text: `${section === "plans" ? "✅ " : ""}Plans`,
+        callback_data: "nav:plans",
+      },
+      {
+        text: `${section === "support" ? "✅ " : ""}Support`,
+        callback_data: "nav:support",
+      },
+    ]],
   };
 }

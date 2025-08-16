@@ -52,5 +52,14 @@ export async function activateSubscription(
     .eq("id", user.id)
     .single();
 
+  await supa.from("admin_logs").insert({
+    admin_telegram_id: "system",
+    action_type: "subscription_activated",
+    action_description: `Subscription ${planId} activated for ${telegramId}`,
+    affected_table: "user_subscriptions",
+    affected_record_id: String(telegramId),
+    new_values: { plan_id: planId, subscription_end_date: expiresAt },
+  });
+
   return expiresAt;
 }

@@ -409,71 +409,35 @@ export function buildCallbackHandlers(
 
 async function menuView(
   section: MenuSection,
-  chatId?: number,
 ): Promise<{ text: string; extra: Record<string, unknown> }> {
-  const base = { reply_markup: buildMainMenu(section) };
-
-  switch (section) {
-    case "plans": {
-      const [msg, pkgs] = await Promise.all([
-        getFormattedVipPackages(),
-        getVipPackages(),
-      ]);
-      const inline_keyboard = pkgs.map((pkg) => [{
-        text: pkg.name,
-        callback_data: "buy:" + pkg.id,
-      }]);
-      inline_keyboard.push([{ text: "Back", callback_data: "menu:home" }]);
-      return {
-        text: msg,
-        extra: { reply_markup: { inline_keyboard }, parse_mode: "Markdown" },
-      };
-    }
-    case "status": {
-      if (chatId) {
-        const supa = await getSupabase();
-        if (supa) {
-          const { data } = await supa
-            .from("bot_users")
-            .select("id,is_vip,subscription_expires_at")
-            .eq("telegram_id", chatId)
-            .maybeSingle();
-          const vip = data?.is_vip ? "VIP: active" : "VIP: inactive";
-          const expiry = data?.subscription_expires_at
-            ? `Expiry: ${
-              new Date(data.subscription_expires_at).toLocaleDateString()
-            }`
-            : "Expiry: none";
-          let payment = "";
-          if (data?.id) {
-            const { data: p } = await supa
-              .from("payments")
-              .select("status")
-              .eq("user_id", data.id)
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            if (p?.status) {
-              payment = `Payment: ${p.status}`;
-            }
-          }
-          const text = [vip, expiry, payment].filter(Boolean).join("\n");
-          return { text, extra: base };
-        }
-      }
-      return { text: "Status information is unavailable.", extra: base };
-    }
-    case "support": {
-      const msg = await getBotContent("support_message");
-      return {
-        text: msg ?? "Support information is unavailable.",
-        extra: base,
-      };
-    }
-    case "home":
-    default:
-      return { text: "Welcome! Choose an option:", extra: base };
+  if (section === "plans") {
+    const [msg, pkgs] = await Promise.all([
+      getFormattedVipPackages(),
+      getVipPackages(),
+    ]);
+    const inline_keyboard = pkgs.map((pkg) => [{
+      text: pkg.name,
+      callback_data: "buy:" + pkg.id,
+    }]);
+    inline_keyboard.push([{ text: "Back", callback_data: "nav:dashboard" }]);
+    return {
+      text: msg,
+      extra: { reply_markup: { inline_keyboard }, parse_mode: "Markdown" },
+    };
   }
+  if (section === "support") {
+    const msg = await getBotContent("support_message");
+    return {
+      text: msg ?? "Support information is unavailable.",
+      extra: { reply_markup: buildMainMenu(section) },
+    };
+  }
+  const markup = buildMainMenu(section);
+  const { url } = readMiniAppEnv();
+  if (url) {
+    markup.inline_keyboard.push([{ text: "Open Mini App", web_app: { url } }]);
+  }
+  return { text: "Welcome! Choose an option:", extra: { reply_markup: markup } };
 }
 
 async function getMenuMessageId(chatId: number): Promise<number | null> {
@@ -505,9 +469,9 @@ async function setMenuMessageId(
 
 async function sendMainMenu(
   chatId: number,
-  section: MenuSection = "home",
+  section: MenuSection = "dashboard",
 ): Promise<number | null> {
-  const view = await menuView(section, chatId);
+  const view = await menuView(section);
   const msgId = await sendMessage(chatId, view.text, view.extra);
   if (msgId !== null) {
     await setMenuMessageId(chatId, msgId);
@@ -517,10 +481,10 @@ async function sendMainMenu(
 
 async function showMainMenu(
   chatId: number,
-  section: MenuSection = "home",
+  section: MenuSection = "dashboard",
 ): Promise<void> {
   const existing = await getMenuMessageId(chatId);
-  const view = await menuView(section, chatId);
+  const view = await menuView(section);
   if (existing) {
     const newId = await editMessage(chatId, existing, view.text, view.extra);
     if (newId !== null) {
@@ -734,251 +698,20 @@ async function sendPlanOptions(chatId: number): Promise<void> {
   });
 }
 
-// Registry of user-facing command handlers
 export const commandHandlers: Record<string, CommandHandler> = {
-  "/start": async ({ msg, chatId, miniAppValid }) => {
-    const supa = await getSupabase();
-    let contentKey = "welcome_message";
-    let isNewUser = true;
-    if (supa) {
-      const { data } = await supa
-        .from("bot_users")
-        .select("id")
-        .eq("telegram_id", msg.from?.id ?? chatId)
-        .maybeSingle();
-      if (data) {
-        contentKey = "welcome_back_message";
-        isNewUser = false;
-      }
-    }
-    const welcome = await getBotContent(contentKey);
-    if (welcome) {
-      if (isNewUser) {
-        await notifyUser(chatId, welcome, {
-          reply_markup: {
-            keyboard: [
-              [{ text: "/packages" }, { text: "/vip" }],
-              [{ text: "/help" }, { text: "/support" }],
-            ],
-            resize_keyboard: true,
-          },
-        });
-      } else {
-        await notifyUser(chatId, welcome);
-      }
-    }
-    await handleStartPayload(msg);
-    if (miniAppValid) {
-      await showMainMenu(chatId);
-    } else {
-      await sendMiniAppLink(chatId);
-    }
+  "/start": async ({ chatId }) => {
+    await showMainMenu(chatId, "dashboard");
   },
-  "/app": async ({ chatId, miniAppValid }) => {
-    if (miniAppValid) {
-      await showMainMenu(chatId);
-    } else {
-      await sendMiniAppLink(chatId);
-    }
-  },
-  "/menu": async ({ chatId }) => {
-    await showMainMenu(chatId);
-  },
-  "/help": async ({ chatId }) => {
-    const msg = await getBotContent("help_message");
-    await notifyUser(chatId, msg ?? "Help is coming soon.");
-  },
-  "/support": async ({ chatId }) => {
-    const msg = await getBotContent("support_message");
-    await notifyUser(chatId, msg ?? "Support information is unavailable.");
-  },
-  "/about": async ({ chatId }) => {
-    const msg = await getBotContent("about_us");
-    await notifyUser(chatId, msg ?? "About information is unavailable.");
-  },
-  "/vip": async ({ chatId }) => {
-    const msg = await getBotContent("vip_benefits");
-    await notifyUser(chatId, msg ?? "VIP information is unavailable.");
-  },
-  "/packages": async ({ chatId }) => {
-    await sendPlanOptions(chatId);
+  "/app": async ({ chatId }) => {
+    await showMainMenu(chatId, "dashboard");
   },
   "/plans": async ({ chatId }) => {
-    await sendPlanOptions(chatId);
+    await showMainMenu(chatId, "plans");
   },
-  "/buy": async ({ chatId }) => {
-    await sendPlanOptions(chatId);
-  },
-  "/promo": async ({ msg, chatId }) => {
-    const parts = (msg.text || "").split(/\s+/);
-    const code = parts[1];
-    const supa = await getSupabase();
-    if (!supa) {
-      await notifyUser(chatId, "Promotions are currently unavailable.");
-      return;
-    }
-    if (!code) {
-      const { data: promos } = await supa
-        .from("promotions")
-        .select("code,discount_type,discount_value")
-        .eq("is_active", true)
-        .or(
-          `valid_until.is.null,valid_until.gt.${new Date().toISOString()}`,
-        )
-        .limit(5);
-      const lines = promos?.length
-        ? promos.map((p: Promotion, i: number) => {
-          const discount = p.discount_type === "percentage"
-            ? `${p.discount_value}%`
-            : `$${p.discount_value}`;
-          return `${i + 1}. ${p.code} - ${discount}`;
-        }).join("\n")
-        : "No active promotions.";
-      await notifyUser(
-        chatId,
-        `🎁 *Active Promotions:*\n${lines}\n\nUse /promo CODE to apply.`,
-        { parse_mode: "Markdown" },
-      );
-    } else {
-      try {
-        const { data } = await supa.rpc("validate_promo_code", {
-          p_code: code,
-          p_telegram_user_id: String(chatId),
-        });
-        const res = Array.isArray(data) ? data[0] : data;
-        if (res?.valid) {
-          const promo_data = { code } as Record<string, unknown>;
-          const { data: us } = await supa
-            .from("user_sessions")
-            .select("id")
-            .eq("telegram_user_id", String(chatId))
-            .limit(1)
-            .maybeSingle();
-          if (us?.id) {
-            await supa
-              .from("user_sessions")
-              .update({ promo_data })
-              .eq("id", us.id);
-          } else {
-            await supa.from("user_sessions").insert({
-              telegram_user_id: String(chatId),
-              promo_data,
-              last_activity: new Date().toISOString(),
-              is_active: true,
-            });
-          }
-          await notifyUser(
-            chatId,
-            "✅ Promo code applied! It will be used at checkout.",
-          );
-        } else {
-          await notifyUser(chatId, "❌ Invalid or expired promo code.");
-        }
-      } catch {
-        await notifyUser(chatId, "❌ Error validating promo code.");
-      }
-    }
-  },
-  "/dashboard": async ({ chatId }) => {
-    const supa = await getSupabase();
-    if (supa) {
-      const { data: user } = await supa
-        .from("bot_users")
-        .select("is_vip,subscription_expires_at")
-        .eq("telegram_id", chatId)
-        .maybeSingle();
-
-      const vipStatus = user?.is_vip ? "✅ Active" : "❌ Inactive";
-      const expiry = user?.subscription_expires_at
-        ? new Date(user.subscription_expires_at).toLocaleDateString()
-        : "N/A";
-
-      const { data: promos } = await supa
-        .from("promotions")
-        .select("code,discount_type,discount_value")
-        .eq("is_active", true)
-        .or(
-          `valid_until.is.null,valid_until.gt.${new Date().toISOString()}`,
-        )
-        .limit(3);
-
-      const promoLines = promos?.length
-        ? promos
-          .map((p: Promotion, i: number) => {
-            const discount = p.discount_type === "percentage"
-              ? `${p.discount_value}%`
-              : `$${p.discount_value}`;
-            return `${i + 1}. ${p.code} - ${discount}`;
-          })
-          .join("\n")
-        : "No active promotions.";
-
-      const { data: interactions } = await supa
-        .from("user_interactions")
-        .select("interaction_data")
-        .eq("interaction_type", "command")
-        .limit(1000);
-
-      const counts = new Map<string, number>();
-      for (const row of interactions ?? []) {
-        const cmd = (row.interaction_data as string || "").split(" ")[0];
-        if (!cmd) continue;
-        counts.set(cmd, (counts.get(cmd) ?? 0) + 1);
-      }
-      const topCmds = [...counts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3);
-      const cmdLines = topCmds.length
-        ? topCmds
-          .map(([c, n], i) => `${i + 1}. ${c} (${n})`)
-          .join("\n")
-        : "No commands yet.";
-
-      const message = `📊 *Dashboard*\n\n👤 *Subscription:* ${vipStatus}\n` +
-        `📅 *Expires:* ${expiry}\n\n` +
-        `🎁 *Active Promotions:*\n${promoLines}\n\n` +
-        `🔥 *Top Commands:*\n${cmdLines}`;
-
-      await notifyUser(chatId, message, {
-        parse_mode: "Markdown",
-        reply_markup: {
-          inline_keyboard: [
-            [{
-              text: "View Packages",
-              callback_data: "dashboard_packages",
-            }],
-            [{ text: "Redeem Promo", callback_data: "dashboard_redeem" }],
-            [{ text: "Help", callback_data: "dashboard_help" }],
-          ],
-        },
-      });
-    }
-  },
-  "/faq": async ({ chatId }) => {
-    const msg = await getBotContent("faq_general");
-    await notifyUser(chatId, msg ?? "FAQ is unavailable.");
+  "/support": async ({ chatId }) => {
+    await showMainMenu(chatId, "support");
   },
 };
-
-// Shared handler for account/status commands
-const accountHandler: CommandHandler = async ({ chatId }) => {
-  const supa = await getSupabase();
-  if (supa) {
-    const { data } = await supa
-      .from("bot_users")
-      .select("is_vip,subscription_expires_at")
-      .eq("telegram_id", chatId)
-      .maybeSingle();
-    const vip = data?.is_vip ? "VIP: active" : "VIP: inactive";
-    const expiry = data?.subscription_expires_at
-      ? `Expiry: ${new Date(data.subscription_expires_at).toLocaleDateString()}`
-      : "Expiry: none";
-    await notifyUser(chatId, `${vip}\n${expiry}`);
-  }
-};
-
-commandHandlers["/account"] = accountHandler;
-commandHandlers["/status"] = accountHandler;
 
 // Admin command handlers are built separately to keep user logic light
 const adminCommandHandlers = buildAdminCommandHandlers(
@@ -1029,34 +762,34 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
     }
     // Acknowledge other callbacks promptly to avoid client retries
     await answerCallbackQuery(cb.id);
-    if (data.startsWith("menu:")) {
-      const section = data.slice("menu:".length) as MenuSection;
-      await showMainMenu(chatId, section);
+    if (data.startsWith("nav:") && cb.message) {
+      const section = data.slice("nav:".length) as MenuSection;
+      const view = await menuView(section);
+      await editMessage(chatId, cb.message.message_id, view.text, view.extra);
       return;
     }
     if (data.startsWith("buy:")) {
       const planId = data.slice("buy:".length);
       const pkgs = await getVipPackages();
       const plan = pkgs.find((p) => p.id === planId);
-      if (plan) {
-        await notifyUser(chatId, `Choose payment method for ${plan.name}:`, {
-          reply_markup: {
-            inline_keyboard: [
-              [{
-                text: "Binance Pay",
-                callback_data: `method:binance:${plan.id}`,
-              }],
-              [{
-                text: "Bank Transfer",
-                callback_data: `method:bank:${plan.id}`,
-              }],
-              [{ text: "Crypto", callback_data: `method:crypto:${plan.id}` }],
-              [{ text: "Back", callback_data: "menu:plans" }],
-            ],
-          },
-        });
-      } else {
-        await notifyUser(chatId, "Plan not found.");
+      if (plan && cb.message) {
+        const inline_keyboard = [
+          [{ text: "Pay with Binance", callback_data: `method:binance:${plan.id}` }],
+          [{
+            text: "Pay by Bank Transfer (Upload Receipt)",
+            callback_data: `method:bank:${plan.id}`,
+          }],
+          [{ text: "Pay with Crypto", callback_data: `method:crypto:${plan.id}` }],
+          [{ text: "Back", callback_data: "nav:plans" }],
+        ];
+        await editMessage(
+          chatId,
+          cb.message.message_id,
+          `Choose payment method for ${plan.name}:`,
+          { reply_markup: { inline_keyboard } },
+        );
+      } else if (cb.message) {
+        await editMessage(chatId, cb.message.message_id, "Plan not found.");
       }
       return;
     }
@@ -1156,7 +889,11 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         });
       }
 
-      await notifyUser(chatId, message);
+      if (cb.message) {
+        await editMessage(chatId, cb.message.message_id, message, {
+          reply_markup: { inline_keyboard: [[{ text: "Back", callback_data: "nav:plans" }]] },
+        });
+      }
       return;
     }
     if (data.startsWith("method:binance:")) {
@@ -1182,25 +919,28 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
           },
         );
         const out = await res.json().catch(() => null);
-        if (out?.checkoutUrl) {
-          await notifyUser(
+        if (out?.checkoutUrl && cb.message) {
+          await editMessage(
             chatId,
+            cb.message.message_id,
             "Complete payment using Binance Pay. We'll approve it manually.",
             {
               reply_markup: {
                 inline_keyboard: [
                   [{ text: "Open Binance Pay", url: out.checkoutUrl }],
-                  [{ text: "Back", callback_data: "menu:plans" }],
+                  [{ text: "Back", callback_data: "nav:plans" }],
                 ],
               },
             },
           );
-        } else {
-          await notifyUser(chatId, "Failed to initiate Binance Pay checkout.");
+        } else if (cb.message) {
+          await editMessage(chatId, cb.message.message_id, "Failed to initiate Binance Pay checkout.");
         }
       } catch (e) {
         console.error("binance-pay error", e);
-        await notifyUser(chatId, "Failed to initiate Binance Pay checkout.");
+        if (cb.message) {
+          await editMessage(chatId, cb.message.message_id, "Failed to initiate Binance Pay checkout.");
+        }
       }
       return;
     }
@@ -1245,10 +985,14 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         console.error("create crypto payment error", perr);
         await notifyUser(chatId, "Unable to create payment. Please try again later.");
       } else {
-        await notifyUser(
-          chatId,
-          `Send the payment to ${address} and reply with the transaction details for manual approval.`,
-        );
+        if (cb.message) {
+          await editMessage(
+            chatId,
+            cb.message.message_id,
+            `Send the payment to ${address} and reply with the transaction details for manual approval.`,
+            { reply_markup: { inline_keyboard: [[{ text: "Back", callback_data: "nav:plans" }]] } },
+          );
+        }
       }
       return;
     }
