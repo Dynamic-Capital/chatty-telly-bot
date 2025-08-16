@@ -13,6 +13,11 @@ import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
 import { getFlag } from "../_shared/config.ts";
 import { buildMainMenu, type MenuSection } from "./menu.ts";
+import {
+  buildAdminCommandHandlers,
+  type CommandContext,
+  type CommandHandler,
+} from "./admin-command-handlers.ts";
 // Type definition moved inline to avoid import issues
 interface Promotion {
   code: string;
@@ -730,16 +735,9 @@ async function storeReceiptImage(
   return storagePath;
 }
 
-async function handleCommand(update: TelegramUpdate): Promise<void> {
-  const msg = update.message;
-  if (!msg) return;
-  const text = msg.text?.trim();
-  if (!text) return;
-  const chatId = msg.chat.id;
-  const miniAppValid = hasValidMiniAppUrl();
-
-  // Early match for /start variants like "/start", "/start@Bot", or "/start foo"
-  if (isStartMessage(msg)) {
+// Registry of user-facing command handlers
+export const commandHandlers: Record<string, CommandHandler> = {
+  "/start": async ({ msg, chatId, miniAppValid }) => {
     const supa = await getSupabase();
     let contentKey = "welcome_message";
     let isNewUser = true;
@@ -776,8 +774,233 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
     } else {
       await sendMiniAppLink(chatId);
     }
-    return;
+  },
+  "/app": async ({ chatId, miniAppValid }) => {
+    if (miniAppValid) {
+      await showMainMenu(chatId);
+    } else {
+      await sendMiniAppLink(chatId);
+    }
+  },
+  "/menu": async ({ chatId }) => {
+    await showMainMenu(chatId);
+  },
+  "/help": async ({ chatId }) => {
+    const msg = await getBotContent("help_message");
+    await notifyUser(chatId, msg ?? "Help is coming soon.");
+  },
+  "/support": async ({ chatId }) => {
+    const msg = await getBotContent("support_message");
+    await notifyUser(chatId, msg ?? "Support information is unavailable.");
+  },
+  "/about": async ({ chatId }) => {
+    const msg = await getBotContent("about_us");
+    await notifyUser(chatId, msg ?? "About information is unavailable.");
+  },
+  "/vip": async ({ chatId }) => {
+    const msg = await getBotContent("vip_benefits");
+    await notifyUser(chatId, msg ?? "VIP information is unavailable.");
+  },
+  "/packages": async ({ chatId }) => {
+    const [msg, pkgs] = await Promise.all([
+      getFormattedVipPackages(),
+      getVipPackages(),
+    ]);
+    const inline_keyboard = pkgs.map((pkg) => [{
+      text: pkg.name,
+      callback_data: "buy:" + pkg.id,
+    }]);
+    inline_keyboard.push([{ text: "Back", callback_data: "menu:home" }]);
+    await notifyUser(chatId, msg, {
+      reply_markup: { inline_keyboard },
+      parse_mode: "Markdown",
+    });
+  },
+  "/promo": async ({ msg, chatId }) => {
+    const parts = (msg.text || "").split(/\s+/);
+    const code = parts[1];
+    const supa = await getSupabase();
+    if (!supa) {
+      await notifyUser(chatId, "Promotions are currently unavailable.");
+      return;
+    }
+    if (!code) {
+      const { data: promos } = await supa
+        .from("promotions")
+        .select("code,discount_type,discount_value")
+        .eq("is_active", true)
+        .or(
+          `valid_until.is.null,valid_until.gt.${new Date().toISOString()}`,
+        )
+        .limit(5);
+      const lines = promos?.length
+        ? promos.map((p: Promotion, i: number) => {
+          const discount = p.discount_type === "percentage"
+            ? `${p.discount_value}%`
+            : `$${p.discount_value}`;
+          return `${i + 1}. ${p.code} - ${discount}`;
+        }).join("\n")
+        : "No active promotions.";
+      await notifyUser(
+        chatId,
+        `🎁 *Active Promotions:*\n${lines}\n\nUse /promo CODE to apply.`,
+        { parse_mode: "Markdown" },
+      );
+    } else {
+      try {
+        const { data } = await supa.rpc("validate_promo_code", {
+          p_code: code,
+          p_telegram_user_id: String(chatId),
+        });
+        const res = Array.isArray(data) ? data[0] : data;
+        if (res?.valid) {
+          const promo_data = { code } as Record<string, unknown>;
+          const { data: us } = await supa
+            .from("user_sessions")
+            .select("id")
+            .eq("telegram_user_id", String(chatId))
+            .limit(1)
+            .maybeSingle();
+          if (us?.id) {
+            await supa
+              .from("user_sessions")
+              .update({ promo_data })
+              .eq("id", us.id);
+          } else {
+            await supa.from("user_sessions").insert({
+              telegram_user_id: String(chatId),
+              promo_data,
+              last_activity: new Date().toISOString(),
+              is_active: true,
+            });
+          }
+          await notifyUser(
+            chatId,
+            "✅ Promo code applied! It will be used at checkout.",
+          );
+        } else {
+          await notifyUser(chatId, "❌ Invalid or expired promo code.");
+        }
+      } catch {
+        await notifyUser(chatId, "❌ Error validating promo code.");
+      }
+    }
+  },
+  "/dashboard": async ({ chatId }) => {
+    const supa = await getSupabase();
+    if (supa) {
+      const { data: user } = await supa
+        .from("bot_users")
+        .select("is_vip,subscription_expires_at")
+        .eq("telegram_id", chatId)
+        .maybeSingle();
+
+      const vipStatus = user?.is_vip ? "✅ Active" : "❌ Inactive";
+      const expiry = user?.subscription_expires_at
+        ? new Date(user.subscription_expires_at).toLocaleDateString()
+        : "N/A";
+
+      const { data: promos } = await supa
+        .from("promotions")
+        .select("code,discount_type,discount_value")
+        .eq("is_active", true)
+        .or(
+          `valid_until.is.null,valid_until.gt.${new Date().toISOString()}`,
+        )
+        .limit(3);
+
+      const promoLines = promos?.length
+        ? promos
+          .map((p: Promotion, i: number) => {
+            const discount = p.discount_type === "percentage"
+              ? `${p.discount_value}%`
+              : `$${p.discount_value}`;
+            return `${i + 1}. ${p.code} - ${discount}`;
+          })
+          .join("\n")
+        : "No active promotions.";
+
+      const { data: interactions } = await supa
+        .from("user_interactions")
+        .select("interaction_data")
+        .eq("interaction_type", "command")
+        .limit(1000);
+
+      const counts = new Map<string, number>();
+      for (const row of interactions ?? []) {
+        const cmd = (row.interaction_data as string || "").split(" ")[0];
+        if (!cmd) continue;
+        counts.set(cmd, (counts.get(cmd) ?? 0) + 1);
+      }
+      const topCmds = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+      const cmdLines = topCmds.length
+        ? topCmds
+          .map(([c, n], i) => `${i + 1}. ${c} (${n})`)
+          .join("\n")
+        : "No commands yet.";
+
+      const message =
+        `📊 *Dashboard*\n\n👤 *Subscription:* ${vipStatus}\n` +
+        `📅 *Expires:* ${expiry}\n\n` +
+        `🎁 *Active Promotions:*\n${promoLines}\n\n` +
+        `🔥 *Top Commands:*\n${cmdLines}`;
+
+      await notifyUser(chatId, message, {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [{
+              text: "View Packages",
+              callback_data: "dashboard_packages",
+            }],
+            [{ text: "Redeem Promo", callback_data: "dashboard_redeem" }],
+            [{ text: "Help", callback_data: "dashboard_help" }],
+          ],
+        },
+      });
+    }
+  },
+  "/faq": async ({ chatId }) => {
+    const msg = await getBotContent("faq_general");
+    await notifyUser(chatId, msg ?? "FAQ is unavailable.");
+  },
+};
+
+// Shared handler for account/status commands
+const accountHandler: CommandHandler = async ({ chatId }) => {
+  const supa = await getSupabase();
+  if (supa) {
+    const { data } = await supa
+      .from("bot_users")
+      .select("is_vip,subscription_expires_at")
+      .eq("telegram_id", chatId)
+      .maybeSingle();
+    const vip = data?.is_vip ? "VIP: active" : "VIP: inactive";
+    const expiry = data?.subscription_expires_at
+      ? `Expiry: ${new Date(data.subscription_expires_at).toLocaleDateString()}`
+      : "Expiry: none";
+    await notifyUser(chatId, `${vip}\n${expiry}`);
   }
+};
+
+commandHandlers["/account"] = accountHandler;
+commandHandlers["/status"] = accountHandler;
+
+// Admin command handlers are built separately to keep user logic light
+const adminCommandHandlers = buildAdminCommandHandlers(
+  loadAdminHandlers,
+  (chatId, text) => notifyUser(chatId, text),
+);
+
+async function handleCommand(update: TelegramUpdate): Promise<void> {
+  const msg = update.message;
+  if (!msg) return;
+  const text = msg.text?.trim();
+  if (!text) return;
+  const chatId = msg.chat.id;
+  const miniAppValid = hasValidMiniAppUrl();
 
   // Handle pending admin plan edits before command parsing
   const userId = String(msg.from?.id ?? chatId);
@@ -786,275 +1009,14 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
 
   // Extract the command without bot mentions and gather arguments
   const [firstToken, ...args] = text.split(/\s+/);
-  const command = firstToken.split("@")[0];
+  let command = firstToken.split("@")[0];
+  if (isStartMessage(msg)) command = "/start";
 
   try {
-    switch (command) {
-      case "/start":
-      case "/app":
-        if (miniAppValid) {
-          await showMainMenu(chatId);
-        } else {
-          await sendMiniAppLink(chatId);
-        }
-        break;
-      case "/menu":
-        await showMainMenu(chatId);
-        break;
-      case "/help": {
-        const msg = await getBotContent("help_message");
-        await notifyUser(chatId, msg ?? "Help is coming soon.");
-        break;
-      }
-      case "/support": {
-        const msg = await getBotContent("support_message");
-        await notifyUser(chatId, msg ?? "Support information is unavailable.");
-        break;
-      }
-      case "/about": {
-        const msg = await getBotContent("about_us");
-        await notifyUser(chatId, msg ?? "About information is unavailable.");
-        break;
-      }
-      case "/vip": {
-        const msg = await getBotContent("vip_benefits");
-        await notifyUser(chatId, msg ?? "VIP information is unavailable.");
-        break;
-      }
-      case "/packages": {
-        const [msg, pkgs] = await Promise.all([
-          getFormattedVipPackages(),
-          getVipPackages(),
-        ]);
-        const inline_keyboard = pkgs.map((pkg) => [{
-          text: pkg.name,
-          callback_data: "buy:" + pkg.id,
-        }]);
-        inline_keyboard.push([{ text: "Back", callback_data: "menu:home" }]);
-        await notifyUser(chatId, msg, {
-          reply_markup: { inline_keyboard },
-          parse_mode: "Markdown",
-        });
-        break;
-      }
-      case "/promo": {
-        const parts = (msg.text || "").split(/\s+/);
-        const code = parts[1];
-        const supa = await getSupabase();
-        if (!supa) {
-          await notifyUser(chatId, "Promotions are currently unavailable.");
-          break;
-        }
-        if (!code) {
-          const { data: promos } = await supa
-            .from("promotions")
-            .select("code,discount_type,discount_value")
-            .eq("is_active", true)
-            .or(
-              `valid_until.is.null,valid_until.gt.${new Date().toISOString()}`,
-            )
-            .limit(5);
-          const lines = promos?.length
-            ? promos.map((p: Promotion, i: number) => {
-              const discount = p.discount_type === "percentage"
-                ? `${p.discount_value}%`
-                : `$${p.discount_value}`;
-              return `${i + 1}. ${p.code} - ${discount}`;
-            }).join("\n")
-            : "No active promotions.";
-          await notifyUser(
-            chatId,
-            `🎁 *Active Promotions:*\n${lines}\n\nUse /promo CODE to apply.`,
-            { parse_mode: "Markdown" },
-          );
-        } else {
-          try {
-            const { data } = await supa.rpc("validate_promo_code", {
-              p_code: code,
-              p_telegram_user_id: String(chatId),
-            });
-            const res = Array.isArray(data) ? data[0] : data;
-            if (res?.valid) {
-              const promo_data = { code } as Record<string, unknown>;
-              const { data: us } = await supa
-                .from("user_sessions")
-                .select("id")
-                .eq("telegram_user_id", String(chatId))
-                .limit(1)
-                .maybeSingle();
-              if (us?.id) {
-                await supa
-                  .from("user_sessions")
-                  .update({ promo_data })
-                  .eq("id", us.id);
-              } else {
-                await supa.from("user_sessions").insert({
-                  telegram_user_id: String(chatId),
-                  promo_data,
-                  last_activity: new Date().toISOString(),
-                  is_active: true,
-                });
-              }
-              await notifyUser(
-                chatId,
-                "✅ Promo code applied! It will be used at checkout.",
-              );
-            } else {
-              await notifyUser(chatId, "❌ Invalid or expired promo code.");
-            }
-          } catch {
-            await notifyUser(chatId, "❌ Error validating promo code.");
-          }
-        }
-        break;
-      }
-      case "/dashboard": {
-        const supa = await getSupabase();
-        if (supa) {
-          const { data: user } = await supa
-            .from("bot_users")
-            .select("is_vip,subscription_expires_at")
-            .eq("telegram_id", chatId)
-            .maybeSingle();
-
-          const vipStatus = user?.is_vip ? "✅ Active" : "❌ Inactive";
-          const expiry = user?.subscription_expires_at
-            ? new Date(user.subscription_expires_at).toLocaleDateString()
-            : "N/A";
-
-          const { data: promos } = await supa
-            .from("promotions")
-            .select("code,discount_type,discount_value")
-            .eq("is_active", true)
-            .or(
-              `valid_until.is.null,valid_until.gt.${new Date().toISOString()}`,
-            )
-            .limit(3);
-
-          const promoLines = promos?.length
-            ? promos
-              .map((p: Promotion, i: number) => {
-                const discount = p.discount_type === "percentage"
-                  ? `${p.discount_value}%`
-                  : `$${p.discount_value}`;
-                return `${i + 1}. ${p.code} - ${discount}`;
-              })
-              .join("\n")
-            : "No active promotions.";
-
-          const { data: interactions } = await supa
-            .from("user_interactions")
-            .select("interaction_data")
-            .eq("interaction_type", "command")
-            .limit(1000);
-
-          const counts = new Map<string, number>();
-          for (const row of interactions ?? []) {
-            const cmd = (row.interaction_data as string || "").split(" ")[0];
-            if (!cmd) continue;
-            counts.set(cmd, (counts.get(cmd) ?? 0) + 1);
-          }
-          const topCmds = [...counts.entries()]
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3);
-          const cmdLines = topCmds.length
-            ? topCmds
-              .map(([c, n], i) => `${i + 1}. ${c} (${n})`)
-              .join("\n")
-            : "No commands yet.";
-
-          const message =
-            `📊 *Dashboard*\n\n👤 *Subscription:* ${vipStatus}\n` +
-            `📅 *Expires:* ${expiry}\n\n` +
-            `🎁 *Active Promotions:*\n${promoLines}\n\n` +
-            `🔥 *Top Commands:*\n${cmdLines}`;
-
-          await notifyUser(chatId, message, {
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [
-                [{
-                  text: "View Packages",
-                  callback_data: "dashboard_packages",
-                }],
-                [{ text: "Redeem Promo", callback_data: "dashboard_redeem" }],
-                [{ text: "Help", callback_data: "dashboard_help" }],
-              ],
-            },
-          });
-        }
-        break;
-      }
-      case "/faq": {
-        const msg = await getBotContent("faq_general");
-        await notifyUser(chatId, msg ?? "FAQ is unavailable.");
-        break;
-      }
-      case "/ping":
-        await notifyUser(
-          chatId,
-          JSON.stringify((await loadAdminHandlers()).handlePing()),
-        );
-        break;
-      case "/version":
-        await notifyUser(
-          chatId,
-          JSON.stringify((await loadAdminHandlers()).handleVersion()),
-        );
-        break;
-      case "/env": {
-        const envStatus = await (await loadAdminHandlers()).handleEnvStatus();
-        await notifyUser(chatId, JSON.stringify(envStatus));
-        break;
-      }
-      case "/reviewlist": {
-        const { handleReviewList } = await loadAdminHandlers();
-        const list = await handleReviewList();
-        await notifyUser(chatId, JSON.stringify(list));
-        break;
-      }
-      case "/replay": {
-        const id = args[0];
-        if (id) {
-          const { handleReplay } = await loadAdminHandlers();
-          await notifyUser(chatId, JSON.stringify(handleReplay(id)));
-        }
-        break;
-      }
-      case "/webhookinfo": {
-        const { handleWebhookInfo } = await loadAdminHandlers();
-        const info = await handleWebhookInfo();
-        await notifyUser(chatId, JSON.stringify(info));
-        break;
-      }
-      case "/admin": {
-        const userId = String(msg.from?.id ?? chatId);
-        const { handleAdminDashboard } = await loadAdminHandlers();
-        await handleAdminDashboard(chatId, userId);
-        break;
-      }
-      case "/account":
-      case "/status": {
-        const supa = await getSupabase();
-        if (supa) {
-          const { data } = await supa
-            .from("bot_users")
-            .select("is_vip,subscription_expires_at")
-            .eq("telegram_id", chatId)
-            .maybeSingle();
-          const vip = data?.is_vip ? "VIP: active" : "VIP: inactive";
-          const expiry = data?.subscription_expires_at
-            ? `Expiry: ${
-              new Date(data.subscription_expires_at).toLocaleDateString()
-            }`
-            : "Expiry: none";
-          await notifyUser(chatId, `${vip}\n${expiry}`);
-        }
-        break;
-      }
-      default:
-        // Unsupported command; ignore silently
-        break;
+    const ctx: CommandContext = { msg, chatId, args, miniAppValid };
+    const handler = commandHandlers[command] ?? adminCommandHandlers[command];
+    if (handler) {
+      await handler(ctx);
     }
   } catch (err) {
     console.error("handleCommand error", err);
