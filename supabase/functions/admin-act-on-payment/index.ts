@@ -14,6 +14,11 @@ async function tgSend(token: string, chatId: string, text: string) {
 }
 
 export async function handler(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.pathname.endsWith("/version")) {
+    return ok({ name: "admin-act-on-payment", ts: new Date().toISOString() });
+  }
+  if (req.method === "HEAD") return new Response(null, { status: 200 });
   if (req.method !== "POST") return mna();
   let body: Body; try { body = await req.json(); } catch { return bad("Bad JSON"); }
 

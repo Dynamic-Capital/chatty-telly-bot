@@ -33,15 +33,11 @@ serve(async (req) => {
     }), sessions(${del2.data?.length || 0}), bans(${del3.data?.length || 0})`,
   });
 
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      deleted: {
-        interactions: del1.data?.length || 0,
-        sessions: del2.data?.length || 0,
-        bans: del3.data?.length || 0,
-      },
-    }),
-    { headers: { "content-type": "application/json" } },
-  );
+  return ok({
+    deleted: {
+      interactions: del1.data?.length || 0,
+      sessions: del2.data?.length || 0,
+      bans: del3.data?.length || 0,
+    },
+  });
 });

@@ -1,4 +1,5 @@
 import { optionalEnv } from "../_shared/env.ts";
+import { ok, bad, mna, oops } from "../_shared/http.ts";
 
 // Verify Telegram WebApp initData according to Telegram spec
 // Public Edge Function with CORS
@@ -8,6 +9,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+function withCors(r: Response) {
+  Object.entries(corsHeaders).forEach(([k, v]) => r.headers.set(k, v));
+  return r;
+}
 
 function hex(buffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(buffer))
@@ -94,43 +100,27 @@ async function verifyInitData(initData: string) {
 }
 
 Deno.serve(async (req) => {
+  const url = new URL(req.url);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  if (req.method === "HEAD") return withCors(new Response(null, { status: 200 }));
+  if (req.method === "GET" && url.pathname.endsWith("/version")) {
+    return withCors(ok({ name: "verify-telegram", ts: new Date().toISOString() }));
+  }
+  if (req.method !== "POST") return withCors(mna());
 
   try {
-    if (req.method !== "POST") {
-      return new Response(
-        JSON.stringify({ ok: false, error: "METHOD_NOT_ALLOWED" }),
-        {
-          status: 405,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        },
-      );
-    }
-
     const { initData } = await req.json().catch(() => ({ initData: "" }));
     if (!initData || typeof initData !== "string") {
-      return new Response(
-        JSON.stringify({ ok: false, error: "MISSING_INIT_DATA" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        },
-      );
+      return withCors(bad("MISSING_INIT_DATA"));
     }
 
     const result = await verifyInitData(initData);
-    const status = result.ok ? 200 : 400;
-    return new Response(JSON.stringify(result), {
-      status,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    if (!result.ok) return withCors(bad(result.error));
+    return withCors(ok({ user: result.user }));
   } catch (err) {
     console.error("verify-telegram error", err);
-    return new Response(JSON.stringify({ ok: false, error: "SERVER_ERROR" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return withCors(oops("SERVER_ERROR", String(err)));
   }
 });
