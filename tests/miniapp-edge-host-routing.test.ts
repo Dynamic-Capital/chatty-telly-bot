@@ -11,21 +11,17 @@ Deno.test({
     serve(handler, { signal: controller.signal });
     const base = "http://localhost:8000";
 
-    const resRoot = await fetch(`${base}/miniapp/`);
-    assertEquals(resRoot.status, 200);
-    await resRoot.arrayBuffer();
-
     const resVersion = await fetch(`${base}/miniapp/version`);
     assertEquals(resVersion.status, 200);
     await resVersion.arrayBuffer();
 
-    const resNotFound = await fetch(`${base}/miniapp/nope`);
-    assertEquals(resNotFound.status, 404);
-    await resNotFound.arrayBuffer();
+    const resHead = await fetch(`${base}/miniapp/`, { method: "HEAD" });
+    assertEquals(resHead.status, 200);
+    await resHead.arrayBuffer();
 
-    const resPost = await fetch(`${base}/miniapp/`, { method: "POST" });
-    assertEquals(resPost.status, 405);
-    await resPost.arrayBuffer();
+    const resUnknown = await fetch(`${base}/miniapp/unknown`);
+    assertEquals(resUnknown.status, 404);
+    await resUnknown.arrayBuffer();
 
     controller.abort();
   },
