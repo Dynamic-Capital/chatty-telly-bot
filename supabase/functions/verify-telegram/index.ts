@@ -99,12 +99,14 @@ async function verifyInitData(initData: string) {
   return { ok: true, user } as const;
 }
 
-Deno.serve(async (req) => {
+async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-  if (req.method === "HEAD") return withCors(new Response(null, { status: 200 }));
+  if (req.method === "HEAD") {
+    return withCors(new Response(null, { status: 200 }));
+  }
   if (req.method === "GET" && url.pathname.endsWith("/version")) {
     return withCors(ok({ name: "verify-telegram", ts: new Date().toISOString() }));
   }
@@ -123,4 +125,10 @@ Deno.serve(async (req) => {
     console.error("verify-telegram error", err);
     return withCors(oops("SERVER_ERROR", String(err)));
   }
-});
+}
+
+if (import.meta.main) {
+  Deno.serve(handler);
+}
+
+export default handler;

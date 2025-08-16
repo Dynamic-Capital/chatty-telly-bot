@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
 
-serve(async (req) => {
+async function handler(req: Request): Promise<Response> {
   if (req.method !== "GET") {
     return new Response("Method Not Allowed", { status: 405 });
   }
@@ -10,7 +10,9 @@ serve(async (req) => {
 
   const { data, error } = await supa
     .from("subscription_plans")
-    .select("id,name,duration_months,price,currency,is_lifetime,features,created_at")
+    .select(
+      "id,name,duration_months,price,currency,is_lifetime,features,created_at",
+    )
     .order("price", { ascending: true });
 
   if (error) {
@@ -24,4 +26,10 @@ serve(async (req) => {
     JSON.stringify({ ok: true, plans: data }),
     { headers: { "content-type": "application/json" } },
   );
-});
+}
+
+if (import.meta.main) {
+  serve(handler);
+}
+
+export default handler;
