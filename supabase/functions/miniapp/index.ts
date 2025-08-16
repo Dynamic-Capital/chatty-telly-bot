@@ -31,8 +31,12 @@ async function readStatic(relPath: string, type = "application/octet-stream") {
       }),
     );
     return new Response(data, { headers: h });
-  } catch {
-    return nf("Not Found");
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) {
+      return nf("Not Found");
+    }
+    console.error("readStatic error for %s: %o", relPath, err);
+    return new Response("Internal Error", { status: 500 });
   }
 }
 
@@ -40,6 +44,13 @@ async function indexHtml() {
   // serve UTF-8 to avoid garbled symbols
   const r = await readStatic("index.html", "text/html; charset=utf-8");
   if (r.status !== 200) {
+    if (r.status === 404) {
+      console.warn(
+        "static index.html missing; run scripts/sync-miniapp-static.mjs to generate it",
+      );
+    } else {
+      console.error("static index.html failed to load (status %d)", r.status);
+    }
     // Fallback inline (also UTF-8)
     const html = `<!doctype html><html lang="en"><head>
       <meta charset="utf-8"/>
@@ -51,7 +62,7 @@ async function indexHtml() {
       <p>Static <code>index.html</code> not found in bundle — showing fallback.</p>
       </body></html>`;
     const h = withSec(new Headers({ "content-type": "text/html; charset=utf-8" }));
-    return new Response(html, { headers: h, status: 200 });
+    return new Response(html, { headers: h, status: r.status });
   }
   const h = new Headers(r.headers);
   h.set("x-frame-options", "ALLOWALL"); // Telegram WebView
@@ -68,7 +79,7 @@ function mime(p: string) {
   return "application/octet-stream";
 }
 
-serve(async (req) => {
+export async function handler(req: Request) {
   const url = new URL(req.url);
   if (req.method === "GET" && url.pathname.endsWith("/version")) {
     return ok({ name: "miniapp", ts: new Date().toISOString() });
@@ -85,5 +96,9 @@ serve(async (req) => {
     return await readStatic(rel, mime(rel));
   }
   return nf("Not Found");
-});
+}
+
+if (import.meta.main) {
+  serve(handler);
+}
 
