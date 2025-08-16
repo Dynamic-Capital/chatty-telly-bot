@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
 import { getEnv, EnvKey } from "../_shared/env.ts";
+import { ok } from "../_shared/http.ts";
 
 function need(k: EnvKey) {
   return getEnv(k);
@@ -14,7 +15,13 @@ async function tgSend(token: string, chatId: string, text: string) {
   }).catch(() => {});
 }
 
-serve(async (_req) => {
+serve(async (req) => {
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.pathname.endsWith("/version")) {
+    return ok({ name: "subscriptions-cron", ts: new Date().toISOString() });
+  }
+  if (req.method === "HEAD") return new Response(null, { status: 200 });
+
   const bot = need("TELEGRAM_BOT_TOKEN");
   const supa = createClient();
 
@@ -76,15 +83,11 @@ serve(async (_req) => {
     }
   }
 
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      counts: {
-        reminded7: soon7?.length || 0,
-        reminded1: soon1?.length || 0,
-        expired: expired?.length || 0,
-      },
-    }),
-    { headers: { "content-type": "application/json" } },
-  );
+  return ok({
+    counts: {
+      reminded7: soon7?.length || 0,
+      reminded1: soon1?.length || 0,
+      expired: expired?.length || 0,
+    },
+  });
 });

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
 import { getEnv, optionalEnv } from "../_shared/env.ts";
-import { ok } from "../_shared/http.ts";
+import { ok, bad, unauth, mna, nf } from "../_shared/http.ts";
 
 type Body = {
   admin_telegram_id?: string;
@@ -31,28 +31,26 @@ serve(async (req) => {
     return ok({ name: "admin-review-payment", ts: new Date().toISOString() });
   }
   if (req.method === "HEAD") return new Response(null, { status: 200 });
-  if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
-  }
+  if (req.method !== "POST") return mna();
 
   const hdr = req.headers.get("X-Admin-Secret") || "";
   const EXPECT = getEnv("ADMIN_API_SECRET");
-  if (hdr !== EXPECT) return new Response("Unauthorized", { status: 401 });
+  if (hdr !== EXPECT) return unauth();
 
   let body: Body;
   try {
     body = await req.json();
   } catch {
-    return new Response("Bad JSON", { status: 400 });
+    return bad("Bad JSON");
   }
   if (!body?.payment_id || !body?.decision) {
-    return new Response("Missing fields", { status: 400 });
+    return bad("Missing fields");
   }
 
   const adminId = String(body.admin_telegram_id || "");
   const admins = csvToSet(optionalEnv("TELEGRAM_ADMIN_IDS"));
   if (admins.size && (!adminId || !admins.has(adminId))) {
-    return new Response("Admin not allowed", { status: 403 });
+    return unauth("Admin not allowed");
   }
 
   const supa = createClient();
@@ -63,14 +61,14 @@ serve(async (req) => {
     .select("id,status,user_id,plan_id,amount,currency,created_at")
     .eq("id", body.payment_id)
     .maybeSingle();
-  if (perr || !p) return new Response("Payment not found", { status: 404 });
+  if (perr || !p) return nf("Payment not found");
 
   const { data: prof, error: uerr } = await supa
     .from("bot_users")
     .select("id,telegram_id,subscription_expires_at,is_vip")
     .eq("id", p.user_id)
     .maybeSingle();
-  if (uerr || !prof) return new Response("User not found", { status: 404 });
+  if (uerr || !prof) return nf("User not found");
 
   let newStatus = p.status;
   let expiresAt: string | null = prof.subscription_expires_at
@@ -100,10 +98,7 @@ serve(async (req) => {
       new_values: { status: newStatus },
     });
 
-    return new Response(
-      JSON.stringify({ ok: true, status: newStatus }),
-      { headers: { "content-type": "application/json" } },
-    );
+    return ok({ status: newStatus });
   }
 
   let months = Number.isFinite(body.months) ? Number(body.months) : null;
@@ -160,12 +155,5 @@ serve(async (req) => {
     new_values: { is_vip: true, subscription_expires_at: expiresAt },
   });
 
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      status: newStatus,
-      subscription_expires_at: expiresAt,
-    }),
-    { headers: { "content-type": "application/json" } },
-  );
+  return ok({ status: newStatus, subscription_expires_at: expiresAt });
 });
