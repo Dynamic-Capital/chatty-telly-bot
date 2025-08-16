@@ -327,7 +327,7 @@ export async function defaultCallbackHandler(
   chatId: number,
   _userId: string,
 ): Promise<void> {
-  await notifyUser(chatId, "Unsupported action.");
+  await notifyUser(chatId, "Unknown action. Please choose a valid option.");
 }
 
 export type CallbackHandler = (
@@ -1280,24 +1280,6 @@ export async function startReceiptPipeline(
       await notifyUser(chatId, "No receipt image found.");
       return;
     }
-    if (!BOT_TOKEN) {
-      await notifyUser(chatId, "Receipt processing unavailable.");
-      return;
-    }
-    const fileInfo = await fetch(
-      `https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`,
-    ).then((r) => r.json()).catch(() => null);
-    const path = fileInfo?.result?.file_path;
-    if (!path) {
-      await notifyUser(chatId, "Cannot fetch receipt.");
-      return;
-    }
-    const blob = await fetch(
-      `https://api.telegram.org/file/bot${BOT_TOKEN}/${path}`,
-    ).then((r) => r.blob());
-    const hash = await hashBytesToSha256(blob);
-    const storagePath = `receipts/${chatId}/${hash}`;
-    await storeReceiptImage(blob, storagePath);
     const supa = await getSupabase();
     if (!supa) {
       await notifyUser(chatId, "Receipt processing unavailable.");
@@ -1323,6 +1305,24 @@ export async function startReceiptPipeline(
       await notifyUser(chatId, "Please use /start before sending receipts.");
       return;
     }
+    if (!BOT_TOKEN) {
+      await notifyUser(chatId, "Receipt processing unavailable.");
+      return;
+    }
+    const fileInfo = await fetch(
+      `https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`,
+    ).then((r) => r.json()).catch(() => null);
+    const path = fileInfo?.result?.file_path;
+    if (!path) {
+      await notifyUser(chatId, "Cannot fetch receipt.");
+      return;
+    }
+    const blob = await fetch(
+      `https://api.telegram.org/file/bot${BOT_TOKEN}/${path}`,
+    ).then((r) => r.blob());
+    const hash = await hashBytesToSha256(blob);
+    const storagePath = `receipts/${chatId}/${hash}`;
+    await storeReceiptImage(blob, storagePath);
     const { data: pay } = await supa.from("payments")
       .insert({
         user_id: user.id,
