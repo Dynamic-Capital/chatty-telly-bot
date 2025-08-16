@@ -18,7 +18,10 @@ Deno.test("returns fallback HTML when index.html fails to load", async () => {
     const res = await handler(new Request("http://example.com/"));
     assertEquals(res.status, 200);
     const body = await res.text();
-    assertStringIncludes(body, "Static `index.html` not found in bundle");
+    assertStringIncludes(
+      body,
+      "Static <code>index.html</code> not found in bundle",
+    );
   } finally {
     (Deno as unknown as { readFile: typeof Deno.readFile }).readFile =
       original;

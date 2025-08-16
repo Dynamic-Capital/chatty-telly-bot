@@ -68,7 +68,7 @@ function mime(p: string) {
   return "application/octet-stream";
 }
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   if (req.method === "GET" && url.pathname.endsWith("/version")) {
     return ok({ name: "miniapp", ts: new Date().toISOString() });
@@ -77,7 +77,11 @@ serve(async (req) => {
   if (req.method !== "GET") return mna();
 
   // Only serve these routes
-  if (url.pathname === "/" || url.pathname === "/miniapp" || url.pathname === "/miniapp/") {
+  if (
+    url.pathname === "/" ||
+    url.pathname === "/miniapp" ||
+    url.pathname === "/miniapp/"
+  ) {
     return await indexHtml();
   }
   if (url.pathname.startsWith("/assets/")) {
@@ -85,5 +89,9 @@ serve(async (req) => {
     return await readStatic(rel, mime(rel));
   }
   return nf("Not Found");
-});
+}
+
+if (import.meta.main) {
+  serve(handler);
+}
 
