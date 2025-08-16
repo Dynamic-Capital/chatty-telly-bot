@@ -12,6 +12,7 @@ import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
 import { getFlag } from "../_shared/config.ts";
 import { buildMainMenu, type MenuSection } from "./menu.ts";
+import { readMiniAppEnv } from "./_miniapp.ts";
 import {
   buildAdminCommandHandlers,
   type CommandContext,
@@ -222,18 +223,10 @@ async function notifyUser(
 }
 
 function hasMiniApp(): boolean {
-  const raw = optionalEnv("MINI_APP_URL") || "";
-  if (raw) {
-    try {
-      const u = new URL(raw);
-      if (u.protocol === "https:") return true;
-    } catch {
-      /* ignore */
-    }
-  }
-  const shortName = optionalEnv("MINI_APP_SHORT_NAME");
+  const { url, short } = readMiniAppEnv();
+  if (url) return true;
   const bot = optionalEnv("TELEGRAM_BOT_USERNAME");
-  return Boolean(shortName && bot);
+  return Boolean(short && bot);
 }
 
 export async function sendMiniAppLink(
@@ -252,20 +245,18 @@ export async function sendMiniAppLink(
     return null;
   }
 
-  const miniUrl = optionalEnv("MINI_APP_URL");
-  const short = optionalEnv("MINI_APP_SHORT_NAME");
+  const { url, short } = readMiniAppEnv();
   const botUser = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
 
-  if (miniUrl) {
-    const openUrl = miniUrl.endsWith("/") ? miniUrl : miniUrl + "/";
+  if (url) {
     if (!silent) {
       await sendMessage(chatId, "Open the VIP Mini App:", {
         reply_markup: {
-          inline_keyboard: [[{ text: "Open VIP Mini App", web_app: { url: openUrl } }]],
+          inline_keyboard: [[{ text: "Open VIP Mini App", web_app: { url } }]],
         },
       });
     }
-    return openUrl;
+    return url;
   }
 
   if (short && botUser) {
@@ -333,10 +324,10 @@ export async function handleDashboardHelp(
 }
 
 export async function defaultCallbackHandler(
-  _chatId: number,
+  chatId: number,
   _userId: string,
 ): Promise<void> {
-  // Unknown callback; no action needed
+  await notifyUser(chatId, "Unsupported action.");
 }
 
 export type CallbackHandler = (
