@@ -41,7 +41,7 @@ VALUES (
 📈 Get premium trading signals & education
 💎 Join our VIP community
 
-👇 Choose what you need:',
+Use the buttons below or try commands like /packages, /promo, /account, /support, /help, /faq, /education, /ask or /shouldibuy to get started:',
   'text',
   'Main welcome message shown on /start command',
   true,
@@ -62,10 +62,16 @@ VALUES (
 
 Available commands:
 /start - Main menu
+/dashboard or /account - View account dashboard
 /packages - View VIP packages
+/promo - View active promotions
 /vip - VIP benefits
-/help - Show help
 /support - Contact support
+/help - Show help
+/faq - Frequently asked questions
+/education - View education packages
+/ask - Ask our AI assistant
+/shouldibuy - Get educational trade analysis
 /about - About us',
   'text',
   'Welcome message for returning users',
@@ -117,10 +123,16 @@ We typically respond within 2-4 hours.',
 
 Available commands:
 /start - Main menu
+/dashboard or /account - View account dashboard
 /packages - View VIP packages
+/promo - View active promotions
 /vip - VIP benefits
 /help - Show this help
 /support - Contact support
+/faq - Frequently asked questions
+/education - View education packages
+/ask QUESTION - Ask our AI assistant
+/shouldibuy SYMBOL - Get educational trade analysis
 /about - About us
 
 Need assistance? Contact @DynamicCapital_Support',
