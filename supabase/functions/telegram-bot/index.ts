@@ -20,6 +20,7 @@ import {
   type CommandContext,
   type CommandHandler,
 } from "./admin-command-handlers.ts";
+import { setCallbackMessageId } from "./admin-handlers/common.ts";
 // Type definition moved inline to avoid import issues
 interface Promotion {
   code: string;
@@ -871,6 +872,7 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
   const chatId = cb.message?.chat.id ?? cb.from.id;
   const data = cb.data || "";
   const userId = String(cb.from.id);
+  setCallbackMessageId(cb.message?.message_id ?? null);
   try {
     if (data.startsWith("pay:")) {
       await answerCallbackQuery(cb.id);
@@ -1124,6 +1126,8 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
     }
   } catch (err) {
     console.error("handleCallback error", err);
+  } finally {
+    setCallbackMessageId(null);
   }
 }
 
