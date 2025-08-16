@@ -229,7 +229,7 @@ function hasValidMiniAppUrl(): boolean {
 
 export async function sendMiniAppLink(chatId: number): Promise<string | null> {
   if (!BOT_TOKEN) return null;
-  if (!(await getFlag("mini_app_enabled"))) {
+  if (!(await getFlag("mini_app_enabled", true))) {
     await sendMessage(
       chatId,
       "Checkout is currently unavailable. Please try again later.",

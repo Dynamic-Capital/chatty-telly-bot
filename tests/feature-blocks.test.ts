@@ -11,8 +11,6 @@ if (typeof Deno !== "undefined") {
   assertEquals = (a, b, msg) => assert.equal(a, b, msg);
 }
 
-import { setFlag, publish } from "../src/utils/config.ts";
-
 registerTest("mini app flag blocks link", async () => {
   if (typeof Deno !== "undefined") {
     Deno.env.set("TELEGRAM_BOT_TOKEN", "tbot");
@@ -24,8 +22,13 @@ registerTest("mini app flag blocks link", async () => {
     SUPABASE_ANON_KEY: "x",
     SUPABASE_SERVICE_ROLE_KEY: "x",
   };
-  await setFlag("mini_app_enabled", false);
-  await publish();
+  const { setConfig } = await import(
+    "../supabase/functions/_shared/config.ts"
+  );
+  await setConfig("features:published", {
+    ts: Date.now(),
+    data: { mini_app_enabled: false },
+  });
   const { sendMiniAppLink } = await import(
     "../supabase/functions/telegram-bot/index.ts"
   );
@@ -34,7 +37,10 @@ registerTest("mini app flag blocks link", async () => {
   globalThis.fetch = async (_input, init) => {
     const body = JSON.parse(init?.body ?? "{}");
     text = body.text;
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    return new Response(
+      JSON.stringify({ ok: true, result: { message_id: 1 } }),
+      { status: 200 },
+    );
   };
   try {
     await sendMiniAppLink(123);
@@ -46,8 +52,62 @@ registerTest("mini app flag blocks link", async () => {
     globalThis.fetch = orig;
     delete (globalThis as any).__TEST_ENV__;
   }
-  await setFlag("mini_app_enabled", true);
-  await publish();
+});
+
+registerTest("mini app link available by default", async () => {
+  if (typeof Deno !== "undefined") {
+    Deno.env.set("TELEGRAM_BOT_TOKEN", "tbot");
+    Deno.env.set("MINI_APP_URL", "https://example.com/app/");
+  } else {
+    process.env.TELEGRAM_BOT_TOKEN = "tbot";
+    process.env.MINI_APP_URL = "https://example.com/app/";
+  }
+  (globalThis as any).__TEST_ENV__ = {
+    SUPABASE_URL: "x",
+    SUPABASE_ANON_KEY: "x",
+    SUPABASE_SERVICE_ROLE_KEY: "x",
+    MINI_APP_URL: "https://example.com/app/",
+  };
+  const { setConfig } = await import(
+    "../supabase/functions/_shared/config.ts"
+  );
+  await setConfig("features:published", { ts: Date.now(), data: {} });
+  const { sendMiniAppLink } = await import(
+    "../supabase/functions/telegram-bot/index.ts"
+  );
+  let text = "";
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("sendMessage")) {
+      const body = JSON.parse(init?.body ?? "{}");
+      text = body.text;
+      return new Response(
+        JSON.stringify({ ok: true, result: { message_id: 1 } }),
+        { status: 200 },
+      );
+    }
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  };
+  try {
+    await sendMiniAppLink(123);
+    assertEquals(
+      text.startsWith("Join the VIP Mini App"),
+      true,
+    );
+  } finally {
+    globalThis.fetch = orig;
+    delete (globalThis as any).__TEST_ENV__;
+    if (typeof Deno !== "undefined") {
+      Deno.env.delete("MINI_APP_URL");
+    } else {
+      delete process.env.MINI_APP_URL;
+    }
+    await setConfig("features:published", {
+      ts: Date.now(),
+      data: { mini_app_enabled: false },
+    });
+  }
 });
 
 registerTest("vip sync flag blocks pipeline", async () => {
@@ -61,8 +121,13 @@ registerTest("vip sync flag blocks pipeline", async () => {
     SUPABASE_ANON_KEY: "x",
     SUPABASE_SERVICE_ROLE_KEY: "x",
   };
-  await setFlag("vip_sync_enabled", false);
-  await publish();
+  const { setConfig } = await import(
+    "../supabase/functions/_shared/config.ts"
+  );
+  await setConfig("features:published", {
+    ts: Date.now(),
+    data: { vip_sync_enabled: false },
+  });
   const { startReceiptPipeline } = await import(
     "../supabase/functions/telegram-bot/index.ts"
   );
@@ -80,6 +145,8 @@ registerTest("vip sync flag blocks pipeline", async () => {
     globalThis.fetch = orig;
     delete (globalThis as any).__TEST_ENV__;
   }
-  await setFlag("vip_sync_enabled", true);
-  await publish();
+  await setConfig("features:published", {
+    ts: Date.now(),
+    data: { vip_sync_enabled: true },
+  });
 });
