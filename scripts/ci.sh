@@ -26,5 +26,14 @@ else
   echo "No tests found, skipping."
 fi
 
+if [ -n "${FUNCTIONS_BASE:-}" ]; then
+  echo "== smoke-miniapp =="
+  $DENO_BIN run -A scripts/smoke-miniapp.ts
+  echo "== smoke-bot =="
+  $DENO_BIN run -A scripts/smoke-bot.ts
+else
+  echo "FUNCTIONS_BASE not set; skipping smoke scripts."
+fi
+
 echo "CI checks passed."
 # <<< DC BLOCK: ci-core (end)
