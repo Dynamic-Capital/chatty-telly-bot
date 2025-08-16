@@ -143,10 +143,69 @@ registerTest("mini app link warns when URL missing", async () => {
   try {
     const url = await sendMiniAppLink(123);
     assertEquals(url, null);
-    assertEquals(text.includes("MINI_APP_URL"), true);
+    assertEquals(text, "Mini app is being configured. Please try again soon.");
   } finally {
     globalThis.fetch = orig;
     delete (globalThis as any).__TEST_ENV__;
+    await setConfig("features:published", {
+      ts: Date.now(),
+      data: { mini_app_enabled: false },
+    });
+  }
+});
+
+registerTest("mini app link falls back to short name", async () => {
+  if (typeof Deno !== "undefined") {
+    Deno.env.set("TELEGRAM_BOT_TOKEN", "tbot");
+    Deno.env.delete("MINI_APP_URL");
+    Deno.env.set("MINI_APP_SHORT_NAME", "mini");
+    Deno.env.set("TELEGRAM_BOT_USERNAME", "mybot");
+  } else {
+    process.env.TELEGRAM_BOT_TOKEN = "tbot";
+    delete process.env.MINI_APP_URL;
+    process.env.MINI_APP_SHORT_NAME = "mini";
+    process.env.TELEGRAM_BOT_USERNAME = "mybot";
+  }
+  (globalThis as any).__TEST_ENV__ = {
+    SUPABASE_URL: "x",
+    SUPABASE_ANON_KEY: "x",
+    SUPABASE_SERVICE_ROLE_KEY: "x",
+    MINI_APP_SHORT_NAME: "mini",
+    TELEGRAM_BOT_USERNAME: "mybot",
+  };
+  const { setConfig } = await import(
+    "../supabase/functions/_shared/config.ts"
+  );
+  await setConfig("features:published", { ts: Date.now(), data: {} });
+  const { sendMiniAppLink } = await import(
+    "../supabase/functions/telegram-bot/index.ts"
+  );
+  let payload: any = null;
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (_input, init) => {
+    payload = JSON.parse(init?.body ?? "{}");
+    return new Response(
+      JSON.stringify({ ok: true, result: { message_id: 1 } }),
+      { status: 200 },
+    );
+  };
+  try {
+    const url = await sendMiniAppLink(123);
+    assertEquals(url, "https://t.me/mybot/mini");
+    assertEquals(
+      payload.reply_markup.inline_keyboard[0][0].url,
+      "https://t.me/mybot/mini",
+    );
+  } finally {
+    globalThis.fetch = orig;
+    delete (globalThis as any).__TEST_ENV__;
+    if (typeof Deno !== "undefined") {
+      Deno.env.delete("MINI_APP_SHORT_NAME");
+      Deno.env.delete("TELEGRAM_BOT_USERNAME");
+    } else {
+      delete process.env.MINI_APP_SHORT_NAME;
+      delete process.env.TELEGRAM_BOT_USERNAME;
+    }
     await setConfig("features:published", {
       ts: Date.now(),
       data: { mini_app_enabled: false },

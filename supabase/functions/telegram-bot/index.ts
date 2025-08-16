@@ -222,15 +222,19 @@ async function notifyUser(
   await sendMessage(chatId, text, extra);
 }
 
-function hasValidMiniAppUrl(): boolean {
+function hasMiniApp(): boolean {
   const raw = optionalEnv("MINI_APP_URL") || "";
-  if (!raw) return false;
-  try {
-    const u = new URL(raw);
-    return u.protocol === "https:";
-  } catch {
-    return false;
+  if (raw) {
+    try {
+      const u = new URL(raw);
+      if (u.protocol === "https:") return true;
+    } catch {
+      /* ignore */
+    }
   }
+  const shortName = optionalEnv("MINI_APP_SHORT_NAME");
+  const bot = optionalEnv("TELEGRAM_BOT_USERNAME");
+  return Boolean(shortName && bot);
 }
 
 export async function sendMiniAppLink(chatId: number): Promise<string | null> {
@@ -244,40 +248,46 @@ export async function sendMiniAppLink(chatId: number): Promise<string | null> {
   }
 
   const rawUrl = optionalEnv("MINI_APP_URL") || "";
+  const shortName = optionalEnv("MINI_APP_SHORT_NAME") || "";
+  const bot = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
 
-  // Normalize MINI_APP_URL if present
-  let miniUrl: string | null = null;
   if (rawUrl) {
     try {
       const u = new URL(rawUrl);
-      if (u.protocol !== "https:") {
-        throw new Error("Mini app URL must be HTTPS");
+      if (u.protocol === "https:") {
+        if (!u.pathname.endsWith("/")) u.pathname += "/";
+        const miniUrl = u.toString();
+        const sent = await sendMessage(chatId, "Join the VIP Mini App:", {
+          reply_markup: {
+            inline_keyboard: [[{ text: "Join", web_app: { url: miniUrl } }]],
+          },
+        });
+        if (sent === null) {
+          await sendMessage(chatId, `Open checkout here: ${miniUrl}`);
+        }
+        return miniUrl;
       }
-      if (!u.pathname.endsWith("/")) u.pathname = u.pathname + "/";
-      miniUrl = u.toString();
     } catch (e) {
       console.error("MINI_APP_URL invalid:", (e as Error).message);
-      miniUrl = null;
     }
   }
 
-  if (miniUrl) {
+  if (shortName && bot) {
+    const url = `https://t.me/${bot}/${shortName}`;
     const sent = await sendMessage(chatId, "Join the VIP Mini App:", {
       reply_markup: {
-        inline_keyboard: [[{
-          text: "Join",
-          web_app: { url: miniUrl },
-        }]],
+        inline_keyboard: [[{ text: "Join", url }]],
       },
     });
     if (sent === null) {
-      await sendMessage(chatId, `Open checkout here: ${miniUrl}`);
+      await sendMessage(chatId, `Open checkout here: ${url}`);
     }
-    return miniUrl;
+    return url;
   }
+
   await sendMessage(
     chatId,
-    "Mini app is not configured. Please set MINI_APP_URL.",
+    "Mini app is being configured. Please try again soon.",
   );
   return null;
 }
@@ -964,7 +974,7 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
   const text = msg.text?.trim();
   if (!text) return;
   const chatId = msg.chat.id;
-  const miniAppValid = hasValidMiniAppUrl();
+  const miniAppValid = hasMiniApp();
 
   // Handle pending admin plan edits before command parsing
   const userId = String(msg.from?.id ?? chatId);
