@@ -64,6 +64,16 @@ async function maybeCompress(req: Request, res: Response): Promise<Response> {
   const stream = new Response(data).body!.pipeThrough(cs);
   const h = new Headers(res.headers);
   h.set("content-encoding", encoding);
+  const vary = h.get("vary");
+  if (vary) {
+    const values = vary.split(/,\s*/);
+    if (!values.map((v) => v.toLowerCase()).includes("accept-encoding")) {
+      values.push("Accept-Encoding");
+    }
+    h.set("vary", values.join(", "));
+  } else {
+    h.set("vary", "Accept-Encoding");
+  }
   h.delete("content-length");
   return new Response(stream, { status: res.status, headers: h });
 }
