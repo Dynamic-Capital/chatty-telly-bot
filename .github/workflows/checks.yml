@@ -17,3 +17,13 @@ jobs:
         with:
           deno-version: v1.x
       - run: deno check supabase/functions/telegram-bot/*.ts supabase/functions/telegram-bot/**/*.ts
+  miniapp-packaging:
+    runs-on: ubuntu-latest
+    env:
+      DENO_TLS_CA_STORE: system
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - run: deno test tests/miniapp-packaging.test.ts
