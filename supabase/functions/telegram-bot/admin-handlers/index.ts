@@ -118,10 +118,10 @@ async function publishFlags(chatId: number, userId: string): Promise<void> {
     console.error("publishFlags error", e);
     await sendMessage(
       chatId,
-      `❌ Failed to publish flags: ${e instanceof Error ? e.message : e}`,
+      `❌ Failed to publish flags: ${formatError(e)}`,
     );
   }
-  }
+}
 
 async function rollbackFlags(chatId: number, userId: string): Promise<void> {
     try {
@@ -191,8 +191,16 @@ async function rollbackFlags(chatId: number, userId: string): Promise<void> {
     console.error("rollbackFlags error", e);
     await sendMessage(
       chatId,
-      `❌ Failed to rollback flags: ${e instanceof Error ? e.message : e}`,
+      `❌ Failed to rollback flags: ${formatError(e)}`,
     );
+  }
+}
+
+function formatError(e: unknown): string {
+  try {
+    return e instanceof Error ? e.message : JSON.stringify(e);
+  } catch {
+    return String(e);
   }
 }
 
