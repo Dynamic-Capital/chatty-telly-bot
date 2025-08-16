@@ -51,13 +51,15 @@ Deno.test("webhook handles /start with params", async () => {
     Deno.env.delete("SUPABASE_URL");
     Deno.env.delete("SUPABASE_SERVICE_ROLE_KEY");
     Deno.env.delete("SUPABASE_ANON_KEY");
+    Deno.env.delete("MINI_APP_SHORT_NAME");
+    Deno.env.delete("TELEGRAM_BOT_USERNAME");
   }
 });
 
-Deno.test("webhook uses startapp link when URL absent", async () => {
+Deno.test("webhook uses short name link when URL absent", async () => {
   Deno.env.set("TELEGRAM_BOT_TOKEN", "testtoken");
   Deno.env.delete("MINI_APP_URL");
-  Deno.env.delete("MINI_APP_SHORT_NAME");
+  Deno.env.set("MINI_APP_SHORT_NAME", "shorty");
   Deno.env.set("TELEGRAM_BOT_USERNAME", "mybot");
   Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "testsecret");
   Deno.env.set("SUPABASE_URL", "http://local");
@@ -88,11 +90,11 @@ Deno.test("webhook uses startapp link when URL absent", async () => {
     assertEquals(res.status, 200);
     assertEquals(calls.length, 1);
     const payload = JSON.parse(calls[0].body);
+    assertEquals(payload.text, "Join the VIP Mini App:");
     assertEquals(
-      payload.text,
-      "Join the VIP Mini App: https://t.me/mybot?startapp=1\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)",
+      payload.reply_markup.inline_keyboard[0][0].url,
+      "https://t.me/mybot/shorty",
     );
-    assertEquals(payload.reply_markup, undefined);
   } finally {
     globalThis.fetch = originalFetch;
     await setConfig("features:published", { ts: Date.now(), data: { mini_app_enabled: false } });

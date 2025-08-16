@@ -88,6 +88,7 @@ export async function handler(req: Request): Promise<Response> {
     const handlers: Record<string, CommandHandler> = {
       "/start": async (chatId) => {
         const rawUrl = optionalEnv("MINI_APP_URL") || "";
+        const shortName = optionalEnv("MINI_APP_SHORT_NAME") || "";
         const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
 
         let miniUrl: string | null = null;
@@ -115,12 +116,15 @@ export async function handler(req: Request): Promise<Response> {
           return;
         }
 
-        if (botUsername) {
-          const deepLink = `https://t.me/${botUsername}?startapp=1`;
-          await sendMessage(
-            chatId,
-            `Join the VIP Mini App: ${deepLink}\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)`,
-          );
+        if (shortName && botUsername) {
+          await sendMessage(chatId, "Join the VIP Mini App:", {
+            reply_markup: {
+              inline_keyboard: [[{
+                text: "Join",
+                url: `https://t.me/${botUsername}/${shortName}`,
+              }]],
+            },
+          });
           return;
         }
 
