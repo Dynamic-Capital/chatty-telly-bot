@@ -1,4 +1,5 @@
 import { mna, nf, ok } from "../_shared/http.ts";
+import { posix } from "https://deno.land/std@0.224.0/path/mod.ts";
 
 const STATIC_CACHE = new Map<string, Response>();
 
@@ -140,7 +141,11 @@ export async function handler(req: Request): Promise<Response> {
     return await maybeCompress(req, await indexHtml());
   }
   if (url.pathname.startsWith("/assets/")) {
-    const rel = url.pathname.replace(/^\//, "");
+    let rel = posix.normalize(decodeURIComponent(url.pathname));
+    if (!rel.startsWith("/assets/") || rel.includes("..") || rel.includes("\\")) {
+      return nf("Not Found");
+    }
+    rel = rel.replace(/^\//, "");
     return await maybeCompress(req, await readStatic(rel, mime(rel)));
   }
   return nf("Not Found");
