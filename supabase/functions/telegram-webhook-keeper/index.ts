@@ -1,92 +1,115 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { ensureWebhookSecret, readDbWebhookSecret } from "../_shared/telegram_secret.ts";
-import { createClient } from "../_shared/client.ts";
+import { optionalEnv } from "../_shared/env.ts";
+import { mna, nf, ok, oops, unauth } from "../_shared/http.ts";
+import { expectedSecret } from "../_shared/telegram_secret.ts";
 
-function requireEnv(k: string) {
-  const v = Deno.env.get(k);
-  if (!v) throw new Error(`Missing env: ${k}`);
-  return v;
-}
-function projectRef(): string {
-  const url = Deno.env.get("SUPABASE_URL");
-  if (url) {
-    try {
-      return new URL(url).hostname.split(".")[0];
-    } catch {
-      // ignore invalid URL
-    }
-  }
-  const ref = Deno.env.get("SUPABASE_PROJECT_ID");
-  if (!ref) throw new Error("Cannot derive SUPABASE project ref");
-  return ref;
+interface TgResp {
+  ok: boolean;
+  result?: Record<string, unknown>;
 }
 
-async function tgCall(token: string, method: string, body?: unknown) {
-  const r = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const j = await r.json().catch(() => ({}));
-  return { status: r.status, json: j };
-}
-
-async function handler(req: Request): Promise<Response> {
-  if (req.method !== "GET" && req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
-  }
-
-  // Supabase + Telegram pre-reqs
-  const token = requireEnv("TELEGRAM_BOT_TOKEN");
-  const ref = projectRef();
-  const expectedUrl = `https://${ref}.functions.supabase.co/telegram-bot`;
-  const supa = createClient();
-
-  // 1) Determine secret precedence: DB -> ENV -> generate
-  const secret = await ensureWebhookSecret(supa);
-
-  // 2) Ping bot echo (helps surface downtime)
-  let echoOK = false;
+async function tg(
+  token: string,
+  method: string,
+  body?: unknown,
+): Promise<TgResp> {
   try {
-    const ping = await fetch(`${expectedUrl}/echo`, { method: "GET" });
-    echoOK = ping.ok;
-  } catch {
-    // ignore network errors
-  }
-
-  // 3) Ensure webhook points to expected URL
-  const before = await tgCall(token, "getWebhookInfo");
-  const currentUrl: string | undefined = before.json?.result?.url;
-  const needsSet = !currentUrl || currentUrl !== expectedUrl;
-
-  let setResult: Record<string, unknown> | null = null;
-  if (needsSet) {
-    setResult = await tgCall(token, "setWebhook", {
-      url: expectedUrl,
-      secret_token: secret, // always (re)assert
-      allowed_updates: ["message", "callback_query"],
-      drop_pending_updates: false,
+    const r = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
     });
+    return await r.json();
+  } catch {
+    return { ok: false };
   }
+}
 
-  // 4) Report
-  const after = await tgCall(token, "getWebhookInfo");
-  const out = {
-    ok: after.json?.ok === true,
-    expectedUrl,
-    echoOK,
-    secretStoredInDb: !!(await readDbWebhookSecret(supa)),
-    before: before.json,
-    setAttempted: needsSet,
-    setResult,
-    after: after.json,
-  };
-  return new Response(JSON.stringify(out, null, 2), {
-    headers: { "content-type": "application/json" },
-    status: out.ok ? 200 : 500,
-  });
+export async function handler(req: Request): Promise<Response> {
+  try {
+    const url = new URL(req.url);
+    const path = url.pathname;
+
+    if (req.method === "GET" && path === "/version") {
+      return ok({
+        name: "telegram-webhook-keeper",
+        ts: new Date().toISOString(),
+      });
+    }
+
+    const admin = optionalEnv("ADMIN_API_SECRET");
+    if (path !== "/version" && admin) {
+      const header = req.headers.get("x-admin-secret");
+      if (!header || header !== admin) return unauth();
+    }
+
+    if (req.method === "POST" && path === "/run") {
+      const token = optionalEnv("TELEGRAM_BOT_TOKEN");
+      const secret = await expectedSecret();
+      if (!token || !secret) return oops("missing bot token or webhook secret");
+
+      const functionsBase = `${url.protocol}//${url.host}`;
+      const expectedWebhook = `${functionsBase}/telegram-bot`;
+
+      const info = await tg(token, "getWebhookInfo");
+      const currentUrl = info?.result?.url as string | undefined;
+      const currentSecret = info?.result?.secret_token as string | undefined;
+      let webhookOk = currentUrl === expectedWebhook &&
+        currentSecret === secret;
+      let webhookFixed = false;
+      if (!webhookOk) {
+        const set = await tg(token, "setWebhook", {
+          url: expectedWebhook,
+          secret_token: secret,
+          allowed_updates: ["message", "callback_query"],
+        });
+        webhookFixed = !!set?.ok;
+        webhookOk = webhookFixed;
+      }
+
+      const miniRaw = optionalEnv("MINI_APP_URL");
+      const miniExpected = miniRaw
+        ? (miniRaw.endsWith("/") ? miniRaw : `${miniRaw}/`)
+        : null;
+
+      let menuOk = true;
+      let menuFixed = false;
+      if (miniExpected) {
+        const menu = await tg(token, "getChatMenuButton");
+        const menuActual = menu?.result?.menu_button?.web_app?.url as
+          | string
+          | undefined;
+        menuOk = menuActual === miniExpected;
+        if (!menuOk) {
+          const set = await tg(token, "setChatMenuButton", {
+            menu_button: {
+              type: "web_app",
+              text: "Join",
+              web_app: { url: miniExpected },
+            },
+          });
+          menuFixed = !!set?.ok;
+          menuOk = menuFixed;
+        }
+      }
+
+      const okAll = webhookOk && menuOk;
+      return ok({
+        ok: okAll,
+        webhook: { fixed: webhookFixed },
+        menu: { fixed: menuFixed },
+      });
+    }
+
+    if (req.method === "GET") return nf();
+    return mna();
+  } catch (e) {
+    return oops(
+      "telegram-webhook-keeper error",
+      e instanceof Error ? e.message : String(e),
+    );
+  }
 }
 
 if (import.meta.main) {
-  serve(handler);
+  Deno.serve(handler);
 }

@@ -58,3 +58,5 @@
 // supabase functions schedule create "0 2 1 * *" rotate-webhook-secret
 // Auto-review: every 10 minutes
 // supabase functions schedule create "*/10 * * * *" payments-auto-review
+// Telegram webhook keeper: every 15 minutes
+// supabase functions schedule create "*/15 * * * *" telegram-webhook-keeper

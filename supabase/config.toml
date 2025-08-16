@@ -56,3 +56,7 @@ verify_jwt = false
 
 [functions.miniapp]
 verify_jwt = false
+
+[functions.telegram-webhook-keeper]
+verify_jwt = false
+schedule = "*/15 * * * *"
