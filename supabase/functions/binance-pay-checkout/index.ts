@@ -204,6 +204,18 @@ serve(async (req) => {
       );
     }
 
+    const providerId = orderResult?.data?.prepayId;
+    if (providerId) {
+      const { error: updateErr } = await supabase
+        .from("payments")
+        .update({ payment_provider_id: providerId })
+        .eq("id", payment.id)
+        .single();
+      if (updateErr) {
+        logger.error("Failed to update payment provider id:", updateErr);
+      }
+    }
+
     const checkoutData = {
       success: true,
       paymentId: payment.id,
