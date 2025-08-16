@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { ok, nf, mna } from "../_shared/http.ts";
+import { mna, nf, ok } from "../_shared/http.ts";
 
 const SECURITY = {
   "referrer-policy": "strict-origin-when-cross-origin",
@@ -50,7 +49,9 @@ async function indexHtml() {
       <h1>Dynamic Capital VIP</h1>
       <p>Static <code>index.html</code> not found in bundle — showing fallback.</p>
       </body></html>`;
-    const h = withSec(new Headers({ "content-type": "text/html; charset=utf-8" }));
+    const h = withSec(
+      new Headers({ "content-type": "text/html; charset=utf-8" }),
+    );
     return new Response(html, { headers: h, status: 200 });
   }
   const h = new Headers(r.headers);
@@ -68,7 +69,7 @@ function mime(p: string) {
   return "application/octet-stream";
 }
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   if (req.method === "GET" && url.pathname.endsWith("/version")) {
     return ok({ name: "miniapp", ts: new Date().toISOString() });
@@ -77,7 +78,10 @@ serve(async (req) => {
   if (req.method !== "GET") return mna();
 
   // Only serve these routes
-  if (url.pathname === "/" || url.pathname === "/miniapp" || url.pathname === "/miniapp/") {
+  if (
+    url.pathname === "/" || url.pathname === "/miniapp" ||
+    url.pathname === "/miniapp/"
+  ) {
     return await indexHtml();
   }
   if (url.pathname.startsWith("/assets/")) {
@@ -85,5 +89,11 @@ serve(async (req) => {
     return await readStatic(rel, mime(rel));
   }
   return nf("Not Found");
-});
+}
 
+if (import.meta.main) {
+  const { serve } = await import(
+    "https://deno.land/std@0.224.0/http/server.ts"
+  );
+  serve(handler);
+}
