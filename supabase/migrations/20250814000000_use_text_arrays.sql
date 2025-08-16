@@ -1,16 +1,16 @@
 -- Ensure array fields use text[] for education packages, subscription plans, and user package assignments
 DO $$
 BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema='public'
-      AND table_name='education_packages'
-      AND column_name='features'
-      AND data_type <> 'ARRAY'
-  ) THEN
-    ALTER TABLE public.education_packages
-      ALTER COLUMN features TYPE text[] USING
-        CASE
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public'
+        AND table_name='education_packages'
+        AND column_name='features'
+        AND NOT (data_type = 'ARRAY' AND udt_name = 'text[]')
+    ) THEN
+      ALTER TABLE public.education_packages
+        ALTER COLUMN features TYPE text[] USING
+          CASE
           WHEN features IS NULL THEN ARRAY[]::text[]
           WHEN pg_typeof(features)::text = 'jsonb' THEN ARRAY(SELECT jsonb_array_elements_text(features))
           ELSE string_to_array(features::text, ',')
