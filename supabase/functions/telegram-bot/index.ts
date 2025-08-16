@@ -282,6 +282,115 @@ export async function sendMiniAppLink(chatId: number): Promise<string | null> {
   return null;
 }
 
+export async function handleDashboardPackages(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  const msg = await getFormattedVipPackages();
+  await notifyUser(chatId, msg, { parse_mode: "Markdown" });
+}
+
+export async function handleDashboardRedeem(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  await sendMiniAppLink(chatId);
+}
+
+export async function handleDashboardHelp(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  const msg = await getBotContent("help_message");
+  await notifyUser(chatId, msg ?? "Help is coming soon.");
+}
+
+export async function defaultCallbackHandler(
+  _chatId: number,
+  _userId: string,
+): Promise<void> {
+  // Unknown callback; no action needed
+}
+
+export type CallbackHandler = (
+  chatId: number,
+  userId: string,
+) => Promise<void>;
+
+export function buildCallbackHandlers(
+  handlers: AdminHandlers,
+): Record<string, CallbackHandler> {
+  return {
+    dashboard_packages: handleDashboardPackages,
+    dashboard_redeem: handleDashboardRedeem,
+    dashboard_help: handleDashboardHelp,
+    admin_dashboard: (chatId, userId) =>
+      handlers.handleAdminDashboard(chatId, userId),
+    table_management: (chatId, userId) =>
+      handlers.handleTableManagement(chatId, userId),
+    feature_flags: (chatId, userId) =>
+      handlers.handleFeatureFlags(chatId, userId),
+    publish_flags: (chatId) =>
+      handlers.handlePublishFlagsRequest(chatId),
+    publish_flags_confirm: (chatId, userId) =>
+      handlers.handlePublishFlagsConfirm(chatId, userId),
+    rollback_flags: (chatId) =>
+      handlers.handleRollbackFlagsRequest(chatId),
+    rollback_flags_confirm: (chatId, userId) =>
+      handlers.handleRollbackFlagsConfirm(chatId, userId),
+    env_status: async (chatId) => {
+      const envStatus = await handlers.handleEnvStatus();
+      await notifyUser(chatId, JSON.stringify(envStatus));
+    },
+    manage_table_bot_users: (chatId, userId) =>
+      handlers.handleUserTableManagement(chatId, userId),
+    manage_table_subscription_plans: (chatId, userId) =>
+      handlers.handleSubscriptionPlansManagement(chatId, userId),
+    manage_table_plan_channels: (chatId, userId) =>
+      handlers.handlePlanChannelsManagement(chatId, userId),
+    manage_table_education_packages: (chatId, userId) =>
+      handlers.handleEducationPackagesManagement(chatId, userId),
+    manage_table_promotions: (chatId, userId) =>
+      handlers.handlePromotionsManagement(chatId, userId),
+    manage_table_bot_content: (chatId, userId) =>
+      handlers.handleContentManagement(chatId, userId),
+    manage_table_bot_settings: (chatId, userId) =>
+      handlers.handleBotSettingsManagement(chatId, userId),
+    config_session_settings: (chatId, userId) =>
+      handlers.handleConfigSessionSettings(chatId, userId),
+    config_followup_settings: (chatId, userId) =>
+      handlers.handleConfigFollowupSettings(chatId, userId),
+    toggle_maintenance_mode: (chatId, userId) =>
+      handlers.handleToggleMaintenanceMode(chatId, userId),
+    config_auto_features: (chatId, userId) =>
+      handlers.handleConfigAutoFeatures(chatId, userId),
+    config_notifications: (chatId, userId) =>
+      handlers.handleConfigNotifications(chatId, userId),
+    config_performance: (chatId, userId) =>
+      handlers.handleConfigPerformance(chatId, userId),
+    add_new_setting: (chatId, userId) =>
+      handlers.handleAddNewSetting(chatId, userId),
+    backup_bot_settings: (chatId, userId) =>
+      handlers.handleBackupBotSettings(chatId, userId),
+    manage_table_daily_analytics: (chatId, userId) =>
+      handlers.handleDailyAnalyticsManagement(chatId, userId),
+    manage_table_user_sessions: (chatId, userId) =>
+      handlers.handleUserSessionsManagement(chatId, userId),
+    manage_table_payments: (chatId, userId) =>
+      handlers.handlePaymentsManagement(chatId, userId),
+    manage_table_broadcast_messages: (chatId, userId) =>
+      handlers.handleBroadcastMessagesManagement(chatId, userId),
+    manage_table_bank_accounts: (chatId, userId) =>
+      handlers.handleBankAccountsManagement(chatId, userId),
+    manage_table_auto_reply_templates: (chatId, userId) =>
+      handlers.handleAutoReplyTemplatesManagement(chatId, userId),
+    export_all_tables: (chatId, userId) =>
+      handlers.handleExportAllTables(chatId, userId),
+    table_stats_overview: (chatId, userId) =>
+      handlers.handleTableStatsOverview(chatId, userId),
+  };
+}
+
 async function menuView(
   section: MenuSection,
   chatId?: number,
@@ -1003,119 +1112,9 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
       const flag = data.replace("toggle_flag_", "");
       await handlers.handleToggleFeatureFlag(chatId, userId, flag);
     } else {
-      switch (data) {
-        case "dashboard_packages": {
-          const msg = await getFormattedVipPackages();
-          await notifyUser(chatId, msg, { parse_mode: "Markdown" });
-          break;
-        }
-        case "dashboard_redeem":
-          await sendMiniAppLink(chatId);
-          break;
-        case "dashboard_help": {
-          const msg = await getBotContent("help_message");
-          await notifyUser(chatId, msg ?? "Help is coming soon.");
-          break;
-        }
-        case "admin_dashboard":
-          await handlers.handleAdminDashboard(chatId, userId);
-          break;
-        case "table_management":
-          await handlers.handleTableManagement(chatId, userId);
-          break;
-        case "feature_flags":
-          await handlers.handleFeatureFlags(chatId, userId);
-          break;
-        case "publish_flags":
-          await handlers.handlePublishFlagsRequest(chatId);
-          break;
-        case "publish_flags_confirm":
-          await handlers.handlePublishFlagsConfirm(chatId, userId);
-          break;
-        case "rollback_flags":
-          await handlers.handleRollbackFlagsRequest(chatId);
-          break;
-        case "rollback_flags_confirm":
-          await handlers.handleRollbackFlagsConfirm(chatId, userId);
-          break;
-        case "env_status": {
-          const envStatus = await handlers.handleEnvStatus();
-          await notifyUser(chatId, JSON.stringify(envStatus));
-          break;
-        }
-        case "manage_table_bot_users":
-          await handlers.handleUserTableManagement(chatId, userId);
-          break;
-        case "manage_table_subscription_plans":
-          await handlers.handleSubscriptionPlansManagement(chatId, userId);
-          break;
-        case "manage_table_plan_channels":
-          await handlers.handlePlanChannelsManagement(chatId, userId);
-          break;
-        case "manage_table_education_packages":
-          await handlers.handleEducationPackagesManagement(chatId, userId);
-          break;
-        case "manage_table_promotions":
-          await handlers.handlePromotionsManagement(chatId, userId);
-          break;
-        case "manage_table_bot_content":
-          await handlers.handleContentManagement(chatId, userId);
-          break;
-        case "manage_table_bot_settings":
-          await handlers.handleBotSettingsManagement(chatId, userId);
-          break;
-        case "config_session_settings":
-          await handlers.handleConfigSessionSettings(chatId, userId);
-          break;
-        case "config_followup_settings":
-          await handlers.handleConfigFollowupSettings(chatId, userId);
-          break;
-        case "toggle_maintenance_mode":
-          await handlers.handleToggleMaintenanceMode(chatId, userId);
-          break;
-        case "config_auto_features":
-          await handlers.handleConfigAutoFeatures(chatId, userId);
-          break;
-        case "config_notifications":
-          await handlers.handleConfigNotifications(chatId, userId);
-          break;
-        case "config_performance":
-          await handlers.handleConfigPerformance(chatId, userId);
-          break;
-        case "add_new_setting":
-          await handlers.handleAddNewSetting(chatId, userId);
-          break;
-        case "backup_bot_settings":
-          await handlers.handleBackupBotSettings(chatId, userId);
-          break;
-        case "manage_table_daily_analytics":
-          await handlers.handleDailyAnalyticsManagement(chatId, userId);
-          break;
-        case "manage_table_user_sessions":
-          await handlers.handleUserSessionsManagement(chatId, userId);
-          break;
-        case "manage_table_payments":
-          await handlers.handlePaymentsManagement(chatId, userId);
-          break;
-        case "manage_table_broadcast_messages":
-          await handlers.handleBroadcastMessagesManagement(chatId, userId);
-          break;
-        case "manage_table_bank_accounts":
-          await handlers.handleBankAccountsManagement(chatId, userId);
-          break;
-        case "manage_table_auto_reply_templates":
-          await handlers.handleAutoReplyTemplatesManagement(chatId, userId);
-          break;
-        case "export_all_tables":
-          await handlers.handleExportAllTables(chatId, userId);
-          break;
-        case "table_stats_overview":
-          await handlers.handleTableStatsOverview(chatId, userId);
-          break;
-        default:
-          // Other callbacks can be added here
-          break;
-      }
+      const callbackHandlers = buildCallbackHandlers(handlers);
+      const handler = callbackHandlers[data] ?? defaultCallbackHandler;
+      await handler(chatId, userId);
     }
   } catch (err) {
     console.error("handleCallback error", err);
