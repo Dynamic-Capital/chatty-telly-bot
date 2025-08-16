@@ -10,7 +10,12 @@
     "lint": "eslint .",
     "test": "deno test --no-npm --node-modules-dir=false --unsafely-ignore-certificate-errors=deno.land -A --no-check",
     "preview": "vite preview",
-    "setup:supabase": "bash scripts/setup-supabase-cli.sh"
+    "setup:supabase": "bash scripts/setup-supabase-cli.sh",
+    "build:miniapp": "npm --prefix miniapp ci && npm --prefix miniapp run build",
+    "bundle:miniapp": "rm -rf supabase/functions/miniapp/static && mkdir -p supabase/functions/miniapp/static && cp -R miniapp/dist/* supabase/functions/miniapp/static/",
+    "assert:miniapp": "deno run --no-npm -A scripts/assert-miniapp-bundle.ts",
+    "deploy:miniapp": "npm run build:miniapp && npm run bundle:miniapp && npm run assert:miniapp && npx supabase functions deploy miniapp --project-ref $PROJECT_REF",
+    "deploy:bot": "npx supabase functions deploy telegram-bot --project-ref $PROJECT_REF"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

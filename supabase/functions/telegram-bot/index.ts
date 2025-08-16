@@ -247,42 +247,28 @@ export async function sendMiniAppLink(chatId: number): Promise<string | null> {
     return null;
   }
 
-  const rawUrl = optionalEnv("MINI_APP_URL") || "";
-  const shortName = optionalEnv("MINI_APP_SHORT_NAME") || "";
-  const bot = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
+  const miniUrl = optionalEnv("MINI_APP_URL");
+  const short = optionalEnv("MINI_APP_SHORT_NAME");
+  const botUser = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
 
-  if (rawUrl) {
-    try {
-      const u = new URL(rawUrl);
-      if (u.protocol === "https:") {
-        if (!u.pathname.endsWith("/")) u.pathname += "/";
-        const miniUrl = u.toString();
-        const sent = await sendMessage(chatId, "Join the VIP Mini App:", {
-          reply_markup: {
-            inline_keyboard: [[{ text: "Join", web_app: { url: miniUrl } }]],
-          },
-        });
-        if (sent === null) {
-          await sendMessage(chatId, `Open checkout here: ${miniUrl}`);
-        }
-        return miniUrl;
-      }
-    } catch (e) {
-      console.error("MINI_APP_URL invalid:", (e as Error).message);
-    }
-  }
-
-  if (shortName && bot) {
-    const url = `https://t.me/${bot}/${shortName}`;
-    const sent = await sendMessage(chatId, "Join the VIP Mini App:", {
+  if (miniUrl) {
+    const openUrl = miniUrl.endsWith("/") ? miniUrl : miniUrl + "/";
+    await sendMessage(chatId, "Open the VIP Mini App:", {
       reply_markup: {
-        inline_keyboard: [[{ text: "Join", url }]],
+        inline_keyboard: [[{ text: "Open VIP Mini App", web_app: { url: openUrl } }]],
       },
     });
-    if (sent === null) {
-      await sendMessage(chatId, `Open checkout here: ${url}`);
-    }
-    return url;
+    return openUrl;
+  }
+
+  if (short && botUser) {
+    const deepLink = `https://t.me/${botUser}/${short}`;
+    await sendMessage(chatId, "Open the VIP Mini App:", {
+      reply_markup: {
+        inline_keyboard: [[{ text: "Open VIP Mini App", url: deepLink }]],
+      },
+    });
+    return deepLink;
   }
 
   await sendMessage(

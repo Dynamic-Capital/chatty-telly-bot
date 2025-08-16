@@ -92,7 +92,7 @@ registerTest("mini app link available by default", async () => {
   try {
     await sendMiniAppLink(123);
     assertEquals(
-      text.startsWith("Join the VIP Mini App"),
+      text.startsWith("Open the VIP Mini App"),
       true,
     );
   } finally {
