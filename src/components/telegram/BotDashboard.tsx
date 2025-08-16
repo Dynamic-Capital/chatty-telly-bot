@@ -22,6 +22,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AdminDashboard } from "@/components/admin/AdminDashboard";
 
 interface DashboardStats {
   totalUsers: number;
@@ -33,7 +34,13 @@ interface DashboardStats {
 
 const BotDashboard = () => {
   const [currentView, setCurrentView] = useState<
-    "welcome" | "config" | "packages" | "support" | "analytics" | "promos"
+    | "welcome"
+    | "config"
+    | "packages"
+    | "support"
+    | "analytics"
+    | "promos"
+    | "admin"
   >("welcome");
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -298,6 +305,23 @@ const BotDashboard = () => {
               <h3 className="text-xl font-semibold mb-2">Notifications</h3>
               <p className="text-muted-foreground">
                 Send announcements and updates to your subscribers
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card
+          className="p-8 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
+          onClick={() => setCurrentView("admin")}
+        >
+          <div className="text-center space-y-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-teal-500/10 rounded-2xl group-hover:bg-teal-500/20 transition-colors">
+              <Shield className="w-8 h-8 text-teal-500" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold mb-2">Admin Dashboard</h3>
+              <p className="text-muted-foreground">
+                Manage bot settings, content, and data tables
               </p>
             </div>
           </div>
@@ -876,6 +900,23 @@ const BotDashboard = () => {
     </div>
   );
 
+  const renderAdminScreen = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold">Admin Dashboard</h2>
+          <p className="text-muted-foreground">
+            Full access to bot settings, content, and tables
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => setCurrentView("welcome")}>
+          Back to Dashboard
+        </Button>
+      </div>
+      <AdminDashboard />
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-accent/10 p-6">
       <div className="max-w-7xl mx-auto">
@@ -885,6 +926,7 @@ const BotDashboard = () => {
         {currentView === "support" && renderSupportScreen()}
         {currentView === "analytics" && renderAnalyticsScreen()}
         {currentView === "promos" && renderPromosScreen()}
+        {currentView === "admin" && renderAdminScreen()}
       </div>
     </div>
   );
