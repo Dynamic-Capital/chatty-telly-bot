@@ -22,8 +22,9 @@ Deno.test("returns fallback HTML when index.html fails to load", async () => {
       body,
       "Static <code>index.html</code> not found in bundle",
     );
+    assertStringIncludes(body, "/miniapp/version");
+    assertStringIncludes(body, "<button");
   } finally {
-    (Deno as unknown as { readFile: typeof Deno.readFile }).readFile =
-      original;
+    (Deno as unknown as { readFile: typeof Deno.readFile }).readFile = original;
   }
 });

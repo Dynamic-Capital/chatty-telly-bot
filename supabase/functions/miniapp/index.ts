@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { ok, nf, mna } from "../_shared/http.ts";
+import { mna, nf, ok } from "../_shared/http.ts";
 
 const SECURITY = {
   "referrer-policy": "strict-origin-when-cross-origin",
@@ -49,8 +49,12 @@ async function indexHtml() {
       </head><body>
       <h1>Dynamic Capital VIP</h1>
       <p>Static <code>index.html</code> not found in bundle — showing fallback.</p>
+      <p>If the issue persists, use diagnostics below.</p>
+      <button onclick="location.href='/miniapp/version'">Check Version</button>
       </body></html>`;
-    const h = withSec(new Headers({ "content-type": "text/html; charset=utf-8" }));
+    const h = withSec(
+      new Headers({ "content-type": "text/html; charset=utf-8" }),
+    );
     return new Response(html, { headers: h, status: 200 });
   }
   const h = new Headers(r.headers);
@@ -73,7 +77,9 @@ export async function handler(req: Request): Promise<Response> {
   if (req.method === "GET" && url.pathname.endsWith("/version")) {
     return ok({ name: "miniapp", ts: new Date().toISOString() });
   }
-  if (req.method === "HEAD") return new Response(null, { status: 200 });
+  if (req.method === "HEAD") {
+    return new Response(null, { status: 200, headers: withSec(new Headers()) });
+  }
   if (req.method !== "GET") return mna();
 
   // Only serve these routes
@@ -94,4 +100,3 @@ export async function handler(req: Request): Promise<Response> {
 if (import.meta.main) {
   serve(handler);
 }
-
