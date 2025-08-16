@@ -92,24 +92,8 @@ async function indexHtml() {
     h.set("x-frame-options", "ALLOWALL"); // Telegram WebView
     return new Response(data, { headers: h, status: 200 });
   } catch {
-    console.warn(
-      "miniapp: static/index.html not in bundle (serving fallback)",
-    );
-    const html = `<!doctype html><html lang="en"><head>
-      <meta charset="utf-8"/>
-      <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-      <title>Dynamic Capital VIP • Mini App</title>
-      <script src="https://telegram.org/js/telegram-web-app.js"></script>
-      </head><body>
-      <h1>Dynamic Capital VIP</h1>
-      <p>Static <code>index.html</code> not found in bundle — showing fallback.</p>
-      <p>If the issue persists, use diagnostics below.</p>
-      <button onclick="location.href='/miniapp/version'">Check Version</button>
-      </body></html>`;
-    const h = withSec(
-      new Headers({ "content-type": "text/html; charset=utf-8" }),
-    );
-    return new Response(html, { headers: h, status: 200 });
+    console.warn("miniapp: static/index.html missing from bundle");
+    return nf("Not Found");
   }
 }
 

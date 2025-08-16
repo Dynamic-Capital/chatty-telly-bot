@@ -93,16 +93,13 @@ deno test -A
 
 ## Smoke checks
 
-Set `FUNCTIONS_BASE` to your deployed functions base URL, then run:
-
 ```bash
-export FUNCTIONS_BASE=https://<PROJECT>.functions.supabase.co
-deno run -A scripts/smoke-miniapp.ts
-deno run -A scripts/smoke-bot.ts
+curl -s https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/version
+curl -s https://qeejuomcapbdlhnjqjcc.functions.supabase.co/telegram-bot/version
+curl -s -X POST https://qeejuomcapbdlhnjqjcc.functions.supabase.co/telegram-bot \
+  -H 'x-telegram-bot-api-secret-token: <TELEGRAM_WEBHOOK_SECRET>' \
+  -H 'content-type: application/json' -d '{"test":"ping"}'
 ```
-
-These scripts perform simple HTTP requests and log status codes for key
-endpoints.
 
 ## Deployment
 
