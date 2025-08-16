@@ -7,6 +7,8 @@ import {
   getBotContent,
   getFormattedVipPackages,
   getVipPackages,
+  getEducationPackages,
+  getActivePromotions,
 } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
@@ -323,6 +325,93 @@ export async function handleDashboardHelp(
   await notifyUser(chatId, msg ?? "Help is coming soon.");
 }
 
+async function handleFaqCommand(chatId: number): Promise<void> {
+  const msg = await getBotContent("faq_general");
+  await notifyUser(chatId, msg ?? "FAQ is coming soon.", { parse_mode: "Markdown" });
+}
+
+async function handleEducationCommand(chatId: number): Promise<void> {
+  const pkgs = await getEducationPackages();
+  if (pkgs.length === 0) {
+    await notifyUser(chatId, "No education packages available.");
+    return;
+  }
+  let text = "🎓 *Education Packages*\n\n";
+  pkgs.forEach((pkg: Record<string, unknown>, idx: number) => {
+    const name = (pkg.name as string) ?? `Package ${idx + 1}`;
+    const price = pkg.price as number | undefined;
+    const currency = (pkg.currency as string) ?? "USD";
+    text += `${idx + 1}. ${name} - ${currency} ${price}\n`;
+  });
+  await notifyUser(chatId, text, { parse_mode: "Markdown" });
+}
+
+async function handlePromoCommand(chatId: number): Promise<void> {
+  const promos = await getActivePromotions();
+  if (promos.length === 0) {
+    await notifyUser(chatId, "No active promotions at the moment.");
+    return;
+  }
+  let text = "🎁 *Active Promotions*\n\n";
+  promos.forEach((p: Record<string, unknown>, idx: number) => {
+    const value =
+      p.discount_type === "percentage"
+        ? `${p.discount_value}%`
+        : `$${p.discount_value}`;
+    text += `${idx + 1}. ${p.code} - ${value}\n`;
+  });
+  text += "\nUse /promo CODE PLAN_ID to apply a code.";
+  await notifyUser(chatId, text, { parse_mode: "Markdown" });
+}
+
+async function handleAskCommand(ctx: CommandContext): Promise<void> {
+  const question = ctx.args.join(" ");
+  if (!question) {
+    await notifyUser(ctx.chatId, "Please provide a question. Example: /ask What is trading?");
+    return;
+  }
+  if (!SUPABASE_URL) {
+    await notifyUser(ctx.chatId, "Service unavailable.");
+    return;
+  }
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-faq-assistant`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    });
+    const data = await res.json().catch(() => ({}));
+    const answer = data.answer ?? "Unable to get answer.";
+    await notifyUser(ctx.chatId, answer);
+  } catch {
+    await notifyUser(ctx.chatId, "Failed to get answer.");
+  }
+}
+
+async function handleShouldIBuyCommand(ctx: CommandContext): Promise<void> {
+  const instrument = ctx.args[0];
+  if (!instrument) {
+    await notifyUser(ctx.chatId, "Please provide an instrument. Example: /shouldibuy XAUUSD");
+    return;
+  }
+  if (!SUPABASE_URL) {
+    await notifyUser(ctx.chatId, "Service unavailable.");
+    return;
+  }
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/trade-helper`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instrument, command: "shouldibuy" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    const analysis = data.analysis ?? "Unable to get analysis.";
+    await notifyUser(ctx.chatId, analysis, { parse_mode: "Markdown" });
+  } catch {
+    await notifyUser(ctx.chatId, "Failed to get analysis.");
+  }
+}
+
 export async function defaultCallbackHandler(
   chatId: number,
   _userId: string,
@@ -437,7 +526,11 @@ async function menuView(
   if (url) {
     markup.inline_keyboard.push([{ text: "Open Mini App", web_app: { url } }]);
   }
-  return { text: "Welcome! Choose an option:", extra: { reply_markup: markup } };
+  const msg = await getBotContent("welcome_message");
+  return {
+    text: msg ?? "Welcome! Choose an option:",
+    extra: { reply_markup: markup, parse_mode: "Markdown" },
+  };
 }
 
 async function getMenuMessageId(chatId: number): Promise<number | null> {
@@ -708,8 +801,32 @@ export const commandHandlers: Record<string, CommandHandler> = {
   "/plans": async ({ chatId }) => {
     await showMainMenu(chatId, "plans");
   },
+  "/packages": async ({ chatId }) => {
+    await showMainMenu(chatId, "plans");
+  },
+  "/account": async ({ chatId }) => {
+    await showMainMenu(chatId, "dashboard");
+  },
   "/support": async ({ chatId }) => {
     await showMainMenu(chatId, "support");
+  },
+  "/help": async ({ chatId }) => {
+    await handleDashboardHelp(chatId, String(chatId));
+  },
+  "/faq": async ({ chatId }) => {
+    await handleFaqCommand(chatId);
+  },
+  "/education": async ({ chatId }) => {
+    await handleEducationCommand(chatId);
+  },
+  "/promo": async ({ chatId }) => {
+    await handlePromoCommand(chatId);
+  },
+  "/ask": async (ctx) => {
+    await handleAskCommand(ctx);
+  },
+  "/shouldibuy": async (ctx) => {
+    await handleShouldIBuyCommand(ctx);
   },
 };
 

@@ -54,7 +54,7 @@ async function createDefaultContent(
 📈 Get premium trading signals & education
 💎 Join our VIP community
 
-Use the buttons below or type /packages, /vip or /help to get started.`,
+Use the buttons below or try commands like /packages, /promo, /account, /support, /help, /faq, /education, /ask or /shouldibuy to get started.`,
     "welcome_back_message": `👋 Welcome back to Dynamic Capital VIP Bot!
 
 🔥 VIP Packages:
@@ -66,9 +66,14 @@ Available commands:
 /start - Main menu
 /dashboard or /account - View account dashboard
 /packages - View VIP packages
+/promo - View active promotions
 /vip - VIP benefits
-/help - Show help
 /support - Contact support
+/help - Show help
+/faq - Frequently asked questions
+/education - View education packages
+/ask - Ask our AI assistant
+/shouldibuy - Get educational trade analysis
 /about - About us`,
     "about_us": `🏢 About Dynamic Capital
 
@@ -94,9 +99,14 @@ Available commands:
 /start - Main menu
 /dashboard or /account - View account dashboard
 /packages - View VIP packages
+/promo - View active promotions
 /vip - VIP benefits
 /help - Show this help
 /support - Contact support
+/faq - Frequently asked questions
+/education - View education packages
+/ask QUESTION - Ask our AI assistant
+/shouldibuy SYMBOL - Get educational trade analysis
 /about - About us
 
 Need assistance? Contact @DynamicCapital_Support`,
