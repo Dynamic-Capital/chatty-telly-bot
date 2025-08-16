@@ -236,13 +236,19 @@ function hasMiniApp(): boolean {
   return Boolean(shortName && bot);
 }
 
-export async function sendMiniAppLink(chatId: number): Promise<string | null> {
+export async function sendMiniAppLink(
+  chatId: number,
+  opts: { silent?: boolean } = {},
+): Promise<string | null> {
+  const { silent } = opts;
   if (!BOT_TOKEN) return null;
   if (!(await getFlag("mini_app_enabled", true))) {
-    await sendMessage(
-      chatId,
-      "Checkout is currently unavailable. Please try again later.",
-    );
+    if (!silent) {
+      await sendMessage(
+        chatId,
+        "Checkout is currently unavailable. Please try again later.",
+      );
+    }
     return null;
   }
 
@@ -252,29 +258,55 @@ export async function sendMiniAppLink(chatId: number): Promise<string | null> {
 
   if (miniUrl) {
     const openUrl = miniUrl.endsWith("/") ? miniUrl : miniUrl + "/";
-    await sendMessage(chatId, "Open the VIP Mini App:", {
-      reply_markup: {
-        inline_keyboard: [[{ text: "Open VIP Mini App", web_app: { url: openUrl } }]],
-      },
-    });
+    if (!silent) {
+      await sendMessage(chatId, "Open the VIP Mini App:", {
+        reply_markup: {
+          inline_keyboard: [[{ text: "Open VIP Mini App", web_app: { url: openUrl } }]],
+        },
+      });
+    }
     return openUrl;
   }
 
   if (short && botUser) {
     const deepLink = `https://t.me/${botUser}/${short}`;
-    await sendMessage(chatId, "Open the VIP Mini App:", {
-      reply_markup: {
-        inline_keyboard: [[{ text: "Open VIP Mini App", url: deepLink }]],
-      },
-    });
+    if (!silent) {
+      await sendMessage(chatId, "Open the VIP Mini App:", {
+        reply_markup: {
+          inline_keyboard: [[{ text: "Open VIP Mini App", url: deepLink }]],
+        },
+      });
+    }
     return deepLink;
   }
 
-  await sendMessage(
-    chatId,
-    "Mini app is being configured. Please try again soon.",
-  );
+  if (!silent) {
+    await sendMessage(
+      chatId,
+      "Mini app is being configured. Please try again soon.",
+    );
+  }
   return null;
+}
+
+export async function sendMiniAppOrBotOptions(chatId: number): Promise<void> {
+  const enabled = await getFlag("mini_app_enabled", true);
+  const url = enabled ? await sendMiniAppLink(chatId, { silent: true }) : null;
+  const inline_keyboard = [
+    [{ text: "Continue in Bot", callback_data: "menu:plans" }],
+  ];
+  let text: string;
+  if (url) {
+    inline_keyboard[0].push({ text: "Open VIP Mini App", web_app: { url } });
+    text = "Choose how to continue:";
+  } else {
+    text = enabled
+      ? "Mini app is being configured. Continue in bot:"
+      : "Checkout is currently unavailable. Continue in bot:";
+  }
+  await notifyUser(chatId, text, {
+    reply_markup: { inline_keyboard },
+  });
 }
 
 export async function handleDashboardPackages(
@@ -289,7 +321,7 @@ export async function handleDashboardRedeem(
   chatId: number,
   _userId: string,
 ): Promise<void> {
-  await sendMiniAppLink(chatId);
+  await sendMiniAppOrBotOptions(chatId);
 }
 
 export async function handleDashboardHelp(
@@ -1000,17 +1032,8 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
   const userId = String(cb.from.id);
   try {
     if (data.startsWith("pay:")) {
-      await notifyUser(chatId, "Opening checkout...");
-      const url = await sendMiniAppLink(chatId);
-      if (!url) {
-        await notifyUser(
-          chatId,
-          "Checkout unavailable—please try again later or contact support",
-        );
-        await answerCallbackQuery(cb.id);
-      } else {
-        await answerCallbackQuery(cb.id, { url });
-      }
+      await answerCallbackQuery(cb.id);
+      await sendMiniAppOrBotOptions(chatId);
       return;
     }
     // Acknowledge other callbacks promptly to avoid client retries
