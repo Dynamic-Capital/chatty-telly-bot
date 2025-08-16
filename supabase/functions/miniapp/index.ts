@@ -112,7 +112,7 @@ function mime(p: string) {
   return "application/octet-stream";
 }
 
-export default async function handler(req: Request): Promise<Response> {
+export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   if (req.method === "GET" && url.pathname.endsWith("/version")) {
     return await maybeCompress(
@@ -145,6 +145,8 @@ export default async function handler(req: Request): Promise<Response> {
   }
   return nf("Not Found");
 }
+
+export default handler;
 
 if (import.meta.main) {
   Deno.serve(handler);
