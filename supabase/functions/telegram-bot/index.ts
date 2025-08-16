@@ -1072,32 +1072,100 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
     if (data.startsWith("method:bank:")) {
       const planId = data.split(":")[2];
       const supa = await getSupabase();
-      if (supa) {
-        const { data: us } = await supa
-          .from("user_sessions")
+      if (!supa) {
+        await notifyUser(chatId, "Bank transfer unavailable.");
+        return;
+      }
+
+      // ensure bot user exists
+      const { data: user } = await supa
+        .from("bot_users")
+        .select("id")
+        .eq("telegram_id", chatId)
+        .maybeSingle();
+      let userId = user?.id as string | undefined;
+      if (!userId) {
+        const { data: ins } = await supa
+          .from("bot_users")
+          .insert({ telegram_id: String(chatId) })
           .select("id")
-          .eq("telegram_user_id", String(chatId))
-          .limit(1)
-          .maybeSingle();
-        if (us?.id) {
-          await supa
-            .from("user_sessions")
-            .update({
-              awaiting_input: `receipt:${planId}`,
-              last_activity: new Date().toISOString(),
-              is_active: true,
-            })
-            .eq("id", us.id);
-        } else {
-          await supa.from("user_sessions").insert({
-            telegram_user_id: String(chatId),
+          .single();
+        userId = ins?.id as string | undefined;
+      }
+      if (!userId) {
+        await notifyUser(chatId, "Unable to start bank transfer.");
+        return;
+      }
+
+      await supa
+        .from("payments")
+        .insert({
+          user_id: userId,
+          plan_id: planId,
+          amount: null,
+          currency: "USD",
+          payment_method: "bank_transfer",
+          status: "pending",
+        });
+
+      const payCode = `DC-${crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+      await supa.from("payment_intents").insert({
+        user_id: userId,
+        method: "bank",
+        expected_amount: 0,
+        currency: "USD",
+        pay_code: payCode,
+        status: "pending",
+        notes: planId,
+      }).catch(() => null);
+
+      const { data: banks } = await supa
+        .from("bank_accounts")
+        .select(
+          "bank_name,account_name,account_number,currency",
+        )
+        .eq("is_active", true)
+        .order("display_order");
+
+      const list = (banks as {
+        bank_name: string;
+        account_name: string;
+        account_number: string;
+        currency: string;
+      }[] || [])
+        .map((b) =>
+          `${b.bank_name}\nAccount Name: ${b.account_name}\nAccount Number: ${b.account_number}\nCurrency: ${b.currency}`
+        )
+        .join("\n\n");
+
+      const message =
+        `${list}\n\nPay Code: ${payCode}\nAdd this in transfer remarks.\nPlease send a photo of your bank transfer receipt.`;
+
+      const { data: us } = await supa
+        .from("user_sessions")
+        .select("id")
+        .eq("telegram_user_id", String(chatId))
+        .limit(1)
+        .maybeSingle();
+      if (us?.id) {
+        await supa
+          .from("user_sessions")
+          .update({
             awaiting_input: `receipt:${planId}`,
             last_activity: new Date().toISOString(),
             is_active: true,
-          });
-        }
+          })
+          .eq("id", us.id);
+      } else {
+        await supa.from("user_sessions").insert({
+          telegram_user_id: String(chatId),
+          awaiting_input: `receipt:${planId}`,
+          last_activity: new Date().toISOString(),
+          is_active: true,
+        });
       }
-      await notifyUser(chatId, "Please send a photo of your bank transfer receipt.");
+
+      await notifyUser(chatId, message);
       return;
     }
     if (data.startsWith("method:binance:")) {
@@ -1157,14 +1225,23 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         .select("id")
         .eq("telegram_id", chatId)
         .maybeSingle();
-      if (!user?.id) {
-        await notifyUser(chatId, "Please use /start before purchasing.");
+      let userId = user?.id as string | undefined;
+      if (!userId) {
+        const { data: ins } = await supa
+          .from("bot_users")
+          .insert({ telegram_id: String(chatId) })
+          .select("id")
+          .single();
+        userId = ins?.id as string | undefined;
+      }
+      if (!userId) {
+        await notifyUser(chatId, "Unable to start crypto payment.");
         return;
       }
       const { data: pay } = await supa
         .from("payments")
         .insert({
-          user_id: user.id,
+          user_id: userId,
           plan_id: planId,
           amount: null,
           currency: "USD",
