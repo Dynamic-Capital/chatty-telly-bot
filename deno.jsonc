@@ -15,7 +15,7 @@
     "linkage:check": "deno run -A scripts/check-linkage.ts",
     "serve:linkage-audit": "supabase functions serve --no-verify-jwt linkage-audit",
     "guard:env": "deno run -A scripts/guard-env-usage.ts",
-    "miniapp:deploy": "npx supabase functions deploy miniapp",
+    "miniapp:deploy": "deno task miniapp:build && node scripts/sync-miniapp-static.mjs && npx supabase functions deploy miniapp",
     "miniapp:check": "deno run -A scripts/miniapp-domain-check.ts",
     "edge:call": "deno run -A scripts/call-edge.ts",
     "edge:deploy:verify": "npx supabase functions deploy verify-initdata",
