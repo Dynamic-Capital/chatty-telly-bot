@@ -12,6 +12,7 @@ import {
 import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
 import { getFlag } from "../_shared/config.ts";
+import { buildMainMenu, type MenuSection } from "./menu.ts";
 // Type definition moved inline to avoid import issues
 interface Promotion {
   code: string;
@@ -282,19 +283,10 @@ export async function sendMiniAppLink(chatId: number): Promise<string | null> {
 }
 
 async function menuView(
-  section: "home" | "plans" | "status" | "support",
+  section: MenuSection,
   chatId?: number,
 ): Promise<{ text: string; extra: Record<string, unknown> }> {
-  const base = {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "Home", callback_data: "menu:home" }],
-        [{ text: "Packages", callback_data: "menu:plans" }],
-        [{ text: "Status", callback_data: "menu:status" }],
-        [{ text: "Support", callback_data: "menu:support" }],
-      ],
-    },
-  };
+  const base = { reply_markup: buildMainMenu(section) };
 
   switch (section) {
     case "plans": {
@@ -388,7 +380,7 @@ async function setMenuMessageId(
 
 async function sendMainMenu(
   chatId: number,
-  section: "home" | "plans" | "status" | "support" = "home",
+  section: MenuSection = "home",
 ): Promise<number | null> {
   const view = await menuView(section, chatId);
   const msgId = await sendMessage(chatId, view.text, view.extra);
@@ -400,7 +392,7 @@ async function sendMainMenu(
 
 async function showMainMenu(
   chatId: number,
-  section: "home" | "plans" | "status" | "support" = "home",
+  section: MenuSection = "home",
 ): Promise<void> {
   const existing = await getMenuMessageId(chatId);
   const view = await menuView(section, chatId);
@@ -984,11 +976,7 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
     // Acknowledge other callbacks promptly to avoid client retries
     await answerCallbackQuery(cb.id);
     if (data.startsWith("menu:")) {
-      const section = data.slice("menu:".length) as
-        | "home"
-        | "plans"
-        | "status"
-        | "support";
+      const section = data.slice("menu:".length) as MenuSection;
       await showMainMenu(chatId, section);
       return;
     }
