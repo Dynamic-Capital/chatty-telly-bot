@@ -132,7 +132,12 @@ export async function handler(req: Request): Promise<Response> {
     );
   }
   if (req.method === "HEAD") {
-    if (url.pathname === "/miniapp/" || url.pathname === "/miniapp/version") {
+    if (
+      url.pathname === "/" ||
+      url.pathname === "/miniapp" ||
+      url.pathname === "/miniapp/" ||
+      url.pathname === "/miniapp/version"
+    ) {
       return new Response(null, {
         status: 200,
         headers: withSec(new Headers()),
@@ -152,7 +157,9 @@ export async function handler(req: Request): Promise<Response> {
   }
   if (url.pathname.startsWith("/assets/")) {
     let rel = posix.normalize(decodeURIComponent(url.pathname));
-    if (!rel.startsWith("/assets/") || rel.includes("..") || rel.includes("\\")) {
+    if (
+      !rel.startsWith("/assets/") || rel.includes("..") || rel.includes("\\")
+    ) {
       return nf("Not Found");
     }
     rel = rel.replace(/^\//, "");
