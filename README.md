@@ -91,6 +91,19 @@ If tests present:
 deno test -A
 ```
 
+## Smoke checks
+
+Set `FUNCTIONS_BASE` to your deployed functions base URL, then run:
+
+```bash
+export FUNCTIONS_BASE=https://<PROJECT>.functions.supabase.co
+deno run -A scripts/smoke-miniapp.ts
+deno run -A scripts/smoke-bot.ts
+```
+
+These scripts perform simple HTTP requests and log status codes for key
+endpoints.
+
 ## Deployment
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for environment vars, tests,
