@@ -253,3 +253,41 @@ registerTest("vip sync flag blocks pipeline", async () => {
     data: { vip_sync_enabled: true },
   });
 });
+
+registerTest("vip sync pipeline active by default", async () => {
+  if (typeof Deno !== "undefined") {
+    Deno.env.set("TELEGRAM_BOT_TOKEN", "tbot");
+  } else {
+    process.env.TELEGRAM_BOT_TOKEN = "tbot";
+  }
+  (globalThis as any).__TEST_ENV__ = {
+    SUPABASE_URL: "x",
+    SUPABASE_ANON_KEY: "x",
+    SUPABASE_SERVICE_ROLE_KEY: "x",
+  };
+  const { setConfig } = await import(
+    "../supabase/functions/_shared/config.ts"
+  );
+  await setConfig("features:published", { ts: Date.now(), data: {} });
+  const { startReceiptPipeline } = await import(
+    "../supabase/functions/telegram-bot/index.ts"
+  );
+  let text = "";
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (_input, init) => {
+    const body = JSON.parse(init?.body ?? "{}");
+    text = body.text;
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  };
+  try {
+    await startReceiptPipeline({ message: { chat: { id: 1 } } });
+    assertEquals(text, "No receipt image found.");
+  } finally {
+    globalThis.fetch = orig;
+    delete (globalThis as any).__TEST_ENV__;
+  }
+  await setConfig("features:published", {
+    ts: Date.now(),
+    data: { vip_sync_enabled: true },
+  });
+});

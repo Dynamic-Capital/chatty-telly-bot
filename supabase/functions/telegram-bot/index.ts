@@ -1281,7 +1281,7 @@ export async function startReceiptPipeline(
 ): Promise<void> {
   try {
     const chatId = update.message!.chat.id;
-    if (!(await getFlag("vip_sync_enabled"))) {
+    if (!(await getFlag("vip_sync_enabled", true))) {
       await notifyUser(chatId, "VIP sync is currently disabled.");
       return;
     }
