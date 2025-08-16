@@ -1,5 +1,6 @@
 # Go Live Checklist
 
+- [ ] Complete the [Variables and Links Checklist](VARIABLES_AND_LINKS_CHECKLIST.md).
 - [ ] Webhook set & verified.
 - [ ] Bank happy path (should approve).
 - [ ] Bank near-miss (manual_review with reason).
