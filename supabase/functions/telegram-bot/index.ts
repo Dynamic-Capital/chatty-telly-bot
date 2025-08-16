@@ -330,12 +330,10 @@ export function buildCallbackHandlers(
       handlers.handleTableManagement(chatId, userId),
     feature_flags: (chatId, userId) =>
       handlers.handleFeatureFlags(chatId, userId),
-    publish_flags: (chatId) =>
-      handlers.handlePublishFlagsRequest(chatId),
+    publish_flags: (chatId) => handlers.handlePublishFlagsRequest(chatId),
     publish_flags_confirm: (chatId, userId) =>
       handlers.handlePublishFlagsConfirm(chatId, userId),
-    rollback_flags: (chatId) =>
-      handlers.handleRollbackFlagsRequest(chatId),
+    rollback_flags: (chatId) => handlers.handleRollbackFlagsRequest(chatId),
     rollback_flags_confirm: (chatId, userId) =>
       handlers.handleRollbackFlagsConfirm(chatId, userId),
     env_status: async (chatId) => {
@@ -647,45 +645,17 @@ async function handleStartPayload(msg: TelegramMessage): Promise<void> {
   }
 }
 
-/** Simple per-user RPM limit using user_sessions (resets every minute). */
-async function enforceRateLimit(
-  telegramUserId: string,
-): Promise<null | Response> {
+/** Simple per-user RPM limit using Supabase RPC (resets every minute). */
+async function enforceRateLimit(tgId: string): Promise<null | Response> {
   try {
-    const supa = await supaSvc();
-    const LIMIT = Number(Deno.env.get("RATE_LIMIT_PER_MINUTE") ?? "20");
-
-    const now = new Date();
-    const { data: row } = await supa
-      .from("user_sessions")
-      .select("id,follow_up_count,last_activity")
-      .eq("telegram_user_id", telegramUserId)
-      .limit(1)
-      .maybeSingle();
-
-    let count = 1;
+    const { error } = await (await supaSvc()).rpc("rl_touch", {
+      _tg: tgId,
+      _limit: Number(Deno.env.get("RATE_LIMIT_PER_MINUTE") ?? "20"),
+    });
     if (
-      row?.last_activity &&
-      (now.getTime() - new Date(row.last_activity).getTime()) < 60_000
+      error &&
+      (error.message === "rate_limited" || error.details === "rate_limited")
     ) {
-      count = (row.follow_up_count ?? 0) + 1;
-    }
-
-    const up = {
-      telegram_user_id: telegramUserId,
-      last_activity: now.toISOString(),
-      follow_up_count: count,
-      is_active: true,
-    };
-
-    if (row?.id) await supa.from("user_sessions").update(up).eq("id", row.id);
-    else await supa.from("user_sessions").insert(up);
-
-    if (count > LIMIT) {
-      await logInteraction("rate_limited", telegramUserId, {
-        count,
-        limit: LIMIT,
-      });
       return json({ ok: false, error: "Too Many Requests" }, 429);
     }
   } catch {
@@ -936,8 +906,7 @@ export const commandHandlers: Record<string, CommandHandler> = {
           .join("\n")
         : "No commands yet.";
 
-      const message =
-        `📊 *Dashboard*\n\n👤 *Subscription:* ${vipStatus}\n` +
+      const message = `📊 *Dashboard*\n\n👤 *Subscription:* ${vipStatus}\n` +
         `📅 *Expires:* ${expiry}\n\n` +
         `🎁 *Active Promotions:*\n${promoLines}\n\n` +
         `🔥 *Top Commands:*\n${cmdLines}`;
@@ -1134,6 +1103,13 @@ export async function serveWebhook(req: Request): Promise<Response> {
   // CORS preflight support for browser calls
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+  if (req.method === "HEAD") {
+    const url = new URL(req.url);
+    if (url.pathname.endsWith("/version")) {
+      return new Response(null, { status: 200 });
+    }
+    return mna();
   }
   if (req.method === "GET") {
     const url = new URL(req.url);

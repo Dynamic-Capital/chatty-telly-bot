@@ -24,7 +24,10 @@ Deno.test("telegram-bot rejects missing secret", async () => {
   setEnv();
   const calls: Array<{ url: string; body: string }> = [];
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => {
+  globalThis.fetch = async (
+    input: Request | string | URL,
+    init?: RequestInit,
+  ) => {
     const url = String(input);
     if (url.startsWith("https://api.telegram.org")) {
       calls.push({ url, body: init?.body ? String(init.body) : "" });
@@ -32,8 +35,14 @@ Deno.test("telegram-bot rejects missing secret", async () => {
     return new Response("{}", { status: 200 });
   };
   try {
-    supaState.tables = { abuse_bans: [], user_sessions: [], user_interactions: [] };
-    const mod = await import(`../supabase/functions/telegram-bot/index.ts?${Math.random()}`);
+    supaState.tables = {
+      abuse_bans: [],
+      user_sessions: [],
+      user_interactions: [],
+    };
+    const mod = await import(
+      `../supabase/functions/telegram-bot/index.ts?${Math.random()}`
+    );
     const req = new Request("https://example.com", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -51,13 +60,38 @@ Deno.test("telegram-bot rejects missing secret", async () => {
 Deno.test("telegram-bot returns 405 for non-POST", async () => {
   setEnv();
   try {
-    const mod = await import(`../supabase/functions/telegram-bot/index.ts?${Math.random()}`);
+    const mod = await import(
+      `../supabase/functions/telegram-bot/index.ts?${Math.random()}`
+    );
     const req = new Request("https://example.com", { method: "GET" });
     const res = await mod.serveWebhook(req);
     assertEquals(res.status, 405);
-    const verReq = new Request("https://example.com/version", { method: "GET" });
+    const verReq = new Request("https://example.com/version", {
+      method: "GET",
+    });
     const verRes = await mod.serveWebhook(verReq);
     assertEquals(verRes.status, 200);
+  } finally {
+    cleanup();
+  }
+});
+
+Deno.test("telegram-bot handles HEAD requests", async () => {
+  setEnv();
+  try {
+    const mod = await import(
+      `../supabase/functions/telegram-bot/index.ts?${Math.random()}`
+    );
+    const verHead = new Request("https://example.com/version", {
+      method: "HEAD",
+    });
+    const verRes = await mod.serveWebhook(verHead);
+    assertEquals(verRes.status, 200);
+    const otherHead = new Request("https://example.com/other", {
+      method: "HEAD",
+    });
+    const otherRes = await mod.serveWebhook(otherHead);
+    assertEquals(otherRes.status, 405);
   } finally {
     cleanup();
   }
