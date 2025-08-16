@@ -1,32 +1,36 @@
 // scripts/set-chat-menu-button.ts
 // Sets a persistent chat menu button to open your Mini App.
-// Env needed: TELEGRAM_BOT_TOKEN and either MINI_APP_URL or MINI_APP_SHORT_NAME
+// Env needed: TELEGRAM_BOT_TOKEN and MINI_APP_URL
 const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const urlRaw = Deno.env.get("MINI_APP_URL");
-const shortName = Deno.env.get("MINI_APP_SHORT_NAME");
 
-if (!token || (!urlRaw && !shortName)) {
+if (!token) {
+  console.error("Need TELEGRAM_BOT_TOKEN in env.");
+  Deno.exit(1);
+}
+
+if (!urlRaw) {
   console.error(
-    "Need TELEGRAM_BOT_TOKEN and MINI_APP_URL or MINI_APP_SHORT_NAME in env.",
+    "MINI_APP_URL is required. Configure the chat menu button via BotFather instead if you prefer.",
   );
   Deno.exit(1);
 }
 
-let url: string;
-if (shortName) {
-  const meRes = await fetch(
-    `https://api.telegram.org/bot${token}/getMe`,
-  );
-  const me = await meRes.json();
-  const username: string | undefined = me.result?.username;
-  if (!username) {
-    console.error("Could not determine bot username from getMe");
-    Deno.exit(1);
-  }
-  url = `https://t.me/${username}/${shortName}`;
-} else {
-  url = urlRaw!.endsWith("/") ? urlRaw! : urlRaw! + "/";
+let parsed: URL;
+try {
+  parsed = new URL(urlRaw);
+} catch {
+  console.error("MINI_APP_URL must be a valid URL.");
+  Deno.exit(1);
 }
+
+if (parsed.protocol !== "https:") {
+  console.error("MINI_APP_URL must start with https://");
+  Deno.exit(1);
+}
+
+if (!parsed.pathname.endsWith("/")) parsed.pathname += "/";
+const url = parsed.toString();
 
 const payload = {
   menu_button: {
