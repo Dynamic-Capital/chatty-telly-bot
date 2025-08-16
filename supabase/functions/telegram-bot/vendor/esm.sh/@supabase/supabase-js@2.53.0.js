@@ -9,7 +9,9 @@ export function createClient() {
       let payload = null;
       let lastInsert = null;
       const api = {
-        select() { return api; },
+        select() {
+          return api;
+        },
         insert(vals) {
           op = "insert";
           const arr = Array.isArray(vals) ? vals : [vals];
@@ -25,7 +27,9 @@ export function createClient() {
         upsert(vals) {
           const arr = Array.isArray(vals) ? vals : [vals];
           arr.forEach((v) => {
-            const idx = rows.findIndex((r) => String(r.telegram_user_id) === String(v.telegram_user_id));
+            const idx = rows.findIndex((r) =>
+              String(r.telegram_user_id) === String(v.telegram_user_id)
+            );
             if (idx >= 0) rows[idx] = { ...rows[idx], ...v };
             else rows.push(v);
           });
@@ -43,15 +47,40 @@ export function createClient() {
         },
         single: async () => {
           if (op === "insert") return { data: lastInsert, error: null };
-          const r = rows.find((r) => col ? String(r[col]) === String(val) : true);
+          const r = rows.find((r) =>
+            col ? String(r[col]) === String(val) : true
+          );
           return { data: r, error: null };
         },
         maybeSingle: async () => {
-          const r = rows.find((r) => col ? String(r[col]) === String(val) : true);
+          const r = rows.find((r) =>
+            col ? String(r[col]) === String(val) : true
+          );
           return { data: r || null, error: null };
         },
       };
       return api;
+    },
+    rpc(name, params) {
+      if (name === "rl_touch") {
+        const rl = state.rl || (state.rl = {});
+        const now = Date.now();
+        const rec = rl[params._tg] || { count: 0, ts: now };
+        if (now - rec.ts > 60_000) {
+          rec.count = 0;
+          rec.ts = now;
+        }
+        rec.count++;
+        rl[params._tg] = rec;
+        if (rec.count > params._limit) {
+          return Promise.resolve({
+            data: null,
+            error: { message: "rate_limited" },
+          });
+        }
+        return Promise.resolve({ data: { count: rec.count }, error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
     },
   };
 }
