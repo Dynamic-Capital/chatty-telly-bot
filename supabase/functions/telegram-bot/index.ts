@@ -244,6 +244,7 @@ export async function sendMiniAppLink(chatId: number): Promise<string | null> {
   }
 
   const rawUrl = optionalEnv("MINI_APP_URL") || "";
+  const miniShort = optionalEnv("MINI_APP_SHORT_NAME") || "";
 
   // Normalize MINI_APP_URL if present
   let miniUrl: string | null = null;
@@ -275,9 +276,20 @@ export async function sendMiniAppLink(chatId: number): Promise<string | null> {
     }
     return miniUrl;
   }
+
+  if (miniShort && botUsername) {
+    const link = `https://t.me/${botUsername}/${miniShort}`;
+    await sendMessage(chatId, "Join the VIP Mini App:", {
+      reply_markup: {
+        inline_keyboard: [[{ text: "Join", url: link }]],
+      },
+    });
+    return link;
+  }
+
   await sendMessage(
     chatId,
-    "Mini app is not configured. Please set MINI_APP_URL.",
+    "Mini app is being configured. Please try again soon.",
   );
   return null;
 }

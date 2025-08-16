@@ -36,9 +36,16 @@ function cleanup() {
 
 Deno.test("/start shows menu buttons for new users", async () => {
   setEnv();
+  // Provide URL without trailing slash to ensure normalization
+  Deno.env.set(
+    "MINI_APP_URL",
+    "https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp",
+  );
   await setConfig("features:published", { ts: Date.now(), data: { mini_app_enabled: true } });
   const calls: Array<{ url: string; body: string }> = [];
+  const logs: string[] = [];
   const originalFetch = globalThis.fetch;
+  const origLog = console.log;
   globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.startsWith("https://api.telegram.org")) {
@@ -46,6 +53,9 @@ Deno.test("/start shows menu buttons for new users", async () => {
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     }
     return new Response("{}", { status: 200 });
+  };
+  console.log = (...args: unknown[]) => {
+    logs.push(args.join(" "));
   };
   try {
     supaState.tables = {
@@ -70,8 +80,10 @@ Deno.test("/start shows menu buttons for new users", async () => {
     const second = JSON.parse(calls[1].body);
     assertEquals(second.text, "Welcome! Choose an option:");
     assertEquals(second.reply_markup.inline_keyboard[0][0].text, "✅ Home");
+    assert(logs.every((l) => !l.includes(" 400")), "no 400 logs");
   } finally {
     globalThis.fetch = originalFetch;
+    console.log = origLog;
     cleanup();
     await setConfig("features:published", { ts: Date.now(), data: { mini_app_enabled: false } });
   }
@@ -156,7 +168,57 @@ Deno.test("/start shows packages/promos for returning users", async () => {
   }
 });
 
-Deno.test("/start advises to set MINI_APP_URL when missing", async () => {
+Deno.test("/start uses short name link when configured", async () => {
+  setEnv();
+  Deno.env.delete("MINI_APP_URL");
+  Deno.env.set("MINI_APP_SHORT_NAME", "shorty");
+  Deno.env.set("TELEGRAM_BOT_USERNAME", "mybot");
+  await setConfig("features:published", { ts: Date.now(), data: { mini_app_enabled: true } });
+  const calls: Array<{ url: string; body: string }> = [];
+  const logs: string[] = [];
+  const originalFetch = globalThis.fetch;
+  const origLog = console.log;
+  globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.startsWith("https://api.telegram.org")) {
+      calls.push({ url, body: init?.body ? String(init.body) : "" });
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }
+    return new Response("{}", { status: 200 });
+  };
+  console.log = (...args: unknown[]) => logs.push(args.join(" "));
+  try {
+    supaState.tables = {
+      bot_users: [],
+      bot_content: [
+        { content_key: "welcome_message", content_value: "Welcome new user", is_active: true },
+      ],
+    };
+    const mod = await import(`../supabase/functions/telegram-bot/index.ts?${Math.random()}`);
+    const req = new Request("https://example.com", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Telegram-Bot-Api-Secret-Token": "testsecret",
+      },
+      body: JSON.stringify({ message: { text: "/start", chat: { id: 1 }, from: { id: 1 } } }),
+    });
+    const res = await mod.serveWebhook(req);
+    assertEquals(res.status, 200);
+    const second = JSON.parse(calls[1].body);
+    const btn = second.reply_markup.inline_keyboard[0][0];
+    assertEquals(btn.url, "https://t.me/mybot/shorty");
+    assertEquals(btn.web_app, undefined);
+    assert(logs.every((l) => !l.includes(" 400")), "no 400 logs");
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.log = origLog;
+    cleanup();
+    await setConfig("features:published", { ts: Date.now(), data: { mini_app_enabled: false } });
+  }
+});
+
+Deno.test("/start warns when launch info missing", async () => {
   Deno.env.set("TELEGRAM_BOT_TOKEN", "testtoken");
   Deno.env.delete("MINI_APP_URL");
   Deno.env.delete("MINI_APP_SHORT_NAME");
@@ -167,7 +229,9 @@ Deno.test("/start advises to set MINI_APP_URL when missing", async () => {
   Deno.env.set("SUPABASE_ANON_KEY", "anon");
   await setConfig("features:published", { ts: Date.now(), data: { mini_app_enabled: true } });
   const calls: Array<{ url: string; body: string }> = [];
+  const logs: string[] = [];
   const originalFetch = globalThis.fetch;
+  const origLog = console.log;
   globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.startsWith("https://api.telegram.org")) {
@@ -176,6 +240,7 @@ Deno.test("/start advises to set MINI_APP_URL when missing", async () => {
     }
     return new Response("{}", { status: 200 });
   };
+  console.log = (...args: unknown[]) => logs.push(args.join(" "));
   try {
     supaState.tables = {
       bot_users: [],
@@ -197,10 +262,12 @@ Deno.test("/start advises to set MINI_APP_URL when missing", async () => {
     const first = JSON.parse(calls[0].body);
     assertEquals(first.text, "Welcome new user");
     const second = JSON.parse(calls[1].body);
-    assertEquals(second.text, "Mini app is not configured. Please set MINI_APP_URL.");
+    assertEquals(second.text, "Mini app is being configured. Please try again soon.");
     assertEquals(second.reply_markup, undefined);
+    assert(logs.every((l) => !l.includes(" 400")), "no 400 logs");
   } finally {
     globalThis.fetch = originalFetch;
+    console.log = origLog;
     cleanup();
     await setConfig("features:published", { ts: Date.now(), data: { mini_app_enabled: false } });
   }
