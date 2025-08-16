@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/testing/asserts.ts";
-import { handler } from "../supabase/functions/miniapp/index.ts";
+import handler from "../supabase/functions/miniapp/index.ts";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 Deno.test({
@@ -13,7 +13,9 @@ Deno.test({
 
     try {
       await Deno.remove("supabase/functions/miniapp/static/assets/foo.css");
-    } catch {}
+    } catch {
+      // ignore
+    }
 
     const resRoot = await fetch(`${base}/miniapp/`);
     assertEquals(resRoot.status, 200);
@@ -70,6 +72,8 @@ Deno.test({
     controller.abort();
     try {
       await Deno.remove("supabase/functions/miniapp/static/assets/foo.css");
-    } catch {}
+    } catch {
+      // ignore
+    }
   },
 });
