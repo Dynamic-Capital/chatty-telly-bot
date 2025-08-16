@@ -1238,7 +1238,7 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         await notifyUser(chatId, "Unable to start crypto payment.");
         return;
       }
-      const { data: pay } = await supa
+      const { error: perr } = await supa
         .from("payments")
         .insert({
           user_id: userId,
@@ -1247,18 +1247,17 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
           currency: "USD",
           payment_method: "crypto",
           status: "pending",
-        })
-        .select("id")
-        .single();
+        });
       const address = optionalEnv("CRYPTO_DEPOSIT_ADDRESS") ||
         "Please contact support for the crypto address.";
-      if (pay?.id) {
+      if (perr) {
+        console.error("create crypto payment error", perr);
+        await notifyUser(chatId, "Unable to create payment. Please try again later.");
+      } else {
         await notifyUser(
           chatId,
           `Send the payment to ${address} and reply with the transaction details for manual approval.`,
         );
-      } else {
-        await notifyUser(chatId, "Unable to create payment. Please try again later.");
       }
       return;
     }
