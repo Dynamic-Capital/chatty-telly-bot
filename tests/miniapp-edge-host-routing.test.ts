@@ -19,6 +19,11 @@ Deno.test({
     assertEquals(resVersion.status, 200);
     await resVersion.arrayBuffer();
 
+    const resHead = await fetch(`${base}/miniapp/`, { method: "HEAD" });
+    assertEquals(resHead.status, 200);
+    assertEquals(resHead.headers.get("x-content-type-options"), "nosniff");
+    await resHead.arrayBuffer();
+
     const resNotFound = await fetch(`${base}/miniapp/nope`);
     assertEquals(resNotFound.status, 404);
     await resNotFound.arrayBuffer();
