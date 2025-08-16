@@ -42,6 +42,7 @@ apps/miniapp-react/package-lock.json
 
 # Include mini app static assets for deployment
 # (previously ignored to keep directory empty)
+!supabase/functions/miniapp/static/**
 
 # Audit reports
 .audit/
