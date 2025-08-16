@@ -197,7 +197,7 @@ Deno.test("/start advises to set MINI_APP_URL when missing", async () => {
     const first = JSON.parse(calls[0].body);
     assertEquals(first.text, "Welcome new user");
     const second = JSON.parse(calls[1].body);
-    assertEquals(second.text, "Mini app is not configured. Please set MINI_APP_URL.");
+    assertEquals(second.text, "Mini app is being configured. Please try again soon.");
     assertEquals(second.reply_markup, undefined);
   } finally {
     globalThis.fetch = originalFetch;
