@@ -10,7 +10,12 @@ function App() {
   return <AppRouter />;
 }
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+const root = document.getElementById("root");
+if (!root) {
+  throw new Error("Root element not found");
+}
+
+ReactDOM.createRoot(root).render(
   <React.StrictMode>
     <HashRouter>
       <App />
