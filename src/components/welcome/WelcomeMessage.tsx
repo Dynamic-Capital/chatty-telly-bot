@@ -122,7 +122,7 @@ export const WelcomeMessage = () => {
         instructions: Instructions;
       };
       localStorage.setItem("paymentId", payment_id);
-      if (instructions.type === "bank_transfer") {
+      if (instructions.type === "bank_transfer" && "banks" in instructions) {
         const message = instructions.banks
           .map(
             (b) =>
@@ -130,10 +130,10 @@ export const WelcomeMessage = () => {
           )
           .join("\n\n");
         toast({ title: "Bank Transfer Instructions", description: message });
-      } else {
+      } else if ("note" in instructions) {
         toast({
           title: "Payment Instructions",
-          description: (instructions as { note: string }).note,
+          description: instructions.note,
         });
       }
     } catch (err) {
