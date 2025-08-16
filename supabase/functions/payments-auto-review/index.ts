@@ -1,33 +1,13 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
-import { ok, mna, oops, unauth, bad, nf } from "../_shared/http.ts";
+import { ok, mna, oops } from "../_shared/http.ts";
+import { activateSubscription } from "../_shared/subscriptions.ts";
 
 const need = (k: string) =>
   Deno.env.get(k) || (() => {
     throw new Error(`Missing env ${k}`);
   })();
 
-async function completePayment(
-  _supa: unknown,
-  paymentId: string,
-  monthsOverride?: number,
-) {
-  // Reuse Phase 4 admin flow by calling the endpoint (keeps logic in one place)
-  const admin = need("ADMIN_API_SECRET");
-  const ref = new URL(need("SUPABASE_URL")).hostname.split(".")[0];
-  const url = `https://${ref}.functions.supabase.co/admin-review-payment`;
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json", "X-Admin-Secret": admin },
-    body: JSON.stringify({
-      payment_id: paymentId,
-      decision: "approve",
-      months: monthsOverride,
-      message: "✅ Auto-verified payment",
-    }),
-  });
-  return { ok: r.ok, j: await r.json().catch(() => ({})) };
-}
 
 function num(x: unknown) {
   const n = Number(x);
@@ -60,7 +40,7 @@ serve(async (req) => {
     const sinceIso = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
     const { data: pendings } = await supa.from("payments")
       .select(
-        "id,plan_id,amount,currency,payment_method,created_at,webhook_data, status",
+        "id,plan_id,amount,currency,payment_method,created_at,webhook_data,status,user_id,bot_users!inner(telegram_id)",
       )
       .eq("status", "pending").gte("created_at", sinceIso).limit(50);
 
@@ -129,8 +109,13 @@ serve(async (req) => {
           affected_table: "payments",
           affected_record_id: p.id,
         });
-        const okr = await completePayment(supa, p.id);
-        results.push({ id: p.id, action: "completed", ok: okr.ok });
+        await supa.from("payments").update({ status: "completed" }).eq("id", p.id);
+        await activateSubscription({
+          telegramId: p.bot_users?.telegram_id,
+          planId: p.plan_id,
+          paymentId: p.id,
+        });
+        results.push({ id: p.id, action: "completed", ok: true });
       } else {
         results.push({
           id: p.id,

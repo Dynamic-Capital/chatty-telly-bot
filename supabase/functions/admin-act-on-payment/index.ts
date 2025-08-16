@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
 import { verifyInitDataAndGetUser, isAdmin } from "../_shared/telegram.ts";
 import { ok, bad, nf, mna, unauth } from "../_shared/http.ts";
+import { activateSubscription } from "../_shared/subscriptions.ts";
 import { requireEnv } from "../_shared/env.ts";
 
 type Body = { initData: string; payment_id: string; decision: "approve"|"reject"; months?: number; message?: string };
@@ -50,32 +51,17 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   // approve
-  let months = Number.isFinite(body.months) ? Number(body.months) : null;
-  if (!months) {
-    const { data: plan } = await supa.from("subscription_plans").select("duration_months,is_lifetime").eq("id", p.plan_id).maybeSingle();
-    months = plan?.is_lifetime ? 1200 : (plan?.duration_months || 1);
-  }
-
-  const now = new Date();
-  const base = user.subscription_expires_at && new Date(user.subscription_expires_at) > now ? new Date(user.subscription_expires_at) : now;
-  const next = new Date(base); next.setMonth(next.getMonth() + (months || 1));
-  const expiresAt = next.toISOString();
-
+  const months = Number.isFinite(body.months) ? Number(body.months) : undefined;
   await supa.from("payments").update({ status: "completed" }).eq("id", p.id).single();
-  await supa.from("user_subscriptions").upsert({
-    telegram_user_id: user.telegram_id, plan_id: p.plan_id, payment_status: "completed",
-    is_active: true, subscription_start_date: now.toISOString(), subscription_end_date: expiresAt
-  }, { onConflict: "telegram_user_id" });
-  await supa.from("bot_users").update({ is_vip: true, subscription_expires_at: expiresAt }).eq("id", user.id).single();
+  const { expiresAt } = await activateSubscription({
+    telegramId: user.telegram_id,
+    planId: p.plan_id,
+    paymentId: p.id,
+    adminTelegramId: String(u.id),
+    monthsOverride: months,
+  });
 
   if (user.telegram_id) await tgSend(bot, String(user.telegram_id), `✅ <b>VIP Activated</b>\nValid until <b>${new Date(expiresAt).toLocaleDateString()}</b>.`);
-  await supa.from("admin_logs").insert({
-    admin_telegram_id: String(u.id),
-    action_type: "payment_completed",
-    action_description: `Payment ${p.id} completed; VIP until ${expiresAt}`,
-    affected_table: "bot_users", affected_record_id: user.id,
-    new_values: { is_vip: true, subscription_expires_at: expiresAt }
-  });
 
   return ok({ status: "completed", subscription_expires_at: expiresAt });
 }

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
 import { getEnv, optionalEnv } from "../_shared/env.ts";
 import { ok, bad, unauth, mna, nf } from "../_shared/http.ts";
+import { activateSubscription } from "../_shared/subscriptions.ts";
 
 type Body = {
   admin_telegram_id?: string;
@@ -101,42 +102,18 @@ serve(async (req) => {
     return ok({ status: newStatus });
   }
 
-  let months = Number.isFinite(body.months) ? Number(body.months) : null;
-  if (!months) {
-    const { data: plan } = await supa
-      .from("subscription_plans")
-      .select("duration_months,is_lifetime")
-      .eq("id", p.plan_id)
-      .maybeSingle();
-    if (plan?.is_lifetime) months = 1200;
-    else months = plan?.duration_months || 1;
-  }
-
-  const now = new Date();
-  const base = prof.subscription_expires_at &&
-      new Date(prof.subscription_expires_at) > now
-    ? new Date(prof.subscription_expires_at)
-    : now;
-  const next = new Date(base);
-  next.setMonth(next.getMonth() + (months || 1));
-  expiresAt = next.toISOString();
-
+  const months = Number.isFinite(body.months) ? Number(body.months) : undefined;
   newStatus = "completed";
   await supa.from("payments").update({ status: newStatus }).eq("id", p.id);
 
-  await supa.from("user_subscriptions").upsert({
-    telegram_user_id: prof.telegram_id,
-    plan_id: p.plan_id,
-    payment_status: "completed",
-    is_active: true,
-    subscription_start_date: now.toISOString(),
-    subscription_end_date: expiresAt,
-  }, { onConflict: "telegram_user_id" });
-
-  await supa.from("bot_users").update({
-    is_vip: true,
-    subscription_expires_at: expiresAt,
-  }).eq("id", prof.id);
+  const { expiresAt: exp } = await activateSubscription({
+    telegramId: prof.telegram_id,
+    planId: p.plan_id,
+    paymentId: p.id,
+    adminTelegramId: adminId || "unknown",
+    monthsOverride: months,
+  });
+  expiresAt = exp;
 
   if (prof.telegram_id) {
     const msg = body.message ||
@@ -145,15 +122,6 @@ serve(async (req) => {
       }</b>.`;
     await tgSend(botToken, String(prof.telegram_id), msg);
   }
-
-  await supa.from("admin_logs").insert({
-    admin_telegram_id: adminId || "unknown",
-    action_type: "payment_completed",
-    action_description: `Payment ${p.id} completed; VIP until ${expiresAt}`,
-    affected_table: "bot_users",
-    affected_record_id: prof.id,
-    new_values: { is_vip: true, subscription_expires_at: expiresAt },
-  });
 
   return ok({ status: newStatus, subscription_expires_at: expiresAt });
 });
