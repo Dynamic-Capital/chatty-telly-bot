@@ -110,6 +110,50 @@ registerTest("mini app link available by default", async () => {
   }
 });
 
+registerTest("mini app link warns when URL missing", async () => {
+  if (typeof Deno !== "undefined") {
+    Deno.env.set("TELEGRAM_BOT_TOKEN", "tbot");
+    Deno.env.delete("MINI_APP_URL");
+  } else {
+    process.env.TELEGRAM_BOT_TOKEN = "tbot";
+    delete process.env.MINI_APP_URL;
+  }
+  (globalThis as any).__TEST_ENV__ = {
+    SUPABASE_URL: "x",
+    SUPABASE_ANON_KEY: "x",
+    SUPABASE_SERVICE_ROLE_KEY: "x",
+  };
+  const { setConfig } = await import(
+    "../supabase/functions/_shared/config.ts"
+  );
+  await setConfig("features:published", { ts: Date.now(), data: {} });
+  const { sendMiniAppLink } = await import(
+    "../supabase/functions/telegram-bot/index.ts"
+  );
+  let text = "";
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (_input, init) => {
+    const body = JSON.parse(init?.body ?? "{}");
+    text = body.text;
+    return new Response(
+      JSON.stringify({ ok: true, result: { message_id: 1 } }),
+      { status: 200 },
+    );
+  };
+  try {
+    const url = await sendMiniAppLink(123);
+    assertEquals(url, null);
+    assertEquals(text.includes("MINI_APP_URL"), true);
+  } finally {
+    globalThis.fetch = orig;
+    delete (globalThis as any).__TEST_ENV__;
+    await setConfig("features:published", {
+      ts: Date.now(),
+      data: { mini_app_enabled: false },
+    });
+  }
+});
+
 registerTest("vip sync flag blocks pipeline", async () => {
   if (typeof Deno !== "undefined") {
     Deno.env.set("TELEGRAM_BOT_TOKEN", "tbot");

@@ -123,7 +123,13 @@ async function sendMessage(
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, text, ...extra }),
+        body: JSON.stringify({
+          chat_id: chatId,
+          text,
+          disable_web_page_preview: true,
+          allow_sending_without_reply: true,
+          ...extra,
+        }),
       },
     );
     const outText = await r.text();
@@ -269,19 +275,9 @@ export async function sendMiniAppLink(chatId: number): Promise<string | null> {
     }
     return miniUrl;
   }
-
-  if (botUsername) {
-    const deepLink = `https://t.me/${botUsername}?startapp=1`;
-    await sendMessage(
-      chatId,
-      `Join the VIP Mini App: ${deepLink}\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)`,
-    );
-    return deepLink;
-  }
-
   await sendMessage(
     chatId,
-    "Welcome! Mini app is being configured. Please try again soon.",
+    "Mini app is not configured. Please set MINI_APP_URL.",
   );
   return null;
 }
