@@ -11,7 +11,9 @@ Deno.env.set("SUPABASE_URL", "https://example.com");
 Deno.env.set("SUPABASE_ANON_KEY", "anon");
 Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "service");
 
-let mod: Record<string, unknown> | null = null;
+let mod:
+  | typeof import("../../supabase/functions/miniapp-health/index.ts")
+  | null = null;
 try {
   mod = await import("../../supabase/functions/miniapp-health/index.ts");
 } catch {

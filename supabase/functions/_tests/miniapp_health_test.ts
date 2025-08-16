@@ -6,7 +6,7 @@ Deno.test("miniapp-health: null when user not found", async () => {
   Deno.env.set("SUPABASE_ANON_KEY", "anon");
   Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "service");
   const { getVipForTelegram } = await import("../miniapp-health/index.ts");
-  const supa = FakeSupa();
+  const supa = FakeSupa() as any;
   const vip = await getVipForTelegram(supa, "2255");
   assertEquals(vip, null);
 });
