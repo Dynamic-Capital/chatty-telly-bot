@@ -17,16 +17,30 @@ export async function makeTelegramInitData(
   // builds a valid WebApp initData for tests
   const enc = new TextEncoder();
   const secretKey = await crypto.subtle.digest("SHA-256", enc.encode(botToken));
-  const key = await crypto.subtle.importKey("raw", secretKey, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    secretKey,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
   const params = new URLSearchParams({
     user: encodeURIComponent(JSON.stringify(user)),
-    auth_date: String(Math.floor(Date.now()/1000)),
+    auth_date: String(Math.floor(Date.now() / 1000)),
     query_id: "TEST",
-    ...extra
+    ...extra,
   });
-  const dataCheckString = Array.from(params.entries()).map(([k,v])=>`${k}=${v}`).sort().join("\n");
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(dataCheckString));
-  const hash = [...new Uint8Array(sig)].map(b=>b.toString(16).padStart(2,"0")).join("");
+  const dataCheckString = Array.from(params.entries()).map(([k, v]) =>
+    `${k}=${v}`
+  ).sort().join("\n");
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    enc.encode(dataCheckString),
+  );
+  const hash = [...new Uint8Array(sig)].map((b) =>
+    b.toString(16).padStart(2, "0")
+  ).join("");
   params.set("hash", hash);
   return params.toString();
 }
@@ -35,15 +49,41 @@ export const FakeSupa = () => ({
   from: (_table: string) => ({
     _table,
     _sel: "",
-    select(sel: string) { this._sel = sel; return this; },
-    eq() { return this; },
-    limit() { return this; },
-    order() { return this; },
-    maybeSingle() { return { data: null, error: null }; },
-    range() { return { data: [], error: null }; },
-    insert() { return { data: null, error: null }; },
-    update() { return { data: null, error: null }; },
-    upsert() { return { data: null, error: null }; }
+    select(sel: string) {
+      this._sel = sel;
+      return this;
+    },
+    eq() {
+      return this;
+    },
+    limit() {
+      return this;
+    },
+    order() {
+      return this;
+    },
+    maybeSingle() {
+      return Promise.resolve({ data: null, error: null });
+    },
+    range() {
+      return Promise.resolve({ data: [], error: null });
+    },
+    insert() {
+      return Promise.resolve({ data: null, error: null });
+    },
+    update() {
+      return Promise.resolve({ data: null, error: null });
+    },
+    upsert() {
+      return Promise.resolve({ data: null, error: null });
+    },
   }),
-  storage: { from: () => ({ createSignedUrl: async () => ({ data: { signedUrl: "https://example/signed" }, error: null }) }) }
+  storage: {
+    from: () => ({
+      createSignedUrl: async () => ({
+        data: { signedUrl: "https://example/signed" },
+        error: null,
+      }),
+    }),
+  },
 });

@@ -5,7 +5,11 @@ interface SupabaseLike {
   from: (table: string) => {
     select: (columns: string) => {
       eq: (col: string, value: string) => {
-        limit: (n: number) => Promise<{ data?: Array<Record<string, unknown>>; error?: { message: string } }>;
+        limit: (
+          n: number,
+        ) => Promise<
+          { data?: Array<Record<string, unknown>>; error?: { message: string } }
+        >;
       };
     };
   };
@@ -72,3 +76,5 @@ async function handler(req: Request): Promise<Response> {
 if (import.meta.main) {
   serve(handler);
 }
+
+export default handler;
