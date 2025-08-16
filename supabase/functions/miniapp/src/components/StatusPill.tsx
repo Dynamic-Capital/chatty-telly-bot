@@ -5,7 +5,7 @@ const variants = {
   REVIEW: "dc-pill--review",
 } as const;
 
-type Status = keyof typeof variants;
+export type Status = keyof typeof variants;
 
 interface Props {
   status: Status;
