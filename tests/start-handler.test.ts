@@ -1,5 +1,13 @@
-import { assertEquals, assertMatch } from "https://deno.land/std@0.224.0/testing/asserts.ts";
-import { setConfig } from "../supabase/functions/_shared/config.ts";
+import {
+  assert,
+  assertEquals,
+  assertMatch,
+} from "https://deno.land/std@0.224.0/testing/asserts.ts";
+
+async function setConfig(key: string, val: unknown) {
+  const mod = await import("../supabase/functions/_shared/config.ts");
+  await mod.setConfig(key, val);
+}
 
 const supaState = { tables: {} as Record<string, any[]> };
 (globalThis as any).__SUPA_MOCK__ = supaState;
@@ -66,6 +74,44 @@ Deno.test("/start shows menu buttons for new users", async () => {
     globalThis.fetch = originalFetch;
     cleanup();
     await setConfig("features:published", { ts: Date.now(), data: { mini_app_enabled: false } });
+  }
+});
+
+Deno.test("command registry routes /help", async () => {
+  setEnv();
+  const calls: Array<{ url: string; body: string }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.startsWith("https://api.telegram.org")) {
+      calls.push({ url, body: init?.body ? String(init.body) : "" });
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }
+    return new Response("{}", { status: 200 });
+  };
+  try {
+    supaState.tables = {
+      bot_content: [
+        { content_key: "help_message", content_value: "Helpful text", is_active: true },
+      ],
+    };
+    const mod = await import(`../supabase/functions/telegram-bot/index.ts?${Math.random()}`);
+    assert(mod.commandHandlers["/help"], "registry contains /help handler");
+    const req = new Request("https://example.com", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Telegram-Bot-Api-Secret-Token": "testsecret",
+      },
+      body: JSON.stringify({ message: { text: "/help", chat: { id: 1 }, from: { id: 1 } } }),
+    });
+    const res = await mod.serveWebhook(req);
+    assertEquals(res.status, 200);
+    const first = JSON.parse(calls[0].body);
+    assertEquals(first.text, "Helpful text");
+  } finally {
+    globalThis.fetch = originalFetch;
+    cleanup();
   }
 });
 
