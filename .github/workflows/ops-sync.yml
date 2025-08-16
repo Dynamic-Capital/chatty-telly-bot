@@ -1,0 +1,30 @@
+name: Ops Sync
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - run: npm ci
+      - run: npm test
+      - name: Sync audit
+        if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' && secrets.SUPABASE_PROJECT_REF != '' && secrets.ADMIN_API_SECRET != '' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          ADMIN_API_SECRET: ${{ secrets.ADMIN_API_SECRET }}
+        run: scripts/ops/sync-audit.sh
+      - name: Smoke test
+        if: always()
+        run: scripts/ops/smoke.sh
