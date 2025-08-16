@@ -159,7 +159,7 @@ Deno.test("/start shows packages/promos for returning users", async () => {
 Deno.test("/start deep-link used when MINI_APP_URL missing", async () => {
   Deno.env.set("TELEGRAM_BOT_TOKEN", "testtoken");
   Deno.env.delete("MINI_APP_URL");
-  Deno.env.set("MINI_APP_SHORT_NAME", "shorty");
+  Deno.env.delete("MINI_APP_SHORT_NAME");
   Deno.env.set("TELEGRAM_BOT_USERNAME", "mybot");
   Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "testsecret");
   Deno.env.set("SUPABASE_URL", "http://local");
@@ -199,7 +199,7 @@ Deno.test("/start deep-link used when MINI_APP_URL missing", async () => {
     const second = JSON.parse(calls[1].body);
     assertEquals(
       second.text,
-      "Join the VIP Mini App: https://t.me/mybot/shorty\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)",
+      "Join the VIP Mini App: https://t.me/mybot?startapp=1\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)",
     );
     assertEquals(second.reply_markup, undefined);
   } finally {

@@ -238,7 +238,6 @@ export async function sendMiniAppLink(chatId: number): Promise<string | null> {
   }
 
   const rawUrl = optionalEnv("MINI_APP_URL") || "";
-  const short = optionalEnv("MINI_APP_SHORT_NAME") || "";
 
   // Normalize MINI_APP_URL if present
   let miniUrl: string | null = null;
@@ -271,8 +270,8 @@ export async function sendMiniAppLink(chatId: number): Promise<string | null> {
     return miniUrl;
   }
 
-  if (short && botUsername) {
-    const deepLink = `https://t.me/${botUsername}/${short}`;
+  if (botUsername) {
+    const deepLink = `https://t.me/${botUsername}?startapp=1`;
     await sendMessage(
       chatId,
       `Join the VIP Mini App: ${deepLink}\n\n(Setup MINI_APP_URL for the in-button WebApp experience.)`,
