@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { mna, nf, ok } from "../_shared/http.ts";
 
 const STATIC_CACHE = new Map<string, Response>();
@@ -60,7 +59,7 @@ async function maybeCompress(req: Request, res: Response): Promise<Response> {
     return new Response(data, { status: res.status, headers: res.headers });
   }
 
-  const cs = new CompressionStream(encoding);
+  const cs = new CompressionStream(encoding as CompressionFormat);
   const stream = new Response(data).body!.pipeThrough(cs);
   const h = new Headers(res.headers);
   h.set("content-encoding", encoding);
@@ -69,10 +68,22 @@ async function maybeCompress(req: Request, res: Response): Promise<Response> {
 }
 
 async function indexHtml() {
-  // serve UTF-8 to avoid garbled symbols
-  const r = await readStatic("index.html", "text/html; charset=utf-8");
-  if (r.status !== 200) {
-    // Fallback inline (also UTF-8)
+  try {
+    const data = await Deno.readFile(
+      new URL("./static/index.html", import.meta.url),
+    );
+    const h = withSec(
+      new Headers({
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+      }),
+    );
+    h.set("x-frame-options", "ALLOWALL"); // Telegram WebView
+    return new Response(data, { headers: h, status: 200 });
+  } catch {
+    console.warn(
+      "miniapp: static/index.html not in bundle (serving fallback)",
+    );
     const html = `<!doctype html><html lang="en"><head>
       <meta charset="utf-8"/>
       <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
@@ -89,9 +100,6 @@ async function indexHtml() {
     );
     return new Response(html, { headers: h, status: 200 });
   }
-  const h = new Headers(r.headers);
-  h.set("x-frame-options", "ALLOWALL"); // Telegram WebView
-  return new Response(await r.arrayBuffer(), { headers: h, status: 200 });
 }
 
 function mime(p: string) {
@@ -104,7 +112,7 @@ function mime(p: string) {
   return "application/octet-stream";
 }
 
-export async function handler(req: Request): Promise<Response> {
+export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   if (req.method === "GET" && url.pathname.endsWith("/version")) {
     return await maybeCompress(
@@ -139,5 +147,5 @@ export async function handler(req: Request): Promise<Response> {
 }
 
 if (import.meta.main) {
-  serve(handler);
+  Deno.serve(handler);
 }
