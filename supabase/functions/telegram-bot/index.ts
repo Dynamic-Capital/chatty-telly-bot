@@ -298,8 +298,10 @@ async function menuView(
 
   switch (section) {
     case "plans": {
-      const msg = await getFormattedVipPackages();
-      const pkgs = await getVipPackages();
+      const [msg, pkgs] = await Promise.all([
+        getFormattedVipPackages(),
+        getVipPackages(),
+      ]);
       const inline_keyboard = pkgs.map((pkg) => [{
         text: pkg.name,
         callback_data: "buy:" + pkg.id,
@@ -719,8 +721,10 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
         break;
       }
       case "/packages": {
-        const msg = await getFormattedVipPackages();
-        const pkgs = await getVipPackages();
+        const [msg, pkgs] = await Promise.all([
+          getFormattedVipPackages(),
+          getVipPackages(),
+        ]);
         const inline_keyboard = pkgs.map((pkg) => [{
           text: pkg.name,
           callback_data: "buy:" + pkg.id,
