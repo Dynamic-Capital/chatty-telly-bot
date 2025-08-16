@@ -1,4 +1,4 @@
-import { assertEquals } from "https://deno.land/std@0.224.0/testing/asserts.ts";
+import { assert, assertEquals } from "https://deno.land/std@0.224.0/testing/asserts.ts";
 import handler from "../supabase/functions/miniapp/index.ts";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
@@ -19,7 +19,11 @@ Deno.test({
 
     const resRoot = await fetch(`${base}/miniapp/`);
     assertEquals(resRoot.status, 200);
-    await resRoot.arrayBuffer();
+    const bodyRoot = await resRoot.text();
+    assert(
+      !bodyRoot.includes("Static <code>index.html</code> not found"),
+      "should not serve fallback HTML",
+    );
 
     const resVersion = await fetch(`${base}/miniapp/version`);
     assertEquals(resVersion.status, 200);

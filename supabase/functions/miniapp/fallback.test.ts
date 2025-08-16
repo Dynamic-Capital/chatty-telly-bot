@@ -1,3 +1,4 @@
+import handler from "./index.ts";
 import {
   assertEquals,
   assertStringIncludes,
@@ -10,11 +11,6 @@ Deno.test("returns fallback HTML when index.html fails to load", async () => {
   };
 
   try {
-    const mod = await import("./index.ts");
-    const handler = (mod as {
-      handler: (req: Request) => Promise<Response>;
-    }).handler;
-
     const res = await handler(new Request("http://example.com/"));
     assertEquals(res.status, 200);
     const body = await res.text();
