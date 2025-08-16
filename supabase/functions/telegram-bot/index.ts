@@ -7,7 +7,6 @@ import {
   getBotContent,
   getFormattedVipPackages,
   getVipPackages,
-  insertReceiptRecord,
 } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
@@ -696,6 +695,22 @@ async function storeReceiptImage(
   return storagePath;
 }
 
+async function sendPlanOptions(chatId: number): Promise<void> {
+  const [msg, pkgs] = await Promise.all([
+    getFormattedVipPackages(),
+    getVipPackages(),
+  ]);
+  const inline_keyboard = pkgs.map((pkg) => [{
+    text: pkg.name,
+    callback_data: "buy:" + pkg.id,
+  }]);
+  inline_keyboard.push([{ text: "Back", callback_data: "menu:home" }]);
+  await notifyUser(chatId, msg, {
+    reply_markup: { inline_keyboard },
+    parse_mode: "Markdown",
+  });
+}
+
 // Registry of user-facing command handlers
 export const commandHandlers: Record<string, CommandHandler> = {
   "/start": async ({ msg, chatId, miniAppValid }) => {
@@ -763,19 +778,13 @@ export const commandHandlers: Record<string, CommandHandler> = {
     await notifyUser(chatId, msg ?? "VIP information is unavailable.");
   },
   "/packages": async ({ chatId }) => {
-    const [msg, pkgs] = await Promise.all([
-      getFormattedVipPackages(),
-      getVipPackages(),
-    ]);
-    const inline_keyboard = pkgs.map((pkg) => [{
-      text: pkg.name,
-      callback_data: "buy:" + pkg.id,
-    }]);
-    inline_keyboard.push([{ text: "Back", callback_data: "menu:home" }]);
-    await notifyUser(chatId, msg, {
-      reply_markup: { inline_keyboard },
-      parse_mode: "Markdown",
-    });
+    await sendPlanOptions(chatId);
+  },
+  "/plans": async ({ chatId }) => {
+    await sendPlanOptions(chatId);
+  },
+  "/buy": async ({ chatId }) => {
+    await sendPlanOptions(chatId);
   },
   "/promo": async ({ msg, chatId }) => {
     const parts = (msg.text || "").split(/\s+/);
@@ -1016,16 +1025,140 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
       const pkgs = await getVipPackages();
       const plan = pkgs.find((p) => p.id === planId);
       if (plan) {
-        await notifyUser(chatId, `Confirm purchase of ${plan.name}?`, {
+        await notifyUser(chatId, `Choose payment method for ${plan.name}:`, {
           reply_markup: {
             inline_keyboard: [
-              [{ text: "Pay now", callback_data: "pay:" + plan.id }],
+              [{
+                text: "Binance Pay",
+                callback_data: `method:binance:${plan.id}`,
+              }],
+              [{
+                text: "Bank Transfer",
+                callback_data: `method:bank:${plan.id}`,
+              }],
+              [{ text: "Crypto", callback_data: `method:crypto:${plan.id}` }],
               [{ text: "Back", callback_data: "menu:plans" }],
             ],
           },
         });
       } else {
         await notifyUser(chatId, "Plan not found.");
+      }
+      return;
+    }
+    if (data.startsWith("method:bank:")) {
+      const planId = data.split(":")[2];
+      const supa = await getSupabase();
+      if (supa) {
+        const { data: us } = await supa
+          .from("user_sessions")
+          .select("id")
+          .eq("telegram_user_id", String(chatId))
+          .limit(1)
+          .maybeSingle();
+        if (us?.id) {
+          await supa
+            .from("user_sessions")
+            .update({
+              awaiting_input: `receipt:${planId}`,
+              last_activity: new Date().toISOString(),
+              is_active: true,
+            })
+            .eq("id", us.id);
+        } else {
+          await supa.from("user_sessions").insert({
+            telegram_user_id: String(chatId),
+            awaiting_input: `receipt:${planId}`,
+            last_activity: new Date().toISOString(),
+            is_active: true,
+          });
+        }
+      }
+      await notifyUser(chatId, "Please send a photo of your bank transfer receipt.");
+      return;
+    }
+    if (data.startsWith("method:binance:")) {
+      const planId = data.split(":")[2];
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        await notifyUser(chatId, "Checkout unavailable. Please try again later.");
+        return;
+      }
+      try {
+        const res = await fetch(
+          `${SUPABASE_URL}/functions/v1/binance-pay-checkout`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+            body: JSON.stringify({
+              planId,
+              telegramUserId: String(chatId),
+              telegramUsername: cb.from.username,
+            }),
+          },
+        );
+        const out = await res.json().catch(() => null);
+        if (out?.checkoutUrl) {
+          await notifyUser(
+            chatId,
+            "Complete payment using Binance Pay. We'll approve it manually.",
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: "Open Binance Pay", url: out.checkoutUrl }],
+                  [{ text: "Back", callback_data: "menu:plans" }],
+                ],
+              },
+            },
+          );
+        } else {
+          await notifyUser(chatId, "Failed to initiate Binance Pay checkout.");
+        }
+      } catch (e) {
+        console.error("binance-pay error", e);
+        await notifyUser(chatId, "Failed to initiate Binance Pay checkout.");
+      }
+      return;
+    }
+    if (data.startsWith("method:crypto:")) {
+      const planId = data.split(":")[2];
+      const supa = await getSupabase();
+      if (!supa) {
+        await notifyUser(chatId, "Crypto payments unavailable.");
+        return;
+      }
+      const { data: user } = await supa
+        .from("bot_users")
+        .select("id")
+        .eq("telegram_id", chatId)
+        .maybeSingle();
+      if (!user?.id) {
+        await notifyUser(chatId, "Please use /start before purchasing.");
+        return;
+      }
+      const { data: pay } = await supa
+        .from("payments")
+        .insert({
+          user_id: user.id,
+          plan_id: planId,
+          amount: null,
+          currency: "USD",
+          payment_method: "crypto",
+          status: "pending",
+        })
+        .select("id")
+        .single();
+      const address = optionalEnv("CRYPTO_DEPOSIT_ADDRESS") ||
+        "Please contact support for the crypto address.";
+      if (pay?.id) {
+        await notifyUser(
+          chatId,
+          `Send the payment to ${address} and reply with the transaction details for manual approval.`,
+        );
+      } else {
+        await notifyUser(chatId, "Unable to create payment. Please try again later.");
       }
       return;
     }
@@ -1076,19 +1209,65 @@ export async function startReceiptPipeline(
     const storagePath = `receipts/${chatId}/${hash}`;
     await storeReceiptImage(blob, storagePath);
     const supa = await getSupabase();
-    const { data: user } = await supa?.from("bot_users")
+    if (!supa) {
+      await notifyUser(chatId, "Receipt processing unavailable.");
+      return;
+    }
+    const { data: session } = await supa
+      .from("user_sessions")
+      .select("id,awaiting_input")
+      .eq("telegram_user_id", String(chatId))
+      .maybeSingle();
+    const awaiting = session?.awaiting_input || "";
+    if (!awaiting.startsWith("receipt:")) {
+      await notifyUser(chatId, "No pending purchase. Use /buy to select a plan.");
+      return;
+    }
+    const planId = awaiting.split(":")[1];
+    const { data: user } = await supa
+      .from("bot_users")
       .select("id")
       .eq("telegram_id", chatId)
-      .maybeSingle() ?? { data: null };
+      .maybeSingle();
     if (!user?.id) {
       await notifyUser(chatId, "Please use /start before sending receipts.");
       return;
     }
-    await insertReceiptRecord({
-      user_id: user.id,
-      file_url: storagePath,
-      image_sha256: hash,
-    });
+    const { data: pay } = await supa.from("payments")
+      .insert({
+        user_id: user.id,
+        plan_id: planId,
+        amount: null,
+        currency: "USD",
+        payment_method: "bank_transfer",
+        status: "pending",
+      })
+      .select("id")
+      .single();
+    if (!pay?.id || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      await notifyUser(chatId, "Failed to submit receipt. Please try again later.");
+      return;
+    }
+    const rs = await fetch(`${SUPABASE_URL}/functions/v1/receipt-submit`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({
+        telegram_id: String(chatId),
+        payment_id: pay.id,
+        storage_path: storagePath,
+      }),
+    }).then((r) => r.json()).catch(() => null);
+    if (!rs?.ok) {
+      await notifyUser(chatId, "Failed to submit receipt. Please try again later.");
+      return;
+    }
+    await supa.from("user_sessions").update({ awaiting_input: null }).eq(
+      "id",
+      session?.id,
+    );
     await notifyUser(chatId, "✅ Receipt received. We'll review it shortly.");
   } catch (err) {
     console.error("startReceiptPipeline error", err);
