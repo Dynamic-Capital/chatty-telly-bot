@@ -19,7 +19,12 @@ Run basic checks before deploying:
 ```bash
 deno check supabase/functions/telegram-bot/*.ts supabase/functions/telegram-bot/**/*.ts
 deno test -A
+node scripts/assert-miniapp-bundle.mjs
 ```
+
+The bundle check above fails if `supabase/functions/miniapp/static/index.html` is
+missing or unexpectedly small, and deployment should be halted until the issue
+is resolved.
 
 ## Deployment steps
 
