@@ -133,9 +133,33 @@ serve(async (req) => {
 
     logger.info("Plan found:", plan);
 
+    // Ensure bot user exists and get its UUID
+    logger.info("Ensuring bot user exists for telegram ID", telegramUserId);
+    const { data: bu } = await supabase
+      .from("bot_users")
+      .select("id")
+      .eq("telegram_id", telegramUserId)
+      .limit(1);
+    let botUserId = bu?.[0]?.id as string | undefined;
+    if (!botUserId) {
+      const { data: ins, error: insErr } = await supabase
+        .from("bot_users")
+        .insert({ telegram_id: telegramUserId })
+        .select("id")
+        .single();
+      if (insErr) {
+        logger.error("Bot user creation error:", insErr);
+        throw new Error("Failed to create bot user");
+      }
+      botUserId = ins?.id;
+    }
+    if (!botUserId) {
+      throw new Error("Bot user not found after creation attempt");
+    }
+
     // Create payment record
     const paymentData = {
-      user_id: telegramUserId,
+      user_id: botUserId,
       plan_id: planId,
       amount: plan.price,
       currency: "USDT",
