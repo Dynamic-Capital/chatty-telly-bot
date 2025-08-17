@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { need, maybe } from "../_shared/env.ts";
 import { ok, oops } from "../_shared/http.ts";
+import { getSetting } from "../_shared/config.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,7 +18,7 @@ serve(async (req) => {
     const BOT_TOKEN = need("TELEGRAM_BOT_TOKEN");
     const SUPABASE_URL = need("SUPABASE_URL");
     const SERVICE_KEY = need("SUPABASE_SERVICE_ROLE_KEY");
-    
+
     console.log("Checking bot status...");
 
     // Check bot info from Telegram
@@ -32,20 +33,8 @@ serve(async (req) => {
     );
     const webhookInfo = await webhookResponse.json();
 
-    // Check database webhook secret
-    const settingsResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/bot_settings?select=setting_value&setting_key=eq.TELEGRAM_WEBHOOK_SECRET&is_active=eq.true&limit=1`,
-      {
-        headers: {
-          'apikey': SERVICE_KEY,
-          'Authorization': `Bearer ${SERVICE_KEY}`,
-        },
-      }
-    );
-    const settingsData = await settingsResponse.json();
-    const dbSecret = settingsData?.[0]?.setting_value || null;
-
-    // Check if webhook secret is set in Supabase secrets
+    // Read webhook secret from database
+    const dbSecret = await getSetting<string>("TELEGRAM_WEBHOOK_SECRET");
     const envSecret = maybe("TELEGRAM_WEBHOOK_SECRET");
 
     // Check bot users count
@@ -94,7 +83,7 @@ serve(async (req) => {
       },
       database: {
         total_users: parseInt(userCount),
-        connection_successful: settingsResponse.ok
+        connection_successful: usersResponse.ok
       },
       recommendations: []
     };

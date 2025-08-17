@@ -3,6 +3,7 @@ import { createClient } from "./client.ts";
 // In-memory fallback map when kv_config table is unavailable
 const memStore = new Map<string, unknown>();
 
+// Internal service-role client (no session persistence via createClient)
 let supabase: ReturnType<typeof createClient> | null | undefined = undefined;
 
 function getClient() {
@@ -16,6 +17,24 @@ function getClient() {
     supabase = null;
     return null;
   }
+}
+
+// Simple in-memory cache with TTL (60s)
+const TTL_MS = 60 * 1000;
+const cache = new Map<string, { value: unknown; exp: number }>();
+
+function getCached<T>(key: string): T | null {
+  const hit = cache.get(key);
+  if (!hit) return null;
+  if (Date.now() > hit.exp) {
+    cache.delete(key);
+    return null;
+  }
+  return hit.value as T;
+}
+
+function setCached<T>(key: string, value: T): void {
+  cache.set(key, { value, exp: Date.now() + TTL_MS });
 }
 
 async function getConfig<T = unknown>(key: string, def?: T): Promise<T> {
@@ -75,7 +94,70 @@ export async function setFlag(name: string, val: boolean): Promise<void> {
   await setConfig("features:draft", snap);
 }
 
+// === Bot settings & content helpers ===
+
+async function getSetting<T = unknown>(key: string): Promise<T | null> {
+  const cached = getCached<T>(`s:${key}`);
+  if (cached !== null) return cached;
+  const client = getClient();
+  if (!client) return null;
+  try {
+    const { data, error } = await client.from("bot_settings").select(
+      "setting_value",
+    ).eq("setting_key", key).eq("is_active", true).maybeSingle();
+    if (!error && data && typeof data.setting_value !== "undefined") {
+      const val = data.setting_value as T;
+      setCached(`s:${key}`, val);
+      return val;
+    }
+  } catch (e) {
+    console.error("Error getting setting:", e);
+  }
+  return null;
+}
+
+async function requireSetting<T = unknown>(key: string): Promise<T> {
+  const val = await getSetting<T>(key);
+  if (val == null) throw new Error(`Missing setting: ${key}`);
+  return val;
+}
+
+async function envOrSetting<T = string>(
+  envKey: string,
+  settingKey = envKey,
+): Promise<T | null> {
+  const envVal = Deno.env.get(envKey);
+  if (envVal != null) return envVal as unknown as T;
+  return await getSetting<T>(settingKey);
+}
+
+async function getContent<T = unknown>(
+  key: string,
+): Promise<T | null> {
+  const cached = getCached<T>(`c:${key}`);
+  if (cached !== null) return cached;
+  const client = getClient();
+  if (!client) return null;
+  try {
+    const { data, error } = await client.from("bot_content").select(
+      "content_value",
+    ).eq("content_key", key).eq("is_active", true).maybeSingle();
+    if (!error && data && typeof data.content_value !== "undefined") {
+      const val = data.content_value as T;
+      setCached(`c:${key}`, val);
+      return val;
+    }
+  } catch (e) {
+    console.error("Error getting content:", e);
+  }
+  return null;
+}
+
 export {
   getConfig,
   setConfig,
+  getSetting,
+  requireSetting,
+  envOrSetting,
+  getContent,
 };

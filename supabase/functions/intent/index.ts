@@ -1,6 +1,7 @@
 import { verifyInitDataAndGetUser } from "../_shared/telegram.ts";
 import { createClient } from "../_shared/client.ts";
 import { ok, bad, unauth, mna } from "../_shared/http.ts";
+import { getContent } from "../_shared/config.ts";
 Deno.serve(async (req) => {
   if (req.method !== "POST") return mna();
 
@@ -53,17 +54,10 @@ Deno.serve(async (req) => {
   }
 
   if (body.type === "crypto") {
-    let deposit_address = "DEMO-ADDRESS";
+    const deposit_address = await getContent<string>("crypto_usdt_trc20")
+      || "DEMO-ADDRESS";
     let userId: string | undefined;
     if (supa) {
-      const { data: addr } = await supa
-        .from("bot_content")
-        .select("content_value")
-        .eq("content_key", "crypto_usdt_trc20")
-        .eq("is_active", true)
-        .maybeSingle();
-      deposit_address = addr?.content_value || deposit_address;
-
       const { data: bu } = await supa
         .from("bot_users")
         .select("id")
