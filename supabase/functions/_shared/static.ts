@@ -13,7 +13,6 @@ export const DEFAULT_SECURITY = {
   "referrer-policy": "strict-origin-when-cross-origin",
   "x-content-type-options": "nosniff",
   "permissions-policy": "geolocation=(), microphone=(), camera=()",
-  "x-frame-options": "SAMEORIGIN",
   "content-security-policy":
     "default-src 'self' https://*.telegram.org https://telegram.org; " +
     "script-src 'self' 'unsafe-inline' https://*.telegram.org; " +
@@ -21,7 +20,7 @@ export const DEFAULT_SECURITY = {
     "img-src 'self' data: https:; " +
     "connect-src 'self' https://*.functions.supabase.co https://*.supabase.co wss://*.supabase.co; " +
     "font-src 'self' data:; " +
-    "frame-ancestors *;",
+    "frame-ancestors 'self';",
 } as const;
 
 function mime(p: string) {
