@@ -13,7 +13,10 @@
     "setup:supabase": "bash scripts/setup-supabase-cli.sh",
     "build:miniapp": "cd miniapp && npm ci && npm run build && rm -rf ../supabase/functions/miniapp/static && mkdir -p ../supabase/functions/miniapp/static && cp -r dist/* ../supabase/functions/miniapp/static",
     "deploy:bot": "npx supabase functions deploy telegram-bot --project-ref $PROJECT_REF",
-    "deploy:edge": "npx supabase functions deploy miniapp telegram-bot binance-pay-checkout binancepay-webhook receipt-submit receipt-ocr crypto-webhook admin-act-on-payment --project-ref qeejuomcapbdlhnjqjcc"
+    "deploy:edge": "npx supabase functions deploy miniapp telegram-bot binance-pay-checkout binancepay-webhook receipt-submit receipt-ocr crypto-webhook admin-act-on-payment --project-ref qeejuomcapbdlhnjqjcc",
+    "edge:deploy:core": "npx supabase functions deploy telegram-bot miniapp --project-ref qeejuomcapbdlhnjqjcc",
+    "edge:deploy:ops": "npx supabase functions deploy payments-auto-review data-retention-cron broadcast-cron subscriptions-cron rotate-webhook-secret --project-ref qeejuomcapbdlhnjqjcc",
+    "edge:smoke": "node scripts/smoke.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
