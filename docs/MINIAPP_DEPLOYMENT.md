@@ -2,34 +2,31 @@
 
 ## Quick Deploy
 
-To build and deploy the telegram mini app in one command:
+To build the mini app and deploy it along with the deposit endpoint in one command:
 
 ```bash
-deno task miniapp:deploy
+bash scripts/build-deploy-miniapp.sh
 ```
 
 This will:
-1. Build the React miniapp in `supabase/functions/miniapp/`
-2. Generate static files in `supabase/functions/miniapp/static/`
-3. Verify the build quality
-4. Deploy the miniapp edge function to Supabase
+1. Build the front-end in `miniapp/`
+2. Sync static files to `supabase/functions/miniapp/static/`
+3. Deploy both `miniapp` and `miniapp-deposit` edge functions to Supabase
 
 ## Manual Steps
 
 If you prefer to run steps individually:
 
 ```bash
-# 1. Build the miniapp
-cd supabase/functions/miniapp
+# 1. Build the miniapp front-end
+cd miniapp
 npm install
 npm run build
-cd ../../..
+cd ..
+node scripts/sync-miniapp-static.mjs
 
-# 2. Verify build
-deno run -A scripts/assert-miniapp-bundle.ts
-
-# 3. Deploy function
-npx supabase functions deploy miniapp
+# 2. Deploy functions
+npx supabase functions deploy miniapp miniapp-deposit
 ```
 
 ## Accessing Your Mini App
