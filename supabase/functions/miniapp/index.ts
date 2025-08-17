@@ -3,6 +3,15 @@ import { posix } from "https://deno.land/std@0.224.0/path/mod.ts";
 
 const STATIC_CACHE = new Map<string, Response>();
 
+let INDEX_HTML: string | null = null;
+try {
+  INDEX_HTML = (
+    await import("./static/index.html", { assert: { type: "text" } })
+  ).default;
+} catch {
+  console.warn("miniapp: static/index.html missing from bundle");
+}
+
 const SECURITY = {
   "referrer-policy": "strict-origin-when-cross-origin",
   "x-content-type-options": "nosniff",
@@ -78,23 +87,18 @@ async function maybeCompress(req: Request, res: Response): Promise<Response> {
   return new Response(stream, { status: res.status, headers: h });
 }
 
-async function indexHtml() {
-  try {
-    const data = await Deno.readFile(
-      new URL("./static/index.html", import.meta.url),
-    );
-    const h = withSec(
-      new Headers({
-        "content-type": "text/html; charset=utf-8",
-        "cache-control": "no-cache",
-      }),
-    );
-    h.set("x-frame-options", "ALLOWALL"); // Telegram WebView
-    return new Response(data, { headers: h, status: 200 });
-  } catch {
-    console.warn("miniapp: static/index.html missing from bundle");
+function indexHtml() {
+  if (!INDEX_HTML) {
     return nf("Not Found");
   }
+  const h = withSec(
+    new Headers({
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-cache",
+    }),
+  );
+  h.set("x-frame-options", "ALLOWALL"); // Telegram WebView
+  return new Response(INDEX_HTML, { headers: h, status: 200 });
 }
 
 function mime(p: string) {
