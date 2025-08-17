@@ -1,201 +1,61 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+// Utilities for accessing feature flag configuration via secure edge function
 
-// In-memory fallback map when kv_config table is unavailable
-const memStore = new Map<string, unknown>();
+type FlagSnapshot = { ts: number; data: Record<string, boolean> };
 
-let supabase: SupabaseClient | null | undefined = undefined;
-async function getClient(): Promise<SupabaseClient | null> {
-  if (supabase !== undefined) return supabase;
-  const url =
-    (typeof Deno !== "undefined"
-      ? Deno.env.get("SUPABASE_URL")
-      : process.env.SUPABASE_URL) || "";
-  const key =
-    (typeof Deno !== "undefined"
-      ? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
-      : process.env.SUPABASE_SERVICE_ROLE_KEY) || "";
-  if (!url || !key) {
-    supabase = null;
-    return null;
+const SUPABASE_URL =
+  (typeof Deno !== "undefined"
+    ? Deno.env.get("SUPABASE_URL")
+    : typeof process !== "undefined"
+    ? process.env.SUPABASE_URL
+    : import.meta.env?.VITE_SUPABASE_URL) || "";
+const SUPABASE_KEY =
+  (typeof Deno !== "undefined"
+    ? Deno.env.get("SUPABASE_ANON_KEY")
+    : typeof process !== "undefined"
+    ? process.env.SUPABASE_ANON_KEY
+    : import.meta.env?.VITE_SUPABASE_KEY) || "";
+
+async function call<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    throw new Error("Missing Supabase configuration");
   }
-  try {
-    const mod = await import(
-      typeof Deno !== "undefined"
-        ? "jsr:@supabase/supabase-js@2"
-        : "@supabase/supabase-js"
-    );
-    supabase = mod.createClient(url, key, { auth: { persistSession: false } });
-  } catch (_e) {
-    supabase = null;
-    return null;
-  }
-  return supabase ?? null;
-}
-
-async function getConfig<T = unknown>(key: string, def?: T): Promise<T> {
-  const client = await getClient();
-  if (client) {
-    try {
-      const { data, error } = await client.from("kv_config").select("value").eq(
-        "key",
-        key,
-      ).maybeSingle();
-      if (!error && data && typeof data.value !== "undefined") {
-        return data.value;
-      }
-    } catch (_e) {
-      // fall back to memory store
-    }
-  }
-  return (memStore.has(key) ? memStore.get(key) : def) as T;
-}
-
-async function setConfig(key: string, val: unknown): Promise<void> {
-  const client = await getClient();
-  if (client) {
-    try {
-      const { error } = await client.from("kv_config").upsert({
-        key,
-        value: val,
-      });
-      if (!error) {
-        memStore.set(key, val);
-        return;
-      }
-    } catch (_e) {
-      // ignore and fall back
-    }
-  }
-  memStore.set(key, val);
-}
-
-async function getFlag(name: string, def = false): Promise<boolean> {
-  const snap = await getConfig<{ data: Record<string, boolean> }>(
-    "features:published",
-    { data: {} },
-  );
-  return snap.data[name] ?? def;
-}
-
-async function setFlag(name: string, val: boolean): Promise<void> {
-  const snap = await getConfig<{ ts: number; data: Record<string, boolean> }>(
-    "features:draft",
-    { ts: Date.now(), data: {} },
-  );
-  snap.data[name] = val;
-  snap.ts = Date.now();
-  await setConfig("features:draft", snap);
-}
-
-async function snapshot(
-  _area: "FEATURES",
-): Promise<{ ts: number; data: Record<string, boolean> }> {
-  const snap = await getConfig<{ ts: number; data: Record<string, boolean> }>(
-    "features:draft",
-    { ts: Date.now(), data: {} },
-  );
-  return { ts: Date.now(), data: { ...snap.data } };
-}
-
-async function pushSnapshot(
-  label: "DRAFT" | "PUBLISHED" | "ROLLBACK",
-): Promise<void> {
-  const snap = await snapshot("FEATURES");
-  await setConfig(`features:${label.toLowerCase()}`, snap);
-}
-
-async function publish(adminId?: string): Promise<void> {
-  const draft = await getConfig<{ ts: number; data: Record<string, boolean> }>(
-    "features:draft",
-    { ts: Date.now(), data: {} },
-  );
-  const current = await getConfig<
-    { ts: number; data: Record<string, boolean> }
-  >(
-    "features:published",
-    { ts: Date.now(), data: {} },
-  );
-  // clone snapshots to avoid shared references between draft, published and rollback
-  await setConfig("features:rollback", {
-    ts: current.ts,
-    data: { ...current.data },
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/config`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+    },
+    body: JSON.stringify({ action, ...payload }),
   });
-  await setConfig("features:published", {
-    ts: draft.ts,
-    data: { ...draft.data },
-  });
-  console.log("publish", { from: current, to: draft });
-  const client = await getClient();
-  if (client) {
-    try {
-      await client.from("audit_log").insert({
-        admin_id: adminId ?? null,
-        action: "publish",
-        from: current,
-        to: draft,
-        ts: new Date().toISOString(),
-      });
-    } catch (_e) {
-      // ignore if table missing
-    }
+  if (!res.ok) {
+    throw new Error(`Config edge function error: ${await res.text()}`);
   }
+  return (await res.json()) as T;
 }
 
-async function rollback(adminId?: string): Promise<void> {
-  const published = await getConfig<
-    { ts: number; data: Record<string, boolean> }
-  >(
-    "features:published",
-    { ts: Date.now(), data: {} },
-  );
-  const previous = await getConfig<
-    { ts: number; data: Record<string, boolean> }
-  >(
-    "features:rollback",
-    { ts: Date.now(), data: {} },
-  );
-  await setConfig("features:published", {
-    ts: previous.ts,
-    data: { ...previous.data },
-  });
-  await setConfig("features:rollback", {
-    ts: published.ts,
-    data: { ...published.data },
-  });
-  console.log("rollback", { from: published, to: previous });
-  const client = await getClient();
-  if (client) {
-    try {
-      await client.from("audit_log").insert({
-        admin_id: adminId ?? null,
-        action: "rollback",
-        from: published,
-        to: previous,
-        ts: new Date().toISOString(),
-      });
-    } catch (_e) {
-      // ignore if table missing
-    }
-  }
-}
+const configClient = {
+  async getFlag(name: string, def = false): Promise<boolean> {
+    const data = await call<{ data: boolean }>("getFlag", { name, def });
+    return data?.data ?? def;
+  },
 
-async function preview(): Promise<
-  { ts: number; data: Record<string, boolean> }
-> {
-  return await getConfig<{ ts: number; data: Record<string, boolean> }>(
-    "features:draft",
-    { ts: Date.now(), data: {} },
-  );
-}
+  async setFlag(name: string, value: boolean): Promise<void> {
+    await call("setFlag", { name, value });
+  },
 
-export {
-  getConfig,
-  getFlag,
-  preview,
-  publish,
-  pushSnapshot,
-  rollback,
-  setConfig,
-  setFlag,
-  snapshot,
+  async preview(): Promise<FlagSnapshot> {
+    return await call<FlagSnapshot>("preview");
+  },
+
+  async publish(adminId?: string): Promise<void> {
+    await call("publish", { adminId });
+  },
+
+  async rollback(adminId?: string): Promise<void> {
+    await call("rollback", { adminId });
+  },
 };
+
+export const { getFlag, setFlag, preview, publish, rollback } = configClient;
+export { configClient };

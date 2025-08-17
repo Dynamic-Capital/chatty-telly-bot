@@ -1,5 +1,5 @@
 import { enqueue } from "../queue/index.ts";
-import { getFlag } from "../utils/config.ts";
+import { configClient } from "../utils/config.ts";
 
 export interface PlanBroadcastOptions {
   segment: number[] | { userIds: number[] };
@@ -24,7 +24,7 @@ function sleep(ms: number) {
 }
 
 export async function planBroadcast(opts: PlanBroadcastOptions) {
-  if (!(await getFlag("broadcasts_enabled"))) {
+  if (!(await configClient.getFlag("broadcasts_enabled"))) {
     throw new Error("Broadcasts disabled");
   }
   const { segment, text, media, chunkSize = 25, pauseMs = 500 } = opts;
