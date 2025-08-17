@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
 import { ok, mna, oops } from "../_shared/http.ts";
+import { envOrSetting } from "../_shared/config.ts";
 
 const need = (k: string) =>
   Deno.env.get(k) || (() => {
@@ -46,15 +47,9 @@ serve(async (req) => {
 
     const supa = createClient();
 
-    // Pull tolerance & window from bot_settings (fallbacks)
-    const { data: tolRow } = await supa.from("bot_settings").select(
-      "content_value",
-    ).eq("content_key", "AMOUNT_TOLERANCE").maybeSingle();
-    const tol = num(tolRow?.content_value) ?? 0.05; // 5%
-    const { data: winRow } = await supa.from("bot_settings").select(
-      "content_value",
-    ).eq("content_key", "WINDOW_SECONDS").maybeSingle();
-    const win = Number(winRow?.content_value ?? 7200);
+    // Pull tolerance & window from env or bot_settings
+    const tol = num(await envOrSetting("AMOUNT_TOLERANCE")) ?? 0.05; // 5%
+    const win = num(await envOrSetting("WINDOW_SECONDS")) ?? 7200;
 
     // Find recent pending with receipts
     const sinceIso = new Date(Date.now() - 24 * 3600 * 1000).toISOString();

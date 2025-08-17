@@ -1,5 +1,6 @@
-import { maybe, need, optionalEnv } from "./env.ts";
+import { maybe, optionalEnv } from "./env.ts";
 import { unauth } from "./http.ts";
+import { getSetting } from "./config.ts";
 
 interface Query {
   eq: (key: string, value: string | boolean) => Query;
@@ -30,19 +31,7 @@ export async function readDbWebhookSecret(
         .maybeSingle();
       return (data?.setting_value as string) || null;
     }
-    const url = need("SUPABASE_URL");
-    const key = need("SUPABASE_SERVICE_ROLE_KEY");
-    const resp = await fetch(
-      `${url}/rest/v1/bot_settings?select=setting_value&setting_key=eq.TELEGRAM_WEBHOOK_SECRET&is_active=eq.true&limit=1`,
-      {
-        headers: {
-          apikey: key,
-          Authorization: `Bearer ${key}`,
-        },
-      },
-    );
-    const data = await resp.json().catch(() => []);
-    return (data?.[0]?.setting_value as string) || null;
+    return await getSetting<string>("TELEGRAM_WEBHOOK_SECRET");
   } catch {
     return null;
   }
