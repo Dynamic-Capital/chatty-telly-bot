@@ -42,6 +42,15 @@ curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
   -d "secret_token=$TELEGRAM_WEBHOOK_SECRET"
 ```
 
+### Secret-token validation
+
+- Telegram echoes the `secret_token` as `X-Telegram-Bot-Api-Secret-Token` on
+  each webhook call.
+- The Edge function compares this header to `TELEGRAM_WEBHOOK_SECRET` and
+  returns `401` on mismatch.
+- See [Telegram setWebhook docs](https://core.telegram.org/bots/api#setwebhook)
+  for details.
+
 ## Troubleshooting
 
 ### Resetting bot token

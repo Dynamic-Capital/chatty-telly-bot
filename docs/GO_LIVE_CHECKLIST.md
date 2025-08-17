@@ -53,4 +53,12 @@ curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
 curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
 ```
 
+### Secret-token validation
+
+- Telegram includes `X-Telegram-Bot-Api-Secret-Token` on each webhook request.
+- The bot compares this header to `TELEGRAM_WEBHOOK_SECRET` and rejects
+  mismatches with `401`.
+- See [Telegram setWebhook docs](https://core.telegram.org/bots/api#setwebhook)
+  for more info.
+
 Note: /start shows Mini App button (short_name preferred, URL fallback).
