@@ -692,6 +692,103 @@ export async function processPlanEditInput(
         };
       }
 
+      case "plan_remove_feature": {
+        const index = parseInt(inputText.trim());
+        if (isNaN(index) || index < 1) {
+          return {
+            success: false,
+            message: "❌ Enter the number of the feature to remove.",
+          };
+        }
+
+        const { data: plan, error: fetchError } = await supabaseAdmin
+          .from("subscription_plans")
+          .select("features")
+          .eq("id", planId)
+          .single();
+
+        if (fetchError || !plan) {
+          return {
+            success: false,
+            message: "❌ Error fetching current plan features.",
+          };
+        }
+
+        const features: string[] = plan.features || [];
+        if (index > features.length) {
+          return {
+            success: false,
+            message: "❌ Invalid feature number.",
+          };
+        }
+
+        const [removed] = features.splice(index - 1, 1);
+
+        const { error } = await supabaseAdmin
+          .from("subscription_plans")
+          .update({ features })
+          .eq("id", planId);
+
+        if (error) {
+          console.error("Error removing plan feature:", error);
+          return {
+            success: false,
+            message: `❌ Database error: ${error.message}`,
+          };
+        }
+
+        await logAdminAction(
+          userId,
+          "plan_feature_remove",
+          `Removed feature "${removed}" from plan`,
+          "subscription_plans",
+          planId,
+        );
+        return {
+          success: true,
+          message: "✅ Feature removed successfully!",
+          planId,
+        };
+      }
+
+      case "plan_replace_features": {
+        const features = inputText.split(",")
+          .map((f) => f.trim())
+          .filter((f) => f.length > 0);
+        if (features.length === 0) {
+          return {
+            success: false,
+            message: "❌ Please provide at least one feature.",
+          };
+        }
+
+        const { error } = await supabaseAdmin
+          .from("subscription_plans")
+          .update({ features })
+          .eq("id", planId);
+
+        if (error) {
+          console.error("Error replacing plan features:", error);
+          return {
+            success: false,
+            message: `❌ Database error: ${error.message}`,
+          };
+        }
+
+        await logAdminAction(
+          userId,
+          "plan_features_replace",
+          `Replaced features: ${features.join(", ")}`,
+          "subscription_plans",
+          planId,
+        );
+        return {
+          success: true,
+          message: "✅ Features replaced successfully!",
+          planId,
+        };
+      }
+
       case "create_vip_plan": {
         return await processCreatePlanInput(userId, inputText);
       }

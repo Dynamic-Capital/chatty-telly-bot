@@ -956,6 +956,114 @@ export async function handleAddPlanFeature(
   }
 }
 
+// Handle removing a feature from a plan
+export async function handleRemovePlanFeature(
+  chatId: number,
+  userId: string,
+  planId: string,
+): Promise<void> {
+  try {
+    const { data: plan, error } = await supabaseAdmin
+      .from("subscription_plans")
+      .select("name, features")
+      .eq("id", planId)
+      .single();
+
+    if (error || !plan) {
+      await sendMessage(chatId, "❌ Plan not found.");
+      return;
+    }
+
+    const features: string[] = plan.features || [];
+    let removeMessage = `🗑️ *Remove Feature from ${plan.name}*\\n\\n`;
+
+    if (features.length > 0) {
+      removeMessage += features
+        .map((f: string, i: number) => `${i + 1}. ${f}`)
+        .join("\\n");
+      removeMessage +=
+        "\\n\\nSend the number of the feature you want to remove:";
+    } else {
+      removeMessage += "No features configured.";
+    }
+
+    const cancelKeyboard = {
+      inline_keyboard: [[{
+        text: "❌ Cancel",
+        callback_data: `edit_plan_features_${planId}`,
+      }]],
+    };
+
+    await sendMessage(chatId, removeMessage, cancelKeyboard);
+
+    await supabaseAdmin
+      .from("user_sessions")
+      .upsert({
+        telegram_user_id: userId,
+        awaiting_input: "plan_remove_feature",
+        session_data: { plan_id: planId, plan_name: plan.name },
+        last_activity: new Date().toISOString(),
+        is_active: true,
+      });
+  } catch (error) {
+    console.error("Error in handleRemovePlanFeature:", error);
+    await sendMessage(
+      chatId,
+      "❌ Error setting up feature removal. Please try again.",
+    );
+  }
+}
+
+// Handle replacing all features of a plan
+export async function handleReplacePlanFeatures(
+  chatId: number,
+  userId: string,
+  planId: string,
+): Promise<void> {
+  try {
+    const { data: plan, error } = await supabaseAdmin
+      .from("subscription_plans")
+      .select("name")
+      .eq("id", planId)
+      .single();
+
+    if (error || !plan) {
+      await sendMessage(chatId, "❌ Plan not found.");
+      return;
+    }
+
+    const replaceMessage =
+      `🔄 *Replace Features for ${plan.name}*\\n\\n` +
+      "Send a comma-separated list of features:\\n" +
+      "Example: Feature 1, Feature 2, Feature 3";
+
+    const cancelKeyboard = {
+      inline_keyboard: [[{
+        text: "❌ Cancel",
+        callback_data: `edit_plan_features_${planId}`,
+      }]],
+    };
+
+    await sendMessage(chatId, replaceMessage, cancelKeyboard);
+
+    await supabaseAdmin
+      .from("user_sessions")
+      .upsert({
+        telegram_user_id: userId,
+        awaiting_input: "plan_replace_features",
+        session_data: { plan_id: planId, plan_name: plan.name },
+        last_activity: new Date().toISOString(),
+        is_active: true,
+      });
+  } catch (error) {
+    console.error("Error in handleReplacePlanFeatures:", error);
+    await sendMessage(
+      chatId,
+      "❌ Error setting up feature replacement. Please try again.",
+    );
+  }
+}
+
 // Process text input for plan editing
 export async function handlePlanEditInput(
   chatId: number,
