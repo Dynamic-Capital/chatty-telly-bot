@@ -1,8 +1,4 @@
-import {
-  createClient as createSupabaseClient,
-  type SupabaseClient,
-} from "https://esm.sh/@supabase/supabase-js@2";
-import type { Database } from "../../../src/integrations/supabase/types.ts";
+import { createClient as createSupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getEnv } from "./env.ts";
 
 const url = getEnv("SUPABASE_URL");
@@ -11,9 +7,11 @@ const serviceKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
 
 const options = { auth: { persistSession: false } };
 
+export type SupabaseClient = ReturnType<typeof createSupabaseClient>;
+
 export function createClient(
   key: "anon" | "service" = "service",
-): SupabaseClient<Database> {
+): SupabaseClient {
   const k = key === "service" ? serviceKey : anonKey;
-  return createSupabaseClient<Database>(url, k, options);
+  return createSupabaseClient(url, k, options);
 }

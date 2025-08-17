@@ -39,6 +39,8 @@ import {
 type FlagMap = Record<string, boolean>;
 const FLAG_PREFIX = "flag_";
 
+const BOT_TOKEN = optionalEnv("TELEGRAM_BOT_TOKEN");
+
 async function preview(): Promise<{ data: FlagMap }> {
   try {
     const { data, error } = await supabaseAdmin

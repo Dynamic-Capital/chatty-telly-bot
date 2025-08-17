@@ -102,7 +102,7 @@ export async function handleConfigSessionSettings(
       .in("setting_key", ["session_timeout_minutes"]);
     if (error) throw error;
     let msg = "🕐 *Session Settings*\n\n";
-    (data || []).forEach((row) => {
+    (data || []).forEach((row: { setting_key: string; setting_value: string }) => {
       msg += `• ${row.setting_key}: \`${row.setting_value}\`\n`;
     });
     const keyboard = {
@@ -128,7 +128,7 @@ export async function handleConfigFollowupSettings(
       .in("setting_key", ["follow_up_delay_minutes", "max_follow_ups"]);
     if (error) throw error;
     let msg = "📬 *Follow-up Settings*\n\n";
-    (data || []).forEach((row) => {
+    (data || []).forEach((row: { setting_key: string; setting_value: string }) => {
       msg += `• ${row.setting_key}: \`${row.setting_value}\`\n`;
     });
     const keyboard = {
@@ -188,7 +188,7 @@ export async function handleConfigAutoFeatures(
       .in("setting_key", ["auto_welcome"]);
     if (error) throw error;
     let msg = "🚀 *Auto Features*\n\n";
-    (data || []).forEach((row) => {
+    (data || []).forEach((row: { setting_key: string; setting_value: string }) => {
       msg += `• ${row.setting_key}: \`${row.setting_value}\`\n`;
     });
     const keyboard = {
@@ -214,7 +214,7 @@ export async function handleConfigNotifications(
       .in("setting_key", ["admin_notifications"]);
     if (error) throw error;
     let msg = "🔔 *Notification Settings*\n\n";
-    (data || []).forEach((row) => {
+    (data || []).forEach((row: { setting_key: string; setting_value: string }) => {
       msg += `• ${row.setting_key}: \`${row.setting_value}\`\n`;
     });
     const keyboard = {
@@ -240,7 +240,7 @@ export async function handleConfigPerformance(
       .in("setting_key", ["auto_delete_delay_seconds"]);
     if (error) throw error;
     let msg = "⚡ *Performance Settings*\n\n";
-    (data || []).forEach((row) => {
+    (data || []).forEach((row: { setting_key: string; setting_value: string }) => {
       msg += `• ${row.setting_key}: \`${row.setting_value}\`\n`;
     });
     const keyboard = {
