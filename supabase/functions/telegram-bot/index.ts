@@ -863,6 +863,20 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
       await editMessage(chatId, cb.message!.message_id!, view.text, view.extra);
       return;
     }
+    if (data.startsWith("cmd:")) {
+      const cmd = "/" + data.slice("cmd:".length);
+      const handler = commandHandlers[cmd] ?? adminCommandHandlers[cmd];
+      if (handler) {
+        const ctx: CommandContext = {
+          msg: cb.message ?? { chat: { id: chatId } },
+          chatId,
+          args: [],
+          miniAppValid: await hasMiniApp(),
+        };
+        await handler(ctx);
+      }
+      return;
+    }
     if (data.startsWith("buy:")) {
       const planId = data.slice("buy:".length);
       const pkgs = await getVipPackages();
