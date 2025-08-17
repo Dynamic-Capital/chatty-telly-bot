@@ -5,20 +5,22 @@ const supaState: any = { tables: { } };
 
 function setEnv() {
   Deno.env.set("TELEGRAM_BOT_TOKEN", "testtoken");
-  Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "testsecret");
-  Deno.env.set("SUPABASE_URL", "http://local");
-  Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "svc");
-  Deno.env.set("SUPABASE_ANON_KEY", "anon");
+    Deno.env.set("TELEGRAM_WEBHOOK_SECRET", "testsecret");
+    Deno.env.set("SUPABASE_URL", "http://local");
+    Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "svc");
+    Deno.env.set("SUPABASE_ANON_KEY", "anon");
+    Deno.env.set("MINI_APP_URL", "https://example.com/");
 }
 
 function cleanup() {
   Deno.env.delete("TELEGRAM_BOT_TOKEN");
   Deno.env.delete("TELEGRAM_WEBHOOK_SECRET");
-  Deno.env.delete("SUPABASE_URL");
-  Deno.env.delete("SUPABASE_SERVICE_ROLE_KEY");
-  Deno.env.delete("SUPABASE_ANON_KEY");
-  supaState.tables = {};
-}
+    Deno.env.delete("SUPABASE_URL");
+    Deno.env.delete("SUPABASE_SERVICE_ROLE_KEY");
+    Deno.env.delete("SUPABASE_ANON_KEY");
+    Deno.env.delete("MINI_APP_URL");
+    supaState.tables = {};
+  }
 
 Deno.test("callback edits message instead of sending new one", async () => {
   setEnv();

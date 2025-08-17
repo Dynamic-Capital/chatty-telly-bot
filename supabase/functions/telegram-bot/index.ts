@@ -1,5 +1,8 @@
 import { optionalEnv } from "../_shared/env.ts";
-import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
+import {
+  requireEnv as requireEnvCheck,
+  requireMiniAppEnv,
+} from "./helpers/require-env.ts";
 import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
@@ -1331,6 +1334,14 @@ export async function serveWebhook(req: Request): Promise<Response> {
     if (!envOk) {
       console.error("Missing env vars", missing);
       return oops("Missing env vars", missing);
+    }
+
+    try {
+      requireMiniAppEnv();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Mini app env missing", msg);
+      return oops(msg);
     }
 
     const body = await extractTelegramUpdate(req);

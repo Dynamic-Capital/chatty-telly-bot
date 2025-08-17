@@ -7,6 +7,7 @@ Deno.test("telegram-bot rejects requests without secret", async () => {
     SUPABASE_URL: "https://example.com",
     SUPABASE_SERVICE_ROLE_KEY: "srv",
     TELEGRAM_BOT_TOKEN: "token",
+    MINI_APP_URL: "https://example.com/",
   });
   const { default: handler } = await import("../telegram-bot/index.ts");
   const req = new Request("https://example.com/telegram-bot", {
@@ -24,6 +25,7 @@ Deno.test("telegram-bot accepts valid secret", async () => {
     SUPABASE_URL: "https://example.com",
     SUPABASE_SERVICE_ROLE_KEY: "srv",
     TELEGRAM_BOT_TOKEN: "token",
+    MINI_APP_URL: "https://example.com/",
   });
   const { default: handler } = await import("../telegram-bot/index.ts");
   const req = new Request("https://example.com/telegram-bot", {
