@@ -21,7 +21,7 @@ import { VipPlansManager } from "@/components/admin/VipPlansManager";
 import { BotDiagnostics } from "@/components/admin/BotDiagnostics";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { preview, setFlag, publish, rollback } from "@/utils/config";
+import { configClient } from "@/utils/config";
 import {
   CreditCard,
   DollarSign,
@@ -101,7 +101,7 @@ export const AdminDashboard = () => {
   }, []);
 
   const loadFlags = async () => {
-    const snap = await preview();
+    const snap = await configClient.preview();
     setFlags({
       payments_enabled: !!snap.data.payments_enabled,
       vip_sync_enabled: !!snap.data.vip_sync_enabled,
@@ -112,16 +112,16 @@ export const AdminDashboard = () => {
 
   const handleToggleFlag = async (name: string, value: boolean) => {
     setFlags((prev) => ({ ...prev, [name]: value }));
-    await setFlag(name, value);
+    await configClient.setFlag(name, value);
   };
 
   const handlePublish = async () => {
-    await publish();
+    await configClient.publish();
     await loadFlags();
   };
 
   const handleRollback = async () => {
-    await rollback();
+    await configClient.rollback();
     await loadFlags();
   };
 
