@@ -3,6 +3,7 @@ import TopBar from "../components/TopBar";
 import GlassPanel from "../components/GlassPanel";
 import PrimaryButton from "../components/PrimaryButton";
 import SecondaryButton from "../components/SecondaryButton";
+import Toast from "../components/Toast";
 import { functionUrl } from "../lib/edge";
 import { useTelegramMainButton } from "../hooks/useTelegram";
 
@@ -32,6 +33,9 @@ export default function Plan() {
   );
   const [instructions, setInstructions] = useState<Instructions | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [toast, setToast] = useState<
+    { message: string; type: "success" | "warn" | "error" } | null
+  >(null);
 
   useEffect(() => {
     const url = functionUrl("plans");
@@ -58,19 +62,32 @@ export default function Plan() {
   const handleCheckout = async () => {
     const url = functionUrl("checkout-init");
     if (!url || !selected) return;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        telegram_id: getTelegramId(),
-        plan_id: selected,
-        method,
-      }),
-    });
-    const json = await res.json().catch(() => null);
-    if (json?.ok) {
-      setPaymentId(json.payment_id);
-      setInstructions(json.instructions as Instructions);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telegram_id: getTelegramId(),
+          plan_id: selected,
+          method,
+        }),
+      });
+      if (!res.ok) {
+        setToast({ message: "Failed to initialize checkout", type: "error" });
+        return;
+      }
+      const json = await res.json().catch(() => null);
+      if (json?.ok) {
+        setPaymentId(json.payment_id);
+        setInstructions(json.instructions as Instructions);
+      } else {
+        setToast({
+          message: json?.error || "Failed to initialize checkout",
+          type: "error",
+        });
+      }
+    } catch {
+      setToast({ message: "Failed to initialize checkout", type: "error" });
     }
   };
 
@@ -144,6 +161,13 @@ export default function Plan() {
             />
           )}
         </div>
+      )}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );
