@@ -1379,7 +1379,7 @@ export type Database = {
     }
     Enums: {
       auto_reply_trigger_type: "keyword" | "regex" | "command"
-      payment_status_enum: "pending" | "completed" | "failed" | "refunded"
+      payment_status_enum: "pending" | "awaiting_admin" | "completed" | "failed" | "refunded"
       enrollment_status_enum: "pending" | "active" | "completed" | "cancelled"
       broadcast_status_enum: "draft" | "scheduled" | "sending" | "completed" | "failed"
       payment_intent_status_enum: "pending" | "approved" | "manual_review" | "rejected"
@@ -1512,7 +1512,7 @@ export const Constants = {
   public: {
     Enums: {
       auto_reply_trigger_type: ["keyword", "regex", "command"],
-      payment_status_enum: ["pending", "completed", "failed", "refunded"],
+      payment_status_enum: ["pending", "awaiting_admin", "completed", "failed", "refunded"],
       enrollment_status_enum: ["pending", "active", "completed", "cancelled"],
       broadcast_status_enum: ["draft", "scheduled", "sending", "completed", "failed"],
       payment_intent_status_enum: ["pending", "approved", "manual_review", "rejected"],

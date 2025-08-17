@@ -486,6 +486,7 @@ export type DatabaseTable =
 
 export const PAYMENT_STATUSES: Database["public"]["Enums"]["payment_status_enum"][] = [
   "pending",
+  "awaiting_admin",
   "completed",
   "failed",
   "refunded",
