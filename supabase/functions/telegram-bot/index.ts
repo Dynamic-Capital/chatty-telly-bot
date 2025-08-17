@@ -829,6 +829,19 @@ async function storeReceiptImage(
 
 export const commandHandlers: Record<string, CommandHandler> = {
   "/start": async ({ chatId }) => {
+    const { url, short, ready } = await readMiniAppEnv();
+    if (ready) {
+      const btnText = await getContent("miniapp_button_text") ??
+        "Open VIP Mini App";
+      const prompt = await getContent("miniapp_open_prompt") ??
+        "Join the VIP Mini App:";
+      const markup = url
+        ? { reply_markup: { inline_keyboard: [[{ text: btnText, web_app: { url } }]] } }
+        : { reply_markup: { inline_keyboard: [[{ text: btnText, url: `https://t.me/${botUsername}/${short}` }]] } };
+      await sendMessage(chatId, prompt, markup);
+    } else {
+      console.warn("Mini app not configured; start button omitted");
+    }
     await showMainMenu(chatId, "dashboard");
   },
   "/app": async ({ chatId }) => {

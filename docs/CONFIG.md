@@ -24,11 +24,14 @@ below.
 | FOLLOW_UP_DELAY_MINUTES   | ✅                           | ✅                               | ❌                          |
 | MAX_FOLLOW_UPS            | ✅                           | ✅                               | ❌                          |
 | MINI_APP_URL              | ✅                           | ✅                               | ✅                          |
+| MINI_APP_SHORT_NAME       | ✅                           | ✅                               | ✅                          |
 | LOGTAIL_SOURCE_TOKEN      | ✅                           | ❌                               | ❌                          |
 
 `✅` indicates where each key should be set.
 
-`MINI_APP_URL` should point to the deployed Telegram Mini App (for example,
-`https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/`). If set, the bot
-shows a Mini App button and will automatically append a trailing slash if
-missing to avoid redirect issues.
+Either `MINI_APP_URL` or `MINI_APP_SHORT_NAME` must be set for the `/start`
+command to show an **Open Mini App** button. If neither is configured, the bot
+logs a warning and omits the button. `MINI_APP_URL` should point to the deployed
+Telegram Mini App (for example,
+`https://qeejuomcapbdlhnjqjcc.functions.supabase.co/miniapp/`) and will
+automatically append a trailing slash if missing to avoid redirect issues.
