@@ -49,7 +49,7 @@ serve((req) => {
     // Start keep-alive on first request
     startKeepAlive();
 
-    const botToken = getEnv("TELEGRAM_BOT_TOKEN");
+    getEnv("TELEGRAM_BOT_TOKEN");
 
     logger.info("Keep-alive service started for telegram bot");
 

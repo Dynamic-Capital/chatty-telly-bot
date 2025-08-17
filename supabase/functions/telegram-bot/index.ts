@@ -78,11 +78,8 @@ const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
 // Optional feature flags (currently unused)
 const _OPENAI_ENABLED = optionalEnv("OPENAI_ENABLED") === "true";
 const _FAQ_ENABLED = optionalEnv("FAQ_ENABLED") === "true";
-const WINDOW_SECONDS = Number(optionalEnv("WINDOW_SECONDS") ?? "180");
-const AMOUNT_TOLERANCE = Number(optionalEnv("AMOUNT_TOLERANCE") ?? "0.02");
-const REQUIRE_PAY_CODE = optionalEnv("REQUIRE_PAY_CODE") === "true";
 let supabaseAdmin: SupabaseClient | null = null;
-async function getSupabase(): Promise<SupabaseClient | null> {
+function getSupabase(): SupabaseClient | null {
   if (supabaseAdmin) return supabaseAdmin;
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
   try {
@@ -535,7 +532,7 @@ async function menuView(
 }
 
 async function getMenuMessageId(chatId: number): Promise<number | null> {
-  const supa = await getSupabase();
+  const supa = getSupabase();
   if (!supa) return null;
   const { data } = await supa
     .from("bot_users")
@@ -549,7 +546,7 @@ async function setMenuMessageId(
   chatId: number,
   messageId: number | null,
 ): Promise<void> {
-  const supa = await getSupabase();
+  const supa = getSupabase();
   if (!supa) return;
   try {
     await supa
@@ -644,13 +641,8 @@ function isStartMessage(m: TelegramMessage | undefined) {
   );
 }
 
-function logEvent(event: string, data: Record<string, unknown>): void {
-  const sb_request_id = optionalEnv("SB_REQUEST_ID");
-  console.log(JSON.stringify({ event, sb_request_id, ...data }));
-}
-
-async function supaSvc() {
-  const client = await getSupabase();
+function supaSvc() {
+  const client = getSupabase();
   if (!client) {
     throw new Error("Supabase client unavailable");
   }
@@ -664,7 +656,7 @@ async function logInteraction(
   extra: unknown = null,
 ): Promise<void> {
   try {
-    const supa = await supaSvc();
+    const supa = supaSvc();
     await supa.from("user_interactions").insert({
       telegram_user_id: telegramUserId,
       interaction_type: kind,
@@ -676,55 +668,10 @@ async function logInteraction(
   }
 }
 
-async function handleStartPayload(msg: TelegramMessage): Promise<void> {
-  const t = msg.text?.split(/\s+/)[1];
-  if (!t) return;
-  const supa = await supaSvc().catch(() => null);
-  if (!supa) return;
-  const telegramId = String(msg.from?.id || msg.chat.id);
-  const now = new Date().toISOString();
-  let promo_data: Record<string, unknown> | null = null;
-  const row: Record<string, unknown> = {
-    telegram_user_id: telegramId,
-    funnel_step: 1,
-    conversion_type: "start",
-  };
-  if (t.startsWith("ref_")) {
-    const ref = t.slice(4);
-    row.conversion_type = "referral";
-    row.conversion_data = { ref };
-    promo_data = { ref };
-  } else if (t.startsWith("promo_")) {
-    const code = t.slice(6);
-    row.conversion_type = "promo";
-    row.promo_code = code;
-    promo_data = { code };
-  } else return;
-  try {
-    await supa.from("conversion_tracking").insert(row);
-    const { data: us } = await supa
-      .from("user_sessions")
-      .select("id")
-      .eq("telegram_user_id", telegramId)
-      .limit(1)
-      .maybeSingle();
-    if (us?.id) {
-      await supa.from("user_sessions").update({ promo_data }).eq("id", us.id);
-    } else {await supa.from("user_sessions").insert({
-        telegram_user_id: telegramId,
-        promo_data,
-        last_activity: now,
-        is_active: true,
-      });}
-  } catch {
-    /* swallow */
-  }
-}
-
 /** Simple per-user RPM limit using Supabase RPC (resets every minute). */
 async function enforceRateLimit(tgId: string): Promise<null | Response> {
   try {
-    const { error } = await (await supaSvc()).rpc("rl_touch", {
+    const { error } = await supaSvc().rpc("rl_touch", {
       _tg: tgId,
       _limit: Number(Deno.env.get("RATE_LIMIT_PER_MINUTE") ?? "20"),
     });
@@ -741,22 +688,6 @@ async function enforceRateLimit(tgId: string): Promise<null | Response> {
   return null;
 }
 
-async function downloadTelegramFile(
-  fileId: string,
-): Promise<{ blob: Blob; filePath: string } | null> {
-  const infoRes = await fetch(
-    `https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`,
-  );
-  const info = await infoRes.json();
-  const filePath = info.result?.file_path;
-  if (!filePath) return null;
-  const fileRes = await fetch(
-    `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`,
-  );
-  const blob = await fileRes.blob();
-  return { blob, filePath };
-}
-
 async function hashBytesToSha256(blob: Blob): Promise<string> {
   const arrayBuffer = await blob.arrayBuffer();
   const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
@@ -769,27 +700,11 @@ async function storeReceiptImage(
   blob: Blob,
   storagePath: string,
 ): Promise<string> {
-  const supabase = await getSupabase();
+  const supabase = getSupabase();
   await supabase?.storage.from("receipts").upload(storagePath, blob, {
     contentType: blob.type || undefined,
   });
   return storagePath;
-}
-
-async function sendPlanOptions(chatId: number): Promise<void> {
-  const [msg, pkgs] = await Promise.all([
-    getFormattedVipPackages(),
-    getVipPackages(),
-  ]);
-  const inline_keyboard = pkgs.map((pkg) => [{
-    text: pkg.name,
-    callback_data: "buy:" + pkg.id,
-  }]);
-  inline_keyboard.push([{ text: "Back", callback_data: "menu:home" }]);
-  await notifyUser(chatId, msg, {
-    reply_markup: { inline_keyboard },
-    parse_mode: "Markdown",
-  });
 }
 
 export const commandHandlers: Record<string, CommandHandler> = {
@@ -914,7 +829,7 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
     }
     if (data.startsWith("method:bank:")) {
       const planId = data.split(":")[2];
-      const supa = await getSupabase();
+      const supa = getSupabase();
       if (!supa) {
         await notifyUser(chatId, "Bank transfer unavailable.");
         return;
@@ -1065,7 +980,7 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
     }
     if (data.startsWith("method:crypto:")) {
       const planId = data.split(":")[2];
-      const supa = await getSupabase();
+      const supa = getSupabase();
       if (!supa) {
         await notifyUser(chatId, "Crypto payments unavailable.");
         return;
@@ -1145,7 +1060,7 @@ export async function startReceiptPipeline(
       await notifyUser(chatId, "No receipt image found.");
       return;
     }
-    const supa = await getSupabase();
+    const supa = getSupabase();
     if (!supa) {
       await notifyUser(chatId, "Receipt processing unavailable.");
       return;
@@ -1292,7 +1207,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
     }
 
     // ---- BAN CHECK (short-circuit early) ----
-    const supa = await supaSvc();
+    const supa = supaSvc();
     const fromId = String(update?.message?.from?.id ?? "");
     if (fromId) {
       try {
@@ -1340,7 +1255,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
     console.log("telegram-bot fatal:", errMsg);
     await alertAdmins(`🚨 <b>Bot error</b>\n<code>${String(e)}</code>`);
     try {
-      const supa = await supaSvc();
+      const supa = supaSvc();
       await supa.from("admin_logs").insert({
         admin_telegram_id: "system",
         action_type: "bot_error",

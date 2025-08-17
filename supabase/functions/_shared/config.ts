@@ -5,9 +5,9 @@ const memStore = new Map<string, unknown>();
 
 let supabase: ReturnType<typeof createClient> | null | undefined = undefined;
 
-async function getClient() {
+function getClient() {
   if (supabase !== undefined) return supabase;
-  
+
   try {
     supabase = createClient();
     return supabase;
@@ -19,7 +19,7 @@ async function getClient() {
 }
 
 async function getConfig<T = unknown>(key: string, def?: T): Promise<T> {
-  const client = await getClient();
+  const client = getClient();
   if (client) {
     try {
       const { data, error } = await client.from("kv_config").select("value").eq(
@@ -38,7 +38,7 @@ async function getConfig<T = unknown>(key: string, def?: T): Promise<T> {
 }
 
 async function setConfig(key: string, val: unknown): Promise<void> {
-  const client = await getClient();
+  const client = getClient();
   if (client) {
     try {
       const { error } = await client.from("kv_config").upsert({

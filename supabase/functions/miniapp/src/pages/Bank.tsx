@@ -28,7 +28,7 @@ export default function Bank() {
       await navigator.clipboard.writeText(payCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (e) {
+    } catch {
       // no-op if clipboard isn't available
     }
   };
