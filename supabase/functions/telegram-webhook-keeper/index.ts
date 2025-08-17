@@ -1,6 +1,7 @@
 import { optionalEnv } from "../_shared/env.ts";
 import { mna, nf, ok, oops, unauth } from "../_shared/http.ts";
 import { expectedSecret } from "../_shared/telegram_secret.ts";
+import { envOrSetting } from "../_shared/config.ts";
 
 interface TgResp {
   ok: boolean;
@@ -43,7 +44,7 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     if (req.method === "POST" && path === "/run") {
-      const token = optionalEnv("TELEGRAM_BOT_TOKEN");
+      const token = await envOrSetting("TELEGRAM_BOT_TOKEN");
       const secret = await expectedSecret();
       if (!token || !secret) return oops("missing bot token or webhook secret");
 
@@ -66,7 +67,7 @@ export async function handler(req: Request): Promise<Response> {
         webhookOk = webhookFixed;
       }
 
-      const miniRaw = optionalEnv("MINI_APP_URL");
+      const miniRaw = await envOrSetting("MINI_APP_URL");
       const miniExpected = miniRaw
         ? (miniRaw.endsWith("/") ? miniRaw : `${miniRaw}/`)
         : null;
