@@ -13,7 +13,12 @@ import type {
 
 import { supabaseAdmin, sendMessage } from "./common.ts";
 export { sendMessage } from "./common.ts";
-export { handleContentManagement } from "./bot-content.ts";
+export {
+  handleContentManagement,
+  handleEditContent,
+  handleAddNewContent,
+  handlePreviewAllContent,
+} from "./bot-content.ts";
 export {
   handleBotSettingsManagement,
   handleConfigSessionSettings,

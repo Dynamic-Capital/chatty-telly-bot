@@ -518,6 +518,26 @@ export function buildCallbackHandlers(
       handlers.handleBankAccountsManagement(chatId, userId),
     manage_table_auto_reply_templates: (chatId, userId) =>
       handlers.handleAutoReplyTemplatesManagement(chatId, userId),
+    edit_content_welcome_message: (chatId, userId) =>
+      handlers.handleEditContent(chatId, userId, "welcome_message"),
+    edit_content_about_us: (chatId, userId) =>
+      handlers.handleEditContent(chatId, userId, "about_us"),
+    edit_content_support_message: (chatId, userId) =>
+      handlers.handleEditContent(chatId, userId, "support_message"),
+    edit_content_terms_conditions: (chatId, userId) =>
+      handlers.handleEditContent(chatId, userId, "terms_conditions"),
+    edit_content_faq_general: (chatId, userId) =>
+      handlers.handleEditContent(chatId, userId, "faq_general"),
+    edit_content_maintenance_message: (chatId, userId) =>
+      handlers.handleEditContent(chatId, userId, "maintenance_message"),
+    edit_content_vip_benefits: (chatId, userId) =>
+      handlers.handleEditContent(chatId, userId, "vip_benefits"),
+    edit_content_payment_instructions: (chatId, userId) =>
+      handlers.handleEditContent(chatId, userId, "payment_instructions"),
+    add_new_content: (chatId, userId) =>
+      handlers.handleAddNewContent(chatId, userId),
+    preview_all_content: (chatId, userId) =>
+      handlers.handlePreviewAllContent(chatId, userId),
     export_all_tables: (chatId, userId) =>
       handlers.handleExportAllTables(chatId, userId),
     table_stats_overview: (chatId, userId) =>
