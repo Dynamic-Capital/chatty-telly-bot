@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../../_shared/client.ts";
 import { verifyFromRaw } from "../../verify-initdata/index.ts";
 import { envOrSetting } from "../../_shared/config.ts";
+import { json, mna, oops, bad } from "../../_shared/http.ts";
+import { version } from "../../_shared/version.ts";
 
 const mini = await envOrSetting("MINI_APP_URL");
 const corsHeaders = {
@@ -15,28 +17,23 @@ function withCors(res: Response) {
   return res;
 }
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
-    return withCors(new Response(null, { status: 204 }));
+    return withCors(json({}, 204));
   }
+  const v = version(req, "auth-telegram-init");
+  if (v) return withCors(v);
+  if (req.method !== "POST") return mna();
 
   try {
     const { initData, ttl } = await req.json().catch(() => ({ initData: "" }));
     if (!initData) {
-      return withCors(
-        new Response(JSON.stringify({ error: "initData required" }), {
-          status: 400,
-        }),
-      );
+      return withCors(bad("initData required"));
     }
 
     const valid = await verifyFromRaw(initData);
     if (!valid) {
-      return withCors(
-        new Response(JSON.stringify({ error: "invalid init data" }), {
-          status: 401,
-        }),
-      );
+      return withCors(json({ error: "invalid init data" }, 401));
     }
 
     const params = new URLSearchParams(initData);
@@ -48,11 +45,7 @@ serve(async (req) => {
     }
     const telegramId = Number((user as { id?: number }).id || 0);
     if (!telegramId) {
-      return withCors(
-        new Response(JSON.stringify({ error: "user.id required" }), {
-          status: 400,
-        }),
-      );
+      return withCors(bad("user.id required"));
     }
 
     const client = createClient();
@@ -63,11 +56,7 @@ serve(async (req) => {
       .single();
     if (error || !profile) {
       console.error("profile upsert error", error);
-      return withCors(
-        new Response(JSON.stringify({ error: "profile upsert failed" }), {
-          status: 500,
-        }),
-      );
+      return withCors(oops("profile upsert failed"));
     }
 
     const payload: Record<string, unknown> = { sub: profile.id };
@@ -84,20 +73,13 @@ serve(async (req) => {
     const access_token =
       signed.access_token || signed.token || signed.jwt || "";
 
-    return withCors(
-      new Response(JSON.stringify({ access_token, profile }), {
-        headers: {
-          "content-type": "application/json",
-          "cache-control": "no-store",
-        },
-      }),
-    );
+    return withCors(json({ access_token, profile }, 200, {
+      "cache-control": "no-store",
+    }));
   } catch (err) {
     console.error("telegram-init error", err);
-    return withCors(
-      new Response(JSON.stringify({ error: String(err) }), {
-        status: 500,
-      }),
-    );
+    return withCors(oops(String(err)));
   }
-});
+}
+
+if (import.meta.main) serve(handler);

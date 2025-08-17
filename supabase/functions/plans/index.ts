@@ -1,9 +1,13 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
+import { mna, oops, ok } from "../_shared/http.ts";
+import { version } from "../_shared/version.ts";
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
+  const v = version(req, "plans");
+  if (v) return v;
   if (req.method !== "GET") {
-    return new Response("Method Not Allowed", { status: 405 });
+    return mna();
   }
 
   const supa = createClient("anon");
@@ -14,14 +18,10 @@ serve(async (req) => {
     .order("price", { ascending: true });
 
   if (error) {
-    return new Response(
-      JSON.stringify({ ok: false, error: error.message }),
-      { status: 500 },
-    );
+    return oops(error.message);
   }
 
-  return new Response(
-    JSON.stringify({ ok: true, plans: data }),
-    { headers: { "content-type": "application/json" } },
-  );
-});
+  return ok({ plans: data });
+}
+
+if (import.meta.main) serve(handler);

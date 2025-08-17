@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
+import { bad, mna, ok, oops } from "../_shared/http.ts";
+import { version } from "../_shared/version.ts";
 
 type Body = {
   telegram_id: string;
@@ -8,15 +10,16 @@ type Body = {
   content_type?: string;
 };
 
-serve(async (req) => {
-  if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
-  }
+export async function handler(req: Request): Promise<Response> {
+  const v = version(req, "receipt-upload-url");
+  if (v) return v;
+  if (req.method !== "POST") return mna();
+
   let body: Body;
   try {
     body = await req.json();
   } catch {
-    return new Response("Bad JSON", { status: 400 });
+    return bad("Bad JSON");
   }
 
   const supa = createClient();
@@ -26,14 +29,10 @@ serve(async (req) => {
     .from("receipts")
     .createSignedUploadUrl(key);
   if (error) {
-    return new Response(
-      JSON.stringify({ ok: false, error: error.message }),
-      { status: 500 },
-    );
+    return oops(error.message);
   }
 
-  return new Response(
-    JSON.stringify({ ok: true, bucket: "receipts", path: key, signed }),
-    { headers: { "content-type": "application/json" } },
-  );
-});
+  return ok({ bucket: "receipts", path: key, signed });
+}
+
+if (import.meta.main) serve(handler);

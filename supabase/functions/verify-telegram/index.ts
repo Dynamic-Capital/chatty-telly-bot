@@ -1,8 +1,5 @@
 import { optionalEnv } from "../_shared/env.ts";
-import { bad, mna, ok, oops } from "../_shared/http.ts";
-
-// Verify Telegram WebApp initData according to Telegram spec
-// Public Edge Function with CORS
+import { bad, mna, ok, oops, json } from "../_shared/http.ts";
 
 const allowList = new Set(
   (Deno.env.get("MINIAPP_ORIGIN") || "")
@@ -44,7 +41,6 @@ function timingSafeEqual(a: string, b: string): boolean {
 
 function parseInitData(initData: string): Record<string, string> {
   const obj: Record<string, string> = {};
-  // initData is typically URL query-string style (k=v&k=v)
   initData.split("&").forEach((pair) => {
     const [k, v] = pair.split("=", 2);
     if (!k) return;
@@ -64,14 +60,12 @@ async function verifyInitData(initData: string) {
   const providedHash = params["hash"];
   if (!providedHash) return { ok: false, error: "MISSING_HASH" } as const;
 
-  // Build data_check_string: sort all keys except 'hash' and join as key=value with \n
   const dataCheckString = Object.keys(params)
     .filter((k) => k !== "hash")
     .sort()
     .map((k) => `${k}=${params[k]}`)
     .join("\n");
 
-  // secret key = SHA256(bot_token)
   const secretKey = await crypto.subtle.digest(
     "SHA-256",
     encoder.encode(botToken),
@@ -94,13 +88,11 @@ async function verifyInitData(initData: string) {
     return { ok: false, error: "HASH_MISMATCH" } as const;
   }
 
-  // Optional freshness check: auth_date within last 24h
   const authDate = Number(params["auth_date"]) || 0;
   if (!authDate || Math.abs(Date.now() / 1000 - authDate) > 60 * 60 * 24) {
     return { ok: false, error: "AUTH_DATE_EXPIRED" } as const;
   }
 
-  // Parse user JSON (if present)
   let user: unknown = null;
   if (params["user"]) {
     try {
@@ -116,14 +108,14 @@ async function verifyInitData(initData: string) {
 Deno.serve(async (req) => {
   const origin = req.headers.get("Origin");
   if (origin && !allowList.has(origin)) {
-    return new Response("Forbidden", { status: 403 });
+    return json({ ok: false, error: "Forbidden" }, 403);
   }
   const url = new URL(req.url);
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders(origin) });
+    return json({}, 200, corsHeaders(origin) as Record<string, string>);
   }
-  if (req.method === "HEAD") {
-    return withCors(new Response(null, { status: 200 }), origin);
+  if (req.method === "HEAD" && url.pathname.endsWith("/version")) {
+    return withCors(ok(), origin);
   }
   if (req.method === "GET" && url.pathname.endsWith("/version")) {
     return withCors(

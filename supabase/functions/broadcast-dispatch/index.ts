@@ -1,6 +1,7 @@
-// >>> DC BLOCK: broadcast-dispatch-core (start)
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { optionalEnv, requireEnv } from "../_shared/env.ts";
+import { bad, nf, ok, mna } from "../_shared/http.ts";
+import { version } from "../_shared/version.ts";
 export async function dispatchAudience(
   ids: number[],
   text: string,
@@ -17,10 +18,13 @@ export async function dispatchAudience(
   return { success, failed };
 }
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
+  const v = version(req, "broadcast-dispatch");
+  if (v) return v;
+  if (req.method !== "POST") return mna();
   const { id } = await req.json().catch(() => ({}));
   if (!id) {
-    return new Response(JSON.stringify({ ok: false, error: "bad_request" }), { status: 400 });
+    return bad("bad_request");
   }
   const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, TELEGRAM_BOT_TOKEN } = requireEnv(
     ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "TELEGRAM_BOT_TOKEN"] as const,
@@ -36,7 +40,7 @@ serve(async (req) => {
   );
   const row = (await br.json())?.[0];
   if (!row) {
-    return new Response(JSON.stringify({ ok: false, error: "not_found" }), { status: 404 });
+    return nf("not_found");
   }
   const targets: number[] = row.target_audience?.telegram_ids || [];
   const text = row.content || "";
@@ -77,6 +81,7 @@ serve(async (req) => {
     }),
   });
 
-  return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" } });
-});
-// <<< DC BLOCK: broadcast-dispatch-core (end)
+  return ok();
+}
+
+if (import.meta.main) serve(handler);

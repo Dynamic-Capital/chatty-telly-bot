@@ -3,6 +3,8 @@ import { getEnv } from "../_shared/env.ts";
 import { createLogger } from "../_shared/logger.ts";
 import { ensureWebhookSecret } from "../_shared/telegram_secret.ts";
 import { createClient } from "../_shared/client.ts";
+import { json, mna, oops } from "../_shared/http.ts";
+import { version } from "../_shared/version.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,10 +21,13 @@ function getLogger(req: Request) {
   });
 }
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return json({}, 200, corsHeaders);
   }
+  const v = version(req, "setup-webhook");
+  if (v) return v;
+  if (req.method !== "POST") return mna();
 
   const logger = getLogger(req);
 
@@ -35,29 +40,22 @@ serve(async (req) => {
     const supa = createClient();
     const secret = await ensureWebhookSecret(supa);
 
-    // Get the webhook URL for our telegram-bot function
     const webhookUrl = `${supabaseUrl}/functions/v1/telegram-bot`;
 
     logger.info("Webhook URL prepared");
 
-    // Delete any existing webhook first
     const deleteResponse = await fetch(
       `https://api.telegram.org/bot${botToken}/deleteWebhook`,
-      {
-        method: "POST",
-      },
+      { method: "POST" },
     );
     const deleteResult = await deleteResponse.json();
     logger.info("Delete webhook result:", deleteResult);
 
-    // Set the new webhook
     const response = await fetch(
       `https://api.telegram.org/bot${botToken}/setWebhook`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           url: webhookUrl,
           secret_token: secret,
@@ -74,44 +72,33 @@ serve(async (req) => {
       throw new Error(`Failed to set webhook: ${result.description}`);
     }
 
-    // Get webhook info to confirm
     const infoResponse = await fetch(
       `https://api.telegram.org/bot${botToken}/getWebhookInfo`,
     );
     const webhookInfo = await infoResponse.json();
     logger.info("Webhook info:", webhookInfo);
 
-    // Test bot info
     const botInfoResponse = await fetch(
       `https://api.telegram.org/bot${botToken}/getMe`,
     );
     const botInfo = await botInfoResponse.json();
     logger.info("Bot info:", botInfo);
 
-    return new Response(
-      JSON.stringify({
+    return json(
+      {
         success: true,
         message: "Webhook configured successfully",
         webhook_set: result,
         webhook_info: webhookInfo.result,
         bot_info: botInfo.result,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
       },
+      200,
+      { ...corsHeaders },
     );
   } catch (error) {
     logger.error("Error setting up webhook:", error);
-    return new Response(
-      JSON.stringify({
-        error: error.message,
-        success: false,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      },
-    );
+    return oops(error.message);
   }
-});
+}
+
+if (import.meta.main) serve(handler);
