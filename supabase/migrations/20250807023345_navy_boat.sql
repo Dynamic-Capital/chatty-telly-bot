@@ -165,7 +165,6 @@ Need assistance? Contact @DynamicCapital_Support',
 We accept:
 🏦 Bank Transfer
 🪙 USDT (TRC20)
-💳 Binance Pay
 
 After payment, upload your receipt and we''ll activate your VIP access within 24 hours.',
   'text',

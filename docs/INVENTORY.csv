@@ -14,7 +14,6 @@ supabase/functions/trade-helper/index.ts,3757,ts,125
 supabase/functions/setup-telegram-webhook/index.ts,4102,ts,141
 supabase/functions/theme-save/index.ts,1712,ts,58
 supabase/functions/telegram-webhook/index.ts,2896,ts,93
-supabase/functions/binance-pay-checkout/index.ts,6249,ts,220
 supabase/functions/cleanup-old-sessions/index.ts,8412,ts,293
 supabase/functions/tg-verify-init/index.ts,3209,ts,109
 supabase/functions/telegram-selftest/index.ts,3121,ts,98

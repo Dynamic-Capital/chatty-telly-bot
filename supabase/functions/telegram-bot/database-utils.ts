@@ -1,10 +1,7 @@
 // Database utility functions for the Telegram bot
 import { createClient } from "../_shared/client.ts";
-import { optionalEnv } from "../_shared/env.ts";
 
 const supabaseAdmin = createClient();
-const BINANCE_PAY_MERCHANT_ID =
-  optionalEnv("BINANCE_PAY_MERCHANT_ID") ?? "<BINANCE_PAY_MERCHANT_ID>";
 
 interface VipPackage {
   id: string;
@@ -119,7 +116,7 @@ Need assistance? Contact @DynamicCapital_Support`,
 A: Select a VIP package, complete payment, and you'll be added automatically after verification.
 
 🔷 **Q: What payment methods do you accept?**
-A: We accept Binance Pay (ID: ${BINANCE_PAY_MERCHANT_ID} – verified manually by an admin), USDT (TRC20), and bank transfers.
+A: We accept USDT (TRC20) and bank transfers.
 
 🔷 **Q: How quickly are signals sent?**
 A: VIP signals are sent in real-time as market opportunities arise, typically 5-10 per day.
@@ -150,7 +147,6 @@ A: Yes! We offer comprehensive courses for beginners to advanced traders.
 We accept:
 🏦 Bank Transfer
 🪙 USDT (TRC20)
-💳 Binance Pay (ID: ${BINANCE_PAY_MERCHANT_ID})
 
 After payment, upload your receipt and our admin will verify it manually within 24 hours.`,
   };

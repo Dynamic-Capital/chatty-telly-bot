@@ -8,8 +8,6 @@ export type EnvKey =
   | "TELEGRAM_BOT_TOKEN"
   | "TELEGRAM_WEBHOOK_SECRET"
   | "TELEGRAM_BOT_USERNAME"
-  | "BINANCE_API_KEY"
-  | "BINANCE_SECRET_KEY"
   | "OPENAI_API_KEY"
   | "OPENAI_ENABLED"
   | "FAQ_ENABLED"
@@ -28,7 +26,6 @@ export type EnvKey =
   | "SESSION_TIMEOUT_MINUTES"
   | "FOLLOW_UP_DELAY_MINUTES"
   | "MAX_FOLLOW_UPS"
-  | "BINANCE_PAY_MERCHANT_ID"
   | "CRYPTO_DEPOSIT_ADDRESS";
 
 /** Test-only env injection type */

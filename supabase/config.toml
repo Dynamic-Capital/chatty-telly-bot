@@ -18,9 +18,6 @@ verify_jwt = false
 [functions.test-webhook]
 verify_jwt = false
 
-[functions.binance-pay-checkout]
-verify_jwt = false
-
 [functions.setup-webhook]
 verify_jwt = false
 

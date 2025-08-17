@@ -212,7 +212,6 @@ Expected additional functions may be:
 - ✅ `telegram-bot` (200 OK, 2-5s response time)
 - ✅ `test-bot-status` (Available)
 - ✅ `reset-bot` (Available)
-- ✅ `binance-pay-checkout` (Available)
 
 ### ⚠️ **Function Analysis**
 
@@ -238,7 +237,6 @@ Expected additional functions may be:
 ### 💳 **Payment Methods (3 Active)**
 
 - ✅ **Crypto payments** (USDT - TRC20)
-- ✅ **Binance Pay** (API integrated)
 - ✅ **Bank transfers** (3 accounts: BML, MIB)
 
 ### 📊 **Current Usage**

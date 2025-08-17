@@ -71,7 +71,6 @@ export const SystemStatus = () => {
     "analytics-data",
     "ai-faq-assistant",
     "trade-helper",
-    "binance-pay-checkout",
     "setup-webhook",
     "cleanup-old-sessions",
     "cleanup-old-receipts",

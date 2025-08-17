@@ -27,9 +27,7 @@ type Instructions =
 export default function Plan() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [method, setMethod] = useState<
-    "bank_transfer" | "binance_pay" | "crypto"
-  >(
+  const [method, setMethod] = useState<"bank_transfer" | "crypto">(
     "bank_transfer",
   );
   const [instructions, setInstructions] = useState<Instructions | null>(null);
@@ -104,13 +102,6 @@ export default function Plan() {
               label="Bank"
               onClick={() => setMethod("bank_transfer")}
               className={method === "bank_transfer"
-                ? "opacity-100"
-                : "opacity-60"}
-            />
-            <SecondaryButton
-              label="Binance Pay"
-              onClick={() => setMethod("binance_pay")}
-              className={method === "binance_pay"
                 ? "opacity-100"
                 : "opacity-60"}
             />

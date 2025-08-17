@@ -849,7 +849,6 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
       const plan = pkgs.find((p) => p.id === planId);
       if (plan && cb.message) {
         const inline_keyboard = [
-          [{ text: "Pay with Binance", callback_data: `method:binance:${plan.id}` }],
           [{
             text: "Pay by Bank Transfer (Upload Receipt)",
             callback_data: `method:bank:${plan.id}`,
@@ -973,56 +972,6 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         await editMessage(chatId, cb.message!.message_id!, message, {
           reply_markup: { inline_keyboard: [[{ text: "Back", callback_data: "nav:plans" }]] },
         });
-      }
-      return;
-    }
-    if (data.startsWith("method:binance:")) {
-      const planId = data.split(":")[2];
-      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-        const msg = await getContent("checkout_unavailable") ??
-          "Checkout unavailable. Please try again later.";
-        await notifyUser(chatId, msg);
-        return;
-      }
-      try {
-        const res = await fetch(
-          `${SUPABASE_URL}/functions/v1/binance-pay-checkout`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-            },
-            body: JSON.stringify({
-              planId,
-              telegramUserId: String(chatId),
-              telegramUsername: cb.from.username,
-            }),
-          },
-        );
-        const out = await res.json().catch(() => null);
-        if (out?.checkoutUrl && cb.message) {
-          await editMessage(
-            chatId,
-            cb.message!.message_id!,
-            "Complete payment using Binance Pay. We'll approve it manually.",
-            {
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: "Open Binance Pay", url: out.checkoutUrl }],
-                  [{ text: "Back", callback_data: "nav:plans" }],
-                ],
-              },
-            },
-          );
-        } else if (cb.message) {
-          await editMessage(chatId, cb.message!.message_id!, "Failed to initiate Binance Pay checkout.");
-        }
-      } catch (e) {
-        console.error("binance-pay error", e);
-        if (cb.message) {
-          await editMessage(chatId, cb.message!.message_id!, "Failed to initiate Binance Pay checkout.");
-        }
       }
       return;
     }

@@ -25,7 +25,7 @@ education packages, payments, and user interactions.
 ### Key Features
 
 - 👥 User management with VIP tiers
-- 💳 Payment processing (Binance Pay, manual uploads)
+- 💳 Payment processing (manual uploads)
 - 📚 Education package enrollment
 - 📊 Analytics and reporting
 - 🎁 Promotion code system
@@ -566,8 +566,6 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
 # Optional
 OPENAI_API_KEY=your_openai_key_for_ai_features
-BINANCE_API_KEY=for_payment_processing
-BINANCE_SECRET_KEY=for_payment_processing
 ```
 
 ### Bot Configuration

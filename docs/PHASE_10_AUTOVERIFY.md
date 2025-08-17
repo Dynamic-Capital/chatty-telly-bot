@@ -22,4 +22,3 @@ A payment is approved when:
 3. Currency matches
 4. Receipt date within time window
 
-Binance Pay webhooks have been removed; manual approval is required.

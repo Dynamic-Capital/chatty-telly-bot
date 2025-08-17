@@ -182,7 +182,7 @@ interface Payment {
   plan_id: string; // Links to subscription_plans
   amount: number; // Payment amount
   status: "pending" | "completed" | "failed" | "refunded"; // Payment status
-  payment_method: string; // "binance_pay", "manual", etc.
+  payment_method: string; // "manual", etc.
 }
 
 // 📚 Education System
@@ -407,8 +407,6 @@ interface BotEnvironment {
   OPENAI_API_KEY?: string; // For AI-powered FAQ responses
 
   // 💳 Optional - Payment Processing
-  BINANCE_API_KEY?: string; // For Binance Pay integration
-  BINANCE_SECRET_KEY?: string; // Binance API secret
 
   // 🔐 Optional - Additional Services
   VOLET_API_KEY?: string; // Alternative payment processor
