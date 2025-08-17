@@ -1,7 +1,25 @@
+/**
+ * Hook wrapping miniapp API endpoints.
+ *
+ * Each request checks the `Response.ok` flag before attempting to parse the
+ * response body. If a request fails, the parsed error JSON (or a fallback
+ * object with a `message` field) is thrown. Callers should handle these errors
+ * with a `try/catch` block.
+ */
 export function useApi() {
   const getInitData = () =>
     (globalThis as unknown as { Telegram?: { WebApp?: { initData?: string } } })
       .Telegram?.WebApp?.initData || "";
+
+  const handleError = async (res: Response) => {
+    let error: unknown;
+    try {
+      error = await res.json();
+    } catch {
+      error = { message: res.statusText };
+    }
+    throw error;
+  };
 
   const createIntent = async (payload: Record<string, unknown>) => {
     const res = await fetch("/api/intent", {
@@ -9,6 +27,7 @@ export function useApi() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ initData: getInitData(), ...payload }),
     });
+    if (!res.ok) return handleError(res);
     return res.json();
   };
 
@@ -20,6 +39,7 @@ export function useApi() {
       method: "POST",
       body: form,
     });
+    if (!res.ok) return handleError(res);
     return res.json();
   };
 
@@ -29,12 +49,14 @@ export function useApi() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ initData: getInitData(), ...payload }),
     });
+    if (!res.ok) return handleError(res);
     return res.json();
   };
 
   const getReceipts = async (limit: number) => {
     const initData = encodeURIComponent(getInitData());
     const res = await fetch(`/api/receipts?limit=${limit}&initData=${initData}`);
+    if (!res.ok) return handleError(res);
     return res.json();
   };
 
@@ -43,23 +65,26 @@ export function useApi() {
     const res = await fetch(
       `/api/receipts?status=manual_review&initData=${initData}`,
     );
+    if (!res.ok) return handleError(res);
     return res.json();
   };
 
   const approve = async (id: string) => {
-    await fetch(`/api/receipt/${id}/approve`, {
+    const res = await fetch(`/api/receipt/${id}/approve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ initData: getInitData() }),
     });
+    if (!res.ok) return handleError(res);
   };
 
   const reject = async (id: string) => {
-    await fetch(`/api/receipt/${id}/reject`, {
+    const res = await fetch(`/api/receipt/${id}/reject`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ initData: getInitData() }),
     });
+    if (!res.ok) return handleError(res);
   };
 
   return {
