@@ -138,7 +138,8 @@ export async function workerLoop() {
     }
     const now = Date.now();
     if (job.nextRunAt > now) {
-      await sleep(job.nextRunAt - now);
+      // Wake up periodically so new earlier jobs don't wait for a long sleep
+      await sleep(Math.min(job.nextRunAt - now, 50));
       continue;
     }
     queue.shift();
