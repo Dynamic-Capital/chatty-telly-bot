@@ -136,7 +136,7 @@ async function envOrSetting<T = string>(
   return await getSetting<T>(settingKey);
 }
 
-async function getContent<T = unknown>(
+async function getContent<T = string>(
   key: string,
 ): Promise<T | null> {
   const cached = getCached<T>(`c:${key}`);

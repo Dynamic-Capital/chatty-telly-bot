@@ -7,7 +7,7 @@ Deno.test("envOrSetting prefers env over bot_setting", async () => {
   const cfg = await import("../supabase/functions/_shared/config.ts");
   Deno.env.set("EXAMPLE_KEY", "env-value");
   const original = cfg.getSetting;
-  cfg.__setGetSetting(async () => "db-value");
+  cfg.__setGetSetting((async () => "db-value") as typeof cfg.getSetting);
   const val = await cfg.envOrSetting("EXAMPLE_KEY", "EXAMPLE_KEY");
   assertEquals(val, "env-value");
   cfg.__setGetSetting(original);
