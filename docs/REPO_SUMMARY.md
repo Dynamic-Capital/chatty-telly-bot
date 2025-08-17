@@ -7,6 +7,7 @@
 ## 1) High-Level Overview
 - Tech stack: Deno, Supabase Edge Functions, Postgres (Supabase), Telegram Bot.
 - Primary domains: bot automation (Telegram), subscriptions/payments, analytics, broadcasts.
+- `X-Frame-Options` header removed to allow embedding in Telegram.
 
 ## 2) Directory Map (top-level)
 ```

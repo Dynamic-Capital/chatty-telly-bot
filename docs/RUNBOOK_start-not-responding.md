@@ -41,6 +41,20 @@ supabase secrets get TELEGRAM_BOT_TOKEN
 - An empty value means the Edge function cannot reply to messages. Set it with
   `supabase secrets set TELEGRAM_BOT_TOKEN=...`.
 
+### Secret-token validation failures
+
+- Verify the secret expected by the function:
+
+  ```bash
+  supabase secrets get TELEGRAM_WEBHOOK_SECRET
+  ```
+
+- Re-run `setWebhook` with the same value. Telegram sends this back as
+  `X-Telegram-Bot-Api-Secret-Token`; mismatches return `401`.
+- If compromised, rotate via `supabase functions deploy rotate-webhook-secret`
+  and update your Edge secrets.
+- Telegram docs: https://core.telegram.org/bots/api#setwebhook
+
 ## Common causes
 
 - Wrong or missing `X-Telegram-Bot-Api-Secret-Token` header.
