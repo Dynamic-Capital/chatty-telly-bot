@@ -96,7 +96,7 @@ export async function setFlag(name: string, val: boolean): Promise<void> {
 
 // === Bot settings & content helpers ===
 
-async function getSetting<T = unknown>(key: string): Promise<T | null> {
+export let getSetting = async <T = unknown>(key: string): Promise<T | null> => {
   const cached = getCached<T>(`s:${key}`);
   if (cached !== null) return cached;
   const client = getClient();
@@ -114,6 +114,11 @@ async function getSetting<T = unknown>(key: string): Promise<T | null> {
     console.error("Error getting setting:", e);
   }
   return null;
+};
+
+// Test helper to override getSetting
+export function __setGetSetting(fn: typeof getSetting) {
+  getSetting = fn;
 }
 
 async function requireSetting<T = unknown>(key: string): Promise<T> {
@@ -156,7 +161,6 @@ async function getContent<T = unknown>(
 export {
   getConfig,
   setConfig,
-  getSetting,
   requireSetting,
   envOrSetting,
   getContent,

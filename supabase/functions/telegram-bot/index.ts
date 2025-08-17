@@ -1332,6 +1332,7 @@ export async function serveWebhook(req: Request): Promise<Response> {
   }
 }
 
+export default serveWebhook;
 if (import.meta.main) {
   Deno.serve(serveWebhook);
 }
