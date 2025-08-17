@@ -95,10 +95,14 @@ Always end responses with: "💡 Need more help? Contact @DynamicCapital_Support
     });
   } catch (error) {
     console.error("Error in ai-faq-assistant function:", error);
+    let details = "Unknown error";
+    if (error instanceof Error) {
+      details = error.message;
+    }
     return new Response(
       JSON.stringify({
         error: "Failed to get AI response",
-        details: error.message,
+        details,
       }),
       {
         status: 500,
