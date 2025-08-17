@@ -21,7 +21,7 @@ async function activateSubscription(
     );
 }
 
-serve(async (req) => {
+async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   if (req.method === "GET" && url.pathname.endsWith("/version")) {
     return ok({ name: "crypto-webhook", ts: new Date().toISOString() });
@@ -108,4 +108,10 @@ serve(async (req) => {
   }
 
   return ok({ status: isConfirmed ? "completed" : "pending" });
-});
+}
+
+if (import.meta.main) {
+  serve(handler);
+}
+
+export default handler;
