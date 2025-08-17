@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
+import { optionalEnv } from "../_shared/env.ts";
 
 type Body = {
   telegram_id: string;
@@ -31,6 +32,8 @@ serve(async (req) => {
   }
 
   const supa = createClient();
+  const BINANCE_PAY_MERCHANT_ID =
+    optionalEnv("BINANCE_PAY_MERCHANT_ID") ?? "<BINANCE_PAY_MERCHANT_ID>";
 
   const { data: bu } = await supa
     .from("bot_users")
@@ -89,7 +92,7 @@ serve(async (req) => {
   } else if (body.method === "binance_pay") {
     instructions = {
       type: "binance_pay",
-      note: "Use Binance Pay to send to Binance ID 59586072. Then upload receipt for manual admin verification.",
+      note: `Use Binance Pay to send to Binance ID ${BINANCE_PAY_MERCHANT_ID}. Then upload receipt for manual admin verification.`,
     };
   } else {
     instructions = {

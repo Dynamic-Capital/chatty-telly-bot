@@ -14,11 +14,12 @@ const corsHeaders = {
 const {
   BINANCE_API_KEY: _BINANCE_PAY_API_KEY,
   BINANCE_SECRET_KEY: _BINANCE_PAY_SECRET_KEY,
+  BINANCE_PAY_MERCHANT_ID: _BINANCE_PAY_MERCHANT_ID,
 } = requireEnv([
   "BINANCE_API_KEY",
   "BINANCE_SECRET_KEY",
+  "BINANCE_PAY_MERCHANT_ID",
 ] as const);
-const _BINANCE_PAY_MERCHANT_ID = "59586072";
 const _BINANCE_PAY_BASE_URL = "https://bpay.binanceapi.com";
 
 async function _generateSignature(
