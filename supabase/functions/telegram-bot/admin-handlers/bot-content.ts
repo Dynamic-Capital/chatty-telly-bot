@@ -107,3 +107,77 @@ export async function handleContentManagement(
     );
   }
 }
+
+export async function handleEditContent(
+  chatId: number,
+  _userId: string,
+  contentKey: string,
+): Promise<void> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("bot_content")
+      .select("content_value")
+      .eq("content_key", contentKey)
+      .maybeSingle();
+    if (error) throw error;
+    const current = data?.content_value ?? "";
+    const msg =
+      `📝 *Editing ${contentKey}*\\n\\nCurrent value:\n${current}\n\nSend new content to update this entry.`;
+    const keyboard = {
+      inline_keyboard: [[
+        { text: "⬅️ Back", callback_data: "manage_table_bot_content" },
+      ]],
+    };
+    await sendMessage(chatId, msg, keyboard);
+  } catch (err) {
+    console.error("Error in handleEditContent:", err);
+    await sendMessage(chatId, "❌ Error preparing content for edit.");
+  }
+}
+
+export async function handleAddNewContent(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  try {
+    const msg =
+      "➕ *Add New Content*\\n\\nSend new content in the format `key=Your content here`.";
+    const keyboard = {
+      inline_keyboard: [[
+        { text: "⬅️ Back", callback_data: "manage_table_bot_content" },
+      ]],
+    };
+    await sendMessage(chatId, msg, keyboard);
+  } catch (err) {
+    console.error("Error in handleAddNewContent:", err);
+    await sendMessage(chatId, "❌ Error preparing to add content.");
+  }
+}
+
+export async function handlePreviewAllContent(
+  chatId: number,
+  _userId: string,
+): Promise<void> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("bot_content")
+      .select("content_key, content_value")
+      .order("content_key", { ascending: true });
+    if (error) throw error;
+    const lines = (data || []).map(
+      (row: { content_key: string; content_value: string }) =>
+        `• ${row.content_key}: ${row.content_value}`,
+    );
+    const msg = `👀 *All Bot Content*\\n\\n${lines.join("\\n")}`;
+    const keyboard = {
+      inline_keyboard: [[
+        { text: "⬅️ Back", callback_data: "manage_table_bot_content" },
+      ]],
+    };
+    await sendMessage(chatId, msg, keyboard);
+  } catch (err) {
+    console.error("Error in handlePreviewAllContent:", err);
+    await sendMessage(chatId, "❌ Error fetching content preview.");
+  }
+}
+
