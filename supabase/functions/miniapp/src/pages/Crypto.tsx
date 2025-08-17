@@ -4,6 +4,7 @@ import NetworkPicker from "../components/NetworkPicker";
 import GlassPanel from "../components/GlassPanel";
 import PrimaryButton from "../components/PrimaryButton";
 import SecondaryButton from "../components/SecondaryButton";
+import Toast from "../components/Toast";
 import { useApi } from "../hooks/useApi";
 import { useTelegramMainButton } from "../hooks/useTelegram";
 
@@ -12,12 +13,21 @@ export default function Crypto() {
   const [network, setNetwork] = useState("TRON");
   const [address, setAddress] = useState("");
   const [txid, setTxid] = useState("");
+  const [copyFailed, setCopyFailed] = useState(false);
 
   useEffect(() => {
     api.createIntent({ type: "crypto", network }).then((r) =>
       setAddress(r.deposit_address)
     );
   }, [network, api]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(address);
+    } catch {
+      setCopyFailed(true);
+    }
+  };
 
   const handleSubmit = async () => {
     if (txid) {
@@ -44,7 +54,7 @@ export default function Crypto() {
           <div className="mt-2">
             <SecondaryButton
               label="Copy address"
-              onClick={() => navigator.clipboard.writeText(address)}
+              onClick={handleCopy}
             />
           </div>
           <img
@@ -70,6 +80,13 @@ export default function Crypto() {
         className="fixed bottom-4 left-4 right-4"
         disabled={!txid}
       />
+      {copyFailed && (
+        <Toast
+          message="Failed to copy address"
+          type="error"
+          onClose={() => setCopyFailed(false)}
+        />
+      )}
     </div>
   );
 }
