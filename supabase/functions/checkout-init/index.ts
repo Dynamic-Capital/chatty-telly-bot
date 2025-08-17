@@ -92,7 +92,7 @@ serve(async (req) => {
   } else if (body.method === "binance_pay") {
     instructions = {
       type: "binance_pay",
-      note: `Use Binance Pay to send to Binance ID ${BINANCE_PAY_MERCHANT_ID}. Then upload receipt for manual admin verification.`,
+      note: `Use Binance Pay to send to Binance ID ${BINANCE_PAY_MERCHANT_ID}. After sending, upload your receipt – payment remains awaiting admin approval until verified.`,
     };
   } else {
     instructions = {
