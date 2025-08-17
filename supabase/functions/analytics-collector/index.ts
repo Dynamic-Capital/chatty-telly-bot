@@ -1,20 +1,18 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
 import { ok } from "../_shared/http.ts";
+import { version } from "../_shared/version.ts";
 
 function isoDay(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-serve(async (req) => {
-  const url = new URL(req.url);
-  if (req.method === "GET" && url.pathname.endsWith("/version")) {
-    return ok({ name: "analytics-collector", ts: new Date().toISOString() });
-  }
-  if (req.method === "HEAD") return new Response(null, { status: 200 });
+export async function handler(req: Request): Promise<Response> {
+  const v = version(req, "analytics-collector");
+  if (v) return v;
+  if (req.method === "HEAD") return ok();
   const supa = createClient();
 
-  // Define "day" as UTC day for simplicity; adjust if you prefer MVT (UTC+5).
   const today = new Date();
   const y = new Date(
     Date.UTC(
@@ -28,18 +26,15 @@ serve(async (req) => {
   const start = new Date(`${day}T00:00:00.000Z`).toISOString();
   const end = new Date(`${day}T23:59:59.999Z`).toISOString();
 
-  // total users (all-time)
   const { count: totalUsers } = await supa.from("bot_users").select("id", {
     count: "exact",
     head: true,
   });
 
-  // new users (yesterday)
   const { count: newUsers } = await supa.from("bot_users")
     .select("id", { count: "exact", head: true })
     .gte("created_at", start).lte("created_at", end);
 
-  // revenue (completed payments yesterday)
   const { data: pays } = await supa.from("payments")
     .select("amount")
     .eq("status", "completed")
@@ -50,7 +45,6 @@ serve(async (req) => {
     0,
   );
 
-  // interactions breakdown
   const { data: interactions } = await supa.from("user_interactions")
     .select("interaction_type")
     .gte("created_at", start).lte("created_at", end);
@@ -61,12 +55,10 @@ serve(async (req) => {
     buttons[k] = (buttons[k] ?? 0) + 1;
   }
 
-  // conversions (very simple): completed payments / commands
   const commands = buttons["command"] ?? 0;
   const completed = (pays ?? []).length;
   const conversionRates = { simple: commands ? (completed / commands) : 0 };
 
-  // top promo codes if table present
   const topPromoCodes: Record<string, number> = {};
   try {
     const { data: promos } = await supa.from("promo_analytics")
@@ -80,7 +72,6 @@ serve(async (req) => {
     // ignore if promo_analytics table is absent
   }
 
-  // upsert daily_analytics
   await supa.from("daily_analytics").upsert({
     date: day,
     total_users: totalUsers ?? 0,
@@ -91,16 +82,12 @@ serve(async (req) => {
     revenue,
   }, { onConflict: "date" });
 
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      day,
-      total_users: totalUsers,
-      new_users: newUsers,
-      revenue,
-    }),
-    {
-      headers: { "content-type": "application/json" },
-    },
-  );
-});
+  return ok({
+    day,
+    total_users: totalUsers,
+    new_users: newUsers,
+    revenue,
+  });
+}
+
+if (import.meta.main) serve(handler);

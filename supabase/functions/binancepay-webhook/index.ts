@@ -4,6 +4,8 @@ import { createClient } from "../_shared/client.ts";
 import { requireEnv, optionalEnv } from "../_shared/env.ts";
 import { createLogger } from "../_shared/logger.ts";
 import { alertAdmins } from "../_shared/alerts.ts";
+import { json, mna } from "../_shared/http.ts";
+import { version } from "../_shared/version.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,8 +54,11 @@ function getLogger(req: Request) {
 
 export async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return json({}, 200, corsHeaders);
   }
+  const v = version(req, "binancepay-webhook");
+  if (v) return v;
+  if (req.method !== "POST") return mna();
 
   const logger = getLogger(req);
   try {
@@ -65,7 +70,7 @@ export async function handler(req: Request): Promise<Response> {
 
     if (certSn !== BINANCE_API_KEY) {
       logger.warn("Invalid certificate serial number", { certSn });
-      return new Response("Unauthorized", { status: 401, headers: corsHeaders });
+      return json({ ok: false, error: "Unauthorized" }, 401, corsHeaders);
     }
     const expected = await generateSignature(
       timestamp,
@@ -75,7 +80,7 @@ export async function handler(req: Request): Promise<Response> {
     );
     if (signature !== expected) {
       logger.warn("Signature mismatch", { signature, expected });
-      return new Response("Unauthorized", { status: 401, headers: corsHeaders });
+      return json({ ok: false, error: "Unauthorized" }, 401, corsHeaders);
     }
 
     const payload = JSON.parse(bodyText || "{}");
@@ -103,17 +108,11 @@ export async function handler(req: Request): Promise<Response> {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ ok: true }, 200, corsHeaders);
   } catch (err) {
     logger.error("binancepay-webhook error", err);
-    return new Response(
-      JSON.stringify({ error: String(err) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return json({ error: String(err) }, 500, corsHeaders);
   }
 }
 
 if (import.meta.main) serve(handler);
-

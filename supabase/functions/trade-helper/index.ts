@@ -1,6 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { requireEnv } from "../_shared/env.ts";
+import { json, mna } from "../_shared/http.ts";
+import { version } from "../_shared/version.ts";
 
 const { OPENAI_API_KEY } = requireEnv(["OPENAI_API_KEY"] as const);
 
@@ -10,11 +12,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
-  // Handle CORS preflight requests
+export async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return json({}, 200, corsHeaders);
   }
+  const v = version(req, "trade-helper");
+  if (v) return v;
+  if (req.method !== "POST") return mna();
 
   try {
     const { instrument, command, context: _context, test } = await req
@@ -22,17 +26,11 @@ serve(async (req) => {
       .catch(() => ({}));
 
     if (test) {
-      return new Response(
-        JSON.stringify({ success: true, message: "trade-helper OK" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return json({ success: true, message: "trade-helper OK" }, 200, corsHeaders);
     }
 
     if (!instrument) {
-      return new Response(JSON.stringify({ error: "Instrument is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Instrument is required" }, 400, corsHeaders);
     }
 
     const systemPrompt =
@@ -69,10 +67,10 @@ FORMAT REQUIREMENTS:
 Always include: "⚠️ This is educational analysis only. Always use proper risk management and consider your financial situation before trading."`;
 
     const userPrompt =
-      `Provide an educational trading analysis for ${instrument.toUpperCase()}. 
-    
+      `Provide an educational trading analysis for ${instrument.toUpperCase()}.
+
 Command context: ${command}
-    
+
 Please analyze:
 1. Current market sentiment and context
 2. Key technical levels to watch
@@ -107,20 +105,18 @@ Remember to keep this educational and include proper risk disclaimers.`;
 
     const analysis = data.choices[0].message.content;
 
-    return new Response(JSON.stringify({ analysis }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ analysis }, 200, corsHeaders);
   } catch (error) {
     console.error("Error in trade-helper function:", error);
-    return new Response(
-      JSON.stringify({
-        error: "Failed to get trading analysis",
-        details: error.message,
-      }),
+    return json(
       {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        error: "Failed to get trading analysis",
+        details: (error as Error).message,
       },
+      500,
+      corsHeaders,
     );
   }
-});
+}
+
+if (import.meta.main) serve(handler);

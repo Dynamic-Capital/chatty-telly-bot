@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
 import { optionalEnv } from "../_shared/env.ts";
+import { bad, mna, ok, oops } from "../_shared/http.ts";
+import { version } from "../_shared/version.ts";
 
 type Body = {
   telegram_id: string;
@@ -20,15 +22,17 @@ type BankInstructions = { type: "bank_transfer"; banks: BankAccount[] };
 type NoteInstructions = { type: "binance_pay" | "crypto"; note: string };
 type Instructions = BankInstructions | NoteInstructions;
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
+  const v = version(req, "checkout-init");
+  if (v) return v;
   if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
+    return mna();
   }
   let body: Body;
   try {
     body = await req.json();
   } catch {
-    return new Response("Bad JSON", { status: 400 });
+    return bad("Bad JSON");
   }
 
   const supa = createClient();
@@ -50,10 +54,7 @@ serve(async (req) => {
     userId = ins?.id;
   }
   if (!userId) {
-    return new Response(
-      JSON.stringify({ ok: false, error: "user_not_found" }),
-      { status: 500 },
-    );
+    return oops("user_not_found");
   }
 
   const { data: pay, error: perr } = await supa
@@ -73,10 +74,7 @@ serve(async (req) => {
       typeof perr === "object" && perr && "message" in perr
         ? String((perr as { message: string }).message)
         : "Unknown error";
-    return new Response(
-      JSON.stringify({ ok: false, error: message }),
-      { status: 500 },
-    );
+    return oops(message);
   }
 
   let instructions: Instructions;
@@ -101,8 +99,7 @@ serve(async (req) => {
     };
   }
 
-  return new Response(
-    JSON.stringify({ ok: true, payment_id: pay!.id, instructions }),
-    { headers: { "content-type": "application/json" } },
-  );
-});
+  return ok({ ok: true, payment_id: pay!.id, instructions });
+}
+
+if (import.meta.main) serve(handler);

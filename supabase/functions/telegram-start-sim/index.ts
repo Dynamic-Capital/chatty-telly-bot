@@ -1,8 +1,13 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { optionalEnv } from "../_shared/env.ts";
 import { expectedSecret } from "../_shared/telegram_secret.ts";
+import { bad, ok, oops, mna } from "../_shared/http.ts";
+import { version } from "../_shared/version.ts";
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
+  const v = version(req, "telegram-start-sim");
+  if (v) return v;
+  if (req.method !== "GET" && req.method !== "POST") return mna();
   const headers = {
     "Content-Type": "application/json",
     "Cache-Control": "no-store",
@@ -15,7 +20,7 @@ serve(async (req) => {
       const url = new URL(req.url);
       const id = url.searchParams.get("chat_id");
       if (id) chatId = Number(id);
-    } else if (req.method === "POST") {
+    } else {
       try {
         const body = await req.json();
         if (body && body.chat_id !== undefined) {
@@ -27,18 +32,12 @@ serve(async (req) => {
     }
 
     if (!chatId) {
-      return new Response(
-        JSON.stringify({ ok: false, error: "chat_id is required" }),
-        { status: 400, headers },
-      );
+      return bad("chat_id is required");
     }
 
     const base = (optionalEnv("SUPABASE_URL") || "").replace(/\/$/, "");
     if (!base) {
-      return new Response(
-        JSON.stringify({ ok: false, error: "SUPABASE_URL not set" }),
-        { status: 500, headers },
-      );
+      return oops("SUPABASE_URL not set");
     }
 
     const webhookUrl = `${base}/functions/v1/telegram-webhook`;
@@ -71,19 +70,15 @@ serve(async (req) => {
 
     const text = await resp.text();
 
-    return new Response(
-      JSON.stringify({
-        ok: resp.ok,
-        status: resp.status,
-        webhook_url: webhookUrl,
-        preview: text.slice(0, 300),
-      }),
-      { headers },
-    );
+    return ok({
+      sent_ok: resp.ok,
+      status: resp.status,
+      webhook_url: webhookUrl,
+      preview: text.slice(0, 300),
+    });
   } catch (err) {
-    return new Response(
-      JSON.stringify({ ok: false, error: String(err) }),
-      { status: 500, headers },
-    );
+    return oops(String(err));
   }
-});
+}
+
+if (import.meta.main) serve(handler);

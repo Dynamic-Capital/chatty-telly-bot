@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
+import { bad, mna, oops, ok } from "../_shared/http.ts";
+import { version } from "../_shared/version.ts";
 
 interface SupabaseLike {
   from: (table: string) => {
@@ -41,18 +43,18 @@ export async function getVipForTelegram(
   return isVip;
 }
 
-async function handler(req: Request): Promise<Response> {
-  if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
-  }
+export async function handler(req: Request): Promise<Response> {
+  const v = version(req, "miniapp-health");
+  if (v) return v;
+  if (req.method !== "POST") return mna();
   let body: { telegram_id?: string };
   try {
     body = await req.json();
   } catch {
-    return new Response("Bad JSON", { status: 400 });
+    return bad("Bad JSON");
   }
   const tg = String(body.telegram_id || "").trim();
-  if (!tg) return new Response("Missing telegram_id", { status: 400 });
+  if (!tg) return bad("Missing telegram_id");
 
   const supa = createClient();
 
@@ -60,17 +62,10 @@ async function handler(req: Request): Promise<Response> {
   try {
     isVip = await getVipForTelegram(supa, tg);
   } catch (error) {
-    return new Response(
-      JSON.stringify({ ok: false, error: (error as Error).message }),
-      {
-        status: 500,
-      },
-    );
+    return oops((error as Error).message);
   }
 
-  return new Response(JSON.stringify({ ok: true, vip: { is_vip: isVip } }), {
-    headers: { "content-type": "application/json" },
-  });
+  return ok({ vip: { is_vip: isVip } });
 }
 
 if (import.meta.main) {

@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { json, mna } from "../_shared/http.ts";
+import { version } from "../_shared/version.ts";
 const must = (k: string) =>
   Deno.env.get(k) || (() => {
     throw new Error(`Missing ${k}`);
@@ -13,9 +15,11 @@ async function headOK(url: string) {
   }
 }
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
+  const v = version(req, "miniapp-smoke");
+  if (v) return v;
   if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
+    return mna();
   }
   let body: Record<string, unknown> = {};
   try {
@@ -31,11 +35,9 @@ serve(async (req) => {
 
   const checks: Record<string, unknown> = { ok: true, miniAppUrl: mini };
 
-  // 1) Reachability of miniapp host
   checks.reach = await headOK(mini);
   if (!checks.reach) checks.ok = false;
 
-  // 2) Verify initData (if provided)
   if (initData) {
     try {
       const r = await fetch(
@@ -61,7 +63,6 @@ serve(async (req) => {
     checks.verify = { skipped: true };
   }
 
-  // 3) VIP status (if telegram_id provided)
   if (telegram_id) {
     try {
       const r = await fetch(
@@ -85,8 +86,7 @@ serve(async (req) => {
     checks.health = { skipped: true };
   }
 
-  return new Response(JSON.stringify(checks, null, 2), {
-    headers: { "content-type": "application/json" },
-    status: checks.ok ? 200 : 500,
-  });
-});
+  return json(checks, checks.ok ? 200 : 500);
+}
+
+if (import.meta.main) serve(handler);
