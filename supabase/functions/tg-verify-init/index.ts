@@ -36,7 +36,6 @@ async function verifyInitData(initData: string) {
   if (!BOT) throw new Error("BOT token missing");
   const { hash, dataCheckString } = parseInitData(initData);
   const secretKey = await sha256(text(BOT)); // secret_key = sha256(bot_token)
-  const signature = await sha256(text(dataCheckString));
   const hmacKey = await subtle().importKey(
     "raw",
     secretKey,

@@ -9,11 +9,11 @@ function mockSupa(setting: { setting_value: string } | null): SupabaseLike {
       const query = {
         eq: () => query,
         limit: () => query,
-        maybeSingle: async () => ({ data: setting }),
+        maybeSingle: () => ({ data: setting }),
       };
       return {
         select: () => query,
-        upsert: async () => ({ error: undefined }),
+        upsert: () => ({ error: undefined }),
       };
     },
   };

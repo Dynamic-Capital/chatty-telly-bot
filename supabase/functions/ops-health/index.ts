@@ -23,7 +23,7 @@ serve(async (_req) => {
   // DB ping
   try {
     const supa = createClient();
-    const { data, error } = await supa.from("bot_users").select("id").limit(1);
+    const { error } = await supa.from("bot_users").select("id").limit(1);
     report.checks!["db"] = !error;
     if (error) report.ok = false;
   } catch {

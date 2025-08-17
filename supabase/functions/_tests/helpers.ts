@@ -80,7 +80,7 @@ export const FakeSupa = () => ({
   }),
   storage: {
     from: () => ({
-      createSignedUrl: async () => ({
+      createSignedUrl: () => ({
         data: { signedUrl: "https://example/signed" },
         error: null,
       }),
