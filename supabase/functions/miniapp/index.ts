@@ -3,6 +3,8 @@ import { posix } from "https://deno.land/std@0.224.0/path/mod.ts";
 
 const STATIC_CACHE = new Map<string, Response>();
 
+type CompressionFormat = "gzip" | "deflate" | "br";
+
 const SECURITY = {
   "referrer-policy": "strict-origin-when-cross-origin",
   "x-content-type-options": "nosniff",

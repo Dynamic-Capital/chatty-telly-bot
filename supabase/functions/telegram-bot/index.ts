@@ -31,6 +31,7 @@ interface Promotion {
 interface TelegramMessage {
   chat: { id: number; type?: string };
   from?: { id?: number; username?: string };
+  message_id?: number;
   text?: string;
   caption?: string;
   photo?: { file_id: string }[];
@@ -41,7 +42,7 @@ interface TelegramMessage {
 
 interface TelegramCallback {
   id: string;
-  from: { id: number };
+  from: { id: number; username?: string };
   data?: string;
   message?: TelegramMessage;
 }
@@ -283,7 +284,11 @@ export async function sendMiniAppLink(
 export async function sendMiniAppOrBotOptions(chatId: number): Promise<void> {
   const enabled = await getFlag("mini_app_enabled", true);
   const url = enabled ? await sendMiniAppLink(chatId, { silent: true }) : null;
-  const inline_keyboard = [
+  const inline_keyboard: {
+    text: string;
+    callback_data?: string;
+    web_app?: { url: string };
+  }[][] = [
     [{ text: "Continue in Bot", callback_data: "menu:plans" }],
   ];
   let text: string;
@@ -519,7 +524,13 @@ async function menuView(
       extra: { reply_markup: buildMainMenu(section) },
     };
   }
-  const markup = buildMainMenu(section);
+  const markup = buildMainMenu(section) as {
+    inline_keyboard: {
+      text: string;
+      callback_data?: string;
+      web_app?: { url: string };
+    }[][];
+  };
   const { url } = readMiniAppEnv();
   if (url) {
     markup.inline_keyboard.push([{ text: "Open Mini App", web_app: { url } }]);
@@ -677,7 +688,8 @@ async function enforceRateLimit(tgId: string): Promise<null | Response> {
     });
     if (
       error &&
-      (error.message === "rate_limited" || error.details === "rate_limited")
+      (error.message === "rate_limited" ||
+        (error as { details?: string }).details === "rate_limited")
     ) {
       return json({ ok: false, error: "Too Many Requests" }, 429);
     }
@@ -799,7 +811,7 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
     if (data.startsWith("nav:") && cb.message) {
       const section = data.slice("nav:".length) as MenuSection;
       const view = await menuView(section);
-      await editMessage(chatId, cb.message.message_id, view.text, view.extra);
+      await editMessage(chatId, cb.message!.message_id!, view.text, view.extra);
       return;
     }
     if (data.startsWith("buy:")) {
@@ -818,12 +830,12 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         ];
         await editMessage(
           chatId,
-          cb.message.message_id,
+          cb.message!.message_id!,
           `Choose payment method for ${plan.name}:`,
           { reply_markup: { inline_keyboard } },
         );
       } else if (cb.message) {
-        await editMessage(chatId, cb.message.message_id, "Plan not found.");
+        await editMessage(chatId, cb.message!.message_id!, "Plan not found.");
       }
       return;
     }
@@ -896,8 +908,9 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         )
         .join("\n\n");
 
+      const instructions = await getBotContent("payment_instructions");
       const message =
-        `${list}\n\nPay Code: ${payCode}\nAdd this in transfer remarks.\nPlease send a photo of your bank transfer receipt.`;
+        `${instructions ? `${instructions}\n\n` : ""}${list}\n\nPay Code: ${payCode}\nAdd this in transfer remarks.\nPlease send a photo of your bank transfer receipt.`;
 
       const { data: us } = await supa
         .from("user_sessions")
@@ -924,7 +937,7 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
       }
 
       if (cb.message) {
-        await editMessage(chatId, cb.message.message_id, message, {
+        await editMessage(chatId, cb.message!.message_id!, message, {
           reply_markup: { inline_keyboard: [[{ text: "Back", callback_data: "nav:plans" }]] },
         });
       }
@@ -956,7 +969,7 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         if (out?.checkoutUrl && cb.message) {
           await editMessage(
             chatId,
-            cb.message.message_id,
+            cb.message!.message_id!,
             "Complete payment using Binance Pay. We'll approve it manually.",
             {
               reply_markup: {
@@ -968,12 +981,12 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
             },
           );
         } else if (cb.message) {
-          await editMessage(chatId, cb.message.message_id, "Failed to initiate Binance Pay checkout.");
+          await editMessage(chatId, cb.message!.message_id!, "Failed to initiate Binance Pay checkout.");
         }
       } catch (e) {
         console.error("binance-pay error", e);
         if (cb.message) {
-          await editMessage(chatId, cb.message.message_id, "Failed to initiate Binance Pay checkout.");
+          await editMessage(chatId, cb.message!.message_id!, "Failed to initiate Binance Pay checkout.");
         }
       }
       return;
@@ -1013,17 +1026,22 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
           payment_method: "crypto",
           status: "pending",
         });
-      const address = optionalEnv("CRYPTO_DEPOSIT_ADDRESS") ||
+      const address = await getBotContent("crypto_usdt_trc20") ||
+        optionalEnv("CRYPTO_DEPOSIT_ADDRESS") ||
         "Please contact support for the crypto address.";
       if (perr) {
         console.error("create crypto payment error", perr);
         await notifyUser(chatId, "Unable to create payment. Please try again later.");
       } else {
         if (cb.message) {
+          const instructions = await getBotContent("payment_instructions");
+          const msg = instructions
+            ? `${instructions}\n\nSend the payment to ${address} and reply with the transaction details for manual approval.`
+            : `Send the payment to ${address} and reply with the transaction details for manual approval.`;
           await editMessage(
             chatId,
-            cb.message.message_id,
-            `Send the payment to ${address} and reply with the transaction details for manual approval.`,
+            cb.message!.message_id!,
+            msg,
             { reply_markup: { inline_keyboard: [[{ text: "Back", callback_data: "nav:plans" }]] } },
           );
         }

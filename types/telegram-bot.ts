@@ -8,7 +8,6 @@
  * @version 1.0.0
  */
 
-import type { Database } from "../src/integrations/supabase/types";
 
 // ============================================
 // Core Bot Interfaces
@@ -484,22 +483,22 @@ export type DatabaseTable =
   | "broadcast_messages"
   | "admin_logs";
 
-export const PAYMENT_STATUSES: Database["public"]["Enums"]["payment_status_enum"][] = [
+export const PAYMENT_STATUSES = [
   "pending",
   "awaiting_admin",
   "completed",
   "failed",
   "refunded",
 ] as const;
-export type PaymentStatus = Database["public"]["Enums"]["payment_status_enum"];
+export type PaymentStatus = typeof PAYMENT_STATUSES[number];
 
 export function isValidPaymentStatus(
   status: string,
 ): status is PaymentStatus {
   return (PAYMENT_STATUSES as readonly string[]).includes(status);
 }
-export type EnrollmentStatus = Database["public"]["Enums"]["enrollment_status_enum"];
-export type BroadcastStatus = Database["public"]["Enums"]["broadcast_status_enum"];
+export type EnrollmentStatus = string;
+export type BroadcastStatus = string;
 export type SubscriptionStatus = "pending" | "active" | "expired" | "cancelled";
 export type UserRole = "user" | "vip" | "admin";
 export type ContentType = "text" | "html" | "markdown";
@@ -599,60 +598,4 @@ export type DatabaseFunction =
   | "batch_insert_user_interactions"
   | "cleanup_old_media_files";
 
-// ============================================
-// Export All Types
-// ============================================
-
-export default {
-  // Core interfaces
-  BotUser,
-  BotSession,
-  BotContent,
-  BotSettings,
-
-  // Subscription interfaces
-  SubscriptionPlan,
-  UserSubscription,
-  Payment,
-
-  // Education interfaces
-  EducationPackage,
-  EducationEnrollment,
-
-  // Analytics interfaces
-  Promotion,
-  PromotionUsage,
-  UserInteraction,
-  DailyAnalytics,
-
-  // Media interfaces
-  ContactLink,
-  MediaFile,
-  BroadcastMessage,
-
-  // Admin interfaces
-  AdminLog,
-  RateLimitEntry,
-  SecurityStats,
-
-  // Telegram interfaces
-  TelegramUpdate,
-  TelegramMessage,
-  TelegramUser,
-  TelegramChat,
-  TelegramCallbackQuery,
-
-  // Response interfaces
-  ApiResponse,
-  BotStats,
-  UserCompleteData,
-
-  // Configuration
-  SecurityConfig,
-  BotConfig,
-
-  // Function types
-  MessageHandler,
-  CallbackHandler,
-  AdminHandler,
-};
+// (All interfaces are exported individually above; no aggregate export.)

@@ -27,7 +27,9 @@ export type EnvKey =
   | "BENEFICIARY_TABLE"
   | "SESSION_TIMEOUT_MINUTES"
   | "FOLLOW_UP_DELAY_MINUTES"
-  | "MAX_FOLLOW_UPS";
+  | "MAX_FOLLOW_UPS"
+  | "BINANCE_PAY_MERCHANT_ID"
+  | "CRYPTO_DEPOSIT_ADDRESS";
 
 /** Test-only env injection type */
 type TestEnv = Partial<Record<EnvKey, string>>;
