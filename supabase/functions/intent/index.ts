@@ -25,9 +25,24 @@ serve(async (req) => {
 
   if (body.type === "bank") {
     const pay_code = crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
+    let userId: string | undefined;
     if (supa) {
+      const { data: bu } = await supa
+        .from("bot_users")
+        .select("id")
+        .eq("telegram_id", String(u.id))
+        .limit(1);
+      userId = bu?.[0]?.id as string | undefined;
+      if (!userId) {
+        const { data: ins } = await supa
+          .from("bot_users")
+          .insert({ telegram_id: String(u.id) })
+          .select("id")
+          .single();
+        userId = ins?.id as string | undefined;
+      }
       await supa.from("payment_intents").insert({
-        user_id: crypto.randomUUID(),
+        user_id: userId ?? crypto.randomUUID(),
         method: "bank",
         expected_amount: 0,
         currency: "USD",
@@ -41,9 +56,24 @@ serve(async (req) => {
 
   if (body.type === "crypto") {
     const deposit_address = Deno.env.get("CRYPTO_DEPOSIT_ADDRESS") || "DEMO-ADDRESS";
+    let userId: string | undefined;
     if (supa) {
+      const { data: bu } = await supa
+        .from("bot_users")
+        .select("id")
+        .eq("telegram_id", String(u.id))
+        .limit(1);
+      userId = bu?.[0]?.id as string | undefined;
+      if (!userId) {
+        const { data: ins } = await supa
+          .from("bot_users")
+          .insert({ telegram_id: String(u.id) })
+          .select("id")
+          .single();
+        userId = ins?.id as string | undefined;
+      }
       await supa.from("payment_intents").insert({
-        user_id: crypto.randomUUID(),
+        user_id: userId ?? crypto.randomUUID(),
         method: "crypto",
         expected_amount: 0,
         currency: "USD",
