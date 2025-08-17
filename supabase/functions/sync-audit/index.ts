@@ -2,6 +2,7 @@
 // Audits bot/miniapp linkage and optionally fixes drift.
 
 import { optionalEnv } from "../_shared/env.ts";
+import { envOrSetting } from "../_shared/config.ts";
 import { ok, unauth, nf, mna, oops } from "../_shared/http.ts";
 import { expectedSecret } from "../_shared/telegram_secret.ts";
 
@@ -52,11 +53,11 @@ export async function handler(req: Request): Promise<Response> {
       const fix = Boolean(body?.fix);
 
       // --- Step 1: collect env secrets ---
-      const supabaseUrl = optionalEnv("SUPABASE_URL");
-      const serviceKey = optionalEnv("SUPABASE_SERVICE_ROLE_KEY");
-      const botToken = optionalEnv("TELEGRAM_BOT_TOKEN");
-      const miniUrlRaw = optionalEnv("MINI_APP_URL");
-      const miniShort = optionalEnv("MINI_APP_SHORT_NAME");
+      const supabaseUrl = await envOrSetting("SUPABASE_URL");
+      const serviceKey = await envOrSetting("SUPABASE_SERVICE_ROLE_KEY");
+      const botToken = await envOrSetting("TELEGRAM_BOT_TOKEN");
+      const miniUrlRaw = await envOrSetting("MINI_APP_URL");
+      const miniShort = await envOrSetting("MINI_APP_SHORT_NAME");
       const webhookSecret = await expectedSecret();
 
       const secrets = {

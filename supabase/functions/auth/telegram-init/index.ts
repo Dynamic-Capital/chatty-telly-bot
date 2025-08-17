@@ -1,9 +1,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { optionalEnv } from "../../_shared/env.ts";
 import { createClient } from "../../_shared/client.ts";
 import { verifyFromRaw } from "../../verify-initdata/index.ts";
+import { envOrSetting } from "../../_shared/config.ts";
 
-const mini = optionalEnv("MINI_APP_URL");
+const mini = await envOrSetting("MINI_APP_URL");
 const corsHeaders = {
   "Access-Control-Allow-Origin": mini ? new URL(mini).origin : "",
   "Access-Control-Allow-Headers":

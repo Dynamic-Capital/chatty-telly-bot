@@ -4,7 +4,6 @@ import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 import {
-  getBotContent,
   getFormattedVipPackages,
   getVipPackages,
   getEducationPackages,
@@ -12,7 +11,7 @@ import {
 } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
-import { getFlag } from "../_shared/config.ts";
+import { getFlag, envOrSetting, getContent } from "../_shared/config.ts";
 import { buildMainMenu, type MenuSection } from "./menu.ts";
 import { readMiniAppEnv } from "./_miniapp.ts";
 import {
@@ -73,8 +72,8 @@ const REQUIRED_ENV_KEYS = [
 
 const SUPABASE_URL = optionalEnv("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = optionalEnv("SUPABASE_SERVICE_ROLE_KEY");
-const BOT_TOKEN = optionalEnv("TELEGRAM_BOT_TOKEN");
-const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
+const BOT_TOKEN = await envOrSetting<string>("TELEGRAM_BOT_TOKEN");
+const botUsername = (await envOrSetting<string>("TELEGRAM_BOT_USERNAME")) || "";
 
 // Optional feature flags (currently unused)
 const _OPENAI_ENABLED = optionalEnv("OPENAI_ENABLED") === "true";
@@ -223,10 +222,10 @@ async function notifyUser(
   await sendMessage(chatId, text, extra);
 }
 
-function hasMiniApp(): boolean {
-  const { url, short } = readMiniAppEnv();
+async function hasMiniApp(): Promise<boolean> {
+  const { url, short } = await readMiniAppEnv();
   if (url) return true;
-  const bot = optionalEnv("TELEGRAM_BOT_USERNAME");
+  const bot = await envOrSetting("TELEGRAM_BOT_USERNAME");
   return Boolean(short && bot);
 }
 
@@ -238,22 +237,23 @@ export async function sendMiniAppLink(
   if (!BOT_TOKEN) return null;
   if (!(await getFlag("mini_app_enabled", true))) {
     if (!silent) {
-      await sendMessage(
-        chatId,
-        "Checkout is currently unavailable. Please try again later.",
-      );
+      const msg = await getContent("checkout_unavailable") ??
+        "Checkout is currently unavailable. Please try again later.";
+      await sendMessage(chatId, msg);
     }
     return null;
   }
 
-  const { url, short } = readMiniAppEnv();
-  const botUser = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
+  const { url, short } = await readMiniAppEnv();
+  const botUser = (await envOrSetting("TELEGRAM_BOT_USERNAME")) || "";
+  const btnText = await getContent("miniapp_button_text") ?? "Open VIP Mini App";
+  const prompt = await getContent("miniapp_open_prompt") ?? "Open the VIP Mini App:";
 
   if (url) {
     if (!silent) {
-      await sendMessage(chatId, "Open the VIP Mini App:", {
+      await sendMessage(chatId, prompt, {
         reply_markup: {
-          inline_keyboard: [[{ text: "Open VIP Mini App", web_app: { url } }]],
+          inline_keyboard: [[{ text: btnText, web_app: { url } }]],
         },
       });
     }
@@ -263,9 +263,9 @@ export async function sendMiniAppLink(
   if (short && botUser) {
     const deepLink = `https://t.me/${botUser}/${short}`;
     if (!silent) {
-      await sendMessage(chatId, "Open the VIP Mini App:", {
+      await sendMessage(chatId, prompt, {
         reply_markup: {
-          inline_keyboard: [[{ text: "Open VIP Mini App", url: deepLink }]],
+          inline_keyboard: [[{ text: btnText, url: deepLink }]],
         },
       });
     }
@@ -273,10 +273,9 @@ export async function sendMiniAppLink(
   }
 
   if (!silent) {
-    await sendMessage(
-      chatId,
-      "Mini app is being configured. Please try again soon.",
-    );
+    const msg = await getContent("miniapp_configuring") ??
+      "Mini app is being configured. Please try again soon.";
+    await sendMessage(chatId, msg);
   }
   return null;
 }
@@ -284,21 +283,27 @@ export async function sendMiniAppLink(
 export async function sendMiniAppOrBotOptions(chatId: number): Promise<void> {
   const enabled = await getFlag("mini_app_enabled", true);
   const url = enabled ? await sendMiniAppLink(chatId, { silent: true }) : null;
+  const continueText = await getContent("continue_in_bot_button") ?? "Continue in Bot";
+  const miniText = await getContent("miniapp_button_text") ?? "Open VIP Mini App";
   const inline_keyboard: {
     text: string;
     callback_data?: string;
     web_app?: { url: string };
   }[][] = [
-    [{ text: "Continue in Bot", callback_data: "menu:plans" }],
+    [{ text: continueText, callback_data: "menu:plans" }],
   ];
   let text: string;
   if (url) {
-    inline_keyboard[0].push({ text: "Open VIP Mini App", web_app: { url } });
-    text = "Choose how to continue:";
+    inline_keyboard[0].push({ text: miniText, web_app: { url } });
+    text = await getContent("choose_continue_prompt") ?? "Choose how to continue:";
   } else {
-    text = enabled
-      ? "Mini app is being configured. Continue in bot:"
-      : "Checkout is currently unavailable. Continue in bot:";
+    const key = enabled
+      ? "miniapp_configure_continue"
+      : "checkout_unavailable_continue";
+    text = await getContent(key) ??
+      (enabled
+        ? "Mini app is being configured. Continue in bot:"
+        : "Checkout is currently unavailable. Continue in bot:");
   }
   await notifyUser(chatId, text, {
     reply_markup: { inline_keyboard },
@@ -324,19 +329,21 @@ export async function handleDashboardHelp(
   chatId: number,
   _userId: string,
 ): Promise<void> {
-  const msg = await getBotContent("help_message");
+  const msg = await getContent("help_message");
   await notifyUser(chatId, msg ?? "Help is coming soon.");
 }
 
 async function handleFaqCommand(chatId: number): Promise<void> {
-  const msg = await getBotContent("faq_general");
+  const msg = await getContent("faq_general");
   await notifyUser(chatId, msg ?? "FAQ is coming soon.", { parse_mode: "Markdown" });
 }
 
 async function handleEducationCommand(chatId: number): Promise<void> {
   const pkgs = await getEducationPackages();
   if (pkgs.length === 0) {
-    await notifyUser(chatId, "No education packages available.");
+    const msg = await getContent("no_education_packages") ??
+      "No education packages available.";
+    await notifyUser(chatId, msg);
     return;
   }
   let text = "🎓 *Education Packages*\n\n";
@@ -352,7 +359,9 @@ async function handleEducationCommand(chatId: number): Promise<void> {
 async function handlePromoCommand(chatId: number): Promise<void> {
   const promos = await getActivePromotions();
   if (promos.length === 0) {
-    await notifyUser(chatId, "No active promotions at the moment.");
+    const msg = await getContent("no_active_promotions") ??
+      "No active promotions at the moment.";
+    await notifyUser(chatId, msg);
     return;
   }
   let text = "🎁 *Active Promotions*\n\n";
@@ -419,7 +428,9 @@ export async function defaultCallbackHandler(
   chatId: number,
   _userId: string,
 ): Promise<void> {
-  await notifyUser(chatId, "Unknown action. Please choose a valid option.");
+  const unknown = await getContent("unknown_action") ??
+    "Unknown action. Please choose a valid option.";
+  await notifyUser(chatId, unknown);
 }
 
 export type CallbackHandler = (
@@ -518,7 +529,7 @@ async function menuView(
     };
   }
   if (section === "support") {
-    const msg = await getBotContent("support_message");
+    const msg = await getContent("support_message");
     return {
       text: msg ?? "Support information is unavailable.",
       extra: { reply_markup: buildMainMenu(section) },
@@ -531,11 +542,12 @@ async function menuView(
       web_app?: { url: string };
     }[][];
   };
-  const { url } = readMiniAppEnv();
+  const { url } = await readMiniAppEnv();
+  const miniText = await getContent("miniapp_button_text") ?? "Open VIP Mini App";
   if (url) {
-    markup.inline_keyboard.push([{ text: "Open Mini App", web_app: { url } }]);
+    markup.inline_keyboard.push([{ text: miniText, web_app: { url } }]);
   }
-  const msg = await getBotContent("welcome_message");
+  const msg = await getContent("welcome_message");
   return {
     text: msg ?? "Welcome! Choose an option:",
     extra: { reply_markup: markup, parse_mode: "Markdown" },
@@ -682,16 +694,18 @@ async function logInteraction(
 /** Simple per-user RPM limit using Supabase RPC (resets every minute). */
 async function enforceRateLimit(tgId: string): Promise<null | Response> {
   try {
+    const limit = Number((await envOrSetting("RATE_LIMIT_PER_MINUTE")) ?? "20");
     const { error } = await supaSvc().rpc("rl_touch", {
       _tg: tgId,
-      _limit: Number(Deno.env.get("RATE_LIMIT_PER_MINUTE") ?? "20"),
+      _limit: limit,
     });
     if (
       error &&
       (error.message === "rate_limited" ||
         (error as { details?: string }).details === "rate_limited")
     ) {
-      return json({ ok: false, error: "Too Many Requests" }, 429);
+      const msg = await getContent("rate_limit_exceeded") ?? "Too Many Requests";
+      return json({ ok: false, error: msg }, 429);
     }
   } catch {
     // Ignore rate limit failures when Supabase is unavailable
@@ -770,7 +784,7 @@ async function handleCommand(update: TelegramUpdate): Promise<void> {
   const text = msg.text?.trim();
   if (!text) return;
   const chatId = msg.chat.id;
-  const miniAppValid = hasMiniApp();
+  const miniAppValid = await hasMiniApp();
 
   // Handle pending admin plan edits before command parsing
   const userId = String(msg.from?.id ?? chatId);
@@ -843,7 +857,9 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
       const planId = data.split(":")[2];
       const supa = getSupabase();
       if (!supa) {
-        await notifyUser(chatId, "Bank transfer unavailable.");
+        const msg = await getContent("bank_transfer_unavailable") ??
+          "Bank transfer unavailable.";
+        await notifyUser(chatId, msg);
         return;
       }
 
@@ -863,7 +879,9 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         userId = ins?.id as string | undefined;
       }
       if (!userId) {
-        await notifyUser(chatId, "Unable to start bank transfer.");
+        const msg = await getContent("bank_transfer_unable") ??
+          "Unable to start bank transfer.";
+        await notifyUser(chatId, msg);
         return;
       }
 
@@ -908,7 +926,7 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         )
         .join("\n\n");
 
-      const instructions = await getBotContent("payment_instructions");
+      const instructions = await getContent("payment_instructions");
       const message =
         `${instructions ? `${instructions}\n\n` : ""}${list}\n\nPay Code: ${payCode}\nAdd this in transfer remarks.\nPlease send a photo of your bank transfer receipt.`;
 
@@ -946,7 +964,9 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
     if (data.startsWith("method:binance:")) {
       const planId = data.split(":")[2];
       if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-        await notifyUser(chatId, "Checkout unavailable. Please try again later.");
+        const msg = await getContent("checkout_unavailable") ??
+          "Checkout unavailable. Please try again later.";
+        await notifyUser(chatId, msg);
         return;
       }
       try {
@@ -995,7 +1015,9 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
       const planId = data.split(":")[2];
       const supa = getSupabase();
       if (!supa) {
-        await notifyUser(chatId, "Crypto payments unavailable.");
+        const msg = await getContent("crypto_payments_unavailable") ??
+          "Crypto payments unavailable.";
+        await notifyUser(chatId, msg);
         return;
       }
       const { data: user } = await supa
@@ -1013,7 +1035,9 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         userId = ins?.id as string | undefined;
       }
       if (!userId) {
-        await notifyUser(chatId, "Unable to start crypto payment.");
+        const msg = await getContent("crypto_start_failed") ??
+          "Unable to start crypto payment.";
+        await notifyUser(chatId, msg);
         return;
       }
       const { error: perr } = await supa
@@ -1026,15 +1050,17 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
           payment_method: "crypto",
           status: "pending",
         });
-      const address = await getBotContent("crypto_usdt_trc20") ||
+      const address = await getContent("crypto_usdt_trc20") ||
         optionalEnv("CRYPTO_DEPOSIT_ADDRESS") ||
         "Please contact support for the crypto address.";
       if (perr) {
         console.error("create crypto payment error", perr);
-        await notifyUser(chatId, "Unable to create payment. Please try again later.");
+        const msg = await getContent("payment_create_failed") ??
+          "Unable to create payment. Please try again later.";
+        await notifyUser(chatId, msg);
       } else {
         if (cb.message) {
-          const instructions = await getBotContent("payment_instructions");
+          const instructions = await getContent("payment_instructions");
           const msg = instructions
             ? `${instructions}\n\nSend the payment to ${address} and reply with the transaction details for manual approval.`
             : `Send the payment to ${address} and reply with the transaction details for manual approval.`;
@@ -1070,17 +1096,23 @@ export async function startReceiptPipeline(
   try {
     const chatId = update.message!.chat.id;
     if (!(await getFlag("vip_sync_enabled", true))) {
-      await notifyUser(chatId, "VIP sync is currently disabled.");
+      const msg = await getContent("vip_sync_disabled") ??
+        "VIP sync is currently disabled.";
+      await notifyUser(chatId, msg);
       return;
     }
     const fileId = getFileIdFromUpdate(update);
     if (!fileId) {
-      await notifyUser(chatId, "No receipt image found.");
+      const msg = await getContent("no_receipt_image") ??
+        "No receipt image found.";
+      await notifyUser(chatId, msg);
       return;
     }
     const supa = getSupabase();
     if (!supa) {
-      await notifyUser(chatId, "Receipt processing unavailable.");
+      const msg = await getContent("receipt_processing_unavailable") ??
+        "Receipt processing unavailable.";
+      await notifyUser(chatId, msg);
       return;
     }
     const { data: session } = await supa
@@ -1090,7 +1122,9 @@ export async function startReceiptPipeline(
       .maybeSingle();
     const awaiting = session?.awaiting_input || "";
     if (!awaiting.startsWith("receipt:")) {
-      await notifyUser(chatId, "No pending purchase. Use /buy to select a plan.");
+      const msg = await getContent("no_pending_purchase") ??
+        "No pending purchase. Use /buy to select a plan.";
+      await notifyUser(chatId, msg);
       return;
     }
     const planId = awaiting.split(":")[1];
@@ -1100,11 +1134,15 @@ export async function startReceiptPipeline(
       .eq("telegram_id", chatId)
       .maybeSingle();
     if (!user?.id) {
-      await notifyUser(chatId, "Please use /start before sending receipts.");
+      const msg = await getContent("start_before_receipts") ??
+        "Please use /start before sending receipts.";
+      await notifyUser(chatId, msg);
       return;
     }
     if (!BOT_TOKEN) {
-      await notifyUser(chatId, "Receipt processing unavailable.");
+      const msg = await getContent("receipt_processing_unavailable") ??
+        "Receipt processing unavailable.";
+      await notifyUser(chatId, msg);
       return;
     }
     const fileInfo = await fetch(
@@ -1112,7 +1150,9 @@ export async function startReceiptPipeline(
     ).then((r) => r.json()).catch(() => null);
     const path = fileInfo?.result?.file_path;
     if (!path) {
-      await notifyUser(chatId, "Cannot fetch receipt.");
+      const msg = await getContent("cannot_fetch_receipt") ??
+        "Cannot fetch receipt.";
+      await notifyUser(chatId, msg);
       return;
     }
     const blob = await fetch(
@@ -1133,7 +1173,9 @@ export async function startReceiptPipeline(
       .select("id")
       .single();
     if (!pay?.id || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      await notifyUser(chatId, "Failed to submit receipt. Please try again later.");
+      const msg = await getContent("receipt_submit_failed") ??
+        "Failed to submit receipt. Please try again later.";
+      await notifyUser(chatId, msg);
       return;
     }
     const rs = await fetch(`${SUPABASE_URL}/functions/v1/receipt-submit`, {
@@ -1149,14 +1191,18 @@ export async function startReceiptPipeline(
       }),
     }).then((r) => r.json()).catch(() => null);
     if (!rs?.ok) {
-      await notifyUser(chatId, "Failed to submit receipt. Please try again later.");
+      const msg = await getContent("receipt_submit_failed") ??
+        "Failed to submit receipt. Please try again later.";
+      await notifyUser(chatId, msg);
       return;
     }
     await supa.from("user_sessions").update({ awaiting_input: null }).eq(
       "id",
       session?.id,
     );
-    await notifyUser(chatId, "✅ Receipt received. We'll review it shortly.");
+    const msg = await getContent("receipt_received") ??
+      "✅ Receipt received. We'll review it shortly.";
+    await notifyUser(chatId, msg);
   } catch (err) {
     console.error("startReceiptPipeline error", err);
   }

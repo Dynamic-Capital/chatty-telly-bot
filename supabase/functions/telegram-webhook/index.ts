@@ -1,7 +1,8 @@
-import { optionalEnv } from "../_shared/env.ts";
 import { ok, mna, oops, bad } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 import { createLogger } from "../_shared/logger.ts";
+import { envOrSetting, getContent } from "../_shared/config.ts";
+import { readMiniAppEnv } from "../telegram-bot/_miniapp.ts";
 
 interface TelegramMessage {
   text?: string;
@@ -28,20 +29,21 @@ function getLogger(req: Request) {
  * Minimal wrapper around Telegram's sendMessage API.
  * Allows passing through optional payload fields like reply_markup.
  */
+const BOT_TOKEN = await envOrSetting("TELEGRAM_BOT_TOKEN");
+
 async function sendMessage(
   chatId: number,
   text: string,
   extra?: Record<string, unknown>,
 ) {
-  const token = optionalEnv("TELEGRAM_BOT_TOKEN");
-  if (!token) {
+  if (!BOT_TOKEN) {
     baseLogger.warn(
       "TELEGRAM_BOT_TOKEN is not set; cannot send message",
     );
     return;
   }
   try {
-    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: chatId, text, ...extra }),
@@ -87,51 +89,35 @@ export async function handler(req: Request): Promise<Response> {
 
     const handlers: Record<string, CommandHandler> = {
       "/start": async (chatId) => {
-        const rawUrl = optionalEnv("MINI_APP_URL") || "";
-        const shortName = optionalEnv("MINI_APP_SHORT_NAME") || "";
-        const botUsername = optionalEnv("TELEGRAM_BOT_USERNAME") || "";
+        const { url, short } = await readMiniAppEnv();
+        const botUsername = (await envOrSetting("TELEGRAM_BOT_USERNAME")) || "";
+        const btnText = await getContent("miniapp_button_text") ?? "Open VIP Mini App";
+        const prompt = await getContent("miniapp_open_prompt") ?? "Join the VIP Mini App:";
 
-        let miniUrl: string | null = null;
-        if (rawUrl) {
-          try {
-            const u = new URL(rawUrl);
-            if (u.protocol !== "https:") throw new Error("Mini app URL must be HTTPS");
-            if (!u.pathname.endsWith("/")) u.pathname += "/";
-            miniUrl = u.toString();
-          } catch (e) {
-            logger.error("MINI_APP_URL invalid", e);
-            miniUrl = null;
-          }
+        if (url) {
+          await sendMessage(chatId, prompt, {
+            reply_markup: {
+              inline_keyboard: [[{ text: btnText, web_app: { url } }]],
+            },
+          });
+          return;
         }
 
-        if (miniUrl) {
-          await sendMessage(chatId, "Join the VIP Mini App:", {
+        if (short && botUsername) {
+          await sendMessage(chatId, prompt, {
             reply_markup: {
               inline_keyboard: [[{
-                text: "Join",
-                web_app: { url: miniUrl },
+                text: btnText,
+                url: `https://t.me/${botUsername}/${short}`,
               }]],
             },
           });
           return;
         }
 
-        if (shortName && botUsername) {
-          await sendMessage(chatId, "Join the VIP Mini App:", {
-            reply_markup: {
-              inline_keyboard: [[{
-                text: "Join",
-                url: `https://t.me/${botUsername}/${shortName}`,
-              }]],
-            },
-          });
-          return;
-        }
-
-        await sendMessage(
-          chatId,
-          "Bot activated. Mini app is being configured. Please try again soon.",
-        );
+        const msg = await getContent("bot_activated_configuring") ??
+          "Bot activated. Mini app is being configured. Please try again soon.";
+        await sendMessage(chatId, msg);
       },
       "/ping": async (chatId) => {
         await sendMessage(chatId, JSON.stringify({ pong: true }));
