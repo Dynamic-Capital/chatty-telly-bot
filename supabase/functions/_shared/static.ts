@@ -76,6 +76,11 @@ export async function serveStatic(req: Request, opts: StaticOpts): Promise<Respo
     if (path === "" || path === "/miniapp") {
       return setSec(new Response(null, { status: 200 }));
     }
+    if (url.pathname.endsWith("/version")) {
+      const h = new Headers({ "content-type": "application/json; charset=utf-8" });
+      for (const [k, v] of Object.entries(sec)) h.set(k, v);
+      return new Response(null, { headers: h, status: 200 });
+    }
     if (extra.has(url.pathname) || url.pathname.startsWith("/assets/")) {
       const f = await readFileFrom(opts.rootDir, url.pathname);
       if (f) {

@@ -3,15 +3,16 @@ import { requireEnv as requireEnvCheck } from "./helpers/require-env.ts";
 import { alertAdmins } from "../_shared/alerts.ts";
 import { json, mna, ok, oops } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
+import { version } from "../_shared/version.ts";
 import {
+  getActivePromotions,
+  getEducationPackages,
   getFormattedVipPackages,
   getVipPackages,
-  getEducationPackages,
-  getActivePromotions,
 } from "./database-utils.ts";
 import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
-import { getFlag, envOrSetting, getContent } from "../_shared/config.ts";
+import { envOrSetting, getContent, getFlag } from "../_shared/config.ts";
 import { buildMainMenu, type MenuSection } from "./menu.ts";
 import { readMiniAppEnv } from "./_miniapp.ts";
 import {
@@ -246,8 +247,10 @@ export async function sendMiniAppLink(
 
   const { url, short } = await readMiniAppEnv();
   const botUser = (await envOrSetting("TELEGRAM_BOT_USERNAME")) || "";
-  const btnText = await getContent("miniapp_button_text") ?? "Open VIP Mini App";
-  const prompt = await getContent("miniapp_open_prompt") ?? "Open the VIP Mini App:";
+  const btnText = await getContent("miniapp_button_text") ??
+    "Open VIP Mini App";
+  const prompt = await getContent("miniapp_open_prompt") ??
+    "Open the VIP Mini App:";
 
   if (url) {
     if (!silent) {
@@ -283,8 +286,10 @@ export async function sendMiniAppLink(
 export async function sendMiniAppOrBotOptions(chatId: number): Promise<void> {
   const enabled = await getFlag("mini_app_enabled", true);
   const url = enabled ? await sendMiniAppLink(chatId, { silent: true }) : null;
-  const continueText = await getContent("continue_in_bot_button") ?? "Continue in Bot";
-  const miniText = await getContent("miniapp_button_text") ?? "Open VIP Mini App";
+  const continueText = await getContent("continue_in_bot_button") ??
+    "Continue in Bot";
+  const miniText = await getContent("miniapp_button_text") ??
+    "Open VIP Mini App";
   const inline_keyboard: {
     text: string;
     callback_data?: string;
@@ -295,7 +300,8 @@ export async function sendMiniAppOrBotOptions(chatId: number): Promise<void> {
   let text: string;
   if (url) {
     inline_keyboard[0].push({ text: miniText, web_app: { url } });
-    text = await getContent("choose_continue_prompt") ?? "Choose how to continue:";
+    text = await getContent("choose_continue_prompt") ??
+      "Choose how to continue:";
   } else {
     const key = enabled
       ? "miniapp_configure_continue"
@@ -335,7 +341,9 @@ export async function handleDashboardHelp(
 
 async function handleFaqCommand(chatId: number): Promise<void> {
   const msg = await getContent("faq_general");
-  await notifyUser(chatId, msg ?? "FAQ is coming soon.", { parse_mode: "Markdown" });
+  await notifyUser(chatId, msg ?? "FAQ is coming soon.", {
+    parse_mode: "Markdown",
+  });
 }
 
 async function handleEducationCommand(chatId: number): Promise<void> {
@@ -366,10 +374,9 @@ async function handlePromoCommand(chatId: number): Promise<void> {
   }
   let text = "🎁 *Active Promotions*\n\n";
   promos.forEach((p: Record<string, unknown>, idx: number) => {
-    const value =
-      p.discount_type === "percentage"
-        ? `${p.discount_value}%`
-        : `$${p.discount_value}`;
+    const value = p.discount_type === "percentage"
+      ? `${p.discount_value}%`
+      : `$${p.discount_value}`;
     text += `${idx + 1}. ${p.code} - ${value}\n`;
   });
   text += "\nUse /promo CODE PLAN_ID to apply a code.";
@@ -397,9 +404,8 @@ async function handleAskCommand(ctx: CommandContext): Promise<void> {
       body: JSON.stringify({ question }),
     });
     const data = await res.json().catch(() => ({}));
-    const answer =
-      data.answer ?? (await getContent("ask_no_answer")) ??
-        "Unable to get answer.";
+    const answer = data.answer ?? (await getContent("ask_no_answer")) ??
+      "Unable to get answer.";
     await notifyUser(ctx.chatId, answer);
   } catch {
     const msg = await getContent("ask_failed") ?? "Failed to get answer.";
@@ -428,9 +434,9 @@ async function handleShouldIBuyCommand(ctx: CommandContext): Promise<void> {
       body: JSON.stringify({ instrument, command: "shouldibuy" }),
     });
     const data = await res.json().catch(() => ({}));
-    const analysis =
-      data.analysis ?? (await getContent("shouldibuy_no_analysis")) ??
-        "Unable to get analysis.";
+    const analysis = data.analysis ??
+      (await getContent("shouldibuy_no_analysis")) ??
+      "Unable to get analysis.";
     await notifyUser(ctx.chatId, analysis, { parse_mode: "Markdown" });
   } catch {
     const msg = await getContent("shouldibuy_failed") ??
@@ -578,7 +584,8 @@ async function menuView(
     }[][];
   };
   const { url } = await readMiniAppEnv();
-  const miniText = await getContent("miniapp_button_text") ?? "Open VIP Mini App";
+  const miniText = await getContent("miniapp_button_text") ??
+    "Open VIP Mini App";
   if (url) {
     markup.inline_keyboard.push([{ text: miniText, web_app: { url } }]);
   }
@@ -739,7 +746,8 @@ async function enforceRateLimit(tgId: string): Promise<null | Response> {
       (error.message === "rate_limited" ||
         (error as { details?: string }).details === "rate_limited")
     ) {
-      const msg = await getContent("rate_limit_exceeded") ?? "Too Many Requests";
+      const msg = await getContent("rate_limit_exceeded") ??
+        "Too Many Requests";
       return json({ ok: false, error: msg }, 429);
     }
   } catch {
@@ -887,7 +895,10 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
             text: "Pay by Bank Transfer (Upload Receipt)",
             callback_data: `method:bank:${plan.id}`,
           }],
-          [{ text: "Pay with Crypto", callback_data: `method:crypto:${plan.id}` }],
+          [{
+            text: "Pay with Crypto",
+            callback_data: `method:crypto:${plan.id}`,
+          }],
           [{ text: "Back", callback_data: "nav:plans" }],
         ];
         await editMessage(
@@ -944,7 +955,9 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
           status: "pending",
         });
 
-      const payCode = `DC-${crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+      const payCode = `DC-${
+        crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()
+      }`;
       await supa.from("payment_intents").insert({
         user_id: userId,
         method: "bank",
@@ -975,8 +988,9 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         .join("\n\n");
 
       const instructions = await getContent("payment_instructions");
-      const message =
-        `${instructions ? `${instructions}\n\n` : ""}${list}\n\nPay Code: ${payCode}\nAdd this in transfer remarks.\nPlease send a photo of your bank transfer receipt.`;
+      const message = `${
+        instructions ? `${instructions}\n\n` : ""
+      }${list}\n\nPay Code: ${payCode}\nAdd this in transfer remarks.\nPlease send a photo of your bank transfer receipt.`;
 
       const { data: us } = await supa
         .from("user_sessions")
@@ -1004,7 +1018,9 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
 
       if (cb.message) {
         await editMessage(chatId, cb.message!.message_id!, message, {
-          reply_markup: { inline_keyboard: [[{ text: "Back", callback_data: "nav:plans" }]] },
+          reply_markup: {
+            inline_keyboard: [[{ text: "Back", callback_data: "nav:plans" }]],
+          },
         });
       }
       return;
@@ -1066,7 +1082,14 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
             chatId,
             cb.message!.message_id!,
             msg,
-            { reply_markup: { inline_keyboard: [[{ text: "Back", callback_data: "nav:plans" }]] } },
+            {
+              reply_markup: {
+                inline_keyboard: [[{
+                  text: "Back",
+                  callback_data: "nav:plans",
+                }]],
+              },
+            },
           );
         }
       }
@@ -1211,18 +1234,10 @@ export async function serveWebhook(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-  if (req.method === "HEAD") {
-    const url = new URL(req.url);
-    if (url.pathname.endsWith("/version")) {
-      return new Response(null, { status: 200 });
-    }
-    return mna();
-  }
+  const v = version(req, "telegram-bot");
+  if (v) return v;
   if (req.method === "GET") {
     const url = new URL(req.url);
-    if (url.pathname.endsWith("/version")) {
-      return ok({ name: "telegram-bot", ts: new Date().toISOString() });
-    }
     if (url.pathname.endsWith("/echo")) {
       return ok({ echo: true, ua: req.headers.get("user-agent") || "" });
     }
