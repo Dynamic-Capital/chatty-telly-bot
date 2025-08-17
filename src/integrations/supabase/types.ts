@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
@@ -59,7 +59,7 @@ export type Database = {
           is_active: boolean
           message_template: string
           name: string
-          trigger_type: Database["public"]["Enums"]["auto_reply_trigger_type"]
+          trigger_type: string
           updated_at: string
         }
         Insert: {
@@ -70,7 +70,7 @@ export type Database = {
           is_active?: boolean
           message_template: string
           name: string
-          trigger_type: Database["public"]["Enums"]["auto_reply_trigger_type"]
+          trigger_type: string
           updated_at?: string
         }
         Update: {
@@ -81,7 +81,7 @@ export type Database = {
           is_active?: boolean
           message_template?: string
           name?: string
-          trigger_type?: Database["public"]["Enums"]["auto_reply_trigger_type"]
+          trigger_type?: string
           updated_at?: string
         }
         Relationships: []
@@ -247,7 +247,6 @@ export type Database = {
           is_vip: boolean
           last_follow_up: string | null
           last_name: string | null
-          menu_message_id: number | null
           notes: string | null
           subscription_expires_at: string | null
           telegram_id: string
@@ -264,7 +263,6 @@ export type Database = {
           is_vip?: boolean
           last_follow_up?: string | null
           last_name?: string | null
-          menu_message_id?: number | null
           notes?: string | null
           subscription_expires_at?: string | null
           telegram_id: string
@@ -281,7 +279,6 @@ export type Database = {
           is_vip?: boolean
           last_follow_up?: string | null
           last_name?: string | null
-          menu_message_id?: number | null
           notes?: string | null
           subscription_expires_at?: string | null
           telegram_id?: string
@@ -302,7 +299,7 @@ export type Database = {
         Row: {
           content: string | null
           created_at: string | null
-          delivery_status: Database["public"]["Enums"]["broadcast_status_enum"] | null
+          delivery_status: string | null
           failed_deliveries: number | null
           id: string
           media_file_id: string | null
@@ -322,7 +319,7 @@ export type Database = {
         Insert: {
           content?: string | null
           created_at?: string | null
-          delivery_status?: Database["public"]["Enums"]["broadcast_status_enum"] | null
+          delivery_status?: string | null
           failed_deliveries?: number | null
           id?: string
           media_file_id?: string | null
@@ -342,7 +339,7 @@ export type Database = {
         Update: {
           content?: string | null
           created_at?: string | null
-          delivery_status?: Database["public"]["Enums"]["broadcast_status_enum"] | null
+          delivery_status?: string | null
           failed_deliveries?: number | null
           id?: string
           media_file_id?: string | null
@@ -582,14 +579,14 @@ export type Database = {
           completion_date: string | null
           created_at: string
           enrollment_date: string
-          enrollment_status: Database["public"]["Enums"]["enrollment_status_enum"]
+          enrollment_status: string
           id: string
           notes: string | null
           package_id: string
           payment_amount: number | null
           payment_method: string | null
           payment_reference: string | null
-          payment_status: Database["public"]["Enums"]["payment_status_enum"]
+          payment_status: string
           progress_percentage: number | null
           receipt_file_path: string | null
           receipt_telegram_file_id: string | null
@@ -606,14 +603,14 @@ export type Database = {
           completion_date?: string | null
           created_at?: string
           enrollment_date?: string
-          enrollment_status?: Database["public"]["Enums"]["enrollment_status_enum"]
+          enrollment_status?: string
           id?: string
           notes?: string | null
           package_id: string
           payment_amount?: number | null
           payment_method?: string | null
           payment_reference?: string | null
-          payment_status?: Database["public"]["Enums"]["payment_status_enum"]
+          payment_status?: string
           progress_percentage?: number | null
           receipt_file_path?: string | null
           receipt_telegram_file_id?: string | null
@@ -630,14 +627,14 @@ export type Database = {
           completion_date?: string | null
           created_at?: string
           enrollment_date?: string
-          enrollment_status?: Database["public"]["Enums"]["enrollment_status_enum"]
+          enrollment_status?: string
           id?: string
           notes?: string | null
           package_id?: string
           payment_amount?: number | null
           payment_method?: string | null
           payment_reference?: string | null
-          payment_status?: Database["public"]["Enums"]["payment_status_enum"]
+          payment_status?: string
           progress_percentage?: number | null
           receipt_file_path?: string | null
           receipt_telegram_file_id?: string | null
@@ -803,7 +800,7 @@ export type Database = {
           payment_method: string
           payment_provider_id: string | null
           plan_id: string
-          status: Database["public"]["Enums"]["payment_status_enum"]
+          status: string
           updated_at: string
           user_id: string
           webhook_data: Json | null
@@ -816,7 +813,7 @@ export type Database = {
           payment_method: string
           payment_provider_id?: string | null
           plan_id: string
-          status?: Database["public"]["Enums"]["payment_status_enum"]
+          status?: string
           updated_at?: string
           user_id: string
           webhook_data?: Json | null
@@ -829,7 +826,7 @@ export type Database = {
           payment_method?: string
           payment_provider_id?: string | null
           plan_id?: string
-          status?: Database["public"]["Enums"]["payment_status_enum"]
+          status?: string
           updated_at?: string
           user_id?: string
           webhook_data?: Json | null
@@ -1189,7 +1186,7 @@ export type Database = {
           is_active: boolean | null
           payment_instructions: string | null
           payment_method: string | null
-          payment_status: Database["public"]["Enums"]["payment_status_enum"] | null
+          payment_status: string | null
           plan_id: string | null
           receipt_file_path: string | null
           receipt_telegram_file_id: string | null
@@ -1206,7 +1203,7 @@ export type Database = {
           is_active?: boolean | null
           payment_instructions?: string | null
           payment_method?: string | null
-          payment_status?: Database["public"]["Enums"]["payment_status_enum"] | null
+          payment_status?: string | null
           plan_id?: string | null
           receipt_file_path?: string | null
           receipt_telegram_file_id?: string | null
@@ -1223,7 +1220,7 @@ export type Database = {
           is_active?: boolean | null
           payment_instructions?: string | null
           payment_method?: string | null
-          payment_status?: Database["public"]["Enums"]["payment_status_enum"] | null
+          payment_status?: string | null
           plan_id?: string | null
           receipt_file_path?: string | null
           receipt_telegram_file_id?: string | null
@@ -1288,7 +1285,7 @@ export type Database = {
     }
     Functions: {
       add_admin: {
-        Args: { username: string; full_name: string }
+        Args: { full_name: string; username: string }
         Returns: undefined
       }
       batch_insert_user_interactions: {
@@ -1365,7 +1362,7 @@ export type Database = {
         Returns: boolean
       }
       make_secure_http_request: {
-        Args: { method: string; url: string; headers?: Json; body?: string }
+        Args: { body?: string; headers?: Json; method: string; url: string }
         Returns: Json
       }
       update_daily_analytics: {
@@ -1378,12 +1375,7 @@ export type Database = {
       }
     }
     Enums: {
-      auto_reply_trigger_type: "keyword" | "regex" | "command"
-      payment_status_enum: "pending" | "awaiting_admin" | "completed" | "failed" | "refunded"
-      enrollment_status_enum: "pending" | "active" | "completed" | "cancelled"
-      broadcast_status_enum: "draft" | "scheduled" | "sending" | "completed" | "failed"
-      payment_intent_status_enum: "pending" | "approved" | "manual_review" | "rejected"
-      receipt_verdict_enum: "approved" | "manual_review" | "rejected"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1510,13 +1502,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      auto_reply_trigger_type: ["keyword", "regex", "command"],
-      payment_status_enum: ["pending", "awaiting_admin", "completed", "failed", "refunded"],
-      enrollment_status_enum: ["pending", "active", "completed", "cancelled"],
-      broadcast_status_enum: ["draft", "scheduled", "sending", "completed", "failed"],
-      payment_intent_status_enum: ["pending", "approved", "manual_review", "rejected"],
-      receipt_verdict_enum: ["approved", "manual_review", "rejected"],
-    },
+    Enums: {},
   },
 } as const
