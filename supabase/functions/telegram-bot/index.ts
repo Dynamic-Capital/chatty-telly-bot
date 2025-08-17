@@ -379,11 +379,15 @@ async function handlePromoCommand(chatId: number): Promise<void> {
 async function handleAskCommand(ctx: CommandContext): Promise<void> {
   const question = ctx.args.join(" ");
   if (!question) {
-    await notifyUser(ctx.chatId, "Please provide a question. Example: /ask What is trading?");
+    const usage = await getContent("ask_usage") ??
+      "Please provide a question. Example: /ask What is trading?";
+    await notifyUser(ctx.chatId, usage);
     return;
   }
   if (!SUPABASE_URL) {
-    await notifyUser(ctx.chatId, "Service unavailable.");
+    const msg = await getContent("service_unavailable") ??
+      "Service unavailable.";
+    await notifyUser(ctx.chatId, msg);
     return;
   }
   try {
@@ -393,21 +397,28 @@ async function handleAskCommand(ctx: CommandContext): Promise<void> {
       body: JSON.stringify({ question }),
     });
     const data = await res.json().catch(() => ({}));
-    const answer = data.answer ?? "Unable to get answer.";
+    const answer =
+      data.answer ?? (await getContent("ask_no_answer")) ??
+        "Unable to get answer.";
     await notifyUser(ctx.chatId, answer);
   } catch {
-    await notifyUser(ctx.chatId, "Failed to get answer.");
+    const msg = await getContent("ask_failed") ?? "Failed to get answer.";
+    await notifyUser(ctx.chatId, msg);
   }
 }
 
 async function handleShouldIBuyCommand(ctx: CommandContext): Promise<void> {
   const instrument = ctx.args[0];
   if (!instrument) {
-    await notifyUser(ctx.chatId, "Please provide an instrument. Example: /shouldibuy XAUUSD");
+    const usage = await getContent("shouldibuy_usage") ??
+      "Please provide an instrument. Example: /shouldibuy XAUUSD";
+    await notifyUser(ctx.chatId, usage);
     return;
   }
   if (!SUPABASE_URL) {
-    await notifyUser(ctx.chatId, "Service unavailable.");
+    const msg = await getContent("service_unavailable") ??
+      "Service unavailable.";
+    await notifyUser(ctx.chatId, msg);
     return;
   }
   try {
@@ -417,10 +428,14 @@ async function handleShouldIBuyCommand(ctx: CommandContext): Promise<void> {
       body: JSON.stringify({ instrument, command: "shouldibuy" }),
     });
     const data = await res.json().catch(() => ({}));
-    const analysis = data.analysis ?? "Unable to get analysis.";
+    const analysis =
+      data.analysis ?? (await getContent("shouldibuy_no_analysis")) ??
+        "Unable to get analysis.";
     await notifyUser(ctx.chatId, analysis, { parse_mode: "Markdown" });
   } catch {
-    await notifyUser(ctx.chatId, "Failed to get analysis.");
+    const msg = await getContent("shouldibuy_failed") ??
+      "Failed to get analysis.";
+    await notifyUser(ctx.chatId, msg);
   }
 }
 
