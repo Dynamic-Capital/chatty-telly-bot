@@ -1,18 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/testing/asserts.ts";
 
-Deno.test("Binance payment requires admin approval", () => {
-  const payments = [{ id: "p1", status: "awaiting_admin" }];
-  const userSubs: any[] = [];
-  function adminApprove() {
-    payments[0].status = "completed";
-    userSubs.push({ payment_id: "p1" });
-  }
-  assertEquals(payments[0].status, "awaiting_admin");
-  adminApprove();
-  assertEquals(payments[0].status, "completed");
-  assertEquals(userSubs.length, 1);
-});
-
 Deno.test("Bank transfer OCR auto-review", () => {
   const tolerance = 0.05; // 5%
   const planPrice = 100;

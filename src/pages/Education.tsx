@@ -62,7 +62,7 @@ interface EducationPackage {
   enrollment_deadline: string | null;
 }
 
-type PaymentMethod = "bank_transfer" | "binance_pay" | "crypto";
+type PaymentMethod = "bank_transfer" | "crypto";
 
 interface BankAccount {
   bank_name: string;
@@ -73,7 +73,7 @@ interface BankAccount {
 }
 
 type BankInstructions = { type: "bank_transfer"; banks: BankAccount[] };
-type NoteInstructions = { type: "binance_pay" | "crypto"; note: string };
+type NoteInstructions = { type: "crypto"; note: string };
 type CheckoutInstructions = BankInstructions | NoteInstructions;
 
 const Education: React.FC = () => {
@@ -283,7 +283,6 @@ const Education: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                      <SelectItem value="binance_pay">Binance Pay</SelectItem>
                       <SelectItem value="crypto">Crypto</SelectItem>
                     </SelectContent>
                   </Select>

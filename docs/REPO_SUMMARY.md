@@ -5,7 +5,7 @@
 **Add-only report (no code changes).**
 
 ## 1) High-Level Overview
-- Tech stack: Deno, Supabase Edge Functions, Postgres (Supabase), Telegram Bot, Binance Pay.
+- Tech stack: Deno, Supabase Edge Functions, Postgres (Supabase), Telegram Bot.
 - Primary domains: bot automation (Telegram), subscriptions/payments, analytics, broadcasts.
 
 ## 2) Directory Map (top-level)
@@ -50,7 +50,6 @@ tests/
 |---|---|---|---|---|
 | ai-faq-assistant | supabase/functions/ai-faq-assistant | index.ts | no | |
 | analytics-data | supabase/functions/analytics-data | index.ts | no | |
-| binance-pay-checkout | supabase/functions/binance-pay-checkout | index.ts | no | |
 | cleanup-old-receipts | supabase/functions/cleanup-old-receipts | index.ts | no | |
 | cleanup-old-sessions | supabase/functions/cleanup-old-sessions | index.ts | no | |
 | debug-bot | supabase/functions/debug-bot | index.ts | no | |
@@ -85,12 +84,6 @@ tests/
   - supabase/functions/telegram-getwebhook/index.ts:L5 SUPABASE_URL
   - supabase/functions/reset-bot/index.ts:L23 TELEGRAM_BOT_TOKEN
   - supabase/functions/reset-bot/index.ts:L30 SUPABASE_URL
-  - supabase/functions/binance-pay-checkout/index.ts:L12 BINANCE_API_KEY
-  - supabase/functions/binance-pay-checkout/index.ts:L13 BINANCE_SECRET_KEY
-  - supabase/functions/binance-pay-checkout/index.ts:L78 BINANCE_API_KEY
-  - supabase/functions/binance-pay-checkout/index.ts:L79 BINANCE_SECRET_KEY
-  - supabase/functions/binance-pay-checkout/index.ts:L93 SUPABASE_URL
-  - supabase/functions/binance-pay-checkout/index.ts:L94 SUPABASE_SERVICE_ROLE_KEY
   - supabase/functions/trade-helper/index.ts:L4 OPENAI_API_KEY
   - supabase/functions/keep-alive/index.ts:L36 TELEGRAM_BOT_TOKEN
   - supabase/functions/analytics-data/index.ts:L24 SUPABASE_URL
@@ -144,7 +137,7 @@ tests/
 - Note: secrets are provided by **Supabase Edge** at runtime; tests should mock.
 
 ## 5) Supabase & Database
-- Client creation points: supabase/functions/telegram-bot/database-utils.ts, supabase/functions/telegram-bot/admin-handlers.ts, supabase/functions/telegram-bot/index.ts, supabase/functions/cleanup-old-receipts/index.ts, supabase/functions/cleanup-old-sessions/index.ts, supabase/functions/binance-pay-checkout/index.ts, supabase/functions/analytics-data/index.ts, src/integrations/supabase/client.ts, src/utils/config.ts.
+- Client creation points: supabase/functions/telegram-bot/database-utils.ts, supabase/functions/telegram-bot/admin-handlers.ts, supabase/functions/telegram-bot/index.ts, supabase/functions/cleanup-old-receipts/index.ts, supabase/functions/cleanup-old-sessions/index.ts, supabase/functions/analytics-data/index.ts, src/integrations/supabase/client.ts, src/utils/config.ts.
 - Migrations summary:
   - Count: 16
   - Tables touched: bot_content, subscription_plans, plan_channels, bot_settings, payment_intents, receipts, promotion_usage, conversion_tracking, promo_analytics, user_surveys, bot_users, user_subscriptions, user_sessions, user_interactions, channel_memberships, education_enrollments, payments.

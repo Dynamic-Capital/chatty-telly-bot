@@ -30,14 +30,3 @@ Deno.test("bank transfer auto-approval flag", async () => {
   assertEquals(p2.status, "awaiting_admin");
 });
 
-Deno.test("binance pay auto-approval flag", async () => {
-  await setConfig("features:published", { data: { auto_approve_binance_pay: true } });
-  const p1 = { method: "binance_pay", status: "pending" };
-  await applyAutoApprove(p1);
-  assertEquals(p1.status, "completed");
-
-  await setConfig("features:published", { data: { auto_approve_binance_pay: false } });
-  const p2 = { method: "binance_pay", status: "pending" };
-  await applyAutoApprove(p2);
-  assertEquals(p2.status, "awaiting_admin");
-});

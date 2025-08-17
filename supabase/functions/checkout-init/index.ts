@@ -7,7 +7,7 @@ import { version } from "../_shared/version.ts";
 type Body = {
   telegram_id: string;
   plan_id: string;
-  method: "bank_transfer" | "binance_pay" | "crypto";
+  method: "bank_transfer" | "crypto";
 };
 
 type BankAccount = {
@@ -19,8 +19,8 @@ type BankAccount = {
 };
 
 type BankInstructions = { type: "bank_transfer"; banks: BankAccount[] };
-type NoteInstructions = { type: "binance_pay" | "crypto"; note: string };
-type Instructions = BankInstructions | NoteInstructions;
+type CryptoInstructions = { type: "crypto"; note: string };
+type Instructions = BankInstructions | CryptoInstructions;
 
 export async function handler(req: Request): Promise<Response> {
   const v = version(req, "checkout-init");
@@ -36,9 +36,6 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   const supa = createClient();
-  const BINANCE_PAY_MERCHANT_ID =
-    optionalEnv("BINANCE_PAY_MERCHANT_ID") ?? "<BINANCE_PAY_MERCHANT_ID>";
-
   const { data: bu } = await supa
     .from("bot_users")
     .select("id")
@@ -87,11 +84,6 @@ export async function handler(req: Request): Promise<Response> {
       .eq("is_active", true)
       .order("display_order");
     instructions = { type: "bank_transfer", banks: (banks as BankAccount[]) || [] };
-  } else if (body.method === "binance_pay") {
-    instructions = {
-      type: "binance_pay",
-      note: `Use Binance Pay to send to Binance ID ${BINANCE_PAY_MERCHANT_ID}. After sending, upload your receipt – payment remains awaiting admin approval until verified.`,
-    };
   } else {
     instructions = {
       type: "crypto",
