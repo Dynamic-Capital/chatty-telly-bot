@@ -551,6 +551,57 @@ export function buildCallbackHandlers(
   };
 }
 
+function getDynamicCallbackHandler(
+  data: string,
+  handlers: AdminHandlers,
+): CallbackHandler | null {
+  if (data.startsWith("edit_plan_price_")) {
+    const id = data.slice("edit_plan_price_".length);
+    return (chatId, userId) => handlers.handleEditPlanPrice(chatId, userId, id);
+  }
+  if (data.startsWith("edit_plan_name_")) {
+    const id = data.slice("edit_plan_name_".length);
+    return (chatId, userId) => handlers.handleEditPlanName(chatId, userId, id);
+  }
+  if (data.startsWith("edit_plan_duration_")) {
+    const id = data.slice("edit_plan_duration_".length);
+    return (chatId, userId) => handlers.handleEditPlanDuration(chatId, userId, id);
+  }
+  if (data.startsWith("edit_plan_features_")) {
+    const id = data.slice("edit_plan_features_".length);
+    return (chatId, userId) => handlers.handleEditPlanFeatures(chatId, userId, id);
+  }
+  if (data.startsWith("toggle_plan_lifetime_")) {
+    const id = data.slice("toggle_plan_lifetime_".length);
+    return (chatId, userId) => handlers.handleTogglePlanLifetime(chatId, userId, id);
+  }
+  if (data.startsWith("add_plan_feature_")) {
+    const id = data.slice("add_plan_feature_".length);
+    return (chatId, userId) => handlers.handleAddPlanFeature(chatId, userId, id);
+  }
+  if (data.startsWith("remove_plan_feature_")) {
+    const id = data.slice("remove_plan_feature_".length);
+    return (chatId, userId) => handlers.handleRemovePlanFeature(chatId, userId, id);
+  }
+  if (data.startsWith("replace_plan_features_")) {
+    const id = data.slice("replace_plan_features_".length);
+    return (chatId, userId) => handlers.handleReplacePlanFeatures(chatId, userId, id);
+  }
+  if (data.startsWith("confirm_delete_plan_")) {
+    const id = data.slice("confirm_delete_plan_".length);
+    return (chatId, userId) => handlers.handleConfirmDeletePlan(chatId, userId, id);
+  }
+  if (data.startsWith("delete_plan_confirmed_")) {
+    const id = data.slice("delete_plan_confirmed_".length);
+    return (chatId, userId) => handlers.handleExecuteDeletePlan(chatId, userId, id);
+  }
+  if (data.startsWith("edit_plan_")) {
+    const id = data.slice("edit_plan_".length);
+    return (chatId, userId) => handlers.handleEditSpecificPlan(chatId, userId, id);
+  }
+  return null;
+}
+
 async function menuView(
   section: MenuSection,
 ): Promise<{ text: string; extra: Record<string, unknown> }> {
@@ -1100,9 +1151,14 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
       const flag = data.replace("toggle_flag_", "");
       await handlers.handleToggleFeatureFlag(chatId, userId, flag);
     } else {
-      const callbackHandlers = buildCallbackHandlers(handlers);
-      const handler = callbackHandlers[data] ?? defaultCallbackHandler;
-      await handler(chatId, userId);
+      const dyn = getDynamicCallbackHandler(data, handlers);
+      if (dyn) {
+        await dyn(chatId, userId);
+      } else {
+        const callbackHandlers = buildCallbackHandlers(handlers);
+        const handler = callbackHandlers[data] ?? defaultCallbackHandler;
+        await handler(chatId, userId);
+      }
     }
   } catch (err) {
     console.error("handleCallback error", err);
