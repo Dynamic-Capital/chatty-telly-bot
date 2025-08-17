@@ -1,17 +1,31 @@
 import { optionalEnv } from "../_shared/env.ts";
-import { ok, bad, mna, oops } from "../_shared/http.ts";
+import { bad, mna, ok, oops } from "../_shared/http.ts";
 
 // Verify Telegram WebApp initData according to Telegram spec
 // Public Edge Function with CORS
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+const allowList = new Set(
+  (Deno.env.get("MINIAPP_ORIGIN") || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
 
-function withCors(r: Response) {
-  Object.entries(corsHeaders).forEach(([k, v]) => r.headers.set(k, v));
+const allowHeaders = "authorization, x-client-info, apikey, content-type";
+
+function corsHeaders(origin: string | null): HeadersInit {
+  return origin
+    ? {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Headers": allowHeaders,
+    }
+    : {};
+}
+
+function withCors(r: Response, origin: string | null) {
+  Object.entries(corsHeaders(origin)).forEach(([k, v]) =>
+    r.headers.set(k, v as string)
+  );
   return r;
 }
 
@@ -100,27 +114,36 @@ async function verifyInitData(initData: string) {
 }
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get("Origin");
+  if (origin && !allowList.has(origin)) {
+    return new Response("Forbidden", { status: 403 });
+  }
   const url = new URL(req.url);
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders(origin) });
   }
-  if (req.method === "HEAD") return withCors(new Response(null, { status: 200 }));
+  if (req.method === "HEAD") {
+    return withCors(new Response(null, { status: 200 }), origin);
+  }
   if (req.method === "GET" && url.pathname.endsWith("/version")) {
-    return withCors(ok({ name: "verify-telegram", ts: new Date().toISOString() }));
+    return withCors(
+      ok({ name: "verify-telegram", ts: new Date().toISOString() }),
+      origin,
+    );
   }
-  if (req.method !== "POST") return withCors(mna());
+  if (req.method !== "POST") return withCors(mna(), origin);
 
   try {
     const { initData } = await req.json().catch(() => ({ initData: "" }));
     if (!initData || typeof initData !== "string") {
-      return withCors(bad("MISSING_INIT_DATA"));
+      return withCors(bad("MISSING_INIT_DATA"), origin);
     }
 
     const result = await verifyInitData(initData);
-    if (!result.ok) return withCors(bad(result.error));
-    return withCors(ok({ user: result.user }));
+    if (!result.ok) return withCors(bad(result.error), origin);
+    return withCors(ok({ user: result.user }), origin);
   } catch (err) {
     console.error("verify-telegram error", err);
-    return withCors(oops("SERVER_ERROR", String(err)));
+    return withCors(oops("SERVER_ERROR", String(err)), origin);
   }
 });
