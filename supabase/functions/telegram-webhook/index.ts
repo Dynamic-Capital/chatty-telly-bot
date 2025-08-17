@@ -141,6 +141,7 @@ export async function handler(req: Request): Promise<Response> {
 }
 
 // Start the HTTP server when run as a standalone script in Deno.
+export default handler;
 if (import.meta.main && typeof Deno !== "undefined") {
   // Use a dynamic import so the module can also be loaded in Node tests
   // where the Deno standard library is unavailable.
