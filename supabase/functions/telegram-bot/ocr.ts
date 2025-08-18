@@ -1,5 +1,7 @@
-import { createWorker } from "https://esm.sh/tesseract.js@5?dts";
-import type { Worker as TesseractWorker } from "https://esm.sh/tesseract.js@5?dts";
+import {
+  createWorker,
+  type Worker as TesseractWorker,
+} from "./vendor/esm.sh/tesseract.js@5.1.1.js";
 
 type OCRWorker = TesseractWorker & {
   loadLanguage: (lang: string) => Promise<unknown>;
@@ -10,7 +12,12 @@ type OCRWorker = TesseractWorker & {
 };
 
 export async function ocrTextFromBlob(blob: Blob): Promise<string> {
-  const worker: OCRWorker = await createWorker();
+  const worker: OCRWorker = await createWorker({
+    workerPath: new URL(
+      "./vendor/esm.sh/worker-script/node/index.js",
+      import.meta.url,
+    ).pathname,
+  });
 
   try {
     await worker.load();
