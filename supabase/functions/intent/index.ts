@@ -1,6 +1,6 @@
 import { verifyInitDataAndGetUser } from "../_shared/telegram.ts";
 import { createClient } from "../_shared/client.ts";
-import { ok, bad, unauth, mna } from "../_shared/http.ts";
+import { ok, bad, unauth, mna, oops } from "../_shared/http.ts";
 import { getContent } from "../_shared/config.ts";
 Deno.serve(async (req) => {
   if (req.method !== "POST") return mna();
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
           .single();
         userId = ins?.id as string | undefined;
       }
-      await supa.from("payment_intents").insert({
+      const { error: intentErr } = await supa.from("payment_intents").insert({
         user_id: userId ?? crypto.randomUUID(),
         method: "bank",
         expected_amount: 0,
@@ -48,7 +48,11 @@ Deno.serve(async (req) => {
         pay_code,
         status: "pending",
         notes: body.bank || null,
-      }).catch(() => null);
+      });
+      if (intentErr) {
+        console.error("create bank payment intent error", intentErr);
+        return oops("Failed to create payment intent");
+      }
     }
     return ok({ pay_code });
   }
@@ -72,14 +76,18 @@ Deno.serve(async (req) => {
           .single();
         userId = ins?.id as string | undefined;
       }
-      await supa.from("payment_intents").insert({
+      const { error: intentErr } = await supa.from("payment_intents").insert({
         user_id: userId ?? crypto.randomUUID(),
         method: "crypto",
         expected_amount: 0,
         currency: "USD",
         status: "pending",
         notes: body.network || null,
-      }).catch(() => null);
+      });
+      if (intentErr) {
+        console.error("create crypto payment intent error", intentErr);
+        return oops("Failed to create payment intent");
+      }
     }
     return ok({ deposit_address });
   }
