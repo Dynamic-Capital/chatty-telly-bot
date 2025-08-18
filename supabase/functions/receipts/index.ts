@@ -27,7 +27,8 @@ serve(async (req) => {
   let query = supa.from("receipts").select("id, ocr_amount, verdict, created_at").order("created_at", { ascending: false }).limit(limit);
   if (status) query = query.eq("verdict", status);
   // In a real implementation, we'd filter by user here. For tests we fetch all.
-  const { data } = await query.catch(() => ({ data: [] }));
+  const { data, error } = await query;
+  if (error) return ok({ items: [] });
   interface ReceiptRow {
     id: string;
     ocr_amount: unknown;
