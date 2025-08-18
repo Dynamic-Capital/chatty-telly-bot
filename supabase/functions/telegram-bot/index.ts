@@ -17,7 +17,7 @@ import { createClient } from "../_shared/client.ts";
 type SupabaseClient = ReturnType<typeof createClient>;
 import { envOrSetting, getContent, getFlag } from "../_shared/config.ts";
 import { buildMainMenu, type MenuSection } from "./menu.ts";
-import { readMiniAppEnv } from "./_miniapp.ts";
+import { readMiniAppEnv } from "../_shared/miniapp.ts";
 import {
   buildAdminCommandHandlers,
   type CommandContext,
