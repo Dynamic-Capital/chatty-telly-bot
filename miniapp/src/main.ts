@@ -2,7 +2,7 @@ import './style.css';
 
 declare global {
   interface Window {
-    Telegram: any;
+    Telegram: unknown;
   }
 }
 
@@ -37,13 +37,14 @@ if (app) {
       const data = await res.json();
       if (res.ok && data.ok) {
         status.textContent = 'Deposit created!';
+        setTimeout(() => tg?.close(), 1500);
       } else {
         status.textContent = data.error || 'Failed to create deposit';
+        setTimeout(() => tg?.close(), 3000);
       }
     } catch (err) {
       status.textContent = 'Network error';
-    } finally {
-      tg?.close();
+      setTimeout(() => tg?.close(), 3000);
     }
   });
 }
