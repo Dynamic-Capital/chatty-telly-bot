@@ -7,9 +7,16 @@ async function activateSubscription(
   supa: ReturnType<typeof createClient>,
   paymentId: string,
 ) {
-  await supa.rpc("finalize_completed_payment", {
-    p_payment_id: paymentId,
-  }).catch(() => null);
+  try {
+    const { error } = await supa.rpc("finalize_completed_payment", {
+      p_payment_id: paymentId,
+    });
+    if (error) {
+      console.error("finalize_completed_payment failed", error);
+    }
+  } catch (err) {
+    console.error("finalize_completed_payment threw", err);
+  }
 }
 
 type Body = {
