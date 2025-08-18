@@ -46,7 +46,14 @@ serve(async (req) => {
     }
     if (supa) {
       const verdict = action === "approve" ? "approved" : "rejected";
-      await supa.from("receipts").update({ verdict }).eq("id", id).catch(() => null);
+      try {
+        const { error } = await supa.from("receipts").update({ verdict }).eq("id", id);
+        if (error) {
+          // ignore error
+        }
+      } catch (_) {
+        // ignore error
+      }
     }
     return ok();
   }
