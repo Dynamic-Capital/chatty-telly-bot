@@ -2,7 +2,7 @@ import { ok, mna, oops, bad } from "../_shared/http.ts";
 import { validateTelegramHeader } from "../_shared/telegram_secret.ts";
 import { createLogger } from "../_shared/logger.ts";
 import { envOrSetting, getContent } from "../_shared/config.ts";
-import { readMiniAppEnv } from "../telegram-bot/_miniapp.ts";
+import { readMiniAppEnv } from "../_shared/miniapp.ts";
 
 interface TelegramMessage {
   text?: string;

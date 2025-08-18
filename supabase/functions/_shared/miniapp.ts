@@ -1,4 +1,4 @@
-import { envOrSetting } from "../_shared/config.ts";
+import { envOrSetting } from "./config.ts";
 
 export async function readMiniAppEnv() {
   const urlRaw = (await envOrSetting("MINI_APP_URL")) || "";
