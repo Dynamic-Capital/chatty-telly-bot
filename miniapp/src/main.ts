@@ -6,12 +6,16 @@ declare global {
   }
 }
 
-const tg = window.Telegram?.WebApp;
-if (tg) tg.ready();
-const initData = tg?.initData || '';
-
 const app = document.getElementById('app');
-if (app) {
+if (!app) throw new Error('App container not found');
+
+const tg = window.Telegram?.WebApp;
+if (!tg) {
+  app.textContent = 'Please open this mini app inside Telegram';
+} else {
+  tg.ready();
+  const initData = tg.initData || '';
+
   app.innerHTML = `
     <form id="deposit" class="space-y-2">
       <label class="block">
@@ -37,14 +41,14 @@ if (app) {
       const data = await res.json();
       if (res.ok && data.ok) {
         status.textContent = 'Deposit created!';
-        setTimeout(() => tg?.close(), 1500);
+        setTimeout(() => tg.close(), 1500);
       } else {
         status.textContent = data.error || 'Failed to create deposit';
-        setTimeout(() => tg?.close(), 3000);
+        setTimeout(() => tg.close(), 3000);
       }
     } catch (err) {
       status.textContent = 'Network error';
-      setTimeout(() => tg?.close(), 3000);
+      setTimeout(() => tg.close(), 3000);
     }
   });
 }
