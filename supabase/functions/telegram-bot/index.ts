@@ -1025,6 +1025,8 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         console.error("create bank payment intent error", piErr);
       }
 
+      const plan = (await getVipPackages()).find((p) => p.id === planId);
+
       const { data: banks } = await supa
         .from("bank_accounts")
         .select(
@@ -1040,14 +1042,17 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         currency: string;
       }[] || [])
         .map((b) =>
-          `${b.bank_name}\nAccount Name: ${b.account_name}\nAccount Number: ${b.account_number}\nCurrency: ${b.currency}`
+          `${b.bank_name}\nAccount Name: ${b.account_name}\nAccount Number: <code>${b.account_number}</code>\nCurrency: ${b.currency}`
         )
         .join("\n\n");
 
       const instructions = await getContent("payment_instructions");
+      const amountLine = plan
+        ? `Outstanding Amount: ${plan.currency} ${plan.price.toFixed(2)}\n\n`
+        : "";
       const message = `${
         instructions ? `${instructions}\n\n` : ""
-      }${list}\n\nPay Code: ${payCode}\nAdd this in transfer remarks.\nPlease send a photo of your bank transfer receipt.`;
+      }${amountLine}${list}\n\nPay Code: <code>${payCode}</code>\nAdd this in transfer remarks.\nPlease send a photo of your bank transfer receipt.`;
 
       const { data: us } = await supa
         .from("user_sessions")
@@ -1078,6 +1083,7 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
           reply_markup: {
             inline_keyboard: [[{ text: "Back", callback_data: "nav:plans" }]],
           },
+          parse_mode: "HTML",
         });
       }
       return;
