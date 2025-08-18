@@ -1025,7 +1025,7 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
       const payCode = `DC-${
         crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()
       }`;
-      await supa.from("payment_intents").insert({
+      const { error: piErr } = await supa.from("payment_intents").insert({
         user_id: userId,
         method: "bank",
         expected_amount: 0,
@@ -1033,7 +1033,10 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         pay_code: payCode,
         status: "pending",
         notes: planId,
-      }).catch(() => null);
+      });
+      if (piErr) {
+        console.error("create bank payment intent error", piErr);
+      }
 
       const { data: banks } = await supa
         .from("bank_accounts")
