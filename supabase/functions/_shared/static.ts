@@ -49,6 +49,28 @@ async function readFileFrom(rootDir: URL, relPath: string): Promise<Response | n
   }
 }
 
+async function headersFrom(
+  rootDir: URL,
+  relPath: string,
+): Promise<Headers | null> {
+  try {
+    const rel = relPath.replace(/^\/+/, "");
+    const url = new URL(`./${rel}`, rootDir);
+    if (!url.pathname.startsWith(rootDir.pathname)) return null; // prevent path traversal
+
+    await Deno.stat(url);
+    return new Headers({
+      "content-type": mime(relPath),
+      "cache-control": relPath.endsWith(".html")
+        ? "no-cache"
+        : "public, max-age=31536000, immutable",
+    });
+  } catch (e) {
+    console.error(`[static] Failed to stat file: ${relPath}`, e);
+    return null;
+  }
+}
+
 export async function serveStatic(req: Request, opts: StaticOpts): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname.replace(/\/+$/, ""); // strip trailing slash for routing
@@ -81,10 +103,9 @@ export async function serveStatic(req: Request, opts: StaticOpts): Promise<Respo
       return new Response(null, { headers: h, status: 200 });
     }
     if (extra.has(url.pathname) || url.pathname.startsWith("/assets/")) {
-      const f = await readFileFrom(opts.rootDir, url.pathname);
-      if (f) {
-        const h = new Headers(f.headers);
-        return setSec(new Response(null, { headers: h, status: f.status }));
+      const h = await headersFrom(opts.rootDir, url.pathname);
+      if (h) {
+        return setSec(new Response(null, { headers: h, status: 200 }));
       }
       return setSec(new Response(null, { status: 404 }));
     }

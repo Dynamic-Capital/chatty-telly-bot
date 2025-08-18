@@ -1,8 +1,18 @@
 import './style.css';
 
+interface TelegramWebApp {
+  ready: () => void;
+  close: () => void;
+  initData?: string;
+}
+
+interface TelegramNamespace {
+  WebApp?: TelegramWebApp;
+}
+
 declare global {
   interface Window {
-    Telegram: any;
+    Telegram?: TelegramNamespace;
   }
 }
 
