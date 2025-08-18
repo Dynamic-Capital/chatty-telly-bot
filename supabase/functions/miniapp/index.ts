@@ -126,7 +126,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
 export function handler(req: Request): Response {
   const url = new URL(req.url);
   
-  console.log(`[miniapp] Request: ${req.method} ${url.pathname}`);
+  console.log(`[miniapp] Request: ${req.method} ${url.pathname} - Full URL: ${req.url}`);
   
   // Security headers
   const headers = new Headers({
@@ -146,7 +146,7 @@ export function handler(req: Request): Response {
   });
 
   // Handle version endpoint
-  if (url.pathname.endsWith("/version")) {
+  if (url.pathname.includes("/version")) {
     headers.set("content-type", "application/json; charset=utf-8");
     return new Response(
       JSON.stringify({ name: "miniapp", ts: new Date().toISOString() }),
@@ -154,7 +154,7 @@ export function handler(req: Request): Response {
     );
   }
 
-  // Serve HTML for all other requests
+  // Handle all other requests with HTML
   return new Response(HTML_CONTENT, { headers });
 }
 
