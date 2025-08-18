@@ -31,11 +31,18 @@ serve(async (req) => {
   const d1 = new Date(now);
   d1.setDate(now.getDate() + 1);
 
-  const { data: soon7 } = await supa.rpc("get_users_expiring_between", {
-    start_ts: new Date(d7.setHours(0, 0, 0, 0)).toISOString(),
-    end_ts: new Date(d7.setHours(23, 59, 59, 999)).toISOString(),
-  }).catch(() => ({ data: [] as Array<Record<string, unknown>> }));
-  for (const u of soon7 || []) {
+  let soon7: Array<Record<string, unknown>> = [];
+  try {
+    const { data, error } = await supa.rpc("get_users_expiring_between", {
+      start_ts: new Date(d7.setHours(0, 0, 0, 0)).toISOString(),
+      end_ts: new Date(d7.setHours(23, 59, 59, 999)).toISOString(),
+    });
+    if (error) throw error;
+    soon7 = data ?? [];
+  } catch (err) {
+    console.error("Error fetching users expiring in 7 days", err);
+  }
+  for (const u of soon7) {
     if (u.telegram_id) {
       await tgSend(
         bot,
@@ -45,11 +52,18 @@ serve(async (req) => {
     }
   }
 
-  const { data: soon1 } = await supa.rpc("get_users_expiring_between", {
-    start_ts: new Date(d1.setHours(0, 0, 0, 0)).toISOString(),
-    end_ts: new Date(d1.setHours(23, 59, 59, 999)).toISOString(),
-  }).catch(() => ({ data: [] as Array<Record<string, unknown>> }));
-  for (const u of soon1 || []) {
+  let soon1: Array<Record<string, unknown>> = [];
+  try {
+    const { data, error } = await supa.rpc("get_users_expiring_between", {
+      start_ts: new Date(d1.setHours(0, 0, 0, 0)).toISOString(),
+      end_ts: new Date(d1.setHours(23, 59, 59, 999)).toISOString(),
+    });
+    if (error) throw error;
+    soon1 = data ?? [];
+  } catch (err) {
+    console.error("Error fetching users expiring in 1 day", err);
+  }
+  for (const u of soon1) {
     if (u.telegram_id) {
       await tgSend(
         bot,
