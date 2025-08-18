@@ -124,8 +124,15 @@ const HTML_CONTENT = `<!DOCTYPE html>
 </html>`;
 
 export function handler(req: Request): Response {
+  if (!["GET", "HEAD"].includes(req.method)) {
+    return new Response("Method Not Allowed", {
+      status: 405,
+      headers: { Allow: "GET, HEAD" },
+    });
+  }
+
   const url = new URL(req.url);
-  
+
   console.log(`[miniapp] Request: ${req.method} ${url.pathname} - Full URL: ${req.url}`);
   
   // Security headers
@@ -149,13 +156,15 @@ export function handler(req: Request): Response {
   if (url.pathname.includes("/version")) {
     headers.set("content-type", "application/json; charset=utf-8");
     return new Response(
-      JSON.stringify({ name: "miniapp", ts: new Date().toISOString() }),
+      req.method === "HEAD"
+        ? null
+        : JSON.stringify({ name: "miniapp", ts: new Date().toISOString() }),
       { headers }
     );
   }
 
   // Handle all other requests with HTML
-  return new Response(HTML_CONTENT, { headers });
+  return new Response(req.method === "HEAD" ? null : HTML_CONTENT, { headers });
 }
 
 export default handler;
