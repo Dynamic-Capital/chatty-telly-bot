@@ -6,10 +6,17 @@ const securityHeaders = {
 
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  console.log(`[miniapp] Request: ${req.method} ${url.pathname} - Full URL: ${req.url}`);
+
+  // Supabase edge functions are mounted under `/functions/v1` in production.
+  // Strip that prefix and any trailing slashes so routing works the same
+  // locally (where the prefix is absent) and in production.
+  let pathname = url.pathname.replace(/^\/functions\/v1/, "").replace(/\/+$/, "");
+  if (pathname !== "" && !pathname.startsWith("/")) pathname = `/${pathname}`;
+
+  console.log(`[miniapp] Request: ${req.method} ${pathname} - Full URL: ${req.url}`);
 
   // Version endpoint
-  if (url.pathname === "/miniapp/version") {
+  if (pathname === "/miniapp/version") {
     const headers = new Headers({
       ...securityHeaders,
       "content-type": "application/json; charset=utf-8",
@@ -21,8 +28,8 @@ export async function handler(req: Request): Promise<Response> {
     );
   }
 
-  // Serve root HTML - embedded content
-  if (url.pathname === "/miniapp/" || url.pathname === "/miniapp") {
+  // Serve root HTML - treat the bare function path and `/miniapp` the same
+  if (pathname === "" || pathname === "/miniapp") {
     if (req.method !== "GET" && req.method !== "HEAD") {
       return new Response(null, { status: 405, headers: securityHeaders });
     }
@@ -422,8 +429,8 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   // Static assets
-  if (url.pathname.startsWith("/assets/")) {
-    const rel = url.pathname.slice("/assets/".length);
+  if (pathname.startsWith("/assets/")) {
+    const rel = pathname.slice("/assets/".length);
     const fileUrl = new URL(`./static/assets/${rel}`, import.meta.url);
     try {
       const body = await Deno.readFile(fileUrl);
@@ -442,7 +449,7 @@ export async function handler(req: Request): Promise<Response> {
     }
   }
 
-  if (url.pathname.startsWith("/miniapp")) {
+  if (pathname.startsWith("/miniapp")) {
     if (req.method !== "GET" && req.method !== "HEAD") {
       return new Response(null, { status: 405, headers: securityHeaders });
     }
