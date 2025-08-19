@@ -1,4 +1,7 @@
-import { assert, assertEquals } from "https://deno.land/std@0.224.0/testing/asserts.ts";
+import {
+  assert,
+  assertEquals,
+} from "https://deno.land/std@0.224.0/testing/asserts.ts";
 import handler from "../supabase/functions/miniapp/index.ts";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
@@ -24,6 +27,28 @@ Deno.test({
       !bodyRoot.includes("Static <code>index.html</code> not found"),
       "should not serve fallback HTML",
     );
+
+    const resPrefixed = await fetch(`${base}/functions/v1/miniapp`);
+    assertEquals(resPrefixed.status, 200);
+    assertEquals(
+      resPrefixed.headers.get("content-type"),
+      "text/html; charset=utf-8",
+    );
+    const bodyPrefixed = await resPrefixed.text();
+    assert(
+      !bodyPrefixed.includes("Static <code>index.html</code> not found"),
+      "should not serve fallback HTML",
+    );
+
+    const resPrefixedHead = await fetch(`${base}/functions/v1/miniapp`, {
+      method: "HEAD",
+    });
+    assertEquals(resPrefixedHead.status, 200);
+    assertEquals(
+      resPrefixedHead.headers.get("content-type"),
+      "text/html; charset=utf-8",
+    );
+    await resPrefixedHead.arrayBuffer();
 
     const resVersion = await fetch(`${base}/miniapp/version`);
     assertEquals(resVersion.status, 200);
@@ -72,6 +97,12 @@ Deno.test({
     const resPost = await fetch(`${base}/miniapp/`, { method: "POST" });
     assertEquals(resPost.status, 405);
     await resPost.arrayBuffer();
+
+    const resPrefixedPost = await fetch(`${base}/functions/v1/miniapp`, {
+      method: "POST",
+    });
+    assertEquals(resPrefixedPost.status, 405);
+    await resPrefixedPost.arrayBuffer();
 
     controller.abort();
     try {

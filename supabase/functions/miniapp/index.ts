@@ -6,7 +6,12 @@ const securityHeaders = {
 
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  console.log(`[miniapp] Request: ${req.method} ${url.pathname} - Full URL: ${req.url}`);
+  if (url.pathname.startsWith("/functions/v1")) {
+    url.pathname = url.pathname.replace("/functions/v1", "");
+  }
+  console.log(
+    `[miniapp] Request: ${req.method} ${url.pathname} - Full URL: ${req.url}`,
+  );
 
   // Version endpoint
   if (url.pathname === "/miniapp/version") {
@@ -14,7 +19,9 @@ export async function handler(req: Request): Promise<Response> {
       ...securityHeaders,
       "content-type": "application/json; charset=utf-8",
     });
-    if (req.method === "HEAD") return new Response(null, { status: 200, headers });
+    if (req.method === "HEAD") {
+      return new Response(null, { status: 200, headers });
+    }
     return new Response(
       JSON.stringify({ name: "miniapp", ts: new Date().toISOString() }),
       { status: 200, headers },
@@ -26,7 +33,7 @@ export async function handler(req: Request): Promise<Response> {
     if (req.method !== "GET" && req.method !== "HEAD") {
       return new Response(null, { status: 405, headers: securityHeaders });
     }
-    
+
     const htmlContent = `<!doctype html>
 <html lang="en">
 <head>
@@ -413,11 +420,11 @@ export async function handler(req: Request): Promise<Response> {
       ...securityHeaders,
       "content-type": "text/html; charset=utf-8",
     });
-    
+
     if (req.method === "HEAD") {
       return new Response(null, { status: 200, headers });
     }
-    
+
     return new Response(htmlContent, { status: 200, headers });
   }
 
@@ -435,7 +442,9 @@ export async function handler(req: Request): Promise<Response> {
         ? "text/javascript; charset=utf-8"
         : "application/octet-stream";
       headers.set("content-type", type);
-      if (req.method === "HEAD") return new Response(null, { status: 200, headers });
+      if (req.method === "HEAD") {
+        return new Response(null, { status: 200, headers });
+      }
       return new Response(body, { status: 200, headers });
     } catch {
       return new Response(null, { status: 404, headers: securityHeaders });
