@@ -105,6 +105,10 @@ export function createClient(..._args) {
       from(_bucket) {
         return {
           upload: async (..._args) => ({ data: null, error: null }),
+          createSignedUrl: async (..._args) => ({
+            data: { signedUrl: "https://example/signed" },
+            error: null,
+          }),
         };
       },
     },
