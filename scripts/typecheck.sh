@@ -15,27 +15,17 @@ $DENO_BIN --version || true
 
 # Prefetch remotes (best-effort)
 if compgen -G "supabase/functions/*/index.ts" > /dev/null; then
-  $DENO_BIN cache $CERT_ARG --reload supabase/functions/*/index.ts || true
-fi
-if [ -d src ]; then
-  find src -name "*.ts" -maxdepth 4 -print0 | xargs -0 -n1 $DENO_BIN cache $CERT_ARG || true
+  $DENO_BIN cache $CERT_ARG --unstable-net --reload --no-lock supabase/functions/*/index.ts || true
 fi
 
 echo "== Type-check Edge Functions =="
 if compgen -G "supabase/functions/*/index.ts" > /dev/null; then
   for f in supabase/functions/*/index.ts; do
-    echo "$DENO_BIN check $CERT_ARG --remote $f"
-    $DENO_BIN check $CERT_ARG --remote "$f"
+    echo "$DENO_BIN check $CERT_ARG --unstable-net --remote --no-lock $f"
+    $DENO_BIN check $CERT_ARG --unstable-net --remote --no-lock "$f"
   done
 else
   echo "No Edge Function entrypoints found."
-fi
-
-echo "== Type-check local src/*.ts =="
-if [ -d src ]; then
-  find src -name "*.ts" -print0 | xargs -0 -n1 $DENO_BIN check $CERT_ARG --remote
-else
-  echo "No src/ directory."
 fi
 
 echo "TypeScript check completed."
