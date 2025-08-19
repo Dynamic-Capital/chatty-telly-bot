@@ -35,3 +35,25 @@ import PrimaryButton from "./src/components/PrimaryButton";
 ```
 
 Any `ReactNode` can be supplied if you prefer another icon library.
+
+## Supabase Invocation
+
+Supabase exposes this edge function at `/functions/v1/miniapp`, while the
+handler normalizes the path so the same code can serve requests addressed to
+`/miniapp` during local development or testing.
+
+### Usage
+
+```bash
+# Local Supabase CLI
+curl http://127.0.0.1:54321/functions/v1/miniapp/
+
+# Production (replace PROJECT_REF with your project ref)
+curl https://PROJECT_REF.supabase.co/functions/v1/miniapp/
+```
+
+### Tests
+
+Path handling is covered by
+`tests/miniapp-edge-host-routing.test.ts` and the live reachability
+check in `supabase/functions/_tests/integration_smoke_test.ts`.
