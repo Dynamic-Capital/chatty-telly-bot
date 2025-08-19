@@ -4,7 +4,7 @@ const securityHeaders = {
   "x-content-type-options": "nosniff",
 };
 
-export async function handler(req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
   // Supabase edge functions are mounted under `/functions/v1` in production.
@@ -465,4 +465,4 @@ export async function handler(req: Request): Promise<Response> {
   });
 }
 
-export default handler;
+Deno.serve(handler);
