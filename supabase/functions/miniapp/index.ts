@@ -416,8 +416,11 @@ async function handler(req: Request): Promise<Response> {
 </body>
 </html>`;
 
-    const headers = new Headers(securityHeaders);
-    headers.set("content-type", "text/html; charset=utf-8");
+    const headers = new Headers({
+      ...securityHeaders,
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-cache"
+    });
     
     if (req.method === "HEAD") {
       return new Response(null, { status: 200, headers });
