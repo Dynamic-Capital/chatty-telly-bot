@@ -466,4 +466,10 @@ async function handler(req: Request): Promise<Response> {
   });
 }
 
-Deno.serve(handler);
+// Only start the server when executed directly, so tests can import the handler
+// without side effects like binding to a port.
+if (import.meta.main) {
+  Deno.serve(handler);
+}
+
+export default handler;
