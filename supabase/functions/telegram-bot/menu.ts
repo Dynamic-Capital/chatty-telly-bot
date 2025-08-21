@@ -5,30 +5,30 @@ export function buildMainMenu(section: MenuSection) {
     inline_keyboard: [
       [
         {
-          text: `${section === "dashboard" ? "✅ " : ""}Dashboard`,
+          text: `${section === "dashboard" ? "✅ " : ""}📊 Dashboard`,
           callback_data: "nav:dashboard",
         },
         {
-          text: `${section === "plans" ? "✅ " : ""}Plans`,
+          text: `${section === "plans" ? "✅ " : ""}💳 Plans`,
           callback_data: "nav:plans",
         },
         {
-          text: `${section === "support" ? "✅ " : ""}Support`,
+          text: `${section === "support" ? "✅ " : ""}💬 Support`,
           callback_data: "nav:support",
         },
       ],
       [
-        { text: "Packages", callback_data: "cmd:packages" },
-        { text: "Promo", callback_data: "cmd:promo" },
-        { text: "Account", callback_data: "cmd:account" },
+        { text: "📦 Packages", callback_data: "cmd:packages" },
+        { text: "🎁 Promo", callback_data: "cmd:promo" },
+        { text: "👤 Account", callback_data: "cmd:account" },
       ],
       [
-        { text: "FAQ", callback_data: "cmd:faq" },
-        { text: "Education", callback_data: "cmd:education" },
+        { text: "❓ FAQ", callback_data: "cmd:faq" },
+        { text: "📚 Education", callback_data: "cmd:education" },
       ],
       [
-        { text: "Ask", callback_data: "cmd:ask" },
-        { text: "Should I Buy?", callback_data: "cmd:shouldibuy" },
+        { text: "🤖 Ask", callback_data: "cmd:ask" },
+        { text: "💡 Should I Buy?", callback_data: "cmd:shouldibuy" },
       ],
     ],
   };
