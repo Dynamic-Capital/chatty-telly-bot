@@ -375,15 +375,18 @@ async function handlePromoCommand(chatId: number): Promise<void> {
     await notifyUser(chatId, msg);
     return;
   }
-  let text = "🎁 *Active Promotions*\n\n";
-  promos.forEach((p: Record<string, unknown>, idx: number) => {
+  let text = "🎁 *Active Promotions*\n\nSelect a promo code:";
+  const inline_keyboard = promos.map((p: Record<string, unknown>, idx: number) => {
     const value = p.discount_type === "percentage"
       ? `${p.discount_value}%`
       : `$${p.discount_value}`;
-    text += `${idx + 1}. ${p.code} - ${value}\n`;
+    text += `\n${idx + 1}. ${p.code} - ${value}`;
+    return [{ text: String(p.code), callback_data: `promo:${p.code}` }];
   });
-  text += "\nUse /promo CODE PLAN_ID to apply a code.";
-  await notifyUser(chatId, text, { parse_mode: "Markdown" });
+  await notifyUser(chatId, text, {
+    parse_mode: "Markdown",
+    reply_markup: { inline_keyboard },
+  });
 }
 
 async function handleAskCommand(ctx: CommandContext): Promise<void> {
@@ -936,6 +939,71 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
           miniAppValid: await hasMiniApp(),
         };
         await handler(ctx);
+      }
+      return;
+    }
+    if (data.startsWith("promo:")) {
+      const code = data.split(":")[1];
+      const pkgs = await getVipPackages();
+      const inline_keyboard = pkgs.map((p) => [
+        { text: p.name, callback_data: `promoplan:${code}:${p.id}` },
+      ]);
+      inline_keyboard.push([{ text: "Back", callback_data: "cmd:promo" }]);
+      const text = `Apply ${code} to which plan?`;
+      if (cb.message) {
+        await editMessage(chatId, cb.message!.message_id!, text, {
+          reply_markup: { inline_keyboard },
+        });
+      } else {
+        await notifyUser(chatId, text, { reply_markup: { inline_keyboard } });
+      }
+      return;
+    }
+    if (data.startsWith("promoplan:")) {
+      const [, code, planId] = data.split(":");
+      const pkgs = await getVipPackages();
+      const plan = pkgs.find((p) => p.id === planId);
+      if (!plan) {
+        await notifyUser(chatId, "Plan not found.");
+        return;
+      }
+      if (!SUPABASE_URL) {
+        const msg = await getContent("service_unavailable") ??
+          "Service unavailable.";
+        await notifyUser(chatId, msg);
+        return;
+      }
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (SUPABASE_SERVICE_ROLE_KEY) {
+        headers.Authorization = `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
+      }
+      const resp = await fetch(
+        `${SUPABASE_URL}/functions/v1/promo-validate`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ code, telegram_id: chatId, plan_id: planId }),
+        },
+      ).then((r) => r.json()).catch(() => null);
+      if (!resp?.ok) {
+        const msg = "Invalid or expired promo code.";
+        if (cb.message) {
+          await editMessage(chatId, cb.message!.message_id!, msg);
+        } else {
+          await notifyUser(chatId, msg);
+        }
+        return;
+      }
+      const finalAmount = resp.final_amount as number;
+      const text = `Promo ${code} applied to ${plan.name}.\nOutstanding Amount: ${plan.currency} ${finalAmount.toFixed(2)}`;
+      if (cb.message) {
+        await editMessage(chatId, cb.message!.message_id!, text, {
+          parse_mode: "Markdown",
+        });
+      } else {
+        await notifyUser(chatId, text, { parse_mode: "Markdown" });
       }
       return;
     }
