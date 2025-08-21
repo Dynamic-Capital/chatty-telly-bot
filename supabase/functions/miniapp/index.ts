@@ -47,13 +47,19 @@ async function handler(req: Request): Promise<Response> {
       theme: {
         extend: {
           colors: {
-            'tg-bg': 'var(--tg-theme-bg-color, #f8fafc)',
-            'tg-text': 'var(--tg-theme-text-color, #1f2937)',
+            'tg-bg': 'var(--tg-theme-bg-color, #0f172a)',
+            'tg-text': 'var(--tg-theme-text-color, #f8fafc)',
             'tg-hint': 'var(--tg-theme-hint-color, #64748b)',
             'tg-button': 'var(--tg-theme-button-color, #3b82f6)',
             'tg-button-text': 'var(--tg-theme-button-text-color, #ffffff)',
-            'tg-secondary-bg': 'var(--tg-theme-secondary-bg-color, #ffffff)',
-            'tg-header-bg': 'var(--tg-theme-header-bg-color, #ffffff)',
+            'tg-secondary-bg': 'var(--tg-theme-secondary-bg-color, #1e293b)',
+            'tg-header-bg': 'var(--tg-theme-header-bg-color, #0f172a)',
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.5s ease-out',
+            'slide-up': 'slideUp 0.4s ease-out',
+            'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+            'bounce-subtle': 'bounceSubtle 0.6s ease-out',
           }
         }
       }
@@ -63,67 +69,197 @@ async function handler(req: Request): Promise<Response> {
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateY(-10px); }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+      50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.6); }
+    }
+    @keyframes bounceSubtle {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
     }
     .spinner {
       display: inline-block;
       width: 1rem;
       height: 1rem;
-      border: 2px solid #bfdbfe;
+      border: 2px solid rgba(59, 130, 246, 0.3);
       border-radius: 50%;
-      border-top-color: #1d4ed8;
+      border-top-color: #3b82f6;
       animation: spin 1s linear infinite;
       margin-right: 0.5rem;
     }
-    .status { animation: slideIn 0.3s ease; }
+    .glass-effect {
+      backdrop-filter: blur(10px);
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6, #06b6d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .input-glow:focus {
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), 0 0 20px rgba(59, 130, 246, 0.1);
+    }
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+      background-attachment: fixed;
+    }
   </style>
 </head>
-<body class="font-sans bg-gradient-to-br from-blue-500 via-purple-500 to-purple-700 text-tg-text min-h-screen p-0 m-0">
-  <div class="min-h-screen flex flex-col bg-tg-bg">
-    <header class="bg-tg-header-bg px-6 py-4 border-b border-tg-hint/20 shadow-sm">
-      <h1 class="text-2xl font-bold text-tg-text text-center">Dynamic Capital</h1>
-      <p class="text-sm text-tg-hint text-center mt-1">VIP Trading Platform</p>
+<body class="font-sans text-tg-text min-h-screen p-0 m-0 overflow-x-hidden">
+  <div class="min-h-screen flex flex-col relative">
+    <!-- Background Pattern -->
+    <div class="absolute inset-0 opacity-5">
+      <div class="absolute inset-0" style="background-image: radial-gradient(circle at 25% 25%, #3b82f6 2px, transparent 2px), radial-gradient(circle at 75% 75%, #8b5cf6 2px, transparent 2px); background-size: 50px 50px;"></div>
+    </div>
+    
+    <!-- Header -->
+    <header class="glass-effect px-6 py-6 border-b border-white/10 relative z-10 animate-fade-in">
+      <div class="text-center">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 flex items-center justify-center shadow-2xl animate-pulse-glow">
+          <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+          </svg>
+        </div>
+        <h1 class="text-3xl font-bold gradient-text mb-2">Dynamic Capital</h1>
+        <p class="text-tg-hint text-sm">VIP Trading Platform</p>
+        <div class="mt-3 flex justify-center">
+          <div class="flex space-x-1">
+            <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <div class="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style="animation-delay: 0.2s;"></div>
+            <div class="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style="animation-delay: 0.4s;"></div>
+          </div>
+        </div>
+      </div>
     </header>
     
-    <main class="flex-1 px-6 py-8 max-w-md mx-auto w-full">
-      <div class="bg-tg-secondary-bg rounded-2xl shadow-lg p-8 border border-tg-hint/10">
-        <h2 class="text-xl font-semibold mb-2 text-tg-text">Create Deposit</h2>
-        <p class="text-tg-hint mb-8 leading-relaxed">Enter the amount you would like to deposit to your VIP trading account</p>
-        
-        <form id="deposit" class="space-y-6">
-          <div>
-            <label class="block text-sm font-medium text-tg-text mb-2" for="amount">Amount (USD)</label>
-            <input 
-              id="amount" 
-              name="amount" 
-              type="number" 
-              min="1" 
-              step="0.01" 
-              required 
-              class="w-full px-4 py-3 border-2 border-tg-hint/30 rounded-lg text-base bg-tg-bg text-tg-text transition-all duration-200 focus:outline-none focus:border-tg-button focus:ring-2 focus:ring-tg-button/10" 
-              placeholder="Enter deposit amount" 
-            />
-            <div class="flex gap-2 mt-2 flex-wrap">
-              <span class="px-4 py-2 bg-tg-hint/10 border border-tg-hint/20 rounded-full text-sm cursor-pointer transition-all duration-200 text-tg-text hover:bg-tg-button hover:text-white hover:border-tg-button suggestion-chip" data-amount="100">$100</span>
-              <span class="px-4 py-2 bg-tg-hint/10 border border-tg-hint/20 rounded-full text-sm cursor-pointer transition-all duration-200 text-tg-text hover:bg-tg-button hover:text-white hover:border-tg-button suggestion-chip" data-amount="500">$500</span>
-              <span class="px-4 py-2 bg-tg-hint/10 border border-tg-hint/20 rounded-full text-sm cursor-pointer transition-all duration-200 text-tg-text hover:bg-tg-button hover:text-white hover:border-tg-button suggestion-chip" data-amount="1000">$1,000</span>
-              <span class="px-4 py-2 bg-tg-hint/10 border border-tg-hint/20 rounded-full text-sm cursor-pointer transition-all duration-200 text-tg-text hover:bg-tg-button hover:text-white hover:border-tg-button suggestion-chip" data-amount="5000">$5,000</span>
+    <!-- Main Content -->
+    <main class="flex-1 px-6 py-8 relative z-10">
+      <div class="max-w-md mx-auto">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-2 gap-4 mb-8 animate-slide-up">
+          <div class="glass-effect rounded-xl p-4 text-center">
+            <div class="text-2xl font-bold text-green-400">24/7</div>
+            <div class="text-xs text-tg-hint">Trading Active</div>
+          </div>
+          <div class="glass-effect rounded-xl p-4 text-center">
+            <div class="text-2xl font-bold text-blue-400">VIP</div>
+            <div class="text-xs text-tg-hint">Access Level</div>
+          </div>
+        </div>
+
+        <!-- Main Card -->
+        <div class="glass-effect rounded-2xl p-8 shadow-2xl animate-slide-up border border-white/10">
+          <div class="text-center mb-6">
+            <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
             </div>
+            <h2 class="text-xl font-bold text-tg-text mb-2">Create Deposit</h2>
+            <p class="text-tg-hint text-sm leading-relaxed">Secure your position in our VIP trading program with instant deposit processing</p>
           </div>
           
-          <button type="submit" class="w-full px-6 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0 rounded-xl text-base font-semibold cursor-pointer transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-lg" id="submitBtn">
-            Create Deposit
-          </button>
-          
-          <div id="status" class="mt-4 p-4 rounded-lg text-sm font-medium text-center hidden"></div>
-        </form>
+          <form id="deposit" class="space-y-6">
+            <div class="space-y-3">
+              <label class="block text-sm font-medium text-tg-text" for="amount">
+                <span class="flex items-center">
+                  <svg class="w-4 h-4 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                  </svg>
+                  Deposit Amount (USD)
+                </span>
+              </label>
+              
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <span class="text-tg-hint text-lg font-semibold">$</span>
+                </div>
+                <input 
+                  id="amount" 
+                  name="amount" 
+                  type="number" 
+                  min="10" 
+                  step="0.01" 
+                  required 
+                  class="w-full pl-8 pr-4 py-4 bg-black/20 border-2 border-white/10 rounded-xl text-lg font-semibold text-tg-text placeholder-tg-hint/60 transition-all duration-300 focus:outline-none focus:border-blue-400 input-glow" 
+                  placeholder="Enter amount" 
+                />
+              </div>
+
+              <!-- Quick Amount Selection -->
+              <div class="grid grid-cols-2 gap-2 mt-4">
+                <button type="button" class="suggestion-chip px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-sm font-medium cursor-pointer transition-all duration-300 text-tg-text hover:bg-blue-500/20 hover:border-blue-400 hover:scale-105 active:scale-95" data-amount="100">
+                  <div class="flex items-center justify-center">
+                    <span class="text-lg font-bold">$100</span>
+                  </div>
+                  <div class="text-xs text-tg-hint mt-1">Starter</div>
+                </button>
+                
+                <button type="button" class="suggestion-chip px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-sm font-medium cursor-pointer transition-all duration-300 text-tg-text hover:bg-blue-500/20 hover:border-blue-400 hover:scale-105 active:scale-95" data-amount="500">
+                  <div class="flex items-center justify-center">
+                    <span class="text-lg font-bold">$500</span>
+                  </div>
+                  <div class="text-xs text-tg-hint mt-1">Popular</div>
+                </button>
+                
+                <button type="button" class="suggestion-chip px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-sm font-medium cursor-pointer transition-all duration-300 text-tg-text hover:bg-purple-500/20 hover:border-purple-400 hover:scale-105 active:scale-95" data-amount="1000">
+                  <div class="flex items-center justify-center">
+                    <span class="text-lg font-bold">$1K</span>
+                  </div>
+                  <div class="text-xs text-tg-hint mt-1">Pro</div>
+                </button>
+                
+                <button type="button" class="suggestion-chip px-4 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 rounded-lg text-sm font-medium cursor-pointer transition-all duration-300 text-tg-text hover:from-purple-500/30 hover:to-pink-500/30 hover:scale-105 active:scale-95" data-amount="5000">
+                  <div class="flex items-center justify-center">
+                    <span class="text-lg font-bold">$5K</span>
+                  </div>
+                  <div class="text-xs text-purple-300 mt-1">Elite</div>
+                </button>
+              </div>
+            </div>
+            
+            <button type="submit" class="w-full px-6 py-4 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 text-white border-0 rounded-xl text-lg font-bold cursor-pointer transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none animate-pulse-glow" id="submitBtn">
+              <span class="flex items-center justify-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                Create Instant Deposit
+              </span>
+            </button>
+            
+            <div id="status" class="mt-4 p-4 rounded-xl text-sm font-medium text-center hidden transition-all duration-300"></div>
+          </form>
+        </div>
+
+        <!-- Security Banner -->
+        <div class="mt-6 p-4 glass-effect rounded-xl border border-green-400/20 animate-slide-up">
+          <div class="flex items-center justify-center text-green-400 text-sm">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+            </svg>
+            <span>Bank-grade encryption • Instant processing</span>
+          </div>
+        </div>
       </div>
     </main>
     
-    <footer class="px-6 py-4 text-center text-tg-hint text-xs border-t border-tg-hint/10">
-      Powered by Dynamic Capital
+    <!-- Footer -->
+    <footer class="px-6 py-4 text-center text-tg-hint/60 text-xs border-t border-white/5 relative z-10">
+      <div class="flex items-center justify-center space-x-4">
+        <span>Powered by Dynamic Capital</span>
+        <div class="w-1 h-1 bg-tg-hint/40 rounded-full"></div>
+        <span>Secured & Encrypted</span>
+      </div>
     </footer>
   </div>
   
@@ -133,6 +269,8 @@ async function handler(req: Request): Promise<Response> {
       tg.ready();
       tg.expand();
       tg.enableClosingConfirmation();
+      tg.setHeaderColor('#0f172a');
+      tg.setBackgroundColor('#0f172a');
     }
     
     const initData = tg?.initData || '';
@@ -144,29 +282,40 @@ async function handler(req: Request): Promise<Response> {
     const amountInput = document.getElementById('amount');
     const suggestions = document.querySelectorAll('.suggestion-chip');
     
-    // Handle amount suggestions
+    // Enhanced amount suggestions with animations
     suggestions.forEach(chip => {
       chip.addEventListener('click', () => {
         const amount = chip.getAttribute('data-amount');
         amountInput.value = amount;
         amountInput.focus();
+        
+        // Add selection animation
+        chip.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          chip.style.transform = 'scale(1)';
+        }, 150);
+        
+        // Haptic feedback
+        if (tg && tg.HapticFeedback) {
+          tg.HapticFeedback.selectionChanged();
+        }
       });
     });
     
+    // Enhanced status display
     function showStatus(message, type = 'processing') {
       status.innerHTML = type === 'processing' 
-        ? '<span class="spinner"></span>' + message
-        : message;
+        ? '<div class="flex items-center justify-center"><span class="spinner"></span>' + message + '</div>'
+        : '<div class="flex items-center justify-center">' + message + '</div>';
       
-      // Remove existing classes and add new ones
-      status.className = 'mt-4 p-4 rounded-lg text-sm font-medium text-center block';
+      status.className = 'mt-4 p-4 rounded-xl text-sm font-medium text-center block transition-all duration-300 animate-bounce-subtle';
       
       if (type === 'success') {
-        status.classList.add('bg-green-50', 'text-green-700', 'border', 'border-green-200');
+        status.classList.add('bg-green-500/20', 'text-green-400', 'border', 'border-green-400/30');
       } else if (type === 'error') {
-        status.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
+        status.classList.add('bg-red-500/20', 'text-red-400', 'border', 'border-red-400/30');
       } else if (type === 'processing') {
-        status.classList.add('bg-blue-50', 'text-blue-700', 'border', 'border-blue-200');
+        status.classList.add('bg-blue-500/20', 'text-blue-400', 'border', 'border-blue-400/30');
       }
     }
     
@@ -175,22 +324,34 @@ async function handler(req: Request): Promise<Response> {
       status.classList.remove('block');
     }
     
+    // Enhanced form submission
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const amount = Number(amountInput.value);
       
       if (!amount || amount <= 0) {
-        showStatus('Please enter a valid amount', 'error');
+        showStatus('⚠️ Please enter a valid amount', 'error');
+        if (tg && tg.HapticFeedback) {
+          tg.HapticFeedback.notificationOccurred('error');
+        }
         return;
       }
       
       if (amount < 10) {
-        showStatus('Minimum deposit amount is $10', 'error');
+        showStatus('⚠️ Minimum deposit amount is $10', 'error');
+        if (tg && tg.HapticFeedback) {
+          tg.HapticFeedback.notificationOccurred('error');
+        }
         return;
       }
       
       submitBtn.disabled = true;
-      showStatus('Processing your deposit request...', 'processing');
+      submitBtn.style.opacity = '0.7';
+      showStatus('🔄 Processing your secure deposit...', 'processing');
+      
+      if (tg && tg.HapticFeedback) {
+        tg.HapticFeedback.impactOccurred('medium');
+      }
       
       try {
         const res = await fetch(\`\${window.location.origin}/functions/v1/miniapp-deposit\`, {
@@ -202,10 +363,13 @@ async function handler(req: Request): Promise<Response> {
         const data = await res.json();
         
         if (res.ok && data.ok) {
-          showStatus('✅ Deposit created successfully! Redirecting...', 'success');
+          showStatus('🎉 Deposit created successfully! Redirecting...', 'success');
+          submitBtn.innerHTML = '<span class="flex items-center justify-center"><svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Success!</span>';
+          
           if (tg && tg.HapticFeedback) {
             tg.HapticFeedback.notificationOccurred('success');
           }
+          
           setTimeout(() => {
             if (tg) tg.close();
           }, 2500);
@@ -215,6 +379,7 @@ async function handler(req: Request): Promise<Response> {
             tg.HapticFeedback.notificationOccurred('error');
           }
           submitBtn.disabled = false;
+          submitBtn.style.opacity = '1';
         }
       } catch (err) {
         console.error('Network error:', err);
@@ -223,22 +388,31 @@ async function handler(req: Request): Promise<Response> {
           tg.HapticFeedback.notificationOccurred('error');
         }
         submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
       }
     });
     
-    // Auto-hide error messages after 5 seconds
+    // Auto-hide error messages
     const observer = new MutationObserver(() => {
-      if (status.classList.contains('text-red-700') && !status.classList.contains('hidden')) {
+      if (status.classList.contains('text-red-400') && !status.classList.contains('hidden')) {
         setTimeout(() => {
-          if (status.classList.contains('text-red-700')) {
+          if (status.classList.contains('text-red-400')) {
             hideStatus();
             submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
           }
         }, 5000);
       }
     });
     
     observer.observe(status, { attributes: true, attributeFilter: ['class'] });
+    
+    // Add input animations
+    amountInput.addEventListener('focus', () => {
+      if (tg && tg.HapticFeedback) {
+        tg.HapticFeedback.selectionChanged();
+      }
+    });
   </script>
 </body>
 </html>`;
