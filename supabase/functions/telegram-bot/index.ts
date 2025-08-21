@@ -984,7 +984,7 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         {
           method: "POST",
           headers,
-          body: JSON.stringify({ code, telegram_id: chatId, plan_id: planId }),
+          body: JSON.stringify({ code, telegram_id: userId, plan_id: planId }),
         },
       ).then((r) => r.json()).catch(() => null);
       if (!resp?.ok) {
