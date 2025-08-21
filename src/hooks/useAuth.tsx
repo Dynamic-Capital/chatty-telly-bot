@@ -100,6 +100,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
+    try {
+      localStorage.removeItem("selectedPlanId");
+      localStorage.removeItem("paymentId");
+      localStorage.removeItem("pending_payment_id");
+    } catch {
+      /* ignore */
+    }
     if (error) {
       console.error("Error signing out:", error);
     }

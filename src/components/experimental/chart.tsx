@@ -6,6 +6,13 @@ import { cn } from "@/lib/utils";
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const;
 
+const HEX_COLOR = /^#(?:[0-9a-fA-F]{3,4}){1,2}$/;
+
+function sanitizeColor(color?: string) {
+  if (typeof color !== "string") return undefined;
+  return HEX_COLOR.test(color) ? color : undefined;
+}
+
 export type ChartConfig = {
   [k in string]:
     & {
@@ -75,31 +82,28 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   if (!colorConfig.length) {
     return null;
   }
+  const styles = Object.entries(THEMES)
+    .map(([theme, prefix]) => {
+      const vars = colorConfig
+        .map(([key, itemConfig]) => {
+          const raw = itemConfig.theme?.[
+            theme as keyof typeof itemConfig.theme
+          ] || itemConfig.color;
+          const color = sanitizeColor(raw);
+          return color
+            ? `  --color-${CSS.escape(key)}: ${color};`
+            : null;
+        })
+        .filter(Boolean)
+        .join("\n");
+      return vars
+        ? `${prefix} [data-chart='${CSS.escape(id)}'] {\n${vars}\n}`
+        : null;
+    })
+    .filter(Boolean)
+    .join("\n");
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${
-              colorConfig
-                .map(([key, itemConfig]) => {
-                  const color = itemConfig.theme
-                    ?.[theme as keyof typeof itemConfig.theme] ||
-                    itemConfig.color;
-                  return color ? `  --color-${key}: ${color};` : null;
-                })
-                .join("\n")
-            }
-}
-`,
-          )
-          .join("\n"),
-      }}
-    />
-  );
+  return <style>{styles}</style>;
 };
 
 const ChartTooltip = RechartsPrimitive.Tooltip;

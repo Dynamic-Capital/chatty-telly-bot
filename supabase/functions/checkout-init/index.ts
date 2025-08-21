@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "../_shared/client.ts";
-import { optionalEnv } from "../_shared/env.ts";
-import { bad, mna, ok, oops } from "../_shared/http.ts";
+import { getEnv } from "../_shared/env.ts";
+import { bad, mna, ok, oops, json } from "../_shared/http.ts";
+import { createClient as createSupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { version } from "../_shared/version.ts";
 
 type Body = {
@@ -27,6 +28,19 @@ export async function handler(req: Request): Promise<Response> {
   if (v) return v;
   if (req.method !== "POST") {
     return mna();
+  }
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return json({ error: "unauthorized" }, 401);
+  }
+  const supaAuth = createSupabaseClient(
+    getEnv("SUPABASE_URL"),
+    getEnv("SUPABASE_ANON_KEY"),
+    { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } },
+  );
+  const { data: { user } } = await supaAuth.auth.getUser();
+  if (!user) {
+    return json({ error: "unauthorized" }, 401);
   }
   let body: Body;
   try {

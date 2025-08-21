@@ -46,6 +46,8 @@ export const WelcomeMessage = () => {
   }
 
   const [planIds, setPlanIds] = useState<{ monthly?: string; lifetime?: string }>({});
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -72,7 +74,7 @@ export const WelcomeMessage = () => {
   }, []);
 
   const handleFree = () => {
-    localStorage.setItem("selectedPlanId", "free");
+    setSelectedPlanId("free");
     toast({
       title: "Free Plan Selected",
       description: "You're all set! Enjoy the basic features.",
@@ -89,7 +91,7 @@ export const WelcomeMessage = () => {
       });
       return;
     }
-    localStorage.setItem("selectedPlanId", planId);
+    setSelectedPlanId(planId);
     type TelegramWindow = {
       Telegram?: {
         WebApp?: { initDataUnsafe?: { user?: { id?: number } } };
@@ -121,7 +123,7 @@ export const WelcomeMessage = () => {
         payment_id: string;
         instructions: Instructions;
       };
-      localStorage.setItem("paymentId", payment_id);
+      setPaymentId(payment_id);
       if (instructions.type === "bank_transfer" && "banks" in instructions) {
         const message = instructions.banks
           .map(
