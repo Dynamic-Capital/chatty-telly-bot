@@ -968,132 +968,38 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
     }
     if (data.startsWith("method:bank:")) {
       const planId = data.split(":")[2];
-      const supa = getSupabase();
-      if (!supa) {
-        const msg = await getContent("bank_transfer_unavailable") ??
-          "Bank transfer unavailable.";
-        await notifyUser(chatId, msg);
-        return;
-      }
-
-      // ensure bot user exists
-      const { data: user } = await supa
-        .from("bot_users")
-        .select("id")
-        .eq("telegram_id", chatId)
-        .maybeSingle();
-      let userId = user?.id as string | undefined;
-      if (!userId) {
-        const { data: ins } = await supa
-          .from("bot_users")
-          .insert({ telegram_id: String(chatId) })
-          .select("id")
-          .single();
-        userId = ins?.id as string | undefined;
-      }
-      if (!userId) {
-        const msg = await getContent("bank_transfer_unable") ??
-          "Unable to start bank transfer.";
-        await notifyUser(chatId, msg);
-        return;
-      }
-
-      await supa
-        .from("payments")
-        .insert({
-          user_id: userId,
-          plan_id: planId,
-          amount: null,
-          currency: "USD",
-          payment_method: "bank_transfer",
-          status: "pending",
-        });
-
-      const payCode = `DC-${
-        crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()
-      }`;
-      const { error: piErr } = await supa.from("payment_intents").insert({
-        user_id: userId,
-        method: "bank",
-        expected_amount: 0,
-        currency: "USD",
-        pay_code: payCode,
-        status: "pending",
-        notes: planId,
-      });
-      if (piErr) {
-        console.error("create bank payment intent error", piErr);
-      }
-
-      const plan = (await getVipPackages()).find((p) => p.id === planId);
-
-      const { data: banks } = await supa
-        .from("bank_accounts")
-        .select(
-          "bank_name,account_name,account_number,currency",
-        )
-        .eq("is_active", true)
-        .order("display_order");
-
-      const list = (banks as {
-        bank_name: string;
-        account_name: string;
-        account_number: string;
-        currency: string;
-      }[] || [])
-        .map((b) =>
-          `${b.bank_name}\nAccount Name: ${b.account_name}\nAccount Number: <code>${b.account_number}</code>\nCurrency: ${b.currency}`
-        )
-        .join("\n\n");
-
-      const instructions = await getContent("payment_instructions");
-      const amountLine = plan
-        ? `Outstanding Amount: ${plan.currency} ${plan.price.toFixed(2)}\n\n`
-        : "";
-      const message = `${
-        instructions ? `${instructions}\n\n` : ""
-      }${amountLine}${list}\n\nPay Code: <code>${payCode}</code>\nAdd this in transfer remarks.\nPlease send a photo of your bank transfer receipt.`;
-
-      const { data: us } = await supa
-        .from("user_sessions")
-        .select("id")
-        .eq("telegram_user_id", String(chatId))
-        .limit(1)
-        .maybeSingle();
-      if (us?.id) {
-        await supa
-          .from("user_sessions")
-          .update({
-            awaiting_input: `receipt:${planId}`,
-            last_activity: new Date().toISOString(),
-            is_active: true,
-          })
-          .eq("id", us.id);
-      } else {
-        await supa.from("user_sessions").insert({
-          telegram_user_id: String(chatId),
-          awaiting_input: `receipt:${planId}`,
-          last_activity: new Date().toISOString(),
-          is_active: true,
-        });
-      }
-
       if (cb.message) {
-        await editMessage(chatId, cb.message!.message_id!, message, {
+        await editMessage(chatId, cb.message!.message_id!, "Choose currency:", {
           reply_markup: {
-            inline_keyboard: [[{ text: "Back", callback_data: "nav:plans" }]],
+            inline_keyboard: [[
+              { text: "USD", callback_data: `currency:bank:USD:${planId}` },
+              { text: "MVR", callback_data: `currency:bank:MVR:${planId}` },
+            ], [{ text: "Back", callback_data: "nav:plans" }]],
           },
-          parse_mode: "HTML",
         });
       }
       return;
     }
     if (data.startsWith("method:crypto:")) {
       const planId = data.split(":")[2];
+      if (cb.message) {
+        await editMessage(chatId, cb.message!.message_id!, "Choose currency:", {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: "USD", callback_data: `currency:crypto:USD:${planId}` },
+              { text: "MVR", callback_data: `currency:crypto:MVR:${planId}` },
+            ], [{ text: "Back", callback_data: "nav:plans" }]],
+          },
+        });
+      }
+      return;
+    }
+    if (data.startsWith("currency:")) {
+      const [, method, currency, planId] = data.split(":");
       const supa = getSupabase();
       if (!supa) {
-        const msg = await getContent("crypto_payments_unavailable") ??
-          "Crypto payments unavailable.";
+        const msg = await getContent("payment_create_failed") ??
+          "Unable to create payment.";
         await notifyUser(chatId, msg);
         return;
       }
@@ -1112,48 +1018,124 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         userId = ins?.id as string | undefined;
       }
       if (!userId) {
-        const msg = await getContent("crypto_start_failed") ??
-          "Unable to start crypto payment.";
+        const msg = await getContent("payment_create_failed") ??
+          "Unable to create payment.";
         await notifyUser(chatId, msg);
         return;
       }
-      const { error: perr } = await supa
-        .from("payments")
-        .insert({
+      const plan = (await getVipPackages()).find((p) => p.id === planId);
+      if (!plan) {
+        await notifyUser(chatId, "Plan not found.");
+        return;
+      }
+      const usdPrice = plan.price;
+      const amount = currency === "MVR" ? usdPrice * 17.5 : usdPrice;
+      if (method === "bank") {
+        await supa.from("payments").insert({
           user_id: userId,
           plan_id: planId,
-          amount: null,
-          currency: "USD",
+          amount,
+          currency,
+          payment_method: "bank_transfer",
+          status: "pending",
+        });
+        const payCode = `DC-${
+          crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()
+        }`;
+        const { error: piErr } = await supa.from("payment_intents").insert({
+          user_id: userId,
+          method: "bank",
+          expected_amount: amount,
+          currency,
+          pay_code: payCode,
+          status: "pending",
+          notes: planId,
+        });
+        if (piErr) {
+          console.error("create bank payment intent error", piErr);
+        }
+        const { data: banks } = await supa
+          .from("bank_accounts")
+          .select(
+            "bank_name,account_name,account_number,currency",
+          )
+          .eq("is_active", true)
+          .eq("currency", currency)
+          .order("display_order");
+        const list = (banks as {
+          bank_name: string;
+          account_name: string;
+          account_number: string;
+          currency: string;
+        }[] || [])
+          .map((b) =>
+            `${b.bank_name}\nAccount Name: ${b.account_name}\nAccount Number: <code>${b.account_number}</code>\nCurrency: ${b.currency}`
+          )
+          .join("\n\n");
+        const instructions = await getContent("payment_instructions");
+        const amountLine = `Outstanding Amount: ${currency} ${amount.toFixed(2)}\n\n`;
+        const message = `${
+          instructions ? `${instructions}\n\n` : ""
+        }${amountLine}${list}\n\nPay Code: <code>${payCode}</code>\nAdd this in transfer remarks.\nPlease send a photo of your bank transfer receipt.`;
+        const { data: us } = await supa
+          .from("user_sessions")
+          .select("id")
+          .eq("telegram_user_id", String(chatId))
+          .limit(1)
+          .maybeSingle();
+        if (us?.id) {
+          await supa
+            .from("user_sessions")
+            .update({
+              awaiting_input: `receipt:${planId}`,
+              last_activity: new Date().toISOString(),
+              is_active: true,
+            })
+            .eq("id", us.id);
+        } else {
+          await supa.from("user_sessions").insert({
+            telegram_user_id: String(chatId),
+            awaiting_input: `receipt:${planId}`,
+            last_activity: new Date().toISOString(),
+            is_active: true,
+          });
+        }
+        if (cb.message) {
+          await editMessage(chatId, cb.message!.message_id!, message, {
+            reply_markup: {
+              inline_keyboard: [[{ text: "Back", callback_data: "nav:plans" }]],
+            },
+            parse_mode: "HTML",
+          });
+        }
+      } else if (method === "crypto") {
+        const { error: perr } = await supa.from("payments").insert({
+          user_id: userId,
+          plan_id: planId,
+          amount,
+          currency,
           payment_method: "crypto",
           status: "pending",
         });
-      const address = await getContent("crypto_usdt_trc20") ||
-        optionalEnv("CRYPTO_DEPOSIT_ADDRESS") ||
-        "Please contact support for the crypto address.";
-      if (perr) {
-        console.error("create crypto payment error", perr);
-        const msg = await getContent("payment_create_failed") ??
-          "Unable to create payment. Please try again later.";
-        await notifyUser(chatId, msg);
-      } else {
-        if (cb.message) {
+        const address = await getContent("crypto_usdt_trc20") ||
+          optionalEnv("CRYPTO_DEPOSIT_ADDRESS") ||
+          "Please contact support for the crypto address.";
+        if (perr) {
+          console.error("create crypto payment error", perr);
+          const msg = await getContent("payment_create_failed") ??
+            "Unable to create payment. Please try again later.";
+          await notifyUser(chatId, msg);
+        } else if (cb.message) {
           const instructions = await getContent("payment_instructions");
           const msg = instructions
-            ? `${instructions}\n\nSend the payment to ${address} and reply with the transaction details for manual approval.`
-            : `Send the payment to ${address} and reply with the transaction details for manual approval.`;
-          await editMessage(
-            chatId,
-            cb.message!.message_id!,
-            msg,
-            {
-              reply_markup: {
-                inline_keyboard: [[{
-                  text: "Back",
-                  callback_data: "nav:plans",
-                }]],
-              },
+            ? `${instructions}\n\nAmount: ${currency} ${amount.toFixed(2)}\nSend the payment to ${address} and reply with the transaction details for manual approval.`
+            : `Amount: ${currency} ${amount.toFixed(2)}\nSend the payment to ${address} and reply with the transaction details for manual approval.`;
+          await editMessage(chatId, cb.message!.message_id!, msg, {
+            reply_markup: {
+              inline_keyboard: [[{ text: "Back", callback_data: "nav:plans" }]],
             },
-          );
+            parse_mode: "HTML",
+          });
         }
       }
       return;
