@@ -5,7 +5,7 @@ import { getContent } from "../_shared/config.ts";
 Deno.serve(async (req) => {
   if (req.method !== "POST") return mna();
 
-  let body: { initData?: string; type?: string; bank?: string; network?: string };
+  let body: { initData?: string; type?: string; bank?: string; network?: string; amount?: number };
   try {
     body = await req.json();
   } catch {
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
       const { error: intentErr } = await supa.from("payment_intents").insert({
         user_id: userId ?? crypto.randomUUID(),
         method: "bank",
-        expected_amount: 0,
+        expected_amount: body.amount || 50,
         currency: "USD",
         pay_code,
         status: "pending",
@@ -60,6 +60,10 @@ Deno.serve(async (req) => {
   if (body.type === "crypto") {
     const deposit_address = await getContent<string>("crypto_usdt_trc20")
       || "DEMO-ADDRESS";
+    
+    // Get default crypto amount from config or use a reasonable default
+    const defaultAmount = parseFloat(await getContent<string>("default_crypto_amount") || "50");
+    
     let userId: string | undefined;
     if (supa) {
       const { data: bu } = await supa
@@ -79,7 +83,7 @@ Deno.serve(async (req) => {
       const { error: intentErr } = await supa.from("payment_intents").insert({
         user_id: userId ?? crypto.randomUUID(),
         method: "crypto",
-        expected_amount: 0,
+        expected_amount: body.amount || defaultAmount,
         currency: "USD",
         status: "pending",
         notes: body.network || null,
