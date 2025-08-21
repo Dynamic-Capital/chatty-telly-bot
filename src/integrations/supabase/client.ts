@@ -11,6 +11,23 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
   );
 }
 
+function decodeJwtPayload(token: string) {
+  try {
+    const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const json = typeof atob === "function"
+      ? atob(payload)
+      : Buffer.from(payload, "base64").toString("utf8");
+    return JSON.parse(json) as { [k: string]: unknown };
+  } catch {
+    return null;
+  }
+}
+
+const payload = decodeJwtPayload(SUPABASE_KEY);
+if (payload && payload["role"] && payload["role"] !== "anon") {
+  throw new Error("VITE_SUPABASE_KEY must be an anon key");
+}
+
 const queryCounts: Record<string, number> = {};
 
 const loggingFetch: typeof fetch = async (input, init) => {
@@ -40,8 +57,12 @@ export const supabase = createClient<Database>(
   SUPABASE_KEY,
   {
     auth: {
-      storage: localStorage,
-      persistSession: true,
+      storage: {
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {},
+      },
+      persistSession: false,
       autoRefreshToken: true,
     },
     global: {

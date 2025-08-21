@@ -190,11 +190,6 @@ const Education: React.FC = () => {
 
       setPaymentId(data.payment_id);
       setInstructions(data.instructions);
-      try {
-        localStorage.setItem("pending_payment_id", data.payment_id);
-      } catch {
-        /* ignore */
-      }
     } catch (err) {
       console.error("Error initiating checkout:", err);
       toast({

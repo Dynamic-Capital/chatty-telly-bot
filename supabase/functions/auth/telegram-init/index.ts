@@ -12,6 +12,17 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+export const MAX_TTL = 60 * 60; // 1 hour
+
+export function clampTtl(ttl: unknown): number {
+  const num = Number(ttl);
+  if (!isNaN(num) && num > 0) {
+    if (num > MAX_TTL) console.warn(`ttl ${num} exceeds max ${MAX_TTL}, clamped`);
+    return Math.min(num, MAX_TTL);
+  }
+  return MAX_TTL;
+}
+
 function withCors(res: Response) {
   Object.entries(corsHeaders).forEach(([k, v]) => res.headers.set(k, v));
   return res;
@@ -60,9 +71,7 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     const payload: Record<string, unknown> = { sub: profile.id };
-    const opts: Record<string, unknown> = {};
-    const ttlNum = Number(ttl);
-    if (!isNaN(ttlNum) && ttlNum > 0) opts.expiresIn = ttlNum;
+    const opts: Record<string, unknown> = { expiresIn: clampTtl(ttl) };
     const auth = client.auth as unknown as {
       signJWT: (
         p: Record<string, unknown>,
