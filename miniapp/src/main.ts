@@ -24,10 +24,18 @@ if (app) {
   `;
   const form = app.querySelector<HTMLFormElement>('#deposit')!;
   const status = app.querySelector<HTMLDivElement>('#status')!;
+  const amountInput = form.elements.namedItem('amount') as HTMLInputElement;
+  const submitBtn = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const amount = Number(amountInput.value);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      status.textContent = 'Enter a valid amount';
+      return;
+    }
+    submitBtn.disabled = true;
     status.textContent = 'Processing...';
-    const amount = Number((form.elements.namedItem('amount') as HTMLInputElement).value);
     try {
       const res = await fetch(`${window.location.origin}/miniapp-deposit`, {
         method: 'POST',
@@ -35,9 +43,10 @@ if (app) {
         body: JSON.stringify({ initData, amount }),
       });
       const data = await res.json();
-      if (res.ok && data.ok) {
-        status.textContent = 'Deposit created!';
-        setTimeout(() => tg?.close(), 1500);
+      if (res.ok && data.intent_id) {
+        status.textContent = `Deposit created! ID: ${data.intent_id}`;
+        amountInput.value = '';
+        setTimeout(() => tg?.close(), 3000);
       } else {
         status.textContent = data.error || 'Failed to create deposit';
         setTimeout(() => tg?.close(), 3000);
@@ -45,6 +54,8 @@ if (app) {
     } catch (err) {
       status.textContent = 'Network error';
       setTimeout(() => tg?.close(), 3000);
+    } finally {
+      submitBtn.disabled = false;
     }
   });
 }
