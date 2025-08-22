@@ -5,6 +5,13 @@ const variants = {
   REVIEW: "dc-pill--review",
 } as const;
 
+const labels = {
+  AWAITING: "Pending",
+  VERIFIED: "Approved",
+  REJECTED: "Rejected", 
+  REVIEW: "Under Review",
+} as const;
+
 export type Status = keyof typeof variants;
 
 interface Props {
@@ -12,5 +19,5 @@ interface Props {
 }
 
 export default function StatusPill({ status }: Props) {
-  return <span className={`dc-chip ${variants[status]}`}>{status}</span>;
+  return <span className={`dc-chip ${variants[status]}`}>{labels[status]}</span>;
 }

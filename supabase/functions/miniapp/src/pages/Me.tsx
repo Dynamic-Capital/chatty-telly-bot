@@ -25,12 +25,17 @@ export default function Me() {
       {receipts.map((r) => (
         <GlassRow
           key={r.id}
-          left={<span className="text-sm">{r.id.slice(0, 6)}…</span>}
+          left={
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">#{r.id.slice(0, 8)}</span>
+              <span className="text-xs text-dc-text-dim">{new Date(r.created_at).toLocaleDateString()}</span>
+            </div>
+          }
           right={
-            <>
-              <span className="mr-2 text-sm">{r.amount}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">${r.amount}</span>
               <StatusPill status={r.status} />
-            </>
+            </div>
           }
         />
       ))}

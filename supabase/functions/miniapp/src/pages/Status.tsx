@@ -33,7 +33,12 @@ export default function Status() {
       <TopBar title="Payment Status" />
       {receipt ? (
         <GlassRow
-          left={<span className="text-sm">{receipt.id.slice(0, 6)}…</span>}
+          left={
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">Payment #{receipt.id.slice(0, 8)}</span>
+              <span className="text-xs text-dc-text-dim">${receipt.amount} • {new Date(receipt.created_at).toLocaleDateString()}</span>
+            </div>
+          }
           right={<StatusPill status={receipt.status} />}
         />
       ) : (

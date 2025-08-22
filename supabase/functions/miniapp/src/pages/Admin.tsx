@@ -24,7 +24,12 @@ export default function Admin() {
       {items.map((r) => (
         <GlassRow
           key={r.id}
-          left={<span className="text-sm">{r.id.slice(0, 6)}…</span>}
+          left={
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">#{r.id.slice(0, 8)}</span>
+              <span className="text-xs text-dc-text-dim">${r.amount}</span>
+            </div>
+          }
           right={
             <div className="flex gap-2">
               <ApproveButton
