@@ -74,16 +74,10 @@ function saveCache(key: string, resp: Response, body: Uint8Array, ttl: number) {
 // compression helper for html/json
 function maybeCompress(
   body: Uint8Array,
-  req: Request,
-  type: string,
+  _req: Request,
+  _type: string,
 ): { stream: ReadableStream | Uint8Array; encoding?: string } {
-  const ae = req.headers.get("accept-encoding") ?? "";
-  const enc = ae.includes("br") ? "br" : ae.includes("gzip") ? "gzip" : null;
-  if (!enc) return { stream: body };
-  if (!/^(text\/html|application\/json)/.test(type)) return { stream: body };
-  const cs = new CompressionStream(enc);
-  const stream = new Blob([body]).stream().pipeThrough(cs);
-  return { stream, encoding: enc };
+  return { stream: body };
 }
 
 async function fetchFromStorage(key: string): Promise<Uint8Array | null> {
