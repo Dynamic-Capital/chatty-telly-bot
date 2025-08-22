@@ -109,6 +109,16 @@ export function createClient(..._args) {
             data: { signedUrl: "https://example/signed" },
             error: null,
           }),
+          download: async (key) => {
+            try {
+              const data = await Deno.readFile(
+                `supabase/functions/miniapp/static/${key}`,
+              );
+              return { data: new Blob([data]), error: null };
+            } catch {
+              return { data: null, error: { message: "not found" } };
+            }
+          },
         };
       },
     },
