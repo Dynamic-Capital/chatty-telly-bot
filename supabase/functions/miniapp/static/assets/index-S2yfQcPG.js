@@ -1,0 +1,10 @@
+(function(){const n=document.createElement("link").relList;if(n&&n.supports&&n.supports("modulepreload"))return;for(const e of document.querySelectorAll('link[rel="modulepreload"]'))s(e);new MutationObserver(e=>{for(const t of e)if(t.type==="childList")for(const r of t.addedNodes)r.tagName==="LINK"&&r.rel==="modulepreload"&&s(r)}).observe(document,{childList:!0,subtree:!0});function a(e){const t={};return e.integrity&&(t.integrity=e.integrity),e.referrerPolicy&&(t.referrerPolicy=e.referrerPolicy),e.crossOrigin==="use-credentials"?t.credentials="include":e.crossOrigin==="anonymous"?t.credentials="omit":t.credentials="same-origin",t}function s(e){if(e.ep)return;e.ep=!0;const t=a(e);fetch(e.href,t)}})();var l;const o=(l=window.Telegram)==null?void 0:l.WebApp;o&&o.ready();const d=(o==null?void 0:o.initData)||"",c=document.getElementById("app");if(c){c.innerHTML=`
+    <form id="deposit" class="space-y-2">
+      <label class="block">
+        <span class="block mb-1">Amount</span>
+        <input name="amount" type="number" min="1" required class="border p-2 w-full" />
+      </label>
+      <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Deposit</button>
+      <div id="status" class="text-sm mt-2"></div>
+    </form>
+  `;const i=c.querySelector("#deposit"),n=c.querySelector("#status"),a=i.elements.namedItem("amount"),s=i.querySelector('button[type="submit"]');i.addEventListener("submit",async e=>{e.preventDefault();const t=Number(a.value);if(!Number.isFinite(t)||t<=0){n.textContent="Enter a valid amount";return}s.disabled=!0,n.textContent="Processing...";try{const r=await fetch(`${window.location.origin}/miniapp-deposit`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({initData:d,amount:t})}),u=await r.json();r.ok&&u.intent_id?(n.textContent=`Deposit created! ID: ${u.intent_id}`,a.value="",setTimeout(()=>o==null?void 0:o.close(),3e3)):(n.textContent=u.error||"Failed to create deposit",setTimeout(()=>o==null?void 0:o.close(),3e3))}catch{n.textContent="Network error",setTimeout(()=>o==null?void 0:o.close(),3e3)}finally{s.disabled=!1}})}
