@@ -25,9 +25,18 @@ Deno.test({
       "should not serve fallback HTML",
     );
 
+    // Supabase's default host rewrites use /functions/v1/miniapp; ensure it also works
+    const resRootV1 = await fetch(`${base}/functions/v1/miniapp/`);
+    assertEquals(resRootV1.status, 200);
+    await resRootV1.arrayBuffer();
+
     const resVersion = await fetch(`${base}/miniapp/version`);
     assertEquals(resVersion.status, 200);
     await resVersion.arrayBuffer();
+
+    const resVersionV1 = await fetch(`${base}/functions/v1/miniapp/version`);
+    assertEquals(resVersionV1.status, 200);
+    await resVersionV1.arrayBuffer();
 
     const resHeadVersion = await fetch(`${base}/miniapp/version`, {
       method: "HEAD",
@@ -43,6 +52,12 @@ Deno.test({
     assertEquals(resHead.status, 200);
     assertEquals(resHead.headers.get("x-content-type-options"), "nosniff");
     await resHead.arrayBuffer();
+
+    const resHeadV1 = await fetch(`${base}/functions/v1/miniapp/`, {
+      method: "HEAD",
+    });
+    assertEquals(resHeadV1.status, 200);
+    await resHeadV1.arrayBuffer();
 
     const resFooMissing = await fetch(`${base}/assets/foo.css`);
     assertEquals(resFooMissing.status, 404);
