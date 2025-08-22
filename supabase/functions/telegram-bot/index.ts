@@ -298,7 +298,7 @@ export async function sendMiniAppOrBotOptions(chatId: number): Promise<void> {
     callback_data?: string;
     web_app?: { url: string };
   }[][] = [
-    [{ text: continueText, callback_data: "menu:plans" }],
+    [{ text: continueText, callback_data: "nav:plans" }],
   ];
   let text: string;
   if (url) {
