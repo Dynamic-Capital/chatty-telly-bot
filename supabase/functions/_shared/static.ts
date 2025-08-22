@@ -51,6 +51,9 @@ async function readFileFrom(rootDir: URL, relPath: string): Promise<Response | n
 
 export async function serveStatic(req: Request, opts: StaticOpts): Promise<Response> {
   const url = new URL(req.url);
+  // Normalize Supabase's default /functions/v1 prefix so the same handler
+  // works whether the function is invoked at /miniapp or /functions/v1/miniapp.
+  url.pathname = url.pathname.replace(/^\/functions\/v1/, "");
   const path = url.pathname.replace(/\/+$/, ""); // strip trailing slash for routing
   const sec = { ...DEFAULT_SECURITY, ...(opts.security || {}) };
 
