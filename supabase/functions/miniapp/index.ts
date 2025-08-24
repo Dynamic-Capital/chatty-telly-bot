@@ -30,6 +30,9 @@ const SECURITY_HEADERS = {
     "connect-src 'self' https://*.functions.supabase.co https://*.supabase.co wss://*.supabase.co; " +
     "font-src 'self' data:; " +
     "frame-ancestors 'self' https://*.telegram.org https://telegram.org https://*.supabase.co;",
+  "strict-transport-security":
+    "max-age=63072000; includeSubDomains; preload",
+  "x-frame-options": "ALLOWALL",
 } as const;
 
 function withSecurity(resp: Response, extra: Record<string, string> = {}) {
@@ -118,9 +121,7 @@ export async function handler(req: Request): Promise<Response> {
   // HEAD routes
   if (req.method === "HEAD") {
     if (path === "/miniapp" || path === "/miniapp/") {
-      return withSecurity(new Response(null, { status: 200 }), {
-        "x-frame-options": "ALLOWALL",
-      });
+      return withSecurity(new Response(null, { status: 200 }));
     }
     if (path === "/miniapp/version") {
       return withSecurity(new Response(null, { status: 200 }));
@@ -128,15 +129,15 @@ export async function handler(req: Request): Promise<Response> {
     if (path.startsWith("/assets/")) {
       return withSecurity(new Response(null, { status: 200 }));
     }
-    return nf();
+    return withSecurity(nf());
   }
 
-  if (req.method !== "GET") return mna();
+  if (req.method !== "GET") return withSecurity(mna());
 
   // GET /miniapp/ → index.html
   if (path === "/miniapp" || path === "/miniapp/") {
     const cached = fromCache("__index");
-    if (cached) return withSecurity(cached, { "x-frame-options": "ALLOWALL" });
+    if (cached) return withSecurity(cached);
 
     const arr = await fetchFromStorage(INDEX_KEY);
     if (!arr) {
@@ -149,7 +150,7 @@ export async function handler(req: Request): Promise<Response> {
           "cache-control": "no-cache",
         },
       });
-      return withSecurity(resp, { "x-frame-options": "ALLOWALL" });
+      return withSecurity(resp);
     }
 
     const type = "text/html; charset=utf-8";
@@ -161,7 +162,7 @@ export async function handler(req: Request): Promise<Response> {
     if (encoding) headers["content-encoding"] = encoding;
     const resp = new Response(stream, { status: 200, headers });
     saveCache("__index", resp, arr, 60_000);
-    return withSecurity(resp, { "x-frame-options": "ALLOWALL" });
+    return withSecurity(resp);
   }
 
   // GET /miniapp/version
