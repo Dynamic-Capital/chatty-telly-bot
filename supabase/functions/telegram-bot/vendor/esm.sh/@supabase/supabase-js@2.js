@@ -119,6 +119,14 @@ export function createClient(..._args) {
               return { data: null, error: { message: "not found" } };
             }
           },
+          info: async (key) => {
+            try {
+              await Deno.stat(`supabase/functions/miniapp/static/${key}`);
+              return { data: { httpMetadata: {} }, error: null };
+            } catch {
+              return { data: null, error: { message: "not found" } };
+            }
+          },
         };
       },
     },

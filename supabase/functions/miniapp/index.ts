@@ -80,10 +80,26 @@ function maybeCompress(
   return { stream: body };
 }
 
-async function fetchFromStorage(key: string): Promise<Uint8Array | null> {
+async function readFromStorage(
+  key: string,
+  req: Request,
+): Promise<{ resp: Response; body: Uint8Array } | null> {
   const { data, error } = await supabase.storage.from(BUCKET).download(key);
   if (error || !data) return null;
-  return new Uint8Array(await data.arrayBuffer());
+  const info = await supabase.storage.from(BUCKET).info?.(key);
+  const arr = new Uint8Array(await data.arrayBuffer());
+  const type = info?.data?.httpMetadata?.contentType ?? mime(key);
+  const encoding = info?.data?.httpMetadata?.contentEncoding;
+  const headers: Record<string, string> = { "content-type": type };
+
+  if (encoding) {
+    headers["content-encoding"] = encoding;
+    return { resp: new Response(arr, { status: 200, headers }), body: arr };
+  }
+
+  const { stream, encoding: enc } = maybeCompress(arr, req, type);
+  if (enc) headers["content-encoding"] = enc;
+  return { resp: new Response(stream, { status: 200, headers }), body: arr };
 }
 
 const FALLBACK_HTML =
@@ -117,8 +133,8 @@ export async function handler(req: Request): Promise<Response> {
     const cached = fromCache("__index");
     if (cached) return withSecurity(cached, { "x-frame-options": "ALLOWALL" });
 
-    const arr = await fetchFromStorage(INDEX_KEY);
-    if (!arr) {
+    const res = await readFromStorage(INDEX_KEY, req);
+    if (!res) {
       console.warn(
         `[miniapp] missing index at ${BUCKET}/${INDEX_KEY}`,
       );
@@ -131,15 +147,9 @@ export async function handler(req: Request): Promise<Response> {
       return withSecurity(resp, { "x-frame-options": "ALLOWALL" });
     }
 
-    const type = "text/html; charset=utf-8";
-    const { stream, encoding } = maybeCompress(arr, req, type);
-    const headers: Record<string, string> = {
-      "content-type": type,
-      "cache-control": "no-cache",
-    };
-    if (encoding) headers["content-encoding"] = encoding;
-    const resp = new Response(stream, { status: 200, headers });
-    saveCache("__index", resp, arr, 60_000);
+    const { resp, body } = res;
+    resp.headers.set("cache-control", "no-cache");
+    saveCache("__index", resp, body, 60_000);
     return withSecurity(resp, { "x-frame-options": "ALLOWALL" });
   }
 
@@ -162,19 +172,15 @@ export async function handler(req: Request): Promise<Response> {
     const cached = fromCache(key);
     if (cached) return withSecurity(cached);
 
-    const arr = await fetchFromStorage(key);
-    if (!arr) {
+    const res = await readFromStorage(key, req);
+    if (!res) {
       console.warn(`[miniapp] missing asset ${key}`);
       return withSecurity(nf());
     }
 
-    const type = mime(path);
-    const headers: Record<string, string> = {
-      "content-type": type,
-      "cache-control": "public, max-age=31536000, immutable",
-    };
-    const resp = new Response(arr, { status: 200, headers });
-    saveCache(key, resp, arr, 600_000);
+    const { resp, body } = res;
+    resp.headers.set("cache-control", "public, max-age=31536000, immutable");
+    saveCache(key, resp, body, 600_000);
     return withSecurity(resp);
   }
 
