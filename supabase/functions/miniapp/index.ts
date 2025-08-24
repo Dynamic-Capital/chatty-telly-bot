@@ -1,6 +1,5 @@
 import { mna, nf } from "../_shared/http.ts";
 import { optionalEnv, requireEnv } from "../_shared/env.ts";
-import { contentType } from "https://deno.land/std@0.224.0/media_types/mod.ts";
 import { extname } from "https://deno.land/std@0.224.0/path/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -12,6 +11,9 @@ const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = requireEnv([
 const BUCKET = optionalEnv("MINIAPP_BUCKET") ?? "miniapp";
 const INDEX_KEY = optionalEnv("MINIAPP_INDEX_KEY") ?? "index.html";
 const ASSETS_PREFIX = optionalEnv("MINIAPP_ASSETS_PREFIX") ?? "assets/";
+const SERVE_FROM_STORAGE = ["1", "true", "yes"].includes(
+  optionalEnv("SERVE_FROM_STORAGE")?.toLowerCase() ?? "",
+);
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
@@ -39,147 +41,154 @@ function withSecurity(resp: Response, extra: Record<string, string> = {}) {
   return new Response(resp.body, { status: resp.status, headers: h });
 }
 
-// simple mime helper
-const mime = (p: string) =>
-  contentType(extname(p)) ?? "application/octet-stream";
+// MIME type helper
+function getMime(path: string): string {
+  switch (extname(path).toLowerCase()) {
+    case ".html":
+      return "text/html; charset=utf-8";
+    case ".js":
+    case ".mjs":
+      return "text/javascript; charset=utf-8";
+    case ".css":
+      return "text/css; charset=utf-8";
+    case ".json":
+    case ".map":
+      return "application/json; charset=utf-8";
+    case ".txt":
+      return "text/plain; charset=utf-8";
+    case ".svg":
+      return "image/svg+xml";
+    case ".png":
+      return "image/png";
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".gif":
+      return "image/gif";
+    case ".webp":
+      return "image/webp";
+    case ".avif":
+      return "image/avif";
+    case ".ico":
+      return "image/x-icon";
+    case ".ttf":
+      return "font/ttf";
+    case ".otf":
+      return "font/otf";
+    case ".woff":
+      return "font/woff";
+    case ".woff2":
+      return "font/woff2";
+    case ".wasm":
+      return "application/wasm";
+    case ".webmanifest":
+      return "application/manifest+json";
+    default:
+      return "application/octet-stream";
+  }
+}
 
-// in-memory cache
-type CacheEntry = {
-  expires: number;
-  body: Uint8Array;
-  headers: Record<string, string>;
-  status: number;
-};
-const cache = new Map<string, CacheEntry>();
-
-function fromCache(key: string): Response | null {
-  const c = cache.get(key);
-  if (!c) return null;
-  if (c.expires < Date.now()) {
-    cache.delete(key);
+// read file from bundled static directory
+async function readFromBundle(
+  relPath: string,
+  mime: string,
+): Promise<Response | null> {
+  try {
+    const body = await Deno.readFile("./static/" + relPath);
+    return new Response(body, { headers: { "content-type": mime } });
+  } catch {
     return null;
   }
-  return new Response(c.body.slice(), { status: c.status, headers: c.headers });
 }
 
-function saveCache(key: string, resp: Response, body: Uint8Array, ttl: number) {
-  cache.set(key, {
-    expires: Date.now() + ttl,
-    body,
-    headers: Object.fromEntries(resp.headers),
-    status: resp.status,
-  });
+// stream file from Supabase storage
+async function readFromStorage(
+  key: string,
+  mime: string,
+): Promise<Response | null> {
+  const { data: bucket } = await supabase.storage.getBucket(BUCKET);
+  if (!bucket) return null;
+  let url: string;
+  if (bucket.public) {
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(key);
+    url = data.publicUrl;
+  } else {
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(
+      key,
+      60,
+    );
+    if (error || !data) return null;
+    url = data.signedUrl;
+  }
+  const upstream = await fetch(url);
+  if (!upstream.ok) return null;
+  const headers = new Headers(upstream.headers);
+  headers.set("content-type", mime);
+  return new Response(upstream.body, { status: upstream.status, headers });
 }
-
-// compression helper for html/json
-function maybeCompress(
-  body: Uint8Array,
-  _req: Request,
-  _type: string,
-): { stream: ReadableStream | Uint8Array; encoding?: string } {
-  return { stream: body };
-}
-
-async function fetchFromStorage(key: string): Promise<Uint8Array | null> {
-  const { data, error } = await supabase.storage.from(BUCKET).download(key);
-  if (error || !data) return null;
-  return new Uint8Array(await data.arrayBuffer());
-}
-
-const FALLBACK_HTML =
-  "<!doctype html><html><body>Mini App unavailable</body></html>";
 
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   url.pathname = url.pathname.replace(/^\/functions\/v1/, "");
   const path = url.pathname;
 
-  // HEAD routes
-  if (req.method === "HEAD") {
-    if (path === "/miniapp" || path === "/miniapp/") {
-      return withSecurity(new Response(null, { status: 200 }), {
-        "x-frame-options": "ALLOWALL",
-      });
-    }
-    if (path === "/miniapp/version") {
-      return withSecurity(new Response(null, { status: 200 }));
-    }
-    if (path.startsWith("/assets/")) {
-      return withSecurity(new Response(null, { status: 200 }));
-    }
-    return nf();
-  }
+  if (req.method !== "GET" && req.method !== "HEAD") return mna();
+  const isHead = req.method === "HEAD";
 
-  if (req.method !== "GET") return mna();
-
-  // GET /miniapp/ → index.html
+  // /miniapp or /miniapp/
   if (path === "/miniapp" || path === "/miniapp/") {
-    const cached = fromCache("__index");
-    if (cached) return withSecurity(cached, { "x-frame-options": "ALLOWALL" });
-
-    const arr = await fetchFromStorage(INDEX_KEY);
-    if (!arr) {
-      console.warn(
-        `[miniapp] missing index at ${BUCKET}/${INDEX_KEY}`,
-      );
-      const resp = new Response(FALLBACK_HTML, {
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "no-cache",
-        },
-      });
-      return withSecurity(resp, { "x-frame-options": "ALLOWALL" });
+    const mime = "text/html; charset=utf-8";
+    const resp = SERVE_FROM_STORAGE
+      ? await readFromStorage(INDEX_KEY, mime)
+      : await readFromBundle(INDEX_KEY, mime);
+    if (!resp) {
+      return withSecurity(nf("Not Found"), { "x-frame-options": "ALLOWALL" });
     }
 
-    const type = "text/html; charset=utf-8";
-    const { stream, encoding } = maybeCompress(arr, req, type);
-    const headers: Record<string, string> = {
-      "content-type": type,
-      "cache-control": "no-cache",
-    };
-    if (encoding) headers["content-encoding"] = encoding;
-    const resp = new Response(stream, { status: 200, headers });
-    saveCache("__index", resp, arr, 60_000);
-    return withSecurity(resp, { "x-frame-options": "ALLOWALL" });
-  }
-
-  // GET /miniapp/version
-  if (path === "/miniapp/version") {
-    const body = new TextEncoder().encode(
-      JSON.stringify({ name: "miniapp", ts: new Date().toISOString() }),
+    const h = new Headers(resp.headers);
+    h.set("cache-control", "no-cache");
+    return withSecurity(
+      new Response(isHead ? null : resp.body, {
+        status: resp.status,
+        headers: h,
+      }),
+      { "x-frame-options": "ALLOWALL" },
     );
-    const type = "application/json; charset=utf-8";
-    const { stream, encoding } = maybeCompress(body, req, type);
-    const headers: Record<string, string> = { "content-type": type };
-    if (encoding) headers["content-encoding"] = encoding;
-    const resp = new Response(stream, { status: 200, headers });
-    return withSecurity(resp);
   }
 
-  // GET /assets/* → storage
+  // /miniapp/version
+  if (path === "/miniapp/version") {
+    const body = JSON.stringify({
+      name: "miniapp",
+      ts: new Date().toISOString(),
+    });
+    const headers = { "content-type": "application/json; charset=utf-8" };
+    return withSecurity(
+      new Response(isHead ? null : body, { status: 200, headers }),
+    );
+  }
+
+  // /assets/*
   if (path.startsWith("/assets/")) {
-    const key = ASSETS_PREFIX + path.slice("/assets/".length);
-    const cached = fromCache(key);
-    if (cached) return withSecurity(cached);
+    const rel = path.slice("/assets/".length);
+    const mime = getMime(path);
+    const key = SERVE_FROM_STORAGE ? ASSETS_PREFIX + rel : "assets/" + rel;
+    const resp = SERVE_FROM_STORAGE
+      ? await readFromStorage(key, mime)
+      : await readFromBundle(key, mime);
+    if (!resp) return withSecurity(nf("Not Found"));
 
-    const arr = await fetchFromStorage(key);
-    if (!arr) {
-      console.warn(`[miniapp] missing asset ${key}`);
-      return withSecurity(nf());
-    }
-
-    const type = mime(path);
-    const headers: Record<string, string> = {
-      "content-type": type,
-      "cache-control": "public, max-age=31536000, immutable",
-    };
-    const resp = new Response(arr, { status: 200, headers });
-    saveCache(key, resp, arr, 600_000);
-    return withSecurity(resp);
+    const h = new Headers(resp.headers);
+    h.set("cache-control", "public, max-age=31536000, immutable");
+    return withSecurity(
+      new Response(isHead ? null : resp.body, {
+        status: resp.status,
+        headers: h,
+      }),
+    );
   }
 
-  // unknown
-  return withSecurity(nf());
+  return withSecurity(nf("Not Found"));
 }
 
 if (import.meta.main) {
