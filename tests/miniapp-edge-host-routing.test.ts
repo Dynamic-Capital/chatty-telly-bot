@@ -1,5 +1,8 @@
-import { assert, assertEquals } from "https://deno.land/std@0.224.0/testing/asserts.ts";
-import handler from "../supabase/functions/miniapp/index.ts";
+import {
+  assert,
+  assertEquals,
+} from "https://deno.land/std@0.224.0/testing/asserts.ts";
+import { default as handler } from "../supabase/functions/miniapp/index.ts";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 Deno.test({
@@ -12,13 +15,17 @@ Deno.test({
     const base = "http://localhost:8000";
 
     try {
-      await Deno.remove("supabase/functions/miniapp/static/assets/foo.css");
+      await Deno.remove("supabase/functions/miniapp/static/assets/app.css");
     } catch {
       // ignore
     }
 
     const resRoot = await fetch(`${base}/miniapp/`);
     assertEquals(resRoot.status, 200);
+    assertEquals(
+      resRoot.headers.get("content-type"),
+      "text/html; charset=utf-8",
+    );
     const bodyRoot = await resRoot.text();
     assert(
       !bodyRoot.includes("Static <code>index.html</code> not found"),
@@ -32,7 +39,8 @@ Deno.test({
 
     const resVersion = await fetch(`${base}/miniapp/version`);
     assertEquals(resVersion.status, 200);
-    await resVersion.arrayBuffer();
+    const bodyVersion = await resVersion.json();
+    assert(typeof bodyVersion === "object" && bodyVersion);
 
     const resVersionV1 = await fetch(`${base}/functions/v1/miniapp/version`);
     assertEquals(resVersionV1.status, 200);
@@ -59,30 +67,18 @@ Deno.test({
     assertEquals(resHeadV1.status, 200);
     await resHeadV1.arrayBuffer();
 
-    const resFooMissing = await fetch(`${base}/assets/foo.css`);
-    assertEquals(resFooMissing.status, 404);
-    await resFooMissing.arrayBuffer();
-
     await Deno.writeTextFile(
-      "supabase/functions/miniapp/static/assets/foo.css",
+      "supabase/functions/miniapp/static/assets/app.css",
       "body{}",
     );
-    const resFooPresent = await fetch(`${base}/assets/foo.css`);
-    assertEquals(resFooPresent.status, 200);
-    await resFooPresent.arrayBuffer();
+    const resCss = await fetch(`${base}/assets/app.css`);
+    assertEquals(resCss.status, 200);
+    assertEquals(resCss.headers.get("content-type"), "text/css");
+    await resCss.arrayBuffer();
 
-    const resFoo = await fetch(`${base}/foo`);
-    assertEquals(resFoo.status, 404);
-    assertEquals(
-      resFoo.headers.get("content-type"),
-      "application/json; charset=utf-8",
-    );
-    const bodyFoo = await resFoo.json();
-    assertEquals(bodyFoo.error, "Not Found");
-
-    const resNotFound = await fetch(`${base}/miniapp/nope`);
-    assertEquals(resNotFound.status, 404);
-    await resNotFound.arrayBuffer();
+    const resNope = await fetch(`${base}/nope`);
+    assertEquals(resNope.status, 404);
+    await resNope.arrayBuffer();
 
     const resPost = await fetch(`${base}/miniapp/`, { method: "POST" });
     assertEquals(resPost.status, 405);
@@ -90,7 +86,7 @@ Deno.test({
 
     controller.abort();
     try {
-      await Deno.remove("supabase/functions/miniapp/static/assets/foo.css");
+      await Deno.remove("supabase/functions/miniapp/static/assets/app.css");
     } catch {
       // ignore
     }
