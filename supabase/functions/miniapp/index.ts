@@ -74,9 +74,30 @@ function saveCache(key: string, resp: Response, body: Uint8Array, ttl: number) {
 // compression helper for html/json
 function maybeCompress(
   body: Uint8Array,
-  _req: Request,
-  _type: string,
+  req: Request,
+  type: string,
 ): { stream: ReadableStream | Uint8Array; encoding?: string } {
+  const accept = req.headers.get("accept-encoding")?.toLowerCase() ?? "";
+
+  // Only compress html and json responses
+  const compressible =
+    type.startsWith("text/html") || type.startsWith("application/json");
+  if (!compressible || !accept) return { stream: body };
+
+  const encodings = accept.split(",").map((e) => e.trim().split(";")[0]);
+
+  for (const enc of ["br", "gzip"] as const) {
+    if (!encodings.includes(enc)) continue;
+    try {
+      const stream = new Blob([body]).stream().pipeThrough(
+        new CompressionStream(enc),
+      );
+      return { stream, encoding: enc };
+    } catch {
+      // unsupported encoding; try next option
+    }
+  }
+
   return { stream: body };
 }
 
