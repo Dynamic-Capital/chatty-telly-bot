@@ -12,6 +12,7 @@ const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = requireEnv([
 const BUCKET = optionalEnv("MINIAPP_BUCKET") ?? "miniapp";
 const INDEX_KEY = optionalEnv("MINIAPP_INDEX_KEY") ?? "index.html";
 const ASSETS_PREFIX = optionalEnv("MINIAPP_ASSETS_PREFIX") ?? "assets/";
+const SERVE_FROM_STORAGE = optionalEnv("SERVE_FROM_STORAGE");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
@@ -112,6 +113,11 @@ async function fetchFromStorage(key: string): Promise<Uint8Array | null> {
 
 const FALLBACK_HTML =
   "<!doctype html><html><body>Mini App unavailable</body></html>";
+
+console.log(
+  "miniapp: serving index from",
+  SERVE_FROM_STORAGE === "true" ? "storage" : "bundle",
+);
 
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
