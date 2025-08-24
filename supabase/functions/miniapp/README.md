@@ -57,3 +57,23 @@ curl https://PROJECT_REF.supabase.co/functions/v1/miniapp/
 Path handling is covered by
 `tests/miniapp-edge-host-routing.test.ts` and the live reachability
 check in `supabase/functions/_tests/integration_smoke_test.ts`.
+
+## Storage Hosting
+
+When hosting this mini app via Supabase Storage, set the object metadata explicitly:
+
+- `index.html` → `text/html; charset=utf-8`
+- `assets/app.css` → `text/css`
+- `assets/app.js` → `text/javascript`
+
+## Required Secrets
+
+The edge function needs the following secrets:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `MINIAPP_BUCKET`
+- `MINIAPP_INDEX_KEY`
+- `MINIAPP_ASSETS_PREFIX`
+- `SERVE_FROM_STORAGE=true`
+
