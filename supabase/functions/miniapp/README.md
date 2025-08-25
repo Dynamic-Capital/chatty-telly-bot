@@ -76,4 +76,5 @@ The edge function needs the following secrets:
 - `MINIAPP_INDEX_KEY`
 - `MINIAPP_ASSETS_PREFIX`
 - `SERVE_FROM_STORAGE=true`
+- `MINIAPP_CACHE_LIMIT` (optional, defaults to 100)
 

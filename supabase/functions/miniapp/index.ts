@@ -13,6 +13,7 @@ const BUCKET = optionalEnv("MINIAPP_BUCKET") ?? "miniapp";
 const INDEX_KEY = optionalEnv("MINIAPP_INDEX_KEY") ?? "index.html";
 const ASSETS_PREFIX = optionalEnv("MINIAPP_ASSETS_PREFIX") ?? "assets/";
 const SERVE_FROM_STORAGE = optionalEnv("SERVE_FROM_STORAGE") ?? "false";
+const CACHE_LIMIT = Number(optionalEnv("MINIAPP_CACHE_LIMIT") ?? "100");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
@@ -64,7 +65,36 @@ type CacheEntry = {
   headers: Record<string, string>;
   status: number;
 };
-const cache = new Map<string, CacheEntry>();
+
+class LRUCache<K, V> {
+  #map = new Map<K, V>();
+  constructor(private max: number) {}
+
+  get(key: K): V | undefined {
+    const value = this.#map.get(key);
+    if (value === undefined) return undefined;
+    this.#map.delete(key);
+    this.#map.set(key, value);
+    return value;
+  }
+
+  set(key: K, value: V) {
+    if (this.#map.has(key)) this.#map.delete(key);
+    this.#map.set(key, value);
+    if (this.#map.size > this.max) {
+      const oldest = this.#map.keys().next().value;
+      if (oldest !== undefined) this.#map.delete(oldest);
+    }
+  }
+
+  delete(key: K) {
+    this.#map.delete(key);
+  }
+}
+
+const cache = new LRUCache<string, CacheEntry>(
+  Number.isFinite(CACHE_LIMIT) && CACHE_LIMIT > 0 ? CACHE_LIMIT : 100,
+);
 
 function fromCache(key: string): Response | null {
   const c = cache.get(key);
@@ -196,7 +226,10 @@ export async function handler(req: Request): Promise<Response> {
     
     console.log("[miniapp] Serving index.html with headers:", headers);
     const resp = new Response(stream, { status: 200, headers });
-    saveCache("__index", resp, arr, 60_000);
+    const cacheBody = encoding
+      ? new Uint8Array(await resp.clone().arrayBuffer())
+      : arr;
+    saveCache("__index", resp, cacheBody, 60_000);
     return withSecurity(resp);
   }
 
