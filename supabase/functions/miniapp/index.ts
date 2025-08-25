@@ -12,7 +12,7 @@ const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = requireEnv([
 const BUCKET = optionalEnv("MINIAPP_BUCKET") ?? "miniapp";
 const INDEX_KEY = optionalEnv("MINIAPP_INDEX_KEY") ?? "index.html";
 const ASSETS_PREFIX = optionalEnv("MINIAPP_ASSETS_PREFIX") ?? "assets/";
-const SERVE_FROM_STORAGE = optionalEnv("SERVE_FROM_STORAGE");
+const SERVE_FROM_STORAGE = optionalEnv("SERVE_FROM_STORAGE") ?? "false";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
@@ -116,7 +116,7 @@ const FALLBACK_HTML =
 
 console.log(
   "miniapp: serving index from",
-  SERVE_FROM_STORAGE === "true" ? "storage" : "bundle",
+  SERVE_FROM_STORAGE === "true" ? "storage" : "react-bundle",
 );
 
 export async function handler(req: Request): Promise<Response> {
@@ -145,10 +145,27 @@ export async function handler(req: Request): Promise<Response> {
     const cached = fromCache("__index");
     if (cached) return withSecurity(cached);
 
-    const arr = await fetchFromStorage(INDEX_KEY);
+    let arr: Uint8Array | null = null;
+
+    // First try to serve from React build in static/ directory
+    if (SERVE_FROM_STORAGE !== "true") {
+      try {
+        const staticIndexPath = new URL("./static/index.html", import.meta.url);
+        const indexContent = await Deno.readFile(staticIndexPath);
+        arr = indexContent;
+      } catch (error) {
+        console.warn("[miniapp] React build not found in static/, falling back to storage", error);
+      }
+    }
+
+    // Fallback to storage if React build not available
+    if (!arr) {
+      arr = await fetchFromStorage(INDEX_KEY);
+    }
+
     if (!arr) {
       console.warn(
-        `[miniapp] missing index at ${BUCKET}/${INDEX_KEY}`,
+        `[miniapp] missing index at ${BUCKET}/${INDEX_KEY} and no React build`,
       );
       const resp = new Response(FALLBACK_HTML, {
         headers: {
@@ -184,15 +201,33 @@ export async function handler(req: Request): Promise<Response> {
     return withSecurity(resp);
   }
 
-  // GET /assets/* → storage
+  // GET /assets/* → try static build first, then storage
   if (path.startsWith("/assets/")) {
-    const key = ASSETS_PREFIX + path.slice("/assets/".length);
+    const assetPath = path.slice("/assets/".length);
+    const key = ASSETS_PREFIX + assetPath;
     const cached = fromCache(key);
     if (cached) return withSecurity(cached);
 
-    const arr = await fetchFromStorage(key);
+    let arr: Uint8Array | null = null;
+
+    // First try to serve from React build in static/assets/
+    if (SERVE_FROM_STORAGE !== "true") {
+      try {
+        const staticAssetPath = new URL(`./static/assets/${assetPath}`, import.meta.url);
+        const assetContent = await Deno.readFile(staticAssetPath);
+        arr = assetContent;
+      } catch {
+        // Asset not found in static build, will try storage
+      }
+    }
+
+    // Fallback to storage
     if (!arr) {
-      console.warn(`[miniapp] missing asset ${key}`);
+      arr = await fetchFromStorage(key);
+    }
+
+    if (!arr) {
+      console.warn(`[miniapp] missing asset ${key} in both static and storage`);
       return withSecurity(nf());
     }
 
