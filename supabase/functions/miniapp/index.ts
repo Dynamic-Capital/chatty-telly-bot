@@ -38,8 +38,18 @@ const SECURITY_HEADERS = {
 
 function withSecurity(resp: Response, extra: Record<string, string> = {}) {
   const h = new Headers(resp.headers);
+  
+  // Preserve original content-type if it exists
+  const originalContentType = resp.headers.get("content-type");
+  
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) h.set(k, v);
   for (const [k, v] of Object.entries(extra)) h.set(k, v);
+  
+  // Ensure content-type is preserved
+  if (originalContentType) {
+    h.set("content-type", originalContentType);
+  }
+  
   return new Response(resp.body, { status: resp.status, headers: h });
 }
 
@@ -183,6 +193,8 @@ export async function handler(req: Request): Promise<Response> {
       "cache-control": "no-cache",
     };
     if (encoding) headers["content-encoding"] = encoding;
+    
+    console.log("[miniapp] Serving index.html with headers:", headers);
     const resp = new Response(stream, { status: 200, headers });
     saveCache("__index", resp, arr, 60_000);
     return withSecurity(resp);
