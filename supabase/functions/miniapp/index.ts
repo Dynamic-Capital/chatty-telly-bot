@@ -31,25 +31,24 @@ const SECURITY_HEADERS = {
     "connect-src 'self' https://*.functions.supabase.co https://*.supabase.co wss://*.supabase.co; " +
     "font-src 'self' data:; " +
     "frame-ancestors 'self' https://*.telegram.org https://telegram.org https://*.supabase.co;",
-  "strict-transport-security":
-    "max-age=63072000; includeSubDomains; preload",
+  "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
   "x-frame-options": "ALLOWALL",
 } as const;
 
 function withSecurity(resp: Response, extra: Record<string, string> = {}) {
   const h = new Headers(resp.headers);
-  
+
   // Preserve original content-type if it exists
   const originalContentType = resp.headers.get("content-type");
-  
+
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) h.set(k, v);
   for (const [k, v] of Object.entries(extra)) h.set(k, v);
-  
+
   // Ensure content-type is preserved
   if (originalContentType) {
     h.set("content-type", originalContentType);
   }
-  
+
   return new Response(resp.body, { status: resp.status, headers: h });
 }
 
@@ -87,38 +86,64 @@ function saveCache(key: string, resp: Response, body: Uint8Array, ttl: number) {
 
 // compression helper for html/json
 function maybeCompress(
-  body: Uint8Array,
+  stream: ReadableStream<Uint8Array>,
   req: Request,
   type: string,
-): { stream: ReadableStream | Uint8Array; encoding?: string } {
+): { stream: ReadableStream<Uint8Array>; encoding?: string } {
   const accept = req.headers.get("accept-encoding")?.toLowerCase() ?? "";
 
   // Only compress html and json responses
-  const compressible =
-    type.startsWith("text/html") || type.startsWith("application/json");
-  if (!compressible || !accept) return { stream: body };
+  const compressible = type.startsWith("text/html") ||
+    type.startsWith("application/json");
+  if (!compressible || !accept) return { stream };
 
   const encodings = accept.split(",").map((e) => e.trim().split(";")[0]);
 
   for (const enc of ["br", "gzip"] as const) {
     if (!encodings.includes(enc)) continue;
     try {
-      const stream = new Blob([body]).stream().pipeThrough(
-        new CompressionStream(enc),
-      );
-      return { stream, encoding: enc };
+      return {
+        stream: stream.pipeThrough(new CompressionStream(enc)),
+        encoding: enc,
+      };
     } catch {
       // unsupported encoding; try next option
     }
   }
 
-  return { stream: body };
+  return { stream };
 }
 
-async function fetchFromStorage(key: string): Promise<Uint8Array | null> {
-  const { data, error } = await supabase.storage.from(BUCKET).download(key);
-  if (error || !data) return null;
-  return new Uint8Array(await data.arrayBuffer());
+async function fetchFromStorage(key: string): Promise<Response | null> {
+  const url = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${key}`;
+  const resp = await fetch(url, {
+    headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+  });
+  if (!resp.ok || !resp.body) return null;
+  return resp;
+}
+
+async function streamToUint8(
+  stream: ReadableStream<Uint8Array>,
+): Promise<Uint8Array> {
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (value) {
+      chunks.push(value);
+      total += value.length;
+    }
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    out.set(c, offset);
+    offset += c.length;
+  }
+  return out;
 }
 
 const FALLBACK_HTML =
@@ -155,25 +180,36 @@ export async function handler(req: Request): Promise<Response> {
     const cached = fromCache("__index");
     if (cached) return withSecurity(cached);
 
-    let arr: Uint8Array | null = null;
+    let stream: ReadableStream<Uint8Array> | null = null;
+    let cachePromise: Promise<Uint8Array> | null = null;
 
     // First try to serve from React build in static/ directory
     if (SERVE_FROM_STORAGE !== "true") {
       try {
         const staticIndexPath = new URL("./static/index.html", import.meta.url);
-        const indexContent = await Deno.readFile(staticIndexPath);
-        arr = indexContent;
+        const file = await Deno.open(staticIndexPath);
+        const [s1, s2] = file.readable.tee();
+        stream = s1;
+        cachePromise = streamToUint8(s2);
       } catch (error) {
-        console.warn("[miniapp] React build not found in static/, falling back to storage", error);
+        console.warn(
+          "[miniapp] React build not found in static/, falling back to storage",
+          error,
+        );
       }
     }
 
     // Fallback to storage if React build not available
-    if (!arr) {
-      arr = await fetchFromStorage(INDEX_KEY);
+    if (!stream) {
+      const storageResp = await fetchFromStorage(INDEX_KEY);
+      if (storageResp) {
+        const [s1, s2] = storageResp.body!.tee();
+        stream = s1;
+        cachePromise = streamToUint8(s2);
+      }
     }
 
-    if (!arr) {
+    if (!stream) {
       console.warn(
         `[miniapp] missing index at ${BUCKET}/${INDEX_KEY} and no React build`,
       );
@@ -187,16 +223,20 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     const type = "text/html; charset=utf-8";
-    const { stream, encoding } = maybeCompress(arr, req, type);
+    const { stream: compressed, encoding } = maybeCompress(stream, req, type);
     const headers: Record<string, string> = {
       "content-type": type,
       "cache-control": "no-cache",
     };
     if (encoding) headers["content-encoding"] = encoding;
-    
+
     console.log("[miniapp] Serving index.html with headers:", headers);
-    const resp = new Response(stream, { status: 200, headers });
-    saveCache("__index", resp, arr, 60_000);
+    const resp = new Response(compressed, { status: 200, headers });
+    if (cachePromise) {
+      cachePromise
+        .then((arr) => saveCache("__index", resp, arr, 60_000))
+        .catch((err) => console.error("[miniapp] cache index err", err));
+    }
     return withSecurity(resp);
   }
 
@@ -206,7 +246,11 @@ export async function handler(req: Request): Promise<Response> {
       JSON.stringify({ name: "miniapp", ts: new Date().toISOString() }),
     );
     const type = "application/json; charset=utf-8";
-    const { stream, encoding } = maybeCompress(body, req, type);
+    const { stream, encoding } = maybeCompress(
+      new Blob([body]).stream(),
+      req,
+      type,
+    );
     const headers: Record<string, string> = { "content-type": type };
     if (encoding) headers["content-encoding"] = encoding;
     const resp = new Response(stream, { status: 200, headers });
@@ -220,25 +264,36 @@ export async function handler(req: Request): Promise<Response> {
     const cached = fromCache(key);
     if (cached) return withSecurity(cached);
 
-    let arr: Uint8Array | null = null;
+    let stream: ReadableStream<Uint8Array> | null = null;
+    let cachePromise: Promise<Uint8Array> | null = null;
 
     // First try to serve from React build in static/assets/
     if (SERVE_FROM_STORAGE !== "true") {
       try {
-        const staticAssetPath = new URL(`./static/assets/${assetPath}`, import.meta.url);
-        const assetContent = await Deno.readFile(staticAssetPath);
-        arr = assetContent;
+        const staticAssetPath = new URL(
+          `./static/assets/${assetPath}`,
+          import.meta.url,
+        );
+        const file = await Deno.open(staticAssetPath);
+        const [s1, s2] = file.readable.tee();
+        stream = s1;
+        cachePromise = streamToUint8(s2);
       } catch {
         // Asset not found in static build, will try storage
       }
     }
 
     // Fallback to storage
-    if (!arr) {
-      arr = await fetchFromStorage(key);
+    if (!stream) {
+      const storageResp = await fetchFromStorage(key);
+      if (storageResp) {
+        const [s1, s2] = storageResp.body!.tee();
+        stream = s1;
+        cachePromise = streamToUint8(s2);
+      }
     }
 
-    if (!arr) {
+    if (!stream) {
       console.warn(`[miniapp] missing asset ${key} in both static and storage`);
       return withSecurity(nf());
     }
@@ -248,8 +303,12 @@ export async function handler(req: Request): Promise<Response> {
       "content-type": type,
       "cache-control": "public, max-age=31536000, immutable",
     };
-    const resp = new Response(arr, { status: 200, headers });
-    saveCache(key, resp, arr, 600_000);
+    const resp = new Response(stream, { status: 200, headers });
+    if (cachePromise) {
+      cachePromise
+        .then((arr) => saveCache(key, resp, arr, 600_000))
+        .catch((err) => console.error("[miniapp] cache asset err", err));
+    }
     return withSecurity(resp);
   }
 
