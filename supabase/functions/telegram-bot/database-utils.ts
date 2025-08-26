@@ -84,7 +84,7 @@ Our mission is to help traders succeed through:
 • Educational resources
 • Community support
 • Expert guidance`,
-    "support_message": `🛟 *Need Help?*
+"support_message": `🛟 *Need Help?*
 
 Our support team is here for you!
 
@@ -93,6 +93,16 @@ Our support team is here for you!
 🕐 Support Hours: 24/7
 
 We typically respond within 2-4 hours.`,
+    "terms_conditions": `📋 Terms & Conditions
+
+By using our services, you agree to:
+
+• 🔒 Privacy Policy
+• 📊 Trading Risk Disclosures
+• 💼 Service Usage Guidelines
+• 🚫 No Financial Advice Disclaimer
+
+Read the full terms at: dynamiccapital.com/terms`,
     "help_message": `❓ Bot Commands & Help
 
 Available commands:
