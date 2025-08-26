@@ -110,6 +110,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-telegram-bot-api-secret-token",
 };
 
+const DEFAULT_PARSE_MODE = "HTML";
+
 async function sendMessage(
   chatId: number,
   text: string,
@@ -132,6 +134,7 @@ async function sendMessage(
           text,
           disable_web_page_preview: true,
           allow_sending_without_reply: true,
+          parse_mode: DEFAULT_PARSE_MODE,
           ...extra,
         }),
       },
@@ -173,6 +176,7 @@ async function editMessage(
           chat_id: chatId,
           message_id: messageId,
           text,
+          parse_mode: DEFAULT_PARSE_MODE,
           ...extra,
         }),
       },
@@ -241,8 +245,9 @@ export async function sendMiniAppLink(
   if (!BOT_TOKEN) return null;
   if (!(await getFlag("mini_app_enabled", true))) {
     if (!silent) {
-      const msg = await getContent("checkout_unavailable") ??
-        "Checkout is currently unavailable. Please try again later.";
+      const msg =
+        await getContent("checkout_unavailable") ??
+        "<b>Checkout is currently unavailable.</b>\nPlease try again later.";
       await sendMessage(chatId, msg);
     }
     return null;
@@ -253,7 +258,7 @@ export async function sendMiniAppLink(
   const btnText = await getContent("miniapp_button_text") ??
     "Open VIP Mini App";
   const prompt = await getContent("miniapp_open_prompt") ??
-    "Open the VIP Mini App:";
+    "<b>Open the VIP Mini App:</b>";
 
   if (url) {
     if (!silent) {
@@ -280,7 +285,7 @@ export async function sendMiniAppLink(
 
   if (!silent) {
     const msg = await getContent("miniapp_configuring") ??
-      "Mini app is being configured. Please try again soon.";
+      "<b>Mini app is being configured.</b>\nPlease try again soon.";
     await sendMessage(chatId, msg);
   }
   return null;
@@ -304,15 +309,15 @@ export async function sendMiniAppOrBotOptions(chatId: number): Promise<void> {
   if (url) {
     inline_keyboard[0].push({ text: miniText, web_app: { url } });
     text = await getContent("choose_continue_prompt") ??
-      "Choose how to continue:";
+      "<b>Choose how to continue:</b>";
   } else {
     const key = enabled
       ? "miniapp_configure_continue"
       : "checkout_unavailable_continue";
     text = await getContent(key) ??
       (enabled
-        ? "Mini app is being configured. Continue in bot:"
-        : "Checkout is currently unavailable. Continue in bot:");
+        ? "<b>Mini app is being configured.</b>\nContinue in bot:"
+        : "<b>Checkout is currently unavailable.</b>\nContinue in bot:");
   }
   await notifyUser(chatId, text, {
     reply_markup: { inline_keyboard },
