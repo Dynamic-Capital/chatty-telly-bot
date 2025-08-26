@@ -8,6 +8,7 @@ import Header from "./components/layout/Header";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Education from "./pages/Education";
+import BuildMiniApp from "./pages/BuildMiniApp";
 import NotFound from "./pages/NotFound";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { WelcomeMessage } from "./components/welcome/WelcomeMessage";
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/bot-status" element={<BotStatus />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/payment-status" element={<PaymentStatus />} />
+              <Route path="/build-miniapp" element={<BuildMiniApp />} />
               <Route path="/welcome" element={<WelcomeMessage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
