@@ -19,6 +19,19 @@ The app lives under `supabase/functions/miniapp`. It relies on existing Edge Fun
 SVG placeholders live in `supabase/functions/miniapp/static/img` for the logo, bank tiles and
 QR frame; replace them with production assets as needed.
 
+## Build
+
+Before deploying the miniapp Edge Function, generate the static assets:
+
+```bash
+npm run build
+# or
+./build.sh
+```
+
+This build step creates the `static/` directory that `index.ts` expects when
+serving `index.html` and related assets.
+
 ## Icons
 
 Buttons such as `PrimaryButton`, `SecondaryButton`, `ApproveButton`, and `RejectButton` accept an optional `icon` prop. For a consistent look, import icons from the [Heroicons React](https://github.com/tailwindlabs/heroicons) package:
