@@ -231,9 +231,11 @@ export async function handler(req: Request): Promise<Response> {
         const indexContent = await Deno.readFile(staticIndexPath);
         arr = indexContent;
       } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         console.warn(
-          "[miniapp] React build not found in static/, falling back to storage",
-          error,
+          "[miniapp] React build not found in static/, falling back to storage:",
+          errorMessage,
         );
       }
     }
