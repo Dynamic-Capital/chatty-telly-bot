@@ -136,9 +136,9 @@ async function envOrSetting<T = string>(
   return await getSetting<T>(settingKey);
 }
 
-async function getContent<T = string>(
+export let getContent = async <T = string>(
   key: string,
-): Promise<T | null> {
+): Promise<T | null> => {
   const cached = getCached<T>(`c:${key}`);
   if (cached !== null) return cached;
   const client = getClient();
@@ -156,12 +156,11 @@ async function getContent<T = string>(
     console.error("Error getting content:", e);
   }
   return null;
+};
+
+// Test helper to override getContent
+export function __setGetContent(fn: typeof getContent) {
+  getContent = fn;
 }
 
-export {
-  getConfig,
-  setConfig,
-  requireSetting,
-  envOrSetting,
-  getContent,
-};
+export { envOrSetting, getConfig, getContent, requireSetting, setConfig };

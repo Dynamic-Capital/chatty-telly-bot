@@ -1,4 +1,4 @@
-import { supabaseAdmin, sendMessage } from "./common.ts";
+import { sendMessage, supabaseAdmin } from "./common.ts";
 
 export async function handleContentManagement(
   chatId: number,
@@ -20,85 +20,41 @@ export async function handleContentManagement(
     }
 
     let contentMessage = `📱 *Bot Content Management*\\n\\n`;
-    contentMessage += `📝 *Editable Content (${content?.length || 0} items):*\\n\\n`;
+    contentMessage += `📝 *Editable Content (${
+      content?.length || 0
+    } items):*\\n\\n`;
 
-    const contentTypes: Record<string, string> = {
-      "welcome_message": "🚀 Welcome Message",
-      "about_us": "🏢 About Us",
-      "support_message": "🛟 Support Info",
-      "terms_conditions": "📋 Terms & Conditions",
-      "faq_general": "❓ FAQ Content",
-      "maintenance_message": "🔧 Maintenance Notice",
-      "vip_benefits": "💎 VIP Benefits",
-      "payment_instructions": "💳 Payment Instructions",
-      "help_message": "❓ Help Content",
-    };
+    const lines: string[] = [];
+    const buttons: { text: string; callback_data: string }[][] = [];
 
-    content?.forEach(
-      (
-        item: {
-          content_key: keyof typeof contentTypes;
-          is_active: boolean;
-          content_value: string;
-          updated_at: string;
-        },
-        index: number,
-      ) => {
-        const displayName = contentTypes[item.content_key] ||
-          `📄 ${item.content_key}`;
-        const status = item.is_active ? "🟢" : "🔴";
-        const preview = item.content_value.substring(0, 50) + "...";
-
-        contentMessage += `${index + 1}. ${status} ${displayName}\\n`;
-        contentMessage += `   📄 Preview: ${preview}\\n`;
-        contentMessage += `   🕐 Updated: ${
+    (content || []).forEach((item, index) => {
+      const status = item.is_active ? "🟢" : "🔴";
+      const preview = item.content_value.substring(0, 50) + "...";
+      lines.push(
+        `${
+          index + 1
+        }. ${status} ${item.content_key}\\n   📄 Preview: ${preview}\\n   🕐 Updated: ${
           new Date(item.updated_at).toLocaleDateString()
-        }\\n\\n`;
-      },
-    );
+        }\\n`,
+      );
+      buttons.push([{
+        text: item.content_key,
+        callback_data: `edit_content_${item.content_key}`,
+      }]);
+    });
 
-    const contentKeyboard = {
-      inline_keyboard: [
-        [
-          {
-            text: "🚀 Welcome Msg",
-            callback_data: "edit_content_welcome_message",
-          },
-          { text: "🏢 About Us", callback_data: "edit_content_about_us" },
-        ],
-        [
-          { text: "🛟 Support", callback_data: "edit_content_support_message" },
-          { text: "📋 Terms", callback_data: "edit_content_terms_conditions" },
-        ],
-        [
-          { text: "❓ FAQ", callback_data: "edit_content_faq_general" },
-          {
-            text: "🔧 Maintenance",
-            callback_data: "edit_content_maintenance_message",
-          },
-        ],
-        [
-          {
-            text: "💎 VIP Benefits",
-            callback_data: "edit_content_vip_benefits",
-          },
-          {
-            text: "💳 Payment Info",
-            callback_data: "edit_content_payment_instructions",
-          },
-        ],
-        [
-          { text: "➕ Add Content", callback_data: "add_new_content" },
-          { text: "👀 Preview All", callback_data: "preview_all_content" },
-        ],
-        [
-          { text: "🔄 Refresh", callback_data: "manage_table_bot_content" },
-          { text: "🔙 Back", callback_data: "table_management" },
-        ],
-      ],
-    };
+    contentMessage += lines.join("\\n");
 
-    await sendMessage(chatId, contentMessage, contentKeyboard);
+    buttons.push([
+      { text: "➕ Add Content", callback_data: "add_new_content" },
+      { text: "👀 Preview All", callback_data: "preview_all_content" },
+    ]);
+    buttons.push([
+      { text: "🔄 Refresh", callback_data: "manage_table_bot_content" },
+      { text: "🔙 Back", callback_data: "table_management" },
+    ]);
+
+    await sendMessage(chatId, contentMessage, { inline_keyboard: buttons });
   } catch (error) {
     console.error("Error in content management:", error);
     await sendMessage(
@@ -180,4 +136,3 @@ export async function handlePreviewAllContent(
     await sendMessage(chatId, "❌ Error fetching content preview.");
   }
 }
-

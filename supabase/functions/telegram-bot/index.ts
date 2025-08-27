@@ -245,8 +245,7 @@ export async function sendMiniAppLink(
   if (!BOT_TOKEN) return null;
   if (!(await getFlag("mini_app_enabled", true))) {
     if (!silent) {
-      const msg =
-        await getContent("checkout_unavailable") ??
+      const msg = await getContent("checkout_unavailable") ??
         "<b>Checkout is currently unavailable.</b>\nPlease try again later.";
       await sendMessage(chatId, msg);
     }
@@ -381,13 +380,15 @@ async function handlePromoCommand(chatId: number): Promise<void> {
     return;
   }
   let text = "🎁 *Active Promotions*\n\nSelect a promo code:";
-  const inline_keyboard = promos.map((p: Record<string, unknown>, idx: number) => {
-    const value = p.discount_type === "percentage"
-      ? `${p.discount_value}%`
-      : `$${p.discount_value}`;
-    text += `\n${idx + 1}. ${p.code} - ${value}`;
-    return [{ text: String(p.code), callback_data: `promo:${p.code}` }];
-  });
+  const inline_keyboard = promos.map(
+    (p: Record<string, unknown>, idx: number) => {
+      const value = p.discount_type === "percentage"
+        ? `${p.discount_value}%`
+        : `$${p.discount_value}`;
+      text += `\n${idx + 1}. ${p.code} - ${value}`;
+      return [{ text: String(p.code), callback_data: `promo:${p.code}` }];
+    },
+  );
   await notifyUser(chatId, text, {
     parse_mode: "Markdown",
     reply_markup: { inline_keyboard },
@@ -576,39 +577,48 @@ function getDynamicCallbackHandler(
   }
   if (data.startsWith("edit_plan_duration_")) {
     const id = data.slice("edit_plan_duration_".length);
-    return (chatId, userId) => handlers.handleEditPlanDuration(chatId, userId, id);
+    return (chatId, userId) =>
+      handlers.handleEditPlanDuration(chatId, userId, id);
   }
   if (data.startsWith("edit_plan_features_")) {
     const id = data.slice("edit_plan_features_".length);
-    return (chatId, userId) => handlers.handleEditPlanFeatures(chatId, userId, id);
+    return (chatId, userId) =>
+      handlers.handleEditPlanFeatures(chatId, userId, id);
   }
   if (data.startsWith("toggle_plan_lifetime_")) {
     const id = data.slice("toggle_plan_lifetime_".length);
-    return (chatId, userId) => handlers.handleTogglePlanLifetime(chatId, userId, id);
+    return (chatId, userId) =>
+      handlers.handleTogglePlanLifetime(chatId, userId, id);
   }
   if (data.startsWith("add_plan_feature_")) {
     const id = data.slice("add_plan_feature_".length);
-    return (chatId, userId) => handlers.handleAddPlanFeature(chatId, userId, id);
+    return (chatId, userId) =>
+      handlers.handleAddPlanFeature(chatId, userId, id);
   }
   if (data.startsWith("remove_plan_feature_")) {
     const id = data.slice("remove_plan_feature_".length);
-    return (chatId, userId) => handlers.handleRemovePlanFeature(chatId, userId, id);
+    return (chatId, userId) =>
+      handlers.handleRemovePlanFeature(chatId, userId, id);
   }
   if (data.startsWith("replace_plan_features_")) {
     const id = data.slice("replace_plan_features_".length);
-    return (chatId, userId) => handlers.handleReplacePlanFeatures(chatId, userId, id);
+    return (chatId, userId) =>
+      handlers.handleReplacePlanFeatures(chatId, userId, id);
   }
   if (data.startsWith("confirm_delete_plan_")) {
     const id = data.slice("confirm_delete_plan_".length);
-    return (chatId, userId) => handlers.handleConfirmDeletePlan(chatId, userId, id);
+    return (chatId, userId) =>
+      handlers.handleConfirmDeletePlan(chatId, userId, id);
   }
   if (data.startsWith("delete_plan_confirmed_")) {
     const id = data.slice("delete_plan_confirmed_".length);
-    return (chatId, userId) => handlers.handleExecuteDeletePlan(chatId, userId, id);
+    return (chatId, userId) =>
+      handlers.handleExecuteDeletePlan(chatId, userId, id);
   }
   if (data.startsWith("edit_plan_")) {
     const id = data.slice("edit_plan_".length);
-    return (chatId, userId) => handlers.handleEditSpecificPlan(chatId, userId, id);
+    return (chatId, userId) =>
+      handlers.handleEditSpecificPlan(chatId, userId, id);
   }
   return null;
 }
@@ -635,10 +645,10 @@ async function menuView(
     const msg = await getContent("support_message");
     return {
       text: msg ?? "Support information is unavailable.",
-      extra: { reply_markup: buildMainMenu(section) },
+      extra: { reply_markup: await buildMainMenu(section) },
     };
   }
-  const markup = buildMainMenu(section) as {
+  const markup = await buildMainMenu(section) as {
     inline_keyboard: {
       text: string;
       callback_data?: string;
@@ -1002,7 +1012,10 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         return;
       }
       const finalAmount = resp.final_amount as number;
-      const text = `Promo ${code} applied to ${plan.name}.\nOutstanding Amount: ${plan.currency} ${finalAmount.toFixed(2)}`;
+      const text =
+        `Promo ${code} applied to ${plan.name}.\nOutstanding Amount: ${plan.currency} ${
+          finalAmount.toFixed(2)
+        }`;
       if (cb.message) {
         await editMessage(chatId, cb.message!.message_id!, text, {
           parse_mode: "Markdown",
@@ -1146,7 +1159,9 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
           )
           .join("\n\n");
         const instructions = await getContent("payment_instructions");
-        const amountLine = `Outstanding Amount: ${currency} ${amount.toFixed(2)}\n\n`;
+        const amountLine = `Outstanding Amount: ${currency} ${
+          amount.toFixed(2)
+        }\n\n`;
         const message = `${
           instructions ? `${instructions}\n\n` : ""
         }${amountLine}${list}\n\nPay Code: <code>${payCode}</code>\nAdd this in transfer remarks.\nPlease send a photo of your bank transfer receipt.`;
@@ -1201,8 +1216,12 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         } else if (cb.message) {
           const instructions = await getContent("payment_instructions");
           const msg = instructions
-            ? `${instructions}\n\nAmount: ${currency} ${amount.toFixed(2)}\nSend the payment to ${address} and reply with the transaction details for manual approval.`
-            : `Amount: ${currency} ${amount.toFixed(2)}\nSend the payment to ${address} and reply with the transaction details for manual approval.`;
+            ? `${instructions}\n\nAmount: ${currency} ${
+              amount.toFixed(2)
+            }\nSend the payment to ${address} and reply with the transaction details for manual approval.`
+            : `Amount: ${currency} ${
+              amount.toFixed(2)
+            }\nSend the payment to ${address} and reply with the transaction details for manual approval.`;
           await editMessage(chatId, cb.message!.message_id!, msg, {
             reply_markup: {
               inline_keyboard: [[{ text: "Back", callback_data: "nav:plans" }]],
