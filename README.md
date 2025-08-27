@@ -77,6 +77,13 @@ on images.
 - Launch via Web App button inside Telegram.
 - All UI images should be 1:1 (square).
 
+## VIP Sync
+
+- Bot must be an admin in VIP channels to receive membership updates and call `getChatMember`.
+- Configure VIP channels via `bot_settings.vip_channels` (JSON array) or env `VIP_CHANNELS`.
+- Memberships are synced on join/leave events and via `/vip-sync` helper endpoints.
+- Use `scripts/import-vip-csv.ts` for bulk backfills; users must `/start` the bot at least once.
+
 ## CI / checks
 
 Type check:

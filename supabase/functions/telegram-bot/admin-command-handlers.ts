@@ -18,6 +18,7 @@ export interface CommandContext {
 export type CommandHandler = (ctx: CommandContext) => Promise<void>;
 
 type AdminHandlers = typeof import("./admin-handlers/index.ts");
+import { optionalEnv } from "../_shared/env.ts";
 
 export function buildAdminCommandHandlers(
   load: () => Promise<AdminHandlers>,
@@ -58,6 +59,28 @@ export function buildAdminCommandHandlers(
       const mod = await load();
       const userId = String(msg.from?.id ?? chatId);
       await mod.handleAdminDashboard(chatId, userId);
+    },
+    "/vipsync": async ({ chatId, args }) => {
+      const supaUrl = optionalEnv("SUPABASE_URL");
+      const adminSecret = optionalEnv("ADMIN_API_SECRET");
+      const endpoint = args[0] ? "one" : "batch";
+      const body = args[0] ? { telegram_user_id: args[0] } : {};
+      try {
+        const res = await fetch(
+          `${supaUrl}/functions/v1/vip-sync/${endpoint}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(adminSecret ? { "X-Admin-Secret": adminSecret } : {}),
+            },
+            body: JSON.stringify(body),
+          },
+        ).then((r) => r.json());
+        await notify(chatId, JSON.stringify(res));
+      } catch (e) {
+        await notify(chatId, JSON.stringify({ ok: false, error: String(e) }));
+      }
     },
   };
 }

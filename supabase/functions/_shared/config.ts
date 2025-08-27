@@ -163,4 +163,4 @@ export function __setGetContent(fn: typeof getContent) {
   getContent = fn;
 }
 
-export { envOrSetting, getConfig, getContent, requireSetting, setConfig };
+export { envOrSetting, getConfig, requireSetting, setConfig };

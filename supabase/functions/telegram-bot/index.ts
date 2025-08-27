@@ -24,6 +24,8 @@ import {
   type CommandHandler,
 } from "./admin-command-handlers.ts";
 import { setCallbackMessageId } from "./admin-handlers/common.ts";
+import { recomputeVipForUser } from "../_shared/vip_sync.ts";
+import { getVipChannels, isMemberLike, recomputeVipFlag } from "../_shared/telegram_membership.ts";
 // Type definition moved inline to avoid import issues
 interface Promotion {
   code: string;
@@ -50,9 +52,18 @@ interface TelegramCallback {
   message?: TelegramMessage;
 }
 
+interface ChatMemberUpdate {
+  chat: { id: number; username?: string };
+  from: { id: number };
+  new_chat_member?: { status: string; user: { id: number } };
+  old_chat_member?: { status: string; user: { id: number } };
+}
+
 interface TelegramUpdate {
   message?: TelegramMessage;
   callback_query?: TelegramCallback;
+  chat_member?: ChatMemberUpdate;
+  my_chat_member?: ChatMemberUpdate;
   [key: string]: unknown;
 }
 
@@ -848,6 +859,39 @@ async function storeReceiptImage(
   return storagePath;
 }
 
+async function handleMembershipUpdate(update: TelegramUpdate): Promise<void> {
+  const cm = update.chat_member ?? update.my_chat_member;
+  if (!cm) return;
+  const supa = supaSvc();
+  const userId = String(cm.new_chat_member?.user?.id ?? cm.from?.id ?? "");
+  if (!userId) return;
+  const chatId = String(cm.chat.id);
+  const chatUsername = cm.chat.username ? `@${cm.chat.username}` : null;
+  const channels = await getVipChannels(supa);
+  const isVipChannel = channels.includes(chatId) ||
+    (chatUsername ? channels.includes(chatUsername) : false);
+  if (!isVipChannel) return;
+  const status = cm.new_chat_member?.status ?? null;
+  const active = isMemberLike(status);
+  await supa.from("channel_memberships").upsert({
+    telegram_user_id: userId,
+    channel_id: chatId,
+    is_active: active,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "telegram_user_id,channel_id" });
+  const grace = Number(optionalEnv("VIP_EXPIRY_GRACE_DAYS") || "0");
+  await recomputeVipFlag(supa, userId, grace);
+  try {
+    await supa.from("admin_logs").insert({
+      action_type: "vip_sync_update",
+      telegram_user_id: userId,
+      action_description: `${active ? "join" : "leave"}:${chatId}`,
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 export const commandHandlers: Record<string, CommandHandler> = {
   "/start": async ({ chatId }) => {
     await showMainMenu(chatId, "dashboard");
@@ -896,13 +940,20 @@ const adminCommandHandlers = buildAdminCommandHandlers(
 async function handleCommand(update: TelegramUpdate): Promise<void> {
   const msg = update.message;
   if (!msg) return;
+  const chatId = msg.chat.id;
+  const userId = String(msg.from?.id ?? chatId);
+  if (msg.chat.type === "private" && userId) {
+    try {
+      await recomputeVipForUser(userId);
+    } catch (err) {
+      console.error("vip check error", err);
+    }
+  }
   const text = msg.text?.trim();
   if (!text) return;
-  const chatId = msg.chat.id;
   const miniAppValid = await hasMiniApp();
 
   // Handle pending admin plan edits before command parsing
-  const userId = String(msg.from?.id ?? chatId);
   const handlers = await loadAdminHandlers();
   if (await handlers.handlePlanEditInput(chatId, userId, text)) return;
 
@@ -1427,6 +1478,11 @@ export async function serveWebhook(req: Request): Promise<Response> {
       return json({ ok: false, error: "Invalid JSON" }, 400);
     }
     const update = body as TelegramUpdate;
+
+    if (update.chat_member || update.my_chat_member) {
+      await handleMembershipUpdate(update);
+      return ok({ handled: true, kind: "chat_member" });
+    }
 
     if (update.callback_query) {
       await handleCallback(update);
