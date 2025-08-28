@@ -105,55 +105,54 @@ const BotDashboard = () => {
       )}
 
       {/* Welcome Header */}
-      <div className="text-center space-y-4">
-        <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl shadow-lg">
-          <BotIcon className="w-10 h-10 text-white" />
+      <div className="text-center space-y-6">
+        <div className="relative">
+          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-telegram rounded-3xl shadow-telegram transition-transform hover:scale-105 cursor-pointer">
+            <BotIcon className="w-12 h-12 text-white animate-pulse" />
+          </div>
+          <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-background animate-pulse" />
         </div>
         <div>
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            Welcome to VIP Bot
+          <h1 className="text-5xl font-bold bg-gradient-telegram bg-clip-text text-transparent mb-3 animate-fade-in">
+            Dynamic Capital VIP Bot
           </h1>
-          <p className="text-muted-foreground text-xl max-w-2xl mx-auto">
+          <p className="text-muted-foreground text-xl max-w-2xl mx-auto leading-relaxed">
             Your premium Telegram bot for subscription management, payments, and
-            customer support
+            customer support with AI-powered assistance
           </p>
         </div>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-shadow">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-500/10 rounded-lg">
-              <Activity className="w-5 h-5 text-blue-500" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="p-6 bg-gradient-card border-0 shadow-telegram hover:shadow-xl transition-all duration-300 hover:scale-105 group">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-telegram/10 rounded-xl group-hover:bg-telegram/20 transition-colors">
+              <Activity className="w-6 h-6 text-telegram" />
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Bot Status</p>
-              <div className="font-semibold">
+            <div className="flex-1">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                Bot Status
+              </p>
+              <div className="mt-2">
                 {loading
                   ? (
                     <Badge
                       variant="outline"
-                      className="border-gray-500 text-gray-600"
+                      className="border-muted-foreground/20 text-muted-foreground animate-pulse"
                     >
                       Loading...
                     </Badge>
                   )
                   : isConnected
                   ? (
-                    <Badge
-                      variant="outline"
-                      className="border-green-500 text-green-600"
-                    >
-                      Online
+                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 animate-fade-in">
+                      ✅ Online
                     </Badge>
                   )
                   : (
-                    <Badge
-                      variant="outline"
-                      className="border-orange-500 text-orange-600"
-                    >
-                      Offline
+                    <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100 animate-fade-in">
+                      ⚠️ Offline
                     </Badge>
                   )}
               </div>
@@ -161,43 +160,61 @@ const BotDashboard = () => {
           </div>
         </Card>
 
-        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-shadow">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-500/10 rounded-lg">
-              <Users className="w-5 h-5 text-blue-500" />
+        <Card className="p-6 bg-gradient-card border-0 shadow-telegram hover:shadow-xl transition-all duration-300 hover:scale-105 group">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-500/10 rounded-xl group-hover:bg-blue-500/20 transition-colors">
+              <Users className="w-6 h-6 text-blue-500" />
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Users</p>
-              <p className="font-semibold text-2xl">
-                {loading ? "..." : stats.totalUsers.toLocaleString()}
+            <div className="flex-1">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                Total Users
+              </p>
+              <p className="text-3xl font-bold text-foreground mt-1">
+                {loading ? (
+                  <span className="animate-pulse">...</span>
+                ) : (
+                  <span className="animate-fade-in">{stats.totalUsers.toLocaleString()}</span>
+                )}
               </p>
             </div>
           </div>
         </Card>
 
-        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-shadow">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-500/10 rounded-lg">
-              <CreditCard className="w-5 h-5 text-green-500" />
+        <Card className="p-6 bg-gradient-card border-0 shadow-telegram hover:shadow-xl transition-all duration-300 hover:scale-105 group">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-green-500/10 rounded-xl group-hover:bg-green-500/20 transition-colors">
+              <CreditCard className="w-6 h-6 text-green-500" />
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">VIP Members</p>
-              <p className="font-semibold text-2xl">
-                {loading ? "..." : stats.vipMembers.toLocaleString()}
+            <div className="flex-1">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                VIP Members
+              </p>
+              <p className="text-3xl font-bold text-foreground mt-1">
+                {loading ? (
+                  <span className="animate-pulse">...</span>
+                ) : (
+                  <span className="animate-fade-in">{stats.vipMembers.toLocaleString()}</span>
+                )}
               </p>
             </div>
           </div>
         </Card>
 
-        <Card className="p-6 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-shadow">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-500/10 rounded-lg">
-              <BarChart3 className="w-5 h-5 text-purple-500" />
+        <Card className="p-6 bg-gradient-card border-0 shadow-telegram hover:shadow-xl transition-all duration-300 hover:scale-105 group">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-purple-500/10 rounded-xl group-hover:bg-purple-500/20 transition-colors">
+              <BarChart3 className="w-6 h-6 text-purple-500" />
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Revenue</p>
-              <p className="font-semibold text-2xl">
-                ${loading ? "..." : stats.totalRevenue.toLocaleString()}
+            <div className="flex-1">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                Total Revenue
+              </p>
+              <p className="text-3xl font-bold text-foreground mt-1">
+                {loading ? (
+                  <span className="animate-pulse">...</span>
+                ) : (
+                  <span className="animate-fade-in">${stats.totalRevenue.toLocaleString()}</span>
+                )}
               </p>
             </div>
           </div>
@@ -205,22 +222,25 @@ const BotDashboard = () => {
       </div>
 
       {/* Main Menu */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         <Card
-          className="p-8 bg-gradient-to-br from-background to-muted border-0 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
+          className="p-8 bg-gradient-card border-0 shadow-telegram hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-105 hover:-translate-y-1"
           onClick={() => setCurrentView("packages")}
         >
-          <div className="text-center space-y-4">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500/10 rounded-2xl group-hover:bg-blue-500/20 transition-colors">
-              <Package className="w-8 h-8 text-blue-500" />
+          <div className="text-center space-y-6">
+            <div className="relative">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-500/10 rounded-3xl group-hover:bg-blue-500/20 transition-all duration-300 group-hover:scale-110">
+                <Package className="w-10 h-10 text-blue-500 transition-transform group-hover:scale-110" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-6 h-6 bg-telegram rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold mb-2">
+              <h3 className="text-2xl font-bold mb-3 group-hover:text-telegram transition-colors">
                 Subscription Packages
               </h3>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground leading-relaxed">
                 Manage VIP subscription plans, pricing, and features for your
-                users
+                users with advanced analytics
               </p>
             </div>
           </div>
