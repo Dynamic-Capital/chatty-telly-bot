@@ -1052,8 +1052,22 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
           headers,
           body: JSON.stringify({ code, telegram_id: userId, plan_id: planId }),
         },
-      ).then((r) => r.json()).catch(() => null);
-      if (!resp?.ok) {
+      ).then((r) => r.json()).catch((err) => {
+        console.error("promo-validate error", err);
+        return null;
+      });
+      if (!resp || typeof resp.ok !== "boolean") {
+        if (resp) console.error("promo-validate bad response", resp);
+        const msg =
+          "Could not validate promo code, please try again later";
+        if (cb.message) {
+          await editMessage(chatId, cb.message!.message_id!, msg);
+        } else {
+          await notifyUser(chatId, msg);
+        }
+        return;
+      }
+      if (!resp.ok) {
         const msg = "Invalid or expired promo code.";
         if (cb.message) {
           await editMessage(chatId, cb.message!.message_id!, msg);
