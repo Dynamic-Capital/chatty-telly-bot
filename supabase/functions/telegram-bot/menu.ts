@@ -1,8 +1,12 @@
 export type MenuSection = "dashboard" | "plans" | "support";
 
+import { InlineKeyboard } from "https://deno.land/x/grammy@v1.19.1/mod.ts";
+import type { InlineKeyboardMarkup } from "https://deno.land/x/grammy@v1.19.1/types.ts";
 import { getContent } from "../_shared/config.ts";
 
-export async function buildMainMenu(section: MenuSection) {
+export async function buildMainMenu(
+  section: MenuSection,
+): Promise<InlineKeyboardMarkup> {
   const [
     dashboard,
     plans,
@@ -26,42 +30,30 @@ export async function buildMainMenu(section: MenuSection) {
     getContent("menu_ask_label"),
     getContent("menu_shouldibuy_label"),
   ]);
-  return {
-    inline_keyboard: [
-      [
-        {
-          text: `${section === "dashboard" ? "✅ " : ""}${
-            dashboard ?? "📊 Dashboard"
-          }`,
-          callback_data: "nav:dashboard",
-        },
-        {
-          text: `${section === "plans" ? "✅ " : ""}${plans ?? "💳 Plans"}`,
-          callback_data: "nav:plans",
-        },
-        {
-          text: `${section === "support" ? "✅ " : ""}${
-            support ?? "💬 Support"
-          }`,
-          callback_data: "nav:support",
-        },
-      ],
-      [
-        { text: packages ?? "📦 Packages", callback_data: "cmd:packages" },
-        { text: promo ?? "🎁 Promo", callback_data: "cmd:promo" },
-        { text: account ?? "👤 Account", callback_data: "cmd:account" },
-      ],
-      [
-        { text: faq ?? "❓ FAQ", callback_data: "cmd:faq" },
-        { text: education ?? "📚 Education", callback_data: "cmd:education" },
-      ],
-      [
-        { text: ask ?? "🤖 Ask", callback_data: "cmd:ask" },
-        {
-          text: shouldibuy ?? "💡 Should I Buy?",
-          callback_data: "cmd:shouldibuy",
-        },
-      ],
-    ],
-  };
+
+  const kb = new InlineKeyboard()
+    .text(
+      `${section === "dashboard" ? "✅ " : ""}${dashboard ?? "📊 Dashboard"}`,
+      "nav:dashboard",
+    )
+    .text(
+      `${section === "plans" ? "✅ " : ""}${plans ?? "💳 Plans"}`,
+      "nav:plans",
+    )
+    .text(
+      `${section === "support" ? "✅ " : ""}${support ?? "💬 Support"}`,
+      "nav:support",
+    )
+    .row()
+    .text(packages ?? "📦 Packages", "cmd:packages")
+    .text(promo ?? "🎁 Promo", "cmd:promo")
+    .text(account ?? "👤 Account", "cmd:account")
+    .row()
+    .text(faq ?? "❓ FAQ", "cmd:faq")
+    .text(education ?? "📚 Education", "cmd:education")
+    .row()
+    .text(ask ?? "🤖 Ask", "cmd:ask")
+    .text(shouldibuy ?? "💡 Should I Buy?", "cmd:shouldibuy");
+
+  return kb;
 }
