@@ -1054,7 +1054,10 @@ async function handleCallback(update: TelegramUpdate): Promise<void> {
         },
       ).then((r) => r.json()).catch(() => null);
       if (!resp?.ok) {
-        const msg = "Invalid or expired promo code.";
+        const reason = resp?.reason;
+        const msg = reason
+          ? `Invalid promo code: ${reason}`
+          : "Invalid promo code.";
         if (cb.message) {
           await editMessage(chatId, cb.message!.message_id!, msg);
         } else {
