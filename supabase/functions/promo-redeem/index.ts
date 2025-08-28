@@ -3,7 +3,16 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { requireEnv } from "../_shared/env.ts";
 import { calcFinalAmount, redeemKey } from "../_shared/promo.ts";
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
   const { code, telegram_id, plan_id, payment_id } = await req.json().catch(() => ({}));
   if (!code || !telegram_id || !plan_id || !payment_id) {
     return new Response(JSON.stringify({ ok: false, error: "bad_request" }), { status: 400 });
@@ -62,6 +71,11 @@ serve(async (req) => {
     body: JSON.stringify([{ id: idKey, promo_code: code, telegram_user_id: String(telegram_id), plan_id, event_type: "redeem", discount_amount, final_amount }]),
   });
 
-  return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify({ ok: true }), { 
+    headers: { 
+      'Content-Type': 'application/json',
+      ...corsHeaders 
+    } 
+  });
 });
 // <<< DC BLOCK: promo-redeem-core (end)

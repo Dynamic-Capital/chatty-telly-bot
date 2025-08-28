@@ -1365,9 +1365,23 @@ export type Database = {
         Args: { body?: string; headers?: Json; method: string; url: string }
         Returns: Json
       }
+      record_promo_usage: {
+        Args: { p_promotion_id: string; p_telegram_user_id: string }
+        Returns: undefined
+      }
       update_daily_analytics: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      validate_promo_code: {
+        Args: { p_code: string; p_telegram_user_id: string }
+        Returns: {
+          discount_type: string
+          discount_value: number
+          promotion_id: string
+          reason: string
+          valid: boolean
+        }[]
       }
       validate_telegram_user_id: {
         Args: { telegram_id: string }

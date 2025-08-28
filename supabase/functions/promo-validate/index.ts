@@ -4,7 +4,17 @@ import { calcFinalAmount } from "../_shared/promo.ts";
 import { bad, json, mna, ok } from "../_shared/http.ts";
 import { version } from "../_shared/version.ts";
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 export async function handler(req: Request): Promise<Response> {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   const v = version(req, "promo-validate");
   if (v) return v;
   if (req.method !== "POST") return mna();
@@ -30,7 +40,16 @@ export async function handler(req: Request): Promise<Response> {
   });
   const [res] = await vr.json();
   if (!res?.valid) {
-    return json({ ok: false, reason: res?.reason || "invalid" }, 200);
+    return new Response(JSON.stringify({ 
+      ok: false, 
+      reason: res?.reason || "invalid" 
+    }), { 
+      status: 200, 
+      headers: { 
+        'Content-Type': 'application/json',
+        ...corsHeaders 
+      } 
+    });
   }
 
   const pr = await fetch(
@@ -41,10 +60,16 @@ export async function handler(req: Request): Promise<Response> {
   const price = plan?.[0]?.price || 0;
   const final_amount = calcFinalAmount(price, res.discount_type, res.discount_value);
 
-  return ok({
+  return new Response(JSON.stringify({
+    ok: true,
     type: res.discount_type,
     value: res.discount_value,
     final_amount,
+  }), { 
+    headers: { 
+      'Content-Type': 'application/json',
+      ...corsHeaders 
+    } 
   });
 }
 
